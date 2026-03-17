@@ -343,7 +343,8 @@
     "invalidYear": "Invalid year",
     "invalidMonth": "Invalid month",
     "invalidDay": "Invalid day",
-    "invalidDate": "Invalid date"
+    "invalidDate": "Invalid date",
+    "storageFull": "Your changes could not be saved because the browser storage is full. Please export a backup and free up space."
   },
   "settings": {
     "title": "Settings",

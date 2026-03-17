@@ -2,6 +2,7 @@ import { SvelteSet } from 'svelte/reactivity'
 import type { ClientNested, ClientNoId, ClientStore } from '$lib/types'
 import { clientNestedSchema, storedDataSchema, type StoredData } from '$lib/schemas'
 import { withClientStore } from './client.svelte'
+import { storageErrorStore } from './storage-error.svelte'
 
 const STORAGE_KEY = 'kalkul-data'
 
@@ -26,7 +27,12 @@ function withAppStore() {
   function persist(): void {
     lastUpdated = Date.now()
     const stored: StoredData = { lastUpdated, clients }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored))
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stored))
+      storageErrorStore.clear()
+    } catch {
+      storageErrorStore.set()
+    }
     // Trigger reactivity: $state.raw only signals on reassignment, so create
     // a new array reference after every mutation.
     clients = [...clients]
