@@ -5,7 +5,7 @@ function withStorageErrorStore() {
     get hasError() {
       return hasError
     },
-    set() {
+    setError() {
       hasError = true
     },
     clear() {

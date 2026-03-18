@@ -34,8 +34,9 @@
       try {
         localStorage.setItem(LOCALE_STORAGE_KEY, selectedLocale)
         storageErrorStore.clear()
-      } catch {
-        storageErrorStore.set()
+      } catch (e) {
+        console.error('Failed to save locale to localStorage', e)
+        storageErrorStore.setError()
       }
     }
   })

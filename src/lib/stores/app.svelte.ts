@@ -25,13 +25,15 @@ function withAppStore() {
   const hiddenInvestmentIds = new SvelteSet<string>()
 
   function persist(): void {
-    lastUpdated = Date.now()
-    const stored: StoredData = { lastUpdated, clients }
+    const now = Date.now()
+    const stored: StoredData = { lastUpdated: now, clients }
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(stored))
+      lastUpdated = now
       storageErrorStore.clear()
-    } catch {
-      storageErrorStore.set()
+    } catch (e) {
+      console.error('Failed to save data to localStorage', e)
+      storageErrorStore.setError()
     }
     // Trigger reactivity: $state.raw only signals on reassignment, so create
     // a new array reference after every mutation.

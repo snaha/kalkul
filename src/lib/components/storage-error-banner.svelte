@@ -6,9 +6,14 @@
 </script>
 
 {#if storageErrorStore.hasError}
-  <div class="banner">
+  <div class="banner" role="alert">
     <Typography --typography-color="var(--colors-base)">{$_('error.storageFull')}</Typography>
-    <Button variant="ghost" dimension="compact" onclick={() => storageErrorStore.clear()}>
+    <Button
+      variant="ghost"
+      dimension="compact"
+      onclick={() => storageErrorStore.clear()}
+      aria-label={$_('action.close')}
+    >
       <Typography --typography-color="var(--colors-base)">&times;</Typography>
     </Button>
   </div>

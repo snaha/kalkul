@@ -1,3 +1,4 @@
+<!-- localization-exclude -->
 <script lang="ts">
   import Button from '$lib/components/ui/button.svelte'
   import Typography from '$lib/components/ui/typography.svelte'
@@ -14,7 +15,7 @@
       <Typography variant="h5">Storage Error Banner</Typography>
       <Typography>Simulate a localStorage quota exceeded error.</Typography>
       <div class="actions">
-        <Button variant="strong" dimension="compact" onclick={() => storageErrorStore.set()}>
+        <Button variant="strong" dimension="compact" onclick={() => storageErrorStore.setError()}>
           Trigger storage error
         </Button>
         <Button variant="secondary" dimension="compact" onclick={() => storageErrorStore.clear()}>

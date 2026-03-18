@@ -346,6 +346,9 @@
     "invalidDate": "Neplatné datum",
     "storageFull": "Změny se nepodařilo uložit, protože úložiště prohlížeče je plné. Exportujte zálohu a uvolněte místo."
   },
+  "action": {
+    "close": "Zavřít"
+  },
   "settings": {
     "title": "Nastavení",
     "language": "Jazyk",

@@ -346,6 +346,9 @@
     "invalidDate": "Invalid date",
     "storageFull": "Your changes could not be saved because the browser storage is full. Please export a backup and free up space."
   },
+  "action": {
+    "close": "Close"
+  },
   "settings": {
     "title": "Settings",
     "language": "Language",
