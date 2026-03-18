@@ -1,0 +1,1 @@
+:root{--vertical-gap: var(--padding);--vertical-justify-content: flex-start;--vertical-align-items: stretch}.vertical.svelte-gwr60l{display:flex;flex-direction:column;justify-content:var(--vertical-justify-content);align-items:var(--vertical-align-items);gap:var(--vertical-gap)}

@@ -1,0 +1,1 @@
+import{c as m,a as i}from"./BBhtGK4Y.js";import{p as l,f as e,a as c}from"./DGySazRn.js";import{i as d}from"./BDrpbmS1.js";import{s as v}from"./DFmFITer.js";import{l as _}from"./CFcBSpKa.js";function y(p,r){l(r,!0);var a=m(),s=e(a);{var f=o=>{var t=m(),n=e(t);v(n,()=>r.children),i(o,t)};d(s,o=>{_.mobile||o(f)})}i(p,a),c()}export{y as D};

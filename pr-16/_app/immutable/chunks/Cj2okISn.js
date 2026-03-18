@@ -1,0 +1,1 @@
+import{j as e,v as f,a1 as i,a2 as d,K as p}from"./DGySazRn.js";function c(r,o){e&&f(p(r)),i(()=>{var a=o();for(var s in a){var t=a[s];t?r.style.setProperty(s,t):r.style.removeProperty(s)}}),d(()=>{r.remove()})}export{c};
