@@ -45,7 +45,7 @@
     view?: boolean
     sidebarButton?: Snippet
     isEmpty?: boolean
-    clientBirthDate?: Date
+    birthDate?: Date
     disableInteraction?: boolean
   }
 
@@ -61,7 +61,7 @@
     view = false,
     sidebarButton,
     isEmpty,
-    clientBirthDate,
+    birthDate,
     disableInteraction = false,
   }: Props = $props()
 
@@ -289,7 +289,7 @@
           <GraphPortfolioValue
             {graphValueData}
             {adjustWithInflation}
-            {clientBirthDate}
+            {birthDate}
             {disableInteraction}
           />
           <LoadingOverlay visible={isCalculating} />
@@ -301,7 +301,7 @@
             {showDeposits}
             {showWithdrawals}
             {showFees}
-            {clientBirthDate}
+            {birthDate}
             {disableInteraction}
           />
           <LoadingOverlay visible={isCalculating} />
@@ -315,7 +315,7 @@
             bind:selectedIndex
             {lowColor}
             {baseColor}
-            {clientBirthDate}
+            {birthDate}
             showInvestmentValue={showBreakdownInvestmentValue}
             showInterestEarned={showBreakdownInterestEarned}
             showDeposited={showBreakdownDeposited}
@@ -364,7 +364,7 @@
               bind:selectedIndex
               {lowColor}
               {baseColor}
-              {clientBirthDate}
+              {birthDate}
               showInvestmentValue={showBreakdownInvestmentValue}
               showInterestEarned={showBreakdownInterestEarned}
               showDeposited={showBreakdownDeposited}
@@ -378,7 +378,7 @@
           <GraphPortfolioValue
             {graphValueData}
             {adjustWithInflation}
-            {clientBirthDate}
+            {birthDate}
             {disableInteraction}
           />
           <LoadingOverlay visible={isCalculating} />
@@ -413,7 +413,7 @@
           {showDeposits}
           {showWithdrawals}
           {showFees}
-          {clientBirthDate}
+          {birthDate}
           {disableInteraction}
         />
         <LoadingOverlay visible={isCalculating} />

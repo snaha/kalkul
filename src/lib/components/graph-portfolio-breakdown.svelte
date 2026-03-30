@@ -19,7 +19,7 @@
     total: GraphData
     lowColor: string
     baseColor: string
-    clientBirthDate?: Date
+    birthDate?: Date
     showInvestmentValue: boolean
     showInterestEarned: boolean
     showDeposited: boolean
@@ -37,7 +37,7 @@
     total,
     lowColor,
     baseColor,
-    clientBirthDate,
+    birthDate,
     showInvestmentValue,
     showInterestEarned,
     showDeposited,
@@ -254,7 +254,7 @@
       {investments}
       currency={portfolio.currency}
       currentYear={getDateFromGraphLabels(data[0].graphLabels[selectedIndex])}
-      {clientBirthDate}
+      {birthDate}
       {adjustWithInflation}
     />
   </div>
@@ -429,7 +429,7 @@
       return parseInt(label, 10)
     }
   })()}
-  {clientBirthDate}
+  {birthDate}
   disabled={disableInteraction}
 />
 

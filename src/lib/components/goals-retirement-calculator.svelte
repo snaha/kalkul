@@ -6,7 +6,7 @@
   import Input from '$lib/components/ui/input/input.svelte'
   import FormattedNumberInput from '$lib/components/ui/input/formatted-number/input.svelte'
   import Typography from '$lib/components/ui/typography.svelte'
-  import type { Client, Portfolio } from '$lib/types'
+  import type { Profile, Portfolio } from '$lib/types'
   import Select from '$lib/components/ui/select/select.svelte'
   import Divider from '$lib/components/ui/divider.svelte'
   import Vertical from '$lib/components/ui/vertical.svelte'
@@ -18,7 +18,7 @@
   import type { PeriodicWithdrawalCalculationInput } from '$lib/@snaha/kalkul-calculators/periodic-withdrawal/periodic-withdrawal'
 
   type Props = {
-    client: Client
+    profile: Profile
     portfolio: Portfolio
     close: () => void
     onCalculate: (input: PeriodicWithdrawalCalculationInput, currency: string) => void
@@ -28,7 +28,7 @@
     }
   }
 
-  let { client, portfolio, close, onCalculate, initialData }: Props = $props()
+  let { profile, portfolio, close, onCalculate, initialData }: Props = $props()
 
   const RETIREMENT_DEFAULTS = {
     RETIREMENT_AGE: 65,
@@ -41,12 +41,12 @@
     DEPOSIT_PERIOD: 'month' as const,
   }
 
-  // Calculate client's current age
-  const birthDate = new Date(client.birth_date)
+  // Calculate current age
+  const birthDate = new Date(profile.birth_date)
   const today = new Date()
-  const currentAge = today.getFullYear() - birthDate.getFullYear()
+  const initialAge = today.getFullYear() - birthDate.getFullYear()
 
-  let clientAge = $state(currentAge)
+  let currentAge = $state(initialAge)
   let withdrawalStart = $state(
     initialData?.calculationInput.withdrawalStart ??
       addYears(birthDate, RETIREMENT_DEFAULTS.RETIREMENT_AGE),
@@ -105,10 +105,10 @@
     type="number"
     variant="solid"
     dimension="compact"
-    placeholder={$_('page.retirement.clientAgeToday')}
-    label={$_('page.retirement.clientAgeToday')}
+    placeholder={$_('page.retirement.ageToday')}
+    label={$_('page.retirement.ageToday')}
     unit={$_('page.retirement.yearsOld')}
-    bind:value={clientAge}
+    bind:value={currentAge}
     disabled
   ></Input>
 
@@ -118,7 +118,7 @@
     bind:date={withdrawalStart}
     ageLabel={$_('page.retirement.retirementAge')}
     agePlaceholder={$_('page.retirement.retirementAge')}
-    birthDate={new Date(client.birth_date)}
+    birthDate={new Date(profile.birth_date)}
   />
 
   <Input

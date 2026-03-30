@@ -4,15 +4,16 @@
   import Typography from '$lib/components/ui/typography.svelte'
   import {
     OverflowMenuVertical,
-    FolderShared,
-    UserProfile,
+    Folder,
+    FolderDetails,
     TrashCan,
     ArrowRight,
+    Copy,
+    Edit,
   } from 'carbon-icons-svelte'
-  import { _ } from 'svelte-i18n'
-  import { formatAge } from '$lib/utils'
+  import { _, locale } from 'svelte-i18n'
+  import { formatCurrency } from '$lib/utils'
   import { formatDate } from '$lib/@snaha/kalkul-maths/date'
-  import Avatar from '$lib/components/avatar.svelte'
   import Loader from '$lib/components/ui/loader.svelte'
   import { goto } from '$app/navigation'
   import routes from '$lib/routes'
@@ -28,182 +29,243 @@
   import Vertical from '$lib/components/ui/vertical.svelte'
   import Horizontal from '$lib/components/ui/horizontal.svelte'
   import ContentLayout from '$lib/components/content-layout.svelte'
+  import { getCurrentPortfolioValue } from '$lib/@snaha/kalkul-maths'
+  import {
+    differenceInDays,
+    differenceInMonths,
+    differenceInWeeks,
+    differenceInYears,
+  } from 'date-fns'
+  import type { Portfolio } from '$lib/types'
+  import { layoutStore } from '$lib/stores/layout.svelte'
+  import EditProfile from '$lib/components/edit-profile.svelte'
+  import Fullscreen from '$lib/components/fullscreen.svelte'
+
+  const needsOnboarding = $derived(!appStore.loading && appStore.profile.name === '')
 
   let showConfirmModal = $state(false)
-  let clientToBeDeleted: string | undefined = $state()
+  let portfolioToBeDeleted: string | undefined = $state()
   let searchQuery = $state('')
-  let filteredClient = $derived(searchByName(searchQuery))
-  function addClient() {
-    goto(routes.NEW_CLIENT)
+  let filteredPortfolios = $derived(searchByName(searchQuery))
+
+  function addPortfolio() {
+    goto(routes.NEW_PORTFOLIO)
   }
 
-  function confirmDeleteClient(clientId: string) {
+  function confirmDeletePortfolio(portfolioId: string) {
     showConfirmModal = true
-    clientToBeDeleted = clientId
+    portfolioToBeDeleted = portfolioId
   }
 
-  function deleteClient() {
-    if (clientToBeDeleted) {
-      appStore.clients.find((c) => c.id === clientToBeDeleted)?.delete()
-      clientToBeDeleted = undefined
+  function deletePortfolio() {
+    if (portfolioToBeDeleted) {
+      appStore.portfolios.find((p) => p.id === portfolioToBeDeleted)?.delete()
+      portfolioToBeDeleted = undefined
       showConfirmModal = false
     }
   }
+
   function searchByName(searchQuery: string) {
     if (searchQuery) {
-      return appStore.clients.filter((client) =>
-        client.name.toLowerCase().includes(searchQuery.toLowerCase()),
+      return appStore.portfolios.filter((portfolio) =>
+        portfolio.name.toLowerCase().includes(searchQuery.toLowerCase()),
       )
     } else {
-      return appStore.clients
+      return appStore.portfolios
     }
+  }
+
+  function portfolioValue(portfolioId: string): number {
+    const portfolio = appStore.portfolios.find((p) => p.id === portfolioId)
+    if (!portfolio) return 0
+    return getCurrentPortfolioValue(
+      {
+        filter: (id: string) =>
+          [...portfolio.investments, ...portfolio.goals].find((i) => i.id === id)?.transactions ??
+          [],
+      },
+      portfolio.investments,
+    )
+  }
+
+  function portfolioPeriod(portfolio: Portfolio) {
+    const yearDiff = differenceInYears(portfolio.end_date, portfolio.start_date)
+    if (yearDiff > 0) {
+      return `${yearDiff}${$_('common.abbreviations.year')}`
+    }
+    const monthDiff = differenceInMonths(portfolio.end_date, portfolio.start_date)
+    if (monthDiff > 0) {
+      return `${monthDiff}${$_('common.abbreviations.month')}`
+    }
+    const weekDiff = differenceInWeeks(portfolio.end_date, portfolio.start_date)
+    if (weekDiff > 0) {
+      return `${weekDiff}${$_('common.abbreviations.week')}`
+    }
+    const dayDiff = differenceInDays(portfolio.end_date, portfolio.start_date)
+    return `${dayDiff}${$_('common.abbreviations.day')}`
   }
 </script>
 
-{#snippet clientDropdown(clientId: string)}
+{#snippet portfolioDropdown(portfolioId: string)}
   <Dropdown left buttonDimension="compact">
     {#snippet button()}
       <OverflowMenuVertical size={24} />
     {/snippet}
     <List>
-      <ListItem onclick={() => goto(routes.CLIENT(clientId))}
-        ><FolderShared size={24} />{$_('page.home.portfoliosView')}</ListItem
+      <ListItem onclick={() => goto(routes.PORTFOLIO(portfolioId))}
+        ><Folder size={24} />{$_('page.portfolio.openPortfolio')}</ListItem
       >
-      <ListItem onclick={() => goto(routes.EDIT_CLIENT(clientId))}
-        ><UserProfile size={24} />{$_('page.home.clientEdit')}</ListItem
+      <ListItem onclick={() => goto(routes.EDIT_PORTFOLIO(portfolioId))}
+        ><FolderDetails size={24} />{$_('page.portfolio.editPortfolioDetails')}</ListItem
       >
-      <ListItem onclick={() => confirmDeleteClient(clientId)}
-        ><TrashCan size={24} />{$_('page.home.clientDeleteButton')}</ListItem
+      <ListItem onclick={() => appStore.portfolios.find((p) => p.id === portfolioId)?.duplicate()}
+        ><Copy size={24} />{$_('page.portfolio.duplicatePortfolio')}</ListItem
+      >
+      <ListItem onclick={() => confirmDeletePortfolio(portfolioId)}
+        ><TrashCan size={24} />{$_('page.portfolio.deletePortfolio')}</ListItem
       >
     </List>
   </Dropdown>
 {/snippet}
 
-<Header />
-
-<ContentLayout centered={false}>
-  {#if appStore.loading}
-    <Typography>{$_('common.loading')}</Typography><Loader />
-  {:else if appStore.clients.length === 0}
-    <section class="empty">
-      <img src={`${base}/images/no-client.svg`} alt={$_('common.noClientYet')} />
-      <Typography variant="h4">{$_('page.home.noClientsYet')}</Typography>
-      <Typography>{$_('page.home.createYourFirstClient')}</Typography>
-      <div class="spacer"></div>
-      <Button variant="strong" dimension="compact" onclick={addClient}
-        >{$_('page.home.addClient')}</Button
-      >
-    </section>
-  {:else}
-    <DesktopOnly>
-      <section class="horizontal">
-        <Typography variant="h4">{$_('page.home.allClients')}</Typography>
-        <div class="grower"></div>
-        <SearchInput
-          bind:value={searchQuery}
-          dimension="compact"
-          variant="solid"
-          placeholder={$_('common.search')}
-        ></SearchInput>
-        <Button dimension="compact" variant="strong" onclick={addClient}
-          >{$_('page.home.addClient')}</Button
+{#if needsOnboarding}
+  <Fullscreen>
+    <EditProfile />
+  </Fullscreen>
+{:else}
+  <Header />
+  <ContentLayout centered={false}>
+    {#if appStore.loading}
+      <Typography>{$_('common.loading')}</Typography><Loader />
+    {:else if appStore.portfolios.length === 0}
+      <section class="empty">
+        <img src={`${base}/images/no-portfolio.svg`} alt={$_('common.noPortfolioYet')} />
+        <Typography variant="h4">{$_('page.home.noPortfoliosYet')}</Typography>
+        <Typography>{$_('page.home.createYourFirstPortfolio')}</Typography>
+        <div class="spacer"></div>
+        <Button variant="strong" dimension="compact" onclick={addPortfolio}
+          >{$_('page.portfolio.addPortfolio')}</Button
         >
       </section>
-
-      <ul>
-        <li class="clients title">
-          <span>{$_('common.name')}</span>
-          <span>{$_('common.birthDate')}</span>
-          <span class="right-aligned">{$_('common.age')}</span>
-          <span class="right-aligned">{$_('common.portfolios')}</span>
-          <span class="right-aligned">{$_('common.investments')}</span>
-          <span class="right-aligned"></span>
-        </li>
-        {#each filteredClient as client}
-          {@const birtDate = new Date(client.birth_date)}
-          {@const portfolios = client.portfolios}
-          <!-- svelte-ignore a11y_click_events_have_key_events -->
-          <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-          <li
-            class="clients client"
-            onclick={(e: MouseEvent) => {
-              if (!e.defaultPrevented) {
-                goto(routes.CLIENT(client.id))
-              }
-            }}
-          >
-            <span
-              ><Avatar
-                name={client.name}
-                birthDate={birtDate}
-                imageURI={undefined}
-              />{client.name}</span
-            >
-            <span>{formatDate(new Date(client.birth_date))}</span>
-            <span class="right-aligned">{formatAge(birtDate)}</span>
-            <span class="right-aligned">{portfolios.length}</span>
-            <span class="right-aligned">{portfolios.flatMap((p) => p.investments).length}</span>
-            <span class="right-aligned">{@render clientDropdown(client.id)}</span>
-          </li>
-        {/each}
-      </ul>
-    </DesktopOnly>
-    <MobileOnly>
-      <Vertical>
-        <Horizontal --horizontal-justify-content="space-between">
-          <Typography variant="h4">{$_('page.home.allClients')}</Typography>
-
-          <Button dimension="compact" variant="strong" onclick={addClient}
-            >{$_('page.home.addClient')}</Button
-          >
-        </Horizontal>
-        <Horizontal>
+    {:else}
+      <DesktopOnly>
+        <section class="horizontal">
+          <Typography variant="h4">{$_('page.home.allPortfolios')}</Typography>
+          <div class="grower"></div>
           <SearchInput
             bind:value={searchQuery}
             dimension="compact"
             variant="solid"
             placeholder={$_('common.search')}
-            class="grower"
           ></SearchInput>
-          {#if searchQuery.length > 0}
-            <Button dimension="compact" variant="ghost" onclick={() => (searchQuery = '')}
-              >{$_('page.home.clearSearch')}</Button
+          <Button dimension="compact" variant="strong" onclick={addPortfolio}
+            >{$_('page.portfolio.addPortfolio')}</Button
+          >
+          <Button dimension="compact" variant="ghost" onclick={() => goto(routes.EDIT_PROFILE)}
+            ><Edit size={24} />{$_('page.home.editProfile')}</Button
+          >
+        </section>
+
+        <ul>
+          <li class="portfolios title">
+            <span>{$_('common.portfolioName')}</span>
+            <span>{$_('common.currency')}</span>
+            <span>{$_('common.startDate')}</span>
+            <span>{$_('common.period')}</span>
+            <span class="right-aligned">{$_('common.inflation')}</span>
+            <span class="right-aligned">{$_('common.currentValue')}</span>
+            <span></span>
+          </li>
+          {#each filteredPortfolios as portfolio}
+            <!-- svelte-ignore a11y_click_events_have_key_events -->
+            <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+            <li
+              class="portfolios portfolio"
+              onclick={(e: MouseEvent) => {
+                if (!e.defaultPrevented) {
+                  goto(routes.PORTFOLIO(portfolio.id))
+                }
+              }}
+            >
+              <span>{portfolio.name}</span>
+              <span>{portfolio.currency}</span>
+              <span>{formatDate(new Date(portfolio.start_date))}</span>
+              <span>{portfolioPeriod(portfolio)}</span>
+              <span class="right-aligned">{portfolio.inflation_rate * 100}%</span>
+              <span class="right-aligned"
+                >{formatCurrency(portfolioValue(portfolio.id), portfolio.currency, $locale, {
+                  maximumFractionDigits: 0,
+                })}</span
+              >
+              <span class="right-aligned">{@render portfolioDropdown(portfolio.id)}</span>
+            </li>
+          {/each}
+        </ul>
+      </DesktopOnly>
+      <MobileOnly>
+        <Vertical>
+          <Horizontal --horizontal-justify-content="space-between">
+            <Typography variant="h4">{$_('page.home.allPortfolios')}</Typography>
+
+            <Button dimension="compact" variant="strong" onclick={addPortfolio}
+              >{$_('page.portfolio.addPortfolio')}</Button
+            >
+          </Horizontal>
+          <Horizontal>
+            <SearchInput
+              bind:value={searchQuery}
+              dimension="compact"
+              variant="solid"
+              placeholder={$_('common.search')}
+              class="grower"
+            ></SearchInput>
+            {#if searchQuery.length > 0}
+              <Button dimension="compact" variant="ghost" onclick={() => (searchQuery = '')}
+                >{$_('page.home.clearSearch')}</Button
+              >
+            {/if}
+          </Horizontal>
+        </Vertical>
+
+        <ul class="mobile">
+          {#each filteredPortfolios as portfolio}
+            <!-- svelte-ignore a11y_click_events_have_key_events -->
+            <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+            <li
+              class="portfolio mobile"
+              onclick={(e: MouseEvent) => {
+                if (!e.defaultPrevented) {
+                  goto(routes.PORTFOLIO(portfolio.id))
+                }
+              }}
+            >
+              <span>{portfolio.name}</span>
+              <span class="right-aligned"><ArrowRight /></span>
+            </li>
+          {/each}
+        </ul>
+
+        <Horizontal --horizontal-justify-content="space-between">
+          <Button variant="ghost" dimension="compact" onclick={addPortfolio}
+            >{$_('page.portfolio.addPortfolio')}</Button
+          >
+          {#if !layoutStore.mobile}
+            <Button dimension="compact" variant="ghost" onclick={() => goto(routes.EDIT_PROFILE)}
+              ><Edit size={24} />{$_('page.home.editProfile')}</Button
             >
           {/if}
         </Horizontal>
-      </Vertical>
-
-      <ul class="mobile">
-        {#each filteredClient as client}
-          <!-- svelte-ignore a11y_click_events_have_key_events -->
-          <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-          <li
-            class="client mobile"
-            onclick={(e: MouseEvent) => {
-              if (!e.defaultPrevented) {
-                goto(routes.CLIENT(client.id))
-              }
-            }}
-          >
-            <span>{client.name}</span>
-            <span class="right-aligned"><ArrowRight /></span>
-          </li>
-        {/each}
-      </ul>
-
-      <Button variant="ghost" dimension="compact" onclick={addClient}
-        >{$_('page.home.addClient')}</Button
-      >
-    </MobileOnly>
-  {/if}
-</ContentLayout>
+      </MobileOnly>
+    {/if}
+  </ContentLayout>
+{/if}
 
 <DeleteModal
-  confirm={deleteClient}
+  confirm={deletePortfolio}
   oncancel={() => (showConfirmModal = false)}
   bind:open={showConfirmModal}
-  title={$_('page.home.clientDelete')}
-  text={$_('page.home.clientDeleteWarning')}
+  title={$_('page.home.deletePortfolio')}
+  text={$_('page.home.deletePortfolioWarning')}
 />
 
 <style>
@@ -222,6 +284,7 @@
   }
   ul {
     padding-left: 0;
+    margin: 0;
   }
   ul.mobile {
     display: flex;
@@ -236,9 +299,9 @@
     gap: var(--half-padding);
     overflow-wrap: anywhere;
   }
-  .clients {
+  .portfolios {
     display: grid;
-    grid-template-columns: 3fr 1fr 1fr 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 42px;
     align-items: center;
     gap: var(--half-padding);
     border-bottom: 1px solid var(--colors-low);
@@ -254,20 +317,20 @@
     font-family: var(--font-family-sans-serif);
     font-weight: 700;
   }
-  .client {
+  .portfolio {
     border-bottom: 1px solid var(--colors-low);
     font-size: var(--font-size);
     font-family: var(--font-family-sans-serif);
     cursor: pointer;
   }
-  .client.mobile {
+  .portfolio.mobile {
     display: flex;
     justify-content: space-between;
     padding: var(--padding) var(--half-padding);
     width: 100%;
     gap: var(--half-padding);
   }
-  .client:hover {
+  .portfolio:hover {
     background-color: color-mix(in srgb, var(--colors-low) 25%, transparent);
   }
   .right-aligned {

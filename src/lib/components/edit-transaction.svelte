@@ -6,12 +6,12 @@
   import FormattedNumberInput from '$lib/components/ui/input/formatted-number/input.svelte'
   import Typography from '$lib/components/ui/typography.svelte'
   import {
-    type Client,
     type InvestmentStore,
     type TransactionStore,
     type InvestmentWithColorIndex,
     type Portfolio,
   } from '$lib/types'
+  import { appStore } from '$lib/stores/app.svelte'
   import {
     type Period,
     type TransactionType,
@@ -39,13 +39,12 @@
   type Props = {
     investment: InvestmentWithColorIndex & InvestmentStore
     portfolio: Portfolio
-    client: Client
     transaction?: TransactionStore
     showInflation?: boolean
     close: () => void
   }
 
-  let { investment, portfolio, client, transaction, showInflation = false, close }: Props = $props()
+  let { investment, portfolio, transaction, showInflation = false, close }: Props = $props()
 
   let transactionType: TransactionType = $state('deposit')
   let label = $state('')
@@ -298,10 +297,10 @@
     <DateAge
       dimension="compact"
       dateInputLabel={$_('common.startDate')}
-      ageLabel={$_('common.clientAge')}
+      ageLabel={$_('common.age')}
       agePlaceholder={'0'}
       bind:date
-      birthDate={new Date(client.birth_date)}
+      birthDate={new Date(appStore.profile.birth_date)}
       onchange={onDateChange}
     ></DateAge>
     {#if !isRecurring}
@@ -447,10 +446,10 @@
       <DateAge
         dimension="compact"
         dateInputLabel={$_('common.endDate')}
-        ageLabel={$_('common.clientAge')}
+        ageLabel={$_('common.age')}
         agePlaceholder={'0'}
         bind:date={endDate}
-        birthDate={new Date(client.birth_date)}
+        birthDate={new Date(appStore.profile.birth_date)}
         onchange={onEndDateChange}
       ></DateAge>
       <div class="spacer"></div>

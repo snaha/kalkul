@@ -1,34 +1,22 @@
 {
   "page": {
     "home": {
-      "allClients": "All clients",
+      "allPortfolios": "All portfolios",
       "clearSearch": "Clear search",
-      "addClient": "Add client",
-      "noClientsYet": "No clients yet",
-      "clientDelete": "Delete client?",
-      "clientDeleteButton": "Delete client",
-      "clientDeleteWarning": "This client and all the portfolios it contains will be deleted permanently. There's no undo.",
-      "clientEdit": "Edit client",
-      "createYourFirstClient": "Create your first client profile to get started",
-      "portfoliosView": "View portfolios"
-    },
-    "client": {
-      "addClient": "Add client",
-      "editClient": "Edit client",
-      "deleteClient": "Delete client",
-      "createClient": "Create client",
-      "clientName": "Client's name",
-      "clientDelete": "Delete client?",
-      "clientEmailExplanation": "This will be used for sharing portfolio with your client.",
-      "clientDeleteExplanation": "This client and all the portfolios it contains will be deleted permanently. There's no undo.",
       "noPortfoliosYet": "No portfolio yet",
       "createYourFirstPortfolio": "Create your first portfolio",
+      "editProfile": "Edit profile",
       "deletePortfolio": "Delete portfolio?",
       "deletePortfolioWarning": "This portfolio and all the investments it contains will be deleted permanently. There's no undo."
     },
+    "profile": {
+      "editProfile": "Edit profile",
+      "profileName": "Your name",
+      "profileEmailExplanation": "This will be used for sharing portfolios."
+    },
     "retirement": {
       "title": "Retirement",
-      "clientAgeToday": "Client's age today",
+      "ageToday": "Your age today",
       "retirementAge": "Retirement age",
       "withdrawalStart": "Retirement start",
       "withdrawalDuration": "Retirement length",
@@ -80,8 +68,7 @@
       "openPortfolio": "Open portfolio",
       "editPortfolioDetails": "Edit portfolio details",
       "duplicatePortfolio": "Duplicate portfolio",
-      "deletePortfolio": "Delete portfolio",
-      "editClient": "Edit client details"
+      "deletePortfolio": "Delete portfolio"
     },
     "goals": {
       "title": "Goals",
@@ -232,7 +219,7 @@
       "noGoalsYetTitle": "No goals yet",
       "noGoalsYetDescription": "Define high-level financial objectives and target amounts. Goals help you stay focused on the big picture.",
       "noInvestmentsYetTitle": "No investments yet",
-      "noInvestmentsYetDescription": "Add the specific investment products and transactions that make up your client's portfolio. Pro tip: link transactions to goals to easily compare against the big picture target."
+      "noInvestmentsYetDescription": "Add the specific investment products and transactions that make up your portfolio. Pro tip: link transactions to goals to easily compare against the big picture target."
     }
   },
   "common": {
@@ -260,19 +247,18 @@
     "name": "Name",
     "birthDate": "Birthdate",
     "age": "Age",
-    "portfolios": "Portfolios",
+
     "investments": "Investments",
     "year": "Year",
     "week": "Week",
     "month": "Month",
     "day": "Day",
     "email": "Email",
-    "emailOptional": "Client's email (Optional)",
+    "emailOptional": "Email (Optional)",
     "cancel": "Cancel",
     "done": "Done",
     "saveChanges": "Save changes",
     "addTransaction": "Add transaction",
-    "deleteClient": "Delete client",
     "years": "years",
     "details": "Details",
     "apy": "APY",
@@ -291,7 +277,6 @@
     "inflation": "Inflation",
     "startDate": "Start date",
     "endDate": "End date",
-    "clientAge": "Client's age",
     "type": "Type",
     "deposit": "Deposit",
     "withdrawal": "Withdrawal",
@@ -325,12 +310,12 @@
     "portfolio": "Portfolio",
     "inflationAdjusted": "Inflation adjusted",
     "noTransactionYet": "No transaction yet",
-    "noClientYet": "No client yet",
+
     "noPortfolioYet": "No portfolio yet",
     "noInvestmentsYet": "No investments yet",
     "search": "Search",
     "period": "Period",
-    "avatar": "Avatar",
+
     "realValue": "Real value",
     "nominalValue": "Nominal value",
     "totalReal": "Total (real)",

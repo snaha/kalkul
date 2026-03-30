@@ -4,7 +4,8 @@
   import Button from '$lib/components/ui/button.svelte'
   import Input from '$lib/components/ui/input/input.svelte'
   import Typography from '$lib/components/ui/typography.svelte'
-  import type { ClientStore, PortfolioStore } from '$lib/types'
+  import type { PortfolioStore } from '$lib/types'
+  import { appStore } from '$lib/stores/app.svelte'
   import Select from '$lib/components/ui/select/select.svelte'
   import Divider from '$lib/components/ui/divider.svelte'
   import { capitalizeFirstLetter, formatAge } from '$lib/utils'
@@ -18,15 +19,16 @@
   import LoaderButton from './loader-button.svelte'
 
   type Props = {
-    client: ClientStore
     portfolio?: PortfolioStore
     close: () => void
   }
 
-  let { client, portfolio, close }: Props = $props()
+  let { portfolio, close }: Props = $props()
 
   let name = $state(
-    capitalizeFirstLetter($_('common.portfolio')) + ' ' + (client.portfolios.length + 1).toString(),
+    capitalizeFirstLetter($_('common.portfolio')) +
+      ' ' +
+      (appStore.portfolios.length + 1).toString(),
   )
   let currency = $state('EUR')
   let inflation = $state('2.25')
@@ -65,7 +67,7 @@
   })
 
   function createPortfolio() {
-    client.addPortfolio({
+    appStore.addPortfolio({
       name,
       currency,
       start_date: startDate.toDateString(),
@@ -198,9 +200,9 @@
       dimension="compact"
       dateInputLabel={$_('common.startDate')}
       bind:date={startDate}
-      ageLabel={$_('common.clientAge') + ' ' + $_('component.editPortfolio.atPortfolioStart')}
-      agePlaceholder={$_('common.clientAge')}
-      birthDate={new Date(client.birth_date)}
+      ageLabel={$_('common.age') + ' ' + $_('component.editPortfolio.atPortfolioStart')}
+      agePlaceholder={$_('common.age')}
+      birthDate={new Date(appStore.profile.birth_date)}
     />
 
     <Input
@@ -218,9 +220,9 @@
       dimension="compact"
       dateInputLabel={$_('common.endDate')}
       bind:date={endDate}
-      ageLabel={$_('common.clientAge') + ' ' + $_('component.editPortfolio.atPortfolioEnd')}
-      agePlaceholder={$_('common.clientAge')}
-      birthDate={new Date(client.birth_date)}
+      ageLabel={$_('common.age') + ' ' + $_('component.editPortfolio.atPortfolioEnd')}
+      agePlaceholder={$_('common.age')}
+      birthDate={new Date(appStore.profile.birth_date)}
     />
   </Vertical>
 

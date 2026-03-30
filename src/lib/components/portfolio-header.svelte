@@ -16,12 +16,11 @@
   import Dropdown from './ui/dropdown.svelte'
   import List from './ui/list/list.svelte'
   import ListItem from './ui/list/list-item.svelte'
-  import type { ClientStore, PortfolioStore, Investment } from '$lib/types'
+  import type { PortfolioStore, Investment } from '$lib/types'
   import PortfolioHeaderView from './portfolio-header-view.svelte'
   import { layoutStore } from '$lib/stores/layout.svelte'
 
   type Props = {
-    client: ClientStore
     portfolio: PortfolioStore
     investments: Investment[]
     back?: () => void
@@ -31,7 +30,6 @@
   }
 
   let {
-    client,
     portfolio,
     investments,
     back,
@@ -43,11 +41,11 @@
   let showConfirmModal = $state(false)
 
   function addInvestment() {
-    goto(routes.NEW_INVESTMENT(client.id, portfolio.id))
+    goto(routes.NEW_INVESTMENT(portfolio.id))
   }
 
   function exportPdf() {
-    goto(routes.PDF_EXPORT_PARAMS(client.id, portfolio.id))
+    goto(routes.PDF_EXPORT_PARAMS(portfolio.id))
   }
 
   function confirmDeletePortfolio() {
@@ -56,7 +54,7 @@
 
   async function deletePortfolio() {
     portfolio.delete()
-    await goto(routes.CLIENT(client.id))
+    await goto(routes.HOME)
     showConfirmModal = false
   }
 </script>
@@ -98,14 +96,14 @@
             ><DocumentExport size={24} />{$_('component.portfolioHeader.pdfExport')}</ListItem
           >
         {/if}
-        <ListItem onclick={() => goto(routes.CLIENT_EDIT_PORTFOLIO(client.id, portfolio.id))}
+        <ListItem onclick={() => goto(routes.EDIT_PORTFOLIO(portfolio.id))}
           ><Edit size={24} />{$_('component.portfolioHeader.editPortfolio')}</ListItem
         >
         <ListItem
           onclick={() => {
             const duplicatedPortfolioId = portfolio.duplicate()
             if (duplicatedPortfolioId) {
-              goto(routes.CLIENT_PORTFOLIO(client.id, duplicatedPortfolioId))
+              goto(routes.PORTFOLIO(duplicatedPortfolioId))
             }
           }}><Copy size={24} />{$_('component.portfolioHeader.duplicatePortfolio')}</ListItem
         >

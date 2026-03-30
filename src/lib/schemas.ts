@@ -14,8 +14,7 @@ export const jsonSchema: z.ZodType<Json> = z.lazy(() =>
   ]),
 )
 
-export const clientSchema = z.object({
-  id: z.string(),
+export const profileSchema = z.object({
   name: z.string(),
   email: z.string(),
   birth_date: z.string(),
@@ -72,13 +71,10 @@ export const portfolioNestedSchema = portfolioSchema.extend({
   goals: z.array(investmentNestedSchema).default([]),
 })
 
-export const clientNestedSchema = clientSchema.extend({
-  portfolios: z.array(portfolioNestedSchema),
-})
-
 export const storedDataSchema = z.object({
   lastUpdated: z.number(),
-  clients: z.array(clientNestedSchema),
+  profile: profileSchema,
+  portfolios: z.array(portfolioNestedSchema),
 })
 
 export const periodicWithdrawalGoalDataSchema = z.object({
@@ -111,13 +107,12 @@ export const goalDataSchema = z.discriminatedUnion('type', [
 
 // --- Derived types ---
 
-export type Client = z.infer<typeof clientSchema>
+export type Profile = z.infer<typeof profileSchema>
 export type Portfolio = z.infer<typeof portfolioSchema>
 export type Investment = z.infer<typeof investmentSchema>
 export type Transaction = z.infer<typeof transactionSchema>
 export type InvestmentNested = z.infer<typeof investmentNestedSchema>
 export type PortfolioNested = z.infer<typeof portfolioNestedSchema>
-export type ClientNested = z.infer<typeof clientNestedSchema>
 export type StoredData = z.infer<typeof storedDataSchema>
 export type PeriodicWithdrawalGoalData = z.infer<typeof periodicWithdrawalGoalDataSchema>
 export type RetirementGoalData = z.infer<typeof retirementGoalDataSchema>
