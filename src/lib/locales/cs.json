@@ -343,7 +343,11 @@
     "invalidYear": "Neplatný rok",
     "invalidMonth": "Neplatný měsíc",
     "invalidDay": "Neplatný den",
-    "invalidDate": "Neplatné datum"
+    "invalidDate": "Neplatné datum",
+    "storageFull": "Změny se nepodařilo uložit, protože úložiště prohlížeče je plné. Exportujte zálohu a uvolněte místo."
+  },
+  "action": {
+    "close": "Zavřít"
   },
   "settings": {
     "title": "Nastavení",
