@@ -6,7 +6,7 @@
   import Input from '$lib/components/ui/input/input.svelte'
   import FormattedNumberInput from '$lib/components/ui/input/formatted-number/input.svelte'
   import Typography from '$lib/components/ui/typography.svelte'
-  import type { Profile, Portfolio } from '$lib/types'
+  import type { Portfolio } from '$lib/types'
   import Select from '$lib/components/ui/select/select.svelte'
   import Divider from '$lib/components/ui/divider.svelte'
   import Vertical from '$lib/components/ui/vertical.svelte'
@@ -18,7 +18,7 @@
   import type { PeriodicWithdrawalCalculationInput } from '$lib/@snaha/kalkul-calculators/periodic-withdrawal/periodic-withdrawal'
 
   type Props = {
-    profile: Profile
+    birthDate?: Date
     portfolio: Portfolio
     close: () => void
     onCalculate: (input: PeriodicWithdrawalCalculationInput, currency: string) => void
@@ -28,7 +28,7 @@
     }
   }
 
-  let { profile, portfolio, close, onCalculate, initialData }: Props = $props()
+  let { birthDate, portfolio, close, onCalculate, initialData }: Props = $props()
 
   const RETIREMENT_DEFAULTS = {
     RETIREMENT_AGE: 65,
@@ -42,14 +42,13 @@
   }
 
   // Calculate current age
-  const birthDate = new Date(profile.birth_date)
   const today = new Date()
-  const initialAge = today.getFullYear() - birthDate.getFullYear()
+  const initialAge = birthDate ? today.getFullYear() - birthDate.getFullYear() : 0
 
   let currentAge = $state(initialAge)
   let withdrawalStart = $state(
     initialData?.calculationInput.withdrawalStart ??
-      addYears(birthDate, RETIREMENT_DEFAULTS.RETIREMENT_AGE),
+      addYears(birthDate ?? today, RETIREMENT_DEFAULTS.RETIREMENT_AGE),
   )
   let withdrawalDuration = $state(
     initialData?.calculationInput.withdrawalDuration ?? RETIREMENT_DEFAULTS.RETIREMENT_LENGTH,
@@ -118,7 +117,7 @@
     bind:date={withdrawalStart}
     ageLabel={$_('page.retirement.retirementAge')}
     agePlaceholder={$_('page.retirement.retirementAge')}
-    birthDate={new Date(profile.birth_date)}
+    {birthDate}
   />
 
   <Input

@@ -48,7 +48,7 @@
 {#if portfolio}
   <Fullscreen>
     <RetirementCalculator
-      profile={appStore.profile}
+      birthDate={appStore.profile.birthDate}
       {portfolio}
       {close}
       onCalculate={handleCalculate}

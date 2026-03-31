@@ -300,7 +300,7 @@
       ageLabel={$_('common.age')}
       agePlaceholder={'0'}
       bind:date
-      birthDate={new Date(appStore.profile.birth_date)}
+      birthDate={appStore.profile.birthDate}
       onchange={onDateChange}
     ></DateAge>
     {#if !isRecurring}
@@ -449,7 +449,7 @@
         ageLabel={$_('common.age')}
         agePlaceholder={'0'}
         bind:date={endDate}
-        birthDate={new Date(appStore.profile.birth_date)}
+        birthDate={appStore.profile.birthDate}
         onchange={onEndDateChange}
       ></DateAge>
       <div class="spacer"></div>

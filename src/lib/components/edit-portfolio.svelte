@@ -202,7 +202,7 @@
       bind:date={startDate}
       ageLabel={$_('common.age') + ' ' + $_('component.editPortfolio.atPortfolioStart')}
       agePlaceholder={$_('common.age')}
-      birthDate={new Date(appStore.profile.birth_date)}
+      birthDate={appStore.profile.birthDate}
     />
 
     <Input
@@ -222,7 +222,7 @@
       bind:date={endDate}
       ageLabel={$_('common.age') + ' ' + $_('component.editPortfolio.atPortfolioEnd')}
       agePlaceholder={$_('common.age')}
-      birthDate={new Date(appStore.profile.birth_date)}
+      birthDate={appStore.profile.birthDate}
     />
   </Vertical>
 

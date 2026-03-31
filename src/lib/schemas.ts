@@ -17,7 +17,7 @@ export const jsonSchema: z.ZodType<Json> = z.lazy(() =>
 export const profileSchema = z.object({
   name: z.string(),
   email: z.string(),
-  birth_date: z.string(),
+  birth_date: z.string().optional(),
 })
 
 export const portfolioSchema = z.object({

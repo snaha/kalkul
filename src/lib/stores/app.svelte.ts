@@ -7,10 +7,28 @@ import { storageErrorStore } from './storage-error.svelte'
 
 const STORAGE_KEY = 'kalkul-data'
 
+export type ProfileStore = Profile & {
+  readonly birthDate: Date | undefined
+  toJSON: () => Profile
+}
+
+function enrichProfile({ name, email, birth_date }: Profile): ProfileStore {
+  return {
+    name,
+    email,
+    birth_date,
+    get birthDate() {
+      return birth_date ? new Date(birth_date) : undefined
+    },
+    toJSON(): Profile {
+      return { name, email, birth_date }
+    },
+  }
+}
+
 const DEFAULT_PROFILE: Profile = {
   name: '',
   email: '',
-  birth_date: '',
 }
 
 function loadData(): StoredData {
@@ -26,7 +44,7 @@ function loadData(): StoredData {
 }
 
 function withAppStore() {
-  let profile = $state<Profile>({ ...DEFAULT_PROFILE })
+  let profile = $state<ProfileStore>(enrichProfile({ ...DEFAULT_PROFILE }))
   let portfolios = $state<PortfolioStore[]>([])
   let loading = $state(true)
   let lastUpdated = $state(0)
@@ -36,7 +54,7 @@ function withAppStore() {
     const now = Date.now()
     const stored: StoredData = {
       lastUpdated: now,
-      profile,
+      profile: profile.toJSON(),
       portfolios: portfolios.map((p) => p.toJSON()),
     }
     try {
@@ -96,7 +114,7 @@ function withAppStore() {
       loading = value
     },
     reset() {
-      profile = { ...DEFAULT_PROFILE }
+      profile = enrichProfile({ ...DEFAULT_PROFILE })
       portfolios = []
       loading = true
     },
@@ -110,7 +128,7 @@ function withAppStore() {
     // --- Profile ---
 
     updateProfile(updates: Partial<Profile>) {
-      profile = { ...profile, ...updates }
+      profile = enrichProfile({ ...profile, ...updates })
       persist()
     },
 
@@ -134,7 +152,7 @@ function withAppStore() {
 
     load(): void {
       const data = loadData()
-      profile = data.profile
+      profile = enrichProfile(data.profile)
       portfolios = enrichAll(data.portfolios)
       lastUpdated = data.lastUpdated
       loading = false
@@ -148,7 +166,7 @@ function withAppStore() {
           const data = storedDataSchema.parse(JSON.parse(event.newValue))
           if (data.lastUpdated === lastUpdated) return
 
-          profile = data.profile
+          profile = enrichProfile(data.profile)
           portfolios = enrichAll(data.portfolios)
           lastUpdated = data.lastUpdated
         } catch {
@@ -163,13 +181,17 @@ function withAppStore() {
     // --- Backup / Restore ---
 
     exportBackup(): string {
-      return JSON.stringify({ profile, portfolios }, undefined, 2)
+      return JSON.stringify(
+        { profile: profile.toJSON(), portfolios: portfolios.map((p) => p.toJSON()) },
+        undefined,
+        2,
+      )
     },
 
     importBackup(json: string): void {
       const parsed: unknown = JSON.parse(json)
       const validated = storedDataSchema.pick({ profile: true, portfolios: true }).parse(parsed)
-      profile = validated.profile
+      profile = enrichProfile(validated.profile)
       portfolios = enrichAll(validated.portfolios)
       loading = false
       persist()

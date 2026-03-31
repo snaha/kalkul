@@ -23,9 +23,7 @@
 
   const date = new Date()
   let name = $state(appStore.profile.name)
-  let birthDate: Date | undefined = $state(
-    appStore.profile.birth_date ? new Date(appStore.profile.birth_date) : undefined,
-  )
+  let birthDate: Date | undefined = $state(appStore.profile.birthDate)
   let email = $state(appStore.profile.email)
   let error: string | undefined = $state()
   let emailError: ZodFormattedError<z.infer<typeof emailFormSchema>> | undefined = $state()

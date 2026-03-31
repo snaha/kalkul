@@ -75,7 +75,7 @@
   <PdfExport
     {graphValueData}
     {adjustWithInflation}
-    birthDate={new Date(appStore.profile.birth_date)}
+    birthDate={appStore.profile.birthDate}
     portfolioName={portfolio.name}
     profileName={appStore.profile.name}
     {keyDates}

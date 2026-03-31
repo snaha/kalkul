@@ -190,7 +190,7 @@
           simulationData={graphData}
           bind:adjustWithInflation
           isEmpty={transactionCount === 0}
-          birthDate={new Date(appStore.profile.birth_date)}
+          birthDate={appStore.profile.birthDate}
           {sidebarButton}
           disableInteraction={graphData.isCalculating}
         />
@@ -229,9 +229,7 @@
             simulationData={graphData}
             bind:adjustWithInflation
             isEmpty={false}
-            birthDate={appStore.profile.birth_date
-              ? new Date(appStore.profile.birth_date)
-              : undefined}
+            birthDate={appStore.profile.birthDate}
             disableInteraction={true}
           />
           <PortfolioSidebar

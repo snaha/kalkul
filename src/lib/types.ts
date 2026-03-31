@@ -18,6 +18,7 @@ export type {
 export type { TransactionStore } from './stores/transaction.svelte'
 export type { InvestmentStore } from './stores/investment.svelte'
 export type { PortfolioStore } from './stores/portfolio.svelte'
+export type { ProfileStore } from './stores/app.svelte'
 
 export type InvestmentWithColorIndex = Investment & {
   colorIndex?: number
