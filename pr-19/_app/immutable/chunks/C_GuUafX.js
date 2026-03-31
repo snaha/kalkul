@@ -1,1 +1,0 @@
-import{c as m,a as i}from"./s9HTTu-s.js";import{p as l,f as e,a as c}from"./GjFrpnEr.js";import{i as d}from"./DmvsDeT4.js";import{s as v}from"./CUwXT4Kl.js";import{l as _}from"./D4jLHoTn.js";function y(p,r){l(r,!0);var a=m(),s=e(a);{var f=o=>{var t=m(),n=e(t);v(n,()=>r.children),i(o,t)};d(s,o=>{_.mobile||o(f)})}i(p,a),c()}export{y as D};

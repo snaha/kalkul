@@ -1,1 +1,0 @@
-import"../chunks/s9HTTu-s.js";import"../chunks/CufDQ3vA.js";import{E as p}from"../chunks/CDW2Cn8S.js";import{F as i}from"../chunks/xsYiNISp.js";function c(o){function t(){history.back()}i(o,{children:(r,s)=>{p(r,{close:t})},$$slots:{default:!0}})}export{c as component};
