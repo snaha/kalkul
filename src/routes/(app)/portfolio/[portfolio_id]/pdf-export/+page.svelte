@@ -77,7 +77,6 @@
     {adjustWithInflation}
     birthDate={appStore.profile.birthDate}
     portfolioName={portfolio.name}
-    profileName={appStore.profile.name}
     {keyDates}
   />
 {/if}

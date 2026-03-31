@@ -19,7 +19,6 @@
     adjustWithInflation: boolean
     birthDate?: Date
     portfolioName: string
-    profileName?: string
     keyDates?: Date[]
   }
 

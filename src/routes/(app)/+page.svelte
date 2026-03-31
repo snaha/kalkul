@@ -37,7 +37,6 @@
     differenceInYears,
   } from 'date-fns'
   import type { Portfolio } from '$lib/types'
-  import { layoutStore } from '$lib/stores/layout.svelte'
   import EditProfile from '$lib/components/edit-profile.svelte'
   import Fullscreen from '$lib/components/fullscreen.svelte'
 
@@ -249,11 +248,9 @@
           <Button variant="ghost" dimension="compact" onclick={addPortfolio}
             >{$_('page.portfolio.addPortfolio')}</Button
           >
-          {#if !layoutStore.mobile}
-            <Button dimension="compact" variant="ghost" onclick={() => goto(routes.EDIT_PROFILE)}
-              ><Edit size={24} />{$_('page.home.editProfile')}</Button
-            >
-          {/if}
+          <Button dimension="compact" variant="ghost" onclick={() => goto(routes.EDIT_PROFILE)}
+            ><Edit size={24} />{$_('page.home.editProfile')}</Button
+          >
         </Horizontal>
       </MobileOnly>
     {/if}
