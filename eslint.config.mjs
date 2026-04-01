@@ -16,11 +16,30 @@ export default typescriptEslint.config(
       ecmaVersion: 2022,
       sourceType: 'module',
       globals: { ...globals.node, ...globals.browser },
+    },
+  },
+  {
+    files: ['**/*.svelte', '**/*.svelte.ts'],
+    languageOptions: {
       parser: svelteParser,
       parserOptions: {
         parser: typescriptEslint.parser,
         extraFileExtensions: ['.svelte'],
       },
+    },
+  },
+  {
+    files: ['src/lib/components/ui/**/*.svelte'],
+    rules: {
+      'svelte/valid-compile': 'off',
+    },
+  },
+  {
+    rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
     },
   },
   {

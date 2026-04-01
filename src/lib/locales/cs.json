@@ -1,13 +1,10 @@
 {
   "page": {
     "home": {
-      "allPortfolios": "Všechna portfolia",
-      "clearSearch": "Vymazat hledání",
-      "noPortfoliosYet": "Zatím žádné portfolio",
-      "createYourFirstPortfolio": "Vytvořte své první portfolio",
-      "editProfile": "Upravit profil",
-      "deletePortfolio": "Smazat portfolio?",
-      "deletePortfolioWarning": "Toto portfolio a všechny obsažené investice budou nenávratně smazány. Operaci nelze vrátit zpět."
+      "heroTitle": "Podívejte se, kam vás vaše peníze mohou dovést",
+      "heroDescription": "Kalkul vám pomůže plánovat s kompletním přehledem o vašich financích — a otestovat každé rozhodnutí, než ho uděláte.",
+      "heroAlt": "Osoba plánující finance",
+      "getStarted": "Začít"
     },
     "profile": {
       "editProfile": "Upravit profil",

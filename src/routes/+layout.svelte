@@ -1,8 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte'
-  import '../app.pcss'
+  import '../app.css'
   import { appStore } from '$lib/stores/app.svelte'
-  import StorageErrorBanner from '$lib/components/storage-error-banner.svelte'
 
   let { children } = $props()
 
@@ -18,5 +17,4 @@
   })
 </script>
 
-<StorageErrorBanner />
 {@render children()}

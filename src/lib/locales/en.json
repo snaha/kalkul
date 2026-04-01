@@ -1,13 +1,10 @@
 {
   "page": {
     "home": {
-      "allPortfolios": "All portfolios",
-      "clearSearch": "Clear search",
-      "noPortfoliosYet": "No portfolio yet",
-      "createYourFirstPortfolio": "Create your first portfolio",
-      "editProfile": "Edit profile",
-      "deletePortfolio": "Delete portfolio?",
-      "deletePortfolioWarning": "This portfolio and all the investments it contains will be deleted permanently. There's no undo."
+      "heroTitle": "See where your money could take you",
+      "heroDescription": "Kalkul helps you plan with your complete financial picture — and stress-test every decision before you make it.",
+      "heroAlt": "Person planning finances",
+      "getStarted": "Get started"
     },
     "profile": {
       "editProfile": "Edit profile",

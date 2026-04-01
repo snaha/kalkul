@@ -94,17 +94,6 @@ export const retirementGoalDataSchema = periodicWithdrawalGoalDataSchema.extend(
   type: z.literal('retirement'),
 })
 
-export const educationGoalDataSchema = periodicWithdrawalGoalDataSchema.extend({
-  type: z.literal('education'),
-  childName: z.string(),
-  name: z.string(),
-})
-
-export const goalDataSchema = z.discriminatedUnion('type', [
-  retirementGoalDataSchema,
-  educationGoalDataSchema,
-])
-
 // --- Derived types ---
 
 export type Profile = z.infer<typeof profileSchema>
@@ -116,11 +105,3 @@ export type PortfolioNested = z.infer<typeof portfolioNestedSchema>
 export type StoredData = z.infer<typeof storedDataSchema>
 export type PeriodicWithdrawalGoalData = z.infer<typeof periodicWithdrawalGoalDataSchema>
 export type RetirementGoalData = z.infer<typeof retirementGoalDataSchema>
-export type EducationGoalData = z.infer<typeof educationGoalDataSchema>
-export type GoalData = z.infer<typeof goalDataSchema>
-
-// --- Other schemas ---
-
-export const emailFormSchema = z.object({
-  email: z.string().email({ message: 'error.emailError' }),
-})
