@@ -13,7 +13,7 @@
     ageLabel: string
     agePlaceholder: string
     date: Date
-    birthDate: Date
+    birthDate?: Date
     onchange?: () => void
     ageDisabled?: boolean
   }
@@ -29,10 +29,10 @@
     ageDisabled = false,
   }: Props = $props()
 
-  let age = $state(formatAge(birthDate, date))
+  let age = $state(birthDate ? formatAge(birthDate, date) : '')
 
   function onAgeInput() {
-    if (!age) {
+    if (!age || !birthDate) {
       return
     }
     let ageNumber = parseInt(age, 10)
@@ -48,13 +48,14 @@
   }
 
   function checkAgeInput() {
+    if (!birthDate) return
     if (!age) {
-      age = formatAge(new Date(birthDate), new Date(date))
+      age = formatAge(birthDate, new Date(date))
       return
     }
     let ageNumber = parseInt(age, 10)
     if (Number.isNaN(ageNumber)) {
-      age = formatAge(new Date(birthDate), new Date(date))
+      age = formatAge(birthDate, new Date(date))
       return
     }
     if (ageNumber < 0) {
@@ -64,8 +65,8 @@
   }
 
   $effect(() => {
-    if (date || birthDate) {
-      const ageValue = formatAge(new Date(birthDate), new Date(date))
+    if (date && birthDate) {
+      const ageValue = formatAge(birthDate, new Date(date))
       let ageNumber = parseInt(ageValue, 10)
       if (ageNumber < 0) {
         age = Math.abs(ageNumber).toString()

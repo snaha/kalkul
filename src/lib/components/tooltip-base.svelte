@@ -6,7 +6,7 @@
     tooltipData: TooltipData[]
     tooltipPosition: { x: number; y: number }
     children?: Snippet
-    clientBirthDate?: Date
+    birthDate?: Date
     year: number
     adjustWithInflation: boolean
     disabled?: boolean
@@ -25,20 +25,20 @@
     tooltipData,
     tooltipPosition,
     children,
-    clientBirthDate,
+    birthDate,
     year,
     adjustWithInflation,
     disabled = false,
   }: TooltipGraphProps = $props()
 
-  function getClientAge(year: number, clientBirthDate?: Date): string | undefined {
-    if (!clientBirthDate) {
+  function getAge(year: number, birthDate?: Date): string | undefined {
+    if (!birthDate) {
       return
     }
 
-    // Calculate client age for that year
+    // Calculate age for that year
     const targetDate = new Date(year, 0, 1) // January 1st of the year
-    const age = formatAge(clientBirthDate, targetDate)
+    const age = formatAge(birthDate, targetDate)
 
     return `${$_('common.age')}: ${age}`
   }
@@ -59,11 +59,11 @@
           {/if}
         </Horizontal>
 
-        {#if getClientAge(year, clientBirthDate)}
+        {#if getAge(year, birthDate)}
           <Badge dimension="small" class="age-badge">
             <UserAvatarFilledAlt size={16} />
             <Typography variant="small" --typography-color="var(--colors-dark-ultra-high)">
-              {getClientAge(year, clientBirthDate)}</Typography
+              {getAge(year, birthDate)}</Typography
             >
           </Badge>
         {/if}

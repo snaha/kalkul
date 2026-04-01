@@ -6,7 +6,7 @@
   import Input from '$lib/components/ui/input/input.svelte'
   import FormattedNumberInput from '$lib/components/ui/input/formatted-number/input.svelte'
   import Typography from '$lib/components/ui/typography.svelte'
-  import type { Client, Portfolio } from '$lib/types'
+  import type { Profile, Portfolio } from '$lib/types'
   import Select from '$lib/components/ui/select/select.svelte'
   import Divider from '$lib/components/ui/divider.svelte'
   import Vertical from '$lib/components/ui/vertical.svelte'
@@ -17,7 +17,7 @@
   import type { PeriodicWithdrawalCalculationInput } from '$lib/@snaha/kalkul-calculators/periodic-withdrawal/periodic-withdrawal'
 
   type Props = {
-    client: Client
+    profile: Profile
     portfolio: Portfolio
     close: () => void
     onCalculate: (
@@ -44,7 +44,7 @@
     DEPOSIT_PERIOD: 'month' as const,
   }
 
-  // Calculate client's current age
+  // Calculate current age
   const today = new Date()
   let currentAge = $state(6)
   let educationStartDate = $state(calculateEducationStartDate(today))

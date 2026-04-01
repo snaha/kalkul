@@ -13,7 +13,7 @@
     investments: InvestmentWithColorIndex[]
     currency?: string
     currentYear?: string
-    clientBirthDate?: Date
+    birthDate?: Date
     adjustWithInflation: boolean
   }
 
@@ -42,7 +42,7 @@
     investments,
     currency = 'USD',
     currentYear = '',
-    clientBirthDate,
+    birthDate,
     adjustWithInflation,
   }: Props = $props()
 
@@ -201,7 +201,7 @@
   {currency}
   {doughnutData}
   year={parseInt(currentYear, 10)}
-  {clientBirthDate}
+  {birthDate}
   {adjustWithInflation}
 />
 

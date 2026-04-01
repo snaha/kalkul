@@ -37,7 +37,6 @@
   type Props = {
     investment: InvestmentWithColorIndex & InvestmentStore
     portfolio: PortfolioNested
-    clientId: string
     viewOnly?: boolean
     index: number
     showInflation?: boolean
@@ -50,7 +49,6 @@
   let {
     investment,
     portfolio,
-    clientId,
     viewOnly = false,
     index,
     showInflation = false,
@@ -78,7 +76,7 @@
   }
 
   function editInvestment() {
-    goto(routes.EDIT_INVESTMENT(clientId, portfolio.id, investment.id))
+    goto(routes.EDIT_INVESTMENT(portfolio.id, investment.id))
   }
 
   function deleteInvestment() {

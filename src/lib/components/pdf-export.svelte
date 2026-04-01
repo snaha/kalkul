@@ -17,16 +17,15 @@
   interface Props {
     graphValueData: GraphPortfolioValueType
     adjustWithInflation: boolean
-    clientBirthDate?: Date
+    birthDate?: Date
     portfolioName: string
-    clientName?: string
     keyDates?: Date[]
   }
 
   let {
     graphValueData,
     adjustWithInflation,
-    clientBirthDate,
+    birthDate,
     portfolioName,
     keyDates = [],
   }: Props = $props()
@@ -151,7 +150,7 @@
         </div>
 
         <div class="full-chart-container">
-          <GraphPortfolioValue {graphValueData} {adjustWithInflation} {clientBirthDate} />
+          <GraphPortfolioValue {graphValueData} {adjustWithInflation} {birthDate} />
         </div>
 
         <PdfExportFooter pageNumber={1} {totalPages} />
@@ -183,7 +182,7 @@
                         investments={graphValueData?.investments || []}
                         currency={graphValueData?.portfolio?.currency || 'USD'}
                         currentYear={breakdown.year}
-                        {clientBirthDate}
+                        {birthDate}
                         {adjustWithInflation}
                       />
                     </div>

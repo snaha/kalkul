@@ -1,6 +1,5 @@
 <script lang="ts">
   import type {
-    Client,
     InvestmentStore,
     TransactionStore,
     InvestmentWithColorIndex,
@@ -22,7 +21,6 @@
   import { DownToBottom, UpToTop } from 'carbon-icons-svelte'
 
   interface Props {
-    client: Client
     portfolio: PortfolioNested
     goals: InvestmentStore[]
     regularInvestments: InvestmentStore[]
@@ -33,13 +31,11 @@
     adjustWithInflation: boolean
     selectedTab: 'goals' | 'investments'
     transactionCount: number
-    clientId: string
     portfolioId: string
     parentContainer?: HTMLElement
   }
 
   let {
-    client,
     portfolio,
     goals,
     regularInvestments,
@@ -50,7 +46,6 @@
     adjustWithInflation,
     selectedTab = $bindable(),
     transactionCount,
-    clientId,
     portfolioId,
     parentContainer,
   }: Props = $props()
@@ -95,14 +90,13 @@
   }
 </script>
 
-{#if client && portfolio}
+{#if portfolio}
   <Vertical --vertical-gap="0" class="sidebar-tabs-container fixed-height">
     {#if selectedInvestment}
       <div class="scrollable dialog">
         <EditTransaction
           investment={selectedInvestment}
           {portfolio}
-          {client}
           transaction={editedTransaction}
           showInflation={adjustWithInflation}
           close={closeDialog}
@@ -167,7 +161,7 @@
             {graphData}
             {openTransaction}
             addGoal={() => {
-              goto(routes.NEW_GOAL(clientId, portfolioId))
+              goto(routes.NEW_GOAL(portfolioId))
             }}
             showExplainInvestmentsLabel={regularInvestments.length === 0}
             --sidebar-min-height="var(--portfolio-sidebar-min-height)"
@@ -178,7 +172,6 @@
             {isSidebarFlexible}
             bind:isSidebarOpen
             {portfolio}
-            {clientId}
             investments={regularInvestments}
             {transactionCount}
             {adjustWithInflation}
@@ -196,7 +189,7 @@
             variant="ghost"
             dimension="compact"
             onclick={() => {
-              goto(routes.NEW_GOAL(clientId, portfolioId))
+              goto(routes.NEW_GOAL(portfolioId))
             }}>{$_('page.portfolio.addGoal')}</Button
           >
         {:else if selectedTab === 'investments' && regularInvestments.length > 0}
@@ -205,7 +198,7 @@
             variant="ghost"
             dimension="compact"
             onclick={() => {
-              goto(routes.NEW_INVESTMENT(clientId, portfolioId))
+              goto(routes.NEW_INVESTMENT(portfolioId))
             }}>{$_('page.portfolio.addInvestment')}</Button
           >
         {/if}

@@ -23,7 +23,6 @@
     isSidebarOpen: boolean
     isSidebarFlexible: boolean
     portfolio: PortfolioNested
-    clientId: string
     investments: InvestmentStore[]
     transactionCount: number
     adjustWithInflation: boolean
@@ -37,7 +36,6 @@
     isSidebarOpen = $bindable(),
     isSidebarFlexible,
     portfolio,
-    clientId,
     investments,
     transactionCount,
     adjustWithInflation,
@@ -79,7 +77,7 @@
             ><Button
               variant="strong"
               dimension="compact"
-              onclick={() => goto(routes.NEW_INVESTMENT(clientId, portfolio.id))}
+              onclick={() => goto(routes.NEW_INVESTMENT(portfolio.id))}
               >{$_('page.portfolio.addInvestment')}</Button
             ></Horizontal
           >
@@ -91,7 +89,6 @@
       <InvestmentCard
         {investment}
         {portfolio}
-        {clientId}
         {viewOnly}
         index={i}
         showInflation={adjustWithInflation}

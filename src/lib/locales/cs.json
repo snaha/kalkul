@@ -1,34 +1,22 @@
 {
   "page": {
     "home": {
-      "allClients": "Všichni klienti",
+      "allPortfolios": "Všechna portfolia",
       "clearSearch": "Vymazat hledání",
-      "addClient": "Přidat klienta",
-      "noClientsYet": "Zatím žádní klienti",
-      "clientDelete": "Smazat klienta?",
-      "clientDeleteButton": "Smazat klienta",
-      "clientDeleteWarning": "Tento klient a všechna jeho portfolia budou nenávratně smazána. Operaci nelze vrátit zpět.",
-      "clientEdit": "Upravit klienta",
-      "createYourFirstClient": "Vytvořte první klientský profil a začněte",
-      "portfoliosView": "Zobrazit portfolia"
-    },
-    "client": {
-      "addClient": "Přidat klienta",
-      "editClient": "Upravit klienta",
-      "deleteClient": "Smazat klienta",
-      "createClient": "Vytvořit klienta",
-      "clientName": "Jméno klienta",
-      "clientDelete": "Smazat klienta?",
-      "clientEmailExplanation": "Tento e-mail bude použit pro sdílení portfolia s klientem.",
-      "clientDeleteExplanation": "Tento klient a všechna jeho portfolia budou nenávratně smazána. Operaci nelze vrátit zpět.",
       "noPortfoliosYet": "Zatím žádné portfolio",
       "createYourFirstPortfolio": "Vytvořte své první portfolio",
+      "editProfile": "Upravit profil",
       "deletePortfolio": "Smazat portfolio?",
       "deletePortfolioWarning": "Toto portfolio a všechny obsažené investice budou nenávratně smazány. Operaci nelze vrátit zpět."
     },
+    "profile": {
+      "editProfile": "Upravit profil",
+      "profileName": "Vaše jméno",
+      "profileEmailExplanation": "Tento e-mail bude použit pro sdílení portfolií."
+    },
     "retirement": {
       "title": "Důchod",
-      "clientAgeToday": "Současný věk klienta",
+      "ageToday": "Váš současný věk",
       "retirementAge": "Důchodový věk",
       "withdrawalStart": "Začátek důchodu",
       "withdrawalDuration": "Délka důchodu",
@@ -80,8 +68,7 @@
       "openPortfolio": "Otevřít portfolio",
       "editPortfolioDetails": "Upravit detaily portfolia",
       "duplicatePortfolio": "Duplikovat portfolio",
-      "deletePortfolio": "Smazat portfolio",
-      "editClient": "Upravit údaje klienta"
+      "deletePortfolio": "Smazat portfolio"
     },
     "goals": {
       "title": "Cíle",
@@ -232,7 +219,7 @@
       "noGoalsYetTitle": "Zatím žádné cíle",
       "noGoalsYetDescription": "Definujte hlavní finanční cíle a cílové částky. Cíle vám pomáhají soustředit se na celkový plán.",
       "noInvestmentsYetTitle": "Zatím žádné investice",
-      "noInvestmentsYetDescription": "Přidejte konkrétní investiční produkty a transakce, které tvoří portfolio vašeho klienta. Tip: propojte transakce s cíli a snadno porovnávejte postup vůči celkovému plánu."
+      "noInvestmentsYetDescription": "Přidejte konkrétní investiční produkty a transakce, které tvoří vaše portfolio. Tip: propojte transakce s cíli a snadno porovnávejte postup vůči celkovému plánu."
     }
   },
   "common": {
@@ -260,19 +247,18 @@
     "name": "Jméno",
     "birthDate": "Datum narození",
     "age": "Věk",
-    "portfolios": "Portfolia",
+
     "investments": "Investice",
     "year": "Rok",
     "week": "Týden",
     "month": "Měsíc",
     "day": "Den",
     "email": "E-mail",
-    "emailOptional": "E-mail klienta (volitelný)",
+    "emailOptional": "E-mail (volitelný)",
     "cancel": "Zrušit",
     "done": "Hotovo",
     "saveChanges": "Uložit změny",
     "addTransaction": "Přidat transakci",
-    "deleteClient": "Smazat klienta",
     "years": "let",
     "details": "Podrobnosti",
     "apy": "Roční výnosnost (p.a.)",
@@ -291,7 +277,6 @@
     "inflation": "Inflace",
     "startDate": "Datum začátku",
     "endDate": "Datum konce",
-    "clientAge": "Věk klienta",
     "type": "Typ",
     "deposit": "Vklad",
     "withdrawal": "Výběr",
@@ -325,12 +310,12 @@
     "totalFees": "Kumulativní poplatky do {date}",
     "totalInterestEarned": "Kumulativní výnos do {date}",
     "noTransactionYet": "Zatím žádné transakce",
-    "noClientYet": "Zatím žádní klienti",
+
     "noPortfolioYet": "Zatím žádné portfolio",
     "noInvestmentsYet": "Zatím žádné investice",
     "search": "Hledat",
     "period": "Období",
-    "avatar": "Avatar",
+
     "realValue": "Reálná hodnota",
     "nominalValue": "Nominální hodnota",
     "totalReal": "Celkem (reálná)",

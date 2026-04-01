@@ -13,7 +13,7 @@
     showDeposits: boolean
     showWithdrawals: boolean
     showFees: boolean
-    clientBirthDate?: Date
+    birthDate?: Date
     disableInteraction?: boolean
   }
 
@@ -24,7 +24,7 @@
     showDeposits,
     showWithdrawals,
     showFees,
-    clientBirthDate,
+    birthDate,
     disableInteraction = false,
   }: Props = $props()
 
@@ -309,6 +309,6 @@
       return parseInt(label, 10)
     }
   })()}
-  {clientBirthDate}
+  {birthDate}
   disabled={disableInteraction}
 />

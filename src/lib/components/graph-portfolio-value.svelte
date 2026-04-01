@@ -9,14 +9,14 @@
   interface Props {
     graphValueData: GraphPortfolioValue
     adjustWithInflation: boolean
-    clientBirthDate?: Date
+    birthDate?: Date
     disableInteraction?: boolean
   }
 
   let {
     graphValueData: graphValuesStore,
     adjustWithInflation,
-    clientBirthDate,
+    birthDate,
     disableInteraction = false,
   }: Props = $props()
 
@@ -259,6 +259,6 @@
       return parseInt(label, 10)
     }
   })()}
-  {clientBirthDate}
+  {birthDate}
   disabled={disableInteraction}
 />

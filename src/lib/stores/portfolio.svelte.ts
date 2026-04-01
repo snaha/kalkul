@@ -3,7 +3,7 @@ import type { Investment, InvestmentNested, Portfolio, PortfolioNested } from '$
 import type { InvestmentStore } from './investment.svelte'
 import { withInvestmentStore } from './investment.svelte'
 
-type ClientParent = {
+type AppParent = {
   persist(): void
   deletePortfolio(id: string): void
   duplicatePortfolio(newPortfolio: PortfolioNested): string | undefined
@@ -26,10 +26,7 @@ export type PortfolioStore = Omit<PortfolioNested, 'investments' | 'goals'> & {
   toJSON(): PortfolioNested
 }
 
-export function withPortfolioStore(
-  portfolio: PortfolioNested,
-  client: ClientParent,
-): PortfolioStore {
+export function withPortfolioStore(portfolio: PortfolioNested, app: AppParent): PortfolioStore {
   let id = $state(portfolio.id)
   let name = $state(portfolio.name)
   let currency = $state(portfolio.currency)
@@ -90,16 +87,16 @@ export function withPortfolioStore(
     },
 
     get hiddenIds() {
-      return client.hiddenIds
+      return app.hiddenIds
     },
 
     update(updates: Partial<Omit<Portfolio, 'id'>>) {
       Object.assign(this, updates)
-      client.persist()
+      app.persist()
     },
 
     delete() {
-      client.deletePortfolio(id)
+      app.deletePortfolio(id)
     },
 
     duplicate(): string | undefined {
@@ -119,7 +116,7 @@ export function withPortfolioStore(
         investments: deepCopyInvestments(invs),
         goals: deepCopyInvestments(gs),
       }
-      return client.duplicatePortfolio(newPortfolio)
+      return app.duplicatePortfolio(newPortfolio)
     },
 
     addInvestment(data: Omit<Investment, 'id'>) {
@@ -131,7 +128,7 @@ export function withPortfolioStore(
       }
       const enrichedInv = withInvestmentStore(newInvestment, this)
       investments.push(enrichedInv)
-      client.persist()
+      app.persist()
       return invId
     },
 
@@ -144,7 +141,7 @@ export function withPortfolioStore(
       }
       const enrichedGoal = withInvestmentStore(newGoal, this)
       goals.push(enrichedGoal)
-      client.persist()
+      app.persist()
       return goalId
     },
 
@@ -152,13 +149,13 @@ export function withPortfolioStore(
       let idx = investments.findIndex((i) => i.id === childId)
       if (idx !== -1) {
         investments.splice(idx, 1)
-        client.persist()
+        app.persist()
         return
       }
       idx = goals.findIndex((i) => i.id === childId)
       if (idx !== -1) {
         goals.splice(idx, 1)
-        client.persist()
+        app.persist()
       }
     },
 
@@ -170,7 +167,7 @@ export function withPortfolioStore(
       } else {
         investments.push(enrichedInv)
       }
-      client.persist()
+      app.persist()
       return newInv.id
     },
 
@@ -181,7 +178,7 @@ export function withPortfolioStore(
     },
 
     persist() {
-      client.persist()
+      app.persist()
     },
 
     toJSON(): PortfolioNested {
