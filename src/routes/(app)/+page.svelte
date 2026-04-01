@@ -80,8 +80,7 @@
     return getCurrentPortfolioValue(
       {
         filter: (id: string) =>
-          [...portfolio.investments, ...portfolio.goals].find((i) => i.id === id)?.transactions ??
-          [],
+          portfolio.investments.find((i) => i.id === id)?.transactions ?? [],
       },
       portfolio.investments,
     )
