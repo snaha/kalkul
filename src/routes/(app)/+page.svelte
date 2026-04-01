@@ -17,7 +17,7 @@
         {$_('page.home.heroDescription')}
       </p>
     </div>
-    <Button href={routes.SETUP}>
+    <Button href={routes.SETUP} size="lg">
       {$_('page.home.getStarted')}
       <ArrowRight class="size-4" />
     </Button>
