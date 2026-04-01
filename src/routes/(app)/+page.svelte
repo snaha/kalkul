@@ -79,8 +79,7 @@
     if (!portfolio) return 0
     return getCurrentPortfolioValue(
       {
-        filter: (id: string) =>
-          portfolio.investments.find((i) => i.id === id)?.transactions ?? [],
+        filter: (id: string) => portfolio.investments.find((i) => i.id === id)?.transactions ?? [],
       },
       portfolio.investments,
     )
