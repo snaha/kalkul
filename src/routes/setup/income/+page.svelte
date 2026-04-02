@@ -1,10 +1,19 @@
 <script lang="ts">
-  import { ArrowRight, ChevronsUpDown, EllipsisVertical, Plus, SquarePen } from '@lucide/svelte'
+  import {
+    ArrowRight,
+    ChevronsUpDown,
+    Copy,
+    EllipsisVertical,
+    Plus,
+    SquarePen,
+    Trash2,
+  } from '@lucide/svelte'
   import { goto } from '$app/navigation'
   import { _ } from 'svelte-i18n'
   import { Button } from '$lib/components/ui/button'
   import { Card, CardContent } from '$lib/components/ui/card'
   import { Checkbox } from '$lib/components/ui/checkbox'
+  import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import * as Select from '$lib/components/ui/select'
@@ -96,6 +105,24 @@
     income.editingName = false
   }
 
+  function duplicateIncome(income: IncomeUI) {
+    incomeCounter++
+    const idx = incomes.indexOf(income)
+    const copy: IncomeUI = {
+      ...income,
+      id: crypto.randomUUID(),
+      name: `${income.name} (copy)`,
+      editing: true,
+      editingName: false,
+    }
+    incomes.splice(idx + 1, 0, copy)
+  }
+
+  function deleteIncome(income: IncomeUI) {
+    const idx = incomes.indexOf(income)
+    if (idx !== -1) incomes.splice(idx, 1)
+  }
+
   let currencyLabel = $derived(appStore.profile.currency || 'EUR')
 
   function formatAmount(amount: string): string {
@@ -181,9 +208,29 @@
                     <SquarePen class="size-4" />
                   </Button>
                 {/if}
-                <Button variant="ghost" size="icon">
-                  <EllipsisVertical class="size-4" />
-                </Button>
+                <DropdownMenu.Root>
+                  <DropdownMenu.Trigger>
+                    {#snippet child({ props })}
+                      <Button variant="ghost" size="icon" {...props}>
+                        <EllipsisVertical class="size-4" />
+                      </Button>
+                    {/snippet}
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Content align="end">
+                    <DropdownMenu.Item onclick={() => duplicateIncome(income)}>
+                      <Copy class="size-4" />
+                      {$_('page.setup.income.duplicate')}
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Separator />
+                    <DropdownMenu.Item
+                      class="text-destructive"
+                      onclick={() => deleteIncome(income)}
+                    >
+                      <Trash2 class="size-4" />
+                      {$_('page.setup.income.delete')}
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Root>
               </div>
 
               <!-- Amount and Frequency row -->

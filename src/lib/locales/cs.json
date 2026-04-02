@@ -56,7 +56,9 @@
         "monthly": "Měsíčně",
         "yearly": "Ročně",
         "weekly": "Týdně",
-        "defaultName": "Příjem {index}"
+        "defaultName": "Příjem {index}",
+        "duplicate": "Duplikovat",
+        "delete": "Smazat"
       }
     }
   },

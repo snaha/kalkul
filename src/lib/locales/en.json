@@ -56,7 +56,9 @@
         "monthly": "Monthly",
         "yearly": "Yearly",
         "weekly": "Weekly",
-        "defaultName": "Income {index}"
+        "defaultName": "Income {index}",
+        "duplicate": "Duplicate",
+        "delete": "Delete"
       }
     }
   },
