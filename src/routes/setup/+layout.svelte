@@ -1,0 +1,60 @@
+<script lang="ts">
+  import { Moon, Sun, X } from '@lucide/svelte'
+  import { _ } from 'svelte-i18n'
+  import { Button } from '$lib/components/ui/button'
+  import { Progress } from '$lib/components/ui/progress'
+  import { page } from '$app/state'
+  import routes from '$lib/routes'
+
+  let { children } = $props()
+
+  let dark = $state(false)
+
+  function toggleDarkMode() {
+    dark = !dark
+    document.documentElement.classList.toggle('dark', dark)
+    localStorage.setItem('theme', dark ? 'dark' : 'light')
+  }
+
+  $effect(() => {
+    dark =
+      localStorage.getItem('theme') === 'dark' ||
+      (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    document.documentElement.classList.toggle('dark', dark)
+  })
+
+  const steps = ['/setup', '/setup/finances'] as const
+  const totalSteps = steps.length
+
+  let currentStepIndex = $derived.by(() => {
+    const pathname = page.url.pathname.replace(/\/$/, '')
+    const idx = steps.findIndex((s) => pathname.endsWith(s))
+    return Math.max(0, idx)
+  })
+
+  let progressValue = $derived(Math.round(((currentStepIndex + 1) / totalSteps) * 100))
+</script>
+
+<div class="flex min-h-screen flex-col bg-background">
+  <header class="flex items-center gap-4 overflow-clip p-8">
+    <div class="flex flex-1 items-center gap-4">
+      <span class="text-base font-medium text-foreground">
+        {$_('page.setup.title')}
+      </span>
+      <Progress value={progressValue} max={100} class="max-w-32" />
+    </div>
+    <Button variant="ghost" size="icon" onclick={toggleDarkMode}>
+      {#if dark}
+        <Sun class="size-4" />
+      {:else}
+        <Moon class="size-4" />
+      {/if}
+    </Button>
+    <Button variant="ghost" size="icon" href={routes.HOME}>
+      <X class="size-4" />
+    </Button>
+  </header>
+  <main class="flex flex-1 flex-col items-center p-8">
+    {@render children()}
+  </main>
+</div>

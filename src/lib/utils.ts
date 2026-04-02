@@ -6,3 +6,8 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export type WithElementRef<T, El extends HTMLElement = HTMLElement> = T & { ref?: El | null }
+
+export type WithoutChild<T> = T extends { child?: infer _C } ? Omit<T, 'child'> : T
+export type WithoutChildrenOrChild<T> = T extends { children?: infer _C; child?: infer _C2 }
+  ? Omit<T, 'children' | 'child'>
+  : T
