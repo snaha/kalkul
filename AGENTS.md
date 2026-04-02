@@ -98,37 +98,15 @@ See `README.md` for development commands, project structure, and conventions.
    - Route-specific components stay in route folders
    - Use composition over inheritance
 
-4. **Design System (Diete)**
+4. **UI Components (shadcn-svelte)**
 
-   - Uses **Diete** design system for UI components
-   - Design system components are located in `src/lib/components/ui/`
-   - Key components include: `Typography`, `Button`, `Input`, `Dropdown`, `List`, `Vertical`, `Horizontal`, etc.
-   - Full documentation available at https://diete.design
-   - Always prefer Diete components over custom HTML elements for consistency
-   - Use CSS custom properties (e.g., `--padding`, `--half-padding`, `--double-padding`) for spacing
-   - Follow Diete patterns for layout, typography, and interactions
-
-   **Important Layout Component Properties:**
-
-   - `Vertical` component uses `--vertical-gap` (NOT `--gap`)
-   - `Horizontal` component uses `--horizontal-gap` (NOT `--gap`)
-   - Example: `<Vertical --vertical-gap="var(--padding)">` and `<Horizontal --horizontal-gap="var(--half-padding)">`
-   - **Alignment properties**:
-     - `Vertical`: `--vertical-align-items` and `--vertical-justify-content`
-     - `Horizontal`: `--horizontal-align-items` and `--horizontal-justify-content`
-     - Example: `<Vertical --vertical-align-items="start">` and `<Horizontal --horizontal-align-items="center">`
-   - **Style properties**: CSS custom properties can be passed directly to components
-     - Example: `<Divider --divider-color="black" />` instead of `<Divider style="--divider-color: black;" />`
-
-   **Prefer Component Properties Over CSS:**
-
-   - Diete components provide properties to achieve visual and behavioral changes
-   - **Always use component properties first**, only resort to custom CSS if the property doesn't exist
-   - Examples:
-     - ✅ `<Typography font="mono">` instead of ❌ `<Typography class="monospace">` with custom CSS
-     - ✅ `<Typography variant="small">` instead of ❌ `<Typography style="font-size: 0.875rem;">`
-     - ✅ `<Button variant="ghost">` instead of ❌ `<Button class="ghost-button">` with custom CSS
-   - This ensures consistency with the design system and reduces custom CSS maintenance
+   - Uses **shadcn-svelte** for UI components (built on bits-ui + Tailwind CSS v4)
+   - UI components are located in `src/lib/components/ui/`
+   - Add new components via CLI: `pnpm dlx shadcn-svelte@next add <component>`
+   - Configuration in `components.json` at project root
+   - Always prefer shadcn-svelte components over custom HTML elements for consistency
+   - Use Tailwind CSS utility classes for styling and layout
+   - Use `cn()` utility from `$lib/utils` for conditional class merging
 
 ### Common Tasks
 

@@ -34,6 +34,29 @@
         "tangibleAssetsDescription": "Real estate, vehicles, and other assets (even if financed)",
         "liabilities": "Liabilities",
         "liabilitiesDescription": "Loans or other obligations (not linked to an asset above)"
+      },
+      "income": {
+        "title": "Incomes",
+        "description": "Salary, business income, and other regular earnings.",
+        "addIncome": "Add income",
+        "amount": "Amount",
+        "frequency": "Frequency",
+        "advancedOptions": "Advanced options",
+        "withholdTaxes": "Withhold taxes on this income",
+        "percentageToWithhold": "Percentage to withhold",
+        "start": "Start",
+        "end": "End",
+        "changeOverTime": "Change over time",
+        "immediately": "Immediately",
+        "startDescription": "Income will automatically start from the beginning of your plan",
+        "never": "Never",
+        "endDescription": "Income will automatically last for the entire period of your plan",
+        "none": "None",
+        "changeDescription": "Income amount will remain the same for the entire period of your plan",
+        "monthly": "Monthly",
+        "yearly": "Yearly",
+        "weekly": "Weekly",
+        "defaultName": "Income {index}"
       }
     }
   },

@@ -18,11 +18,11 @@
   )
 
   function handleContinue() {
-    goto(routes.HOME)
+    goto(routes.SETUP_INCOME)
   }
 
   function handleSkip() {
-    goto(routes.HOME)
+    goto(routes.SETUP_INCOME)
   }
 
   function handleBack() {

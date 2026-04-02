@@ -6,6 +6,8 @@ const routePrefix = `${base}${ROUTER === 'hash' ? '/#' : ''}`
 export default {
   HOME: `${routePrefix}/`,
   SETUP: `${routePrefix}/setup`,
+  SETUP_FINANCES: `${routePrefix}/setup/finances`,
+  SETUP_INCOME: `${routePrefix}/setup/income`,
   SETTINGS: `${routePrefix}/settings`,
   FINANCES: `${routePrefix}/finances`,
   FINANCES_CASH: `${routePrefix}/finances/cash`,

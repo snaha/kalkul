@@ -5,6 +5,7 @@ Financial portfolio management application built with SvelteKit and TypeScript.
 ## Tech Stack
 
 - **Frontend**: SvelteKit 2.16+ with Svelte 5 (runes)
+- **UI Components**: shadcn-svelte (bits-ui + Tailwind CSS v4)
 - **Language**: TypeScript (strict mode)
 - **Storage**: localStorage (local-first SPA)
 - **Testing**: Vitest (unit) + Playwright (component & e2e)
@@ -100,57 +101,50 @@ test('should format numbers correctly', async ({ mount }) => {
 
 ## State Management: Nested AppStore
 
-The application uses a single nested reactive store (`appStore`) that manages all domain data. Data is persisted to localStorage and enriched with CRUD methods at each level of the hierarchy.
+The application uses a single nested reactive store (`appStore`) that manages all domain data for a single user. Data is persisted to localStorage and enriched with CRUD methods at each level of the hierarchy.
 
 ### Data Hierarchy
 
 ```
 appStore
-└── clients: ClientStore[]
-    └── portfolios: PortfolioStore[]
-        ├── investments: InvestmentStore[]
-        │   └── transactions: TransactionStore[]
-        └── goals: InvestmentStore[]
-            └── transactions: TransactionStore[]
+├── profile: ProfileStore
+└── portfolios: PortfolioStore[]
+    ├── investments: InvestmentStore[]
+    │   └── transactions: TransactionStore[]
+    └── goals: InvestmentStore[]
+        └── transactions: TransactionStore[]
 ```
 
 Goals and investments share the same `InvestmentStore` type but are stored in separate arrays on each portfolio. Goals are distinguished by having `goal_data` populated.
 
 ### How Enrichment Works
 
-Raw data loaded from localStorage is plain JSON (`ClientNested[]`). The store "enriches" this data by wrapping it in plain object literals that expose CRUD methods and a `toJSON()` implementation. This means:
+Raw data loaded from localStorage is plain JSON. The store "enriches" this data by wrapping it in plain object literals that expose CRUD methods and a `toJSON()` implementation. This means:
 
 - `toJSON()` returns the underlying plain data, so `JSON.stringify()` stays safe for persistence
-- Child stores receive their parent (and the relevant array key) explicitly as arguments, so `delete()` and `duplicate()` can find and modify the parent's array directly
-- After any mutation, `persist()` saves to localStorage and the relevant store array (e.g. `clients`) is reassigned to trigger Svelte's `$state.raw` reactivity
+- Child stores receive their parent explicitly as arguments, so `delete()` and `duplicate()` can modify the parent's array directly
+- After any mutation, `persist()` saves to localStorage and the relevant store array is reassigned to trigger Svelte's `$state` reactivity
 
 ### AppStore Root
 
-| Method / Property    | Description                                   |
-| -------------------- | --------------------------------------------- |
-| `clients`            | Reactive array of all enriched clients        |
-| `loading`            | `true` until initial data load completes      |
-| `load()`             | Load from localStorage and enrich all objects |
-| `reset()`            | Clear all data, set loading to `true`         |
-| `findClient(id)`     | Find client by ID                             |
-| `addClient(data)`    | Add a new client, returns ID                  |
-| `exportBackup()`     | JSON string of all data                       |
-| `importBackup(json)` | Import and enrich from JSON string            |
-
-### ClientStore
-
-| Method               | Description                    |
-| -------------------- | ------------------------------ |
-| `update(updates)`    | Update name, email, birth_date |
-| `delete()`           | Remove client from store       |
-| `addPortfolio(data)` | Add portfolio, returns ID      |
+| Method / Property     | Description                                     |
+| --------------------- | ----------------------------------------------- |
+| `profile`             | Reactive user profile (name, email, birth_date) |
+| `portfolios`          | Reactive array of all enriched portfolios       |
+| `loading`             | `true` until initial data load completes        |
+| `load()`              | Load from localStorage and enrich all objects   |
+| `reset()`             | Clear all data, set loading to `true`           |
+| `updateProfile(data)` | Update user profile                             |
+| `addPortfolio(data)`  | Add a new portfolio, returns ID                 |
+| `exportBackup()`      | JSON string of all data                         |
+| `importBackup(json)`  | Import and enrich from JSON string              |
 
 ### PortfolioStore
 
 | Method                | Description                                                   |
 | --------------------- | ------------------------------------------------------------- |
 | `update(updates)`     | Update name, currency, dates, inflation_rate                  |
-| `delete()`            | Remove portfolio from parent client                           |
+| `delete()`            | Remove portfolio from store                                   |
 | `duplicate()`         | Deep copy with all investments/goals/transactions, returns ID |
 | `addInvestment(data)` | Add to investments array, returns ID                          |
 | `addGoal(data)`       | Add to goals array, returns ID                                |
@@ -179,9 +173,12 @@ Raw data loaded from localStorage is plain JSON (`ClientNested[]`). The store "e
 ### Usage Example
 
 ```typescript
-// Find and update
-const client = appStore.findClient(id)
-const portfolio = client?.portfolios.find((p) => p.id === portfolioId)
+// Update profile
+appStore.updateProfile({ name: 'John' })
+
+// Add and work with portfolios
+const portfolioId = appStore.addPortfolio({ name: 'Retirement', ... })
+const portfolio = appStore.portfolios.find((p) => p.id === portfolioId)
 portfolio?.update({ name: 'New Name' })
 
 // Add nested data

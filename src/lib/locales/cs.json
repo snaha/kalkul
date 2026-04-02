@@ -34,6 +34,29 @@
         "tangibleAssetsDescription": "Nemovitosti, vozidla a další majetek (i financovaný)",
         "liabilities": "Závazky",
         "liabilitiesDescription": "Půjčky nebo jiné závazky (nepropojené s majetkem výše)"
+      },
+      "income": {
+        "title": "Příjmy",
+        "description": "Plat, podnikatelské příjmy a další pravidelné výdělky.",
+        "addIncome": "Přidat příjem",
+        "amount": "Částka",
+        "frequency": "Frekvence",
+        "advancedOptions": "Pokročilé možnosti",
+        "withholdTaxes": "Srážet daně z tohoto příjmu",
+        "percentageToWithhold": "Procento ke srážce",
+        "start": "Začátek",
+        "end": "Konec",
+        "changeOverTime": "Změna v čase",
+        "immediately": "Okamžitě",
+        "startDescription": "Příjem automaticky začne od začátku vašeho plánu",
+        "never": "Nikdy",
+        "endDescription": "Příjem bude automaticky trvat po celou dobu vašeho plánu",
+        "none": "Žádná",
+        "changeDescription": "Výše příjmu zůstane stejná po celou dobu vašeho plánu",
+        "monthly": "Měsíčně",
+        "yearly": "Ročně",
+        "weekly": "Týdně",
+        "defaultName": "Příjem {index}"
       }
     }
   },

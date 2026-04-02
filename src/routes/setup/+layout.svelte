@@ -23,7 +23,7 @@
     document.documentElement.classList.toggle('dark', dark)
   })
 
-  const steps = ['/setup', '/setup/finances'] as const
+  const steps = ['/setup', '/setup/finances', '/setup/income'] as const
   const totalSteps = steps.length
 
   let currentStepIndex = $derived.by(() => {
