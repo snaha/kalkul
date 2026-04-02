@@ -14,10 +14,29 @@ export const jsonSchema: z.ZodType<Json> = z.lazy(() =>
   ]),
 )
 
+export const incomeSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  amount: z.number(),
+  frequency: z.string(),
+  withhold_taxes: z.boolean(),
+  tax_percentage: z.number().optional(),
+  start: z.string(),
+  end: z.string(),
+  change_over_time: z.string(),
+})
+
 export const profileSchema = z.object({
   name: z.string(),
   email: z.string(),
   birth_date: z.string().optional(),
+  location: z.string().optional(),
+  currency: z.string().optional(),
+  cash_amount: z.number().optional(),
+  has_investments: z.boolean().optional(),
+  has_tangible_assets: z.boolean().optional(),
+  has_liabilities: z.boolean().optional(),
+  incomes: z.array(incomeSchema).optional(),
 })
 
 export const portfolioSchema = z.object({
@@ -96,6 +115,7 @@ export const retirementGoalDataSchema = periodicWithdrawalGoalDataSchema.extend(
 
 // --- Derived types ---
 
+export type Income = z.infer<typeof incomeSchema>
 export type Profile = z.infer<typeof profileSchema>
 export type Portfolio = z.infer<typeof portfolioSchema>
 export type Investment = z.infer<typeof investmentSchema>

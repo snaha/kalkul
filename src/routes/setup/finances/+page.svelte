@@ -6,6 +6,7 @@
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import { Checkbox } from '$lib/components/ui/checkbox'
+  import { appStore } from '$lib/stores/app.svelte'
   import routes from '$lib/routes'
 
   let cashAmount = $state('')
@@ -13,11 +14,30 @@
   let hasTangibleAssets = $state(false)
   let hasLiabilities = $state(false)
 
+  $effect(() => {
+    const p = appStore.profile
+    if (p.cash_amount !== undefined && !cashAmount) cashAmount = String(p.cash_amount)
+    if (p.has_investments) hasInvestments = p.has_investments
+    if (p.has_tangible_assets) hasTangibleAssets = p.has_tangible_assets
+    if (p.has_liabilities) hasLiabilities = p.has_liabilities
+  })
+
   let canContinue = $derived(
     cashAmount.trim().length > 0 || hasInvestments || hasTangibleAssets || hasLiabilities,
   )
 
+  function saveData() {
+    const amount = Number(cashAmount)
+    appStore.updateProfile({
+      cash_amount: isNaN(amount) ? undefined : amount,
+      has_investments: hasInvestments,
+      has_tangible_assets: hasTangibleAssets,
+      has_liabilities: hasLiabilities,
+    })
+  }
+
   function handleContinue() {
+    saveData()
     goto(routes.SETUP_INCOME)
   }
 
@@ -47,7 +67,7 @@
       <span
         class="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-sm font-medium text-muted-foreground"
       >
-        EUR
+        {appStore.profile.currency || 'EUR'}
       </span>
     </div>
     <p class="text-sm text-muted-foreground">

@@ -9,17 +9,25 @@
   import { appStore } from '$lib/stores/app.svelte'
   import routes from '$lib/routes'
 
-  let name = $state(appStore.profile.name || '')
+  let name = $state('')
   let birthYear = $state('')
   let birthMonth = $state('')
   let location = $state('')
   let currency = $state('')
+  let initialized = $state(false)
 
   $effect(() => {
-    if (appStore.profile.birthDate) {
-      const date = appStore.profile.birthDate
-      birthYear = String(date.getFullYear())
-      birthMonth = String(date.getMonth())
+    const p = appStore.profile
+    if (!initialized && p.name) {
+      name = p.name
+      initialized = true
+    }
+    if (p.location && !location) location = p.location
+    if (p.currency && !currency) currency = p.currency
+    if (p.birthDate) {
+      const date = p.birthDate
+      if (!birthYear) birthYear = String(date.getFullYear())
+      if (!birthMonth) birthMonth = String(date.getMonth())
     }
   })
 
@@ -67,11 +75,16 @@
   let canContinue = $derived(name.trim().length > 0 && birthYear !== '' && birthMonth !== '')
 
   function handleContinue() {
-    appStore.profile.name = name.trim()
+    const updates: Record<string, string | undefined> = {
+      name: name.trim(),
+      location: location || undefined,
+      currency: currency || undefined,
+    }
     if (birthYear !== '' && birthMonth !== '') {
       const date = new Date(Number(birthYear), Number(birthMonth), 1)
-      appStore.profile.birth_date = date.toISOString().split('T')[0]
+      updates.birth_date = date.toISOString().split('T')[0]
     }
+    appStore.updateProfile(updates)
     goto(`${routes.SETUP}/finances`)
   }
 </script>

@@ -12,16 +12,45 @@ export type ProfileStore = Profile & {
   toJSON: () => Profile
 }
 
-function enrichProfile({ name, email, birth_date }: Profile): ProfileStore {
+function enrichProfile({
+  name,
+  email,
+  birth_date,
+  location,
+  currency,
+  cash_amount,
+  has_investments,
+  has_tangible_assets,
+  has_liabilities,
+  incomes,
+}: Profile): ProfileStore {
   return {
     name,
     email,
     birth_date,
+    location,
+    currency,
+    cash_amount,
+    has_investments,
+    has_tangible_assets,
+    has_liabilities,
+    incomes,
     get birthDate() {
       return birth_date ? new Date(birth_date) : undefined
     },
     toJSON(): Profile {
-      return { name, email, birth_date }
+      return {
+        name,
+        email,
+        birth_date,
+        location,
+        currency,
+        cash_amount,
+        has_investments,
+        has_tangible_assets,
+        has_liabilities,
+        incomes,
+      }
     },
   }
 }

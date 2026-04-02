@@ -10,9 +10,11 @@
   import * as Select from '$lib/components/ui/select'
   import { Separator } from '$lib/components/ui/separator'
   import { Switch } from '$lib/components/ui/switch'
+  import { appStore } from '$lib/stores/app.svelte'
+  import type { Income as IncomeData } from '$lib/schemas'
   import routes from '$lib/routes'
 
-  interface Income {
+  interface IncomeUI {
     id: string
     name: string
     amount: string
@@ -27,8 +29,35 @@
     editingName: boolean
   }
 
-  let incomes = $state<Income[]>([])
+  function storedToUI(stored: IncomeData[]): IncomeUI[] {
+    return stored.map((inc) => ({
+      id: inc.id,
+      name: inc.name,
+      amount: inc.amount > 0 ? String(inc.amount) : '',
+      frequency: inc.frequency,
+      showAdvanced: false,
+      withholdTaxes: inc.withhold_taxes,
+      taxPercentage: inc.tax_percentage !== undefined ? String(inc.tax_percentage) : '',
+      start: inc.start,
+      end: inc.end,
+      changeOverTime: inc.change_over_time,
+      editing: false,
+      editingName: false,
+    }))
+  }
+
+  let incomes = $state<IncomeUI[]>([])
   let incomeCounter = $state(0)
+  let loaded = $state(false)
+
+  $effect(() => {
+    const stored = appStore.profile.incomes
+    if (!loaded && stored && stored.length > 0) {
+      incomes = storedToUI(stored)
+      incomeCounter = incomes.length
+      loaded = true
+    }
+  })
 
   let canContinue = $derived(
     incomes.some((i) => i.amount.trim().length > 0 && Number(i.amount) > 0),
@@ -55,25 +84,45 @@
     })
   }
 
-  function toggleEditing(income: Income) {
+  function toggleEditing(income: IncomeUI) {
     income.editing = !income.editing
   }
 
-  function startEditingName(income: Income) {
+  function startEditingName(income: IncomeUI) {
     income.editingName = true
   }
 
-  function stopEditingName(income: Income) {
+  function stopEditingName(income: IncomeUI) {
     income.editingName = false
   }
+
+  let currencyLabel = $derived(appStore.profile.currency || 'EUR')
 
   function formatAmount(amount: string): string {
     const num = Number(amount)
     if (isNaN(num) || num === 0) return ''
-    return `+${num.toLocaleString()} EUR`
+    return `+${num.toLocaleString()} ${currencyLabel}`
+  }
+
+  function saveIncomes() {
+    const data: IncomeData[] = incomes
+      .filter((i) => i.name.trim().length > 0)
+      .map((i) => ({
+        id: i.id,
+        name: i.name,
+        amount: Number(i.amount) || 0,
+        frequency: i.frequency,
+        withhold_taxes: i.withholdTaxes,
+        tax_percentage: i.taxPercentage ? Number(i.taxPercentage) : undefined,
+        start: i.start,
+        end: i.end,
+        change_over_time: i.changeOverTime,
+      }))
+    appStore.updateProfile({ incomes: data })
   }
 
   function handleContinue() {
+    saveIncomes()
     goto(routes.HOME)
   }
 
@@ -153,7 +202,7 @@
                     <span
                       class="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-sm font-medium text-muted-foreground"
                     >
-                      EUR
+                      {currencyLabel}
                     </span>
                   </div>
                 </div>
