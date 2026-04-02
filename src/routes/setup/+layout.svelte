@@ -1,27 +1,13 @@
 <script lang="ts">
-  import { Moon, Sun, X } from '@lucide/svelte'
+  import { X } from '@lucide/svelte'
   import { _ } from 'svelte-i18n'
   import { Button } from '$lib/components/ui/button'
   import { Progress } from '$lib/components/ui/progress'
+  import ThemeSwitcher from '$lib/components/theme-switcher.svelte'
   import { page } from '$app/state'
   import routes from '$lib/routes'
 
   let { children } = $props()
-
-  let dark = $state(false)
-
-  function toggleDarkMode() {
-    dark = !dark
-    document.documentElement.classList.toggle('dark', dark)
-    localStorage.setItem('theme', dark ? 'dark' : 'light')
-  }
-
-  $effect(() => {
-    dark =
-      localStorage.getItem('theme') === 'dark' ||
-      (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)
-    document.documentElement.classList.toggle('dark', dark)
-  })
 
   const steps = ['/setup', '/setup/finances', '/setup/income'] as const
   const totalSteps = steps.length
@@ -43,13 +29,7 @@
       </span>
       <Progress value={progressValue} max={100} class="max-w-32" />
     </div>
-    <Button variant="ghost" size="icon" onclick={toggleDarkMode}>
-      {#if dark}
-        <Sun class="size-4" />
-      {:else}
-        <Moon class="size-4" />
-      {/if}
-    </Button>
+    <ThemeSwitcher />
     <Button variant="ghost" size="icon" href={routes.HOME}>
       <X class="size-4" />
     </Button>

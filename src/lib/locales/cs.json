@@ -71,5 +71,10 @@
       "other": "Jiné"
     },
     "currency": "Měna"
+  },
+  "theme": {
+    "light": "Světlý",
+    "dark": "Tmavý",
+    "system": "Systém"
   }
 }

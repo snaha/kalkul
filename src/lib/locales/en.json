@@ -71,5 +71,10 @@
       "other": "Other"
     },
     "currency": "Currency"
+  },
+  "theme": {
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
   }
 }
