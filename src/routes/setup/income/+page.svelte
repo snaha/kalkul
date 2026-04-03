@@ -9,6 +9,7 @@
     Trash2,
   } from '@lucide/svelte'
   import { goto } from '$app/navigation'
+  import { resolve } from '$app/paths'
   import { _ } from 'svelte-i18n'
   import { Button } from '$lib/components/ui/button'
   import { Card, CardContent } from '$lib/components/ui/card'
@@ -150,15 +151,15 @@
 
   function handleContinue() {
     saveIncomes()
-    goto(routes.HOME)
+    goto(resolve(routes.HOME))
   }
 
   function handleSkip() {
-    goto(routes.HOME)
+    goto(resolve(routes.HOME))
   }
 
   function handleBack() {
-    goto(routes.SETUP_FINANCES)
+    goto(resolve(routes.SETUP_FINANCES))
   }
 </script>
 

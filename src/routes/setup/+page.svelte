@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ArrowRight } from '@lucide/svelte'
   import { goto } from '$app/navigation'
+  import { resolve } from '$app/paths'
   import { _ } from 'svelte-i18n'
   import { Button } from '$lib/components/ui/button'
   import { Input } from '$lib/components/ui/input'
@@ -85,7 +86,7 @@
       updates.birth_date = date.toISOString().split('T')[0]
     }
     appStore.updateProfile(updates)
-    goto(`${routes.SETUP}/finances`)
+    goto(resolve(routes.SETUP_FINANCES))
   }
 </script>
 
@@ -121,7 +122,7 @@
             {/if}
           </Select.Trigger>
           <Select.Content>
-            {#each years as year}
+            {#each years as year (year)}
               <Select.Item value={year} label={year} />
             {/each}
           </Select.Content>
@@ -137,7 +138,7 @@
             {/if}
           </Select.Trigger>
           <Select.Content>
-            {#each months as month}
+            {#each months as month (month.value)}
               <Select.Item value={month.value} label={month.label} />
             {/each}
           </Select.Content>
@@ -157,7 +158,7 @@
             {/if}
           </Select.Trigger>
           <Select.Content>
-            {#each countries as country}
+            {#each countries as country (country.value)}
               <Select.Item value={country.value} label={country.label} />
             {/each}
           </Select.Content>
@@ -178,7 +179,7 @@
             {/if}
           </Select.Trigger>
           <Select.Content>
-            {#each currencies as cur}
+            {#each currencies as cur (cur.value)}
               <Select.Item value={cur.value} label={cur.label} />
             {/each}
           </Select.Content>

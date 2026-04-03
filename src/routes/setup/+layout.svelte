@@ -4,6 +4,7 @@
   import { Button } from '$lib/components/ui/button'
   import { Progress } from '$lib/components/ui/progress'
   import ThemeSwitcher from '$lib/components/theme-switcher.svelte'
+  import { resolve } from '$app/paths'
   import { page } from '$app/state'
   import routes from '$lib/routes'
 
@@ -30,7 +31,7 @@
       <Progress value={progressValue} max={100} class="max-w-32" />
     </div>
     <ThemeSwitcher />
-    <Button variant="ghost" size="icon" href={routes.HOME}>
+    <Button variant="ghost" size="icon" href={resolve(routes.HOME)}>
       <X class="size-4" />
     </Button>
   </header>

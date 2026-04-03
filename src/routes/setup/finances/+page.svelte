@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ArrowRight } from '@lucide/svelte'
   import { goto } from '$app/navigation'
+  import { resolve } from '$app/paths'
   import { _ } from 'svelte-i18n'
   import { Button } from '$lib/components/ui/button'
   import { Input } from '$lib/components/ui/input'
@@ -38,15 +39,15 @@
 
   function handleContinue() {
     saveData()
-    goto(routes.SETUP_INCOME)
+    goto(resolve(routes.SETUP_INCOME))
   }
 
   function handleSkip() {
-    goto(routes.SETUP_INCOME)
+    goto(resolve(routes.SETUP_INCOME))
   }
 
   function handleBack() {
-    goto(routes.SETUP)
+    goto(resolve(routes.SETUP))
   }
 </script>
 

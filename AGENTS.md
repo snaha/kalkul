@@ -100,6 +100,13 @@ See `README.md` for development commands, project structure, and conventions.
    - Use Tailwind CSS utility classes for styling and layout
    - Use `cn()` utility from `$lib/utils` for conditional class merging
 
+5. **Assets (images, SVGs)**
+   - Component-used assets live in `src/lib/assets/` and are imported as Vite modules
+   - This gives content-hashed filenames, build-time missing-file errors, and knip can detect unused assets
+   - ✅ `import logo from '$lib/assets/logo.svg'` then `<img src={logo} />`
+   - ❌ Placing component-used images in `static/` and referencing via `{base}/path`
+   - The `static/` folder is reserved for files that need fixed URLs: favicons, PWA icons, `manifest.json`, fonts
+
 ### Common Tasks
 
 1. **Adding a New Feature**
