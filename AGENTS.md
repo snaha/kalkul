@@ -13,19 +13,16 @@ See `README.md` for development commands, project structure, and conventions.
 **Kalkul** is a financial portfolio management application built as a local-first static SPA using localStorage for data persistence. Key areas to understand:
 
 1. **Financial Calculations** (`src/lib/@snaha/kalkul-maths/`)
-
    - Always use Decimal.js for monetary calculations
    - Never use native JavaScript numbers for financial data
    - Test extensively when modifying calculation logic
 
 2. **State Management** (`src/lib/stores/`)
-
    - Uses Svelte 5 runes (`.svelte.ts` files)
    - State is reactive and type-safe
    - Follow existing patterns when adding new stores
 
 3. **Internationalization (i18n)**
-
    - Uses `svelte-i18n` library for translations
    - Translation files in `src/lib/locales/` (currently `cs.json` and `en.json`)
    - Nested structure for organized translations (e.g., `page.account.settings`)
@@ -50,14 +47,12 @@ See `README.md` for development commands, project structure, and conventions.
    ```
 
    **Accessing current locale**: Use `$locale` directly instead of `get(locale)`
-
    - Example: `new Date().toLocaleDateString($locale ?? undefined)` instead of `new Date().toLocaleDateString(get(locale) || 'cs')`
    - This avoids unnecessary imports of `get` from `svelte/store` and is more reactive
 
 ### Important Patterns
 
 1. **Type Safety**
-
    - TypeScript strict mode is enabled
    - Always run `pnpm check` before committing
    - **CRITICAL: Never use `null` in your code** - always use `undefined` instead for optional/missing values
@@ -87,19 +82,16 @@ See `README.md` for development commands, project structure, and conventions.
   - ❌ `import { Server } from '@modelcontextprotocol/sdk/server/index.js'`
 
 2. **Testing Financial Logic**
-
    - Financial calculations must have unit tests
    - Use test files alongside source (`*.test.ts`)
    - Test edge cases with various decimal precisions
 
 3. **Component Architecture**
-
    - Components in `src/lib/components/` are reusable
    - Route-specific components stay in route folders
    - Use composition over inheritance
 
 4. **UI Components (shadcn-svelte)**
-
    - Uses **shadcn-svelte** for UI components (built on bits-ui + Tailwind CSS v4)
    - UI components are located in `src/lib/components/ui/`
    - Add new components via CLI: `pnpm dlx shadcn-svelte@next add <component>`
@@ -111,20 +103,17 @@ See `README.md` for development commands, project structure, and conventions.
 ### Common Tasks
 
 1. **Adding a New Feature**
-
    - Check existing patterns in similar features
    - Add tests for business logic
    - Use conventional commits
 
 2. **Modifying Financial Calculations**
-
    - Review existing tests in `@snaha/kalkul-maths`
    - Always use Decimal.js
    - Consider precision and rounding implications
    - Add comprehensive test coverage
 
 3. **Working with State**
-
    - Use existing stores when possible
    - Follow Svelte 5 runes patterns
    - Keep stores focused and single-purpose
@@ -142,14 +131,12 @@ See `README.md` for development commands, project structure, and conventions.
 **Kalkul uses a three-tier testing approach:**
 
 1. **Unit Tests** (`pnpm test:unit` - Vitest)
-
    - Financial calculations and business logic
    - Utilities and helper functions
    - Store/state management
    - Files: `*.test.ts`
 
 2. **Component Tests** (`pnpm test:ct` - Playwright)
-
    - UI component behavior and user interactions
    - Cross-browser compatibility (Chrome, Firefox, WebKit)
    - Real browser environment with actual rendering

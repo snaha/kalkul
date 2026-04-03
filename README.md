@@ -62,13 +62,11 @@ pnpm test:integration # Run e2e tests (Playwright)
 ### Test Types
 
 1. **Unit Tests** (`pnpm test:unit`) - Vitest
-
    - Business logic, utilities, and stores
    - Fast execution, no browser required
    - Files: `*.test.ts`
 
 2. **Component Tests** (`pnpm test:ct`) - Playwright Component Testing
-
    - Individual component behavior and user interactions
    - Real browser environment with cross-browser testing (Chrome, Firefox, Safari)
    - Files: `*.ct.spec.ts`

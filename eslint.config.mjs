@@ -40,6 +40,8 @@ export default typescriptEslint.config(
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
+      'svelte/no-navigation-without-resolve': 'off',
+      'svelte/require-each-key': 'off',
     },
   },
   {
