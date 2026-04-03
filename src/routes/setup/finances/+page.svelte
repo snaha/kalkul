@@ -1,14 +1,17 @@
 <script lang="ts">
+  import { _ } from 'svelte-i18n'
+
   import { ArrowRight } from '@lucide/svelte'
+
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
-  import { _ } from 'svelte-i18n'
+
   import { Button } from '$lib/components/ui/button'
+  import { Checkbox } from '$lib/components/ui/checkbox'
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
-  import { Checkbox } from '$lib/components/ui/checkbox'
-  import { appStore } from '$lib/stores/app.svelte'
   import routes from '$lib/routes'
+  import { appStore } from '$lib/stores/app.svelte'
 
   let cashAmount = $state('')
   let hasInvestments = $state(false)

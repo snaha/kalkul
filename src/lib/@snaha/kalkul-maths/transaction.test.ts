@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
 import {
-  calculateTotalAmount,
   calculateNumOccurrences,
+  calculateTotalAmount,
   calculateTotalDisplayAmount,
 } from './transaction'
 import type { Transaction, TransactionType } from './types'

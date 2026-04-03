@@ -1,8 +1,10 @@
 import { SvelteSet } from 'svelte/reactivity'
+
+import { type StoredData, storedDataSchema } from '$lib/schemas'
 import type { Portfolio, PortfolioNested, Profile } from '$lib/types'
+
 import type { PortfolioStore } from './portfolio.svelte'
 import { withPortfolioStore } from './portfolio.svelte'
-import { storedDataSchema, type StoredData } from '$lib/schemas'
 import { storageErrorStore } from './storage-error.svelte'
 
 const STORAGE_KEY = 'kalkul-data'

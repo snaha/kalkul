@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { getInvestmentValues } from './investment-calculations'
+
 import type { Investment } from '$lib/types'
-import type { TransactionMap, TransactionMapEntry } from './types'
+
 import { DAYS_PER_YEAR } from './constants'
+import { getInvestmentValues } from './investment-calculations'
+import type { TransactionMap, TransactionMapEntry } from './types'
 
 // Helper function to convert test data to new TransactionMap format
 function createTransactionMap(entries: Array<[string, number]>): TransactionMap {

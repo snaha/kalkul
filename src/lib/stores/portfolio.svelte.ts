@@ -1,5 +1,7 @@
 import type { SvelteSet } from 'svelte/reactivity'
+
 import type { Investment, InvestmentNested, Portfolio, PortfolioNested } from '$lib/types'
+
 import type { InvestmentStore } from './investment.svelte'
 import { withInvestmentStore } from './investment.svelte'
 

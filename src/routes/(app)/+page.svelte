@@ -1,8 +1,11 @@
 <script lang="ts">
-  import { ArrowRight } from '@lucide/svelte'
-  import { resolve } from '$app/paths'
-  import heroIllustration from '$lib/assets/hero-illustration.svg'
   import { _ } from 'svelte-i18n'
+
+  import { ArrowRight } from '@lucide/svelte'
+
+  import { resolve } from '$app/paths'
+
+  import heroIllustration from '$lib/assets/hero-illustration.svg'
   import { Button } from '$lib/components/ui/button'
   import routes from '$lib/routes'
 </script>

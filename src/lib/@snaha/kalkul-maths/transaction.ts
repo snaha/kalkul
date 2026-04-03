@@ -1,6 +1,6 @@
+import { calculateBothTerms, calculateInflationAdjustedAmount } from './calculation-utils'
+import { calculatePeriodDifference, formatDate, incrementDate } from './date'
 import type { Transaction } from './types'
-import { calculateInflationAdjustedAmount, calculateBothTerms } from './calculation-utils'
-import { formatDate, incrementDate, calculatePeriodDifference } from './date'
 
 export function calculateTotalAmount(
   transactions: Transaction[],

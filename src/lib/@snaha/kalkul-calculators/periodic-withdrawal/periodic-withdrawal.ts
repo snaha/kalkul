@@ -1,4 +1,5 @@
 import Decimal from 'decimal.js'
+
 import { DECIMAL_0, DECIMAL_1 } from '$lib/@snaha/kalkul-maths/constants'
 import type { PeriodicWithdrawalGoalData } from '$lib/types'
 

@@ -1,9 +1,11 @@
 <script lang="ts">
   import { EllipsisVertical } from '@lucide/svelte'
+
   import { resolve } from '$app/paths'
+
   import logo from '$lib/assets/logo.svg'
-  import { Button } from '$lib/components/ui/button'
   import ThemeSwitcher from '$lib/components/theme-switcher.svelte'
+  import { Button } from '$lib/components/ui/button'
   import routes from '$lib/routes'
 </script>
 

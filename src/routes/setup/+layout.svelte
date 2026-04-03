@@ -1,11 +1,14 @@
 <script lang="ts">
-  import { X } from '@lucide/svelte'
   import { _ } from 'svelte-i18n'
-  import { Button } from '$lib/components/ui/button'
-  import { Progress } from '$lib/components/ui/progress'
-  import ThemeSwitcher from '$lib/components/theme-switcher.svelte'
+
+  import { X } from '@lucide/svelte'
+
   import { resolve } from '$app/paths'
   import { page } from '$app/state'
+
+  import ThemeSwitcher from '$lib/components/theme-switcher.svelte'
+  import { Button } from '$lib/components/ui/button'
+  import { Progress } from '$lib/components/ui/progress'
   import routes from '$lib/routes'
 
   let { children } = $props()

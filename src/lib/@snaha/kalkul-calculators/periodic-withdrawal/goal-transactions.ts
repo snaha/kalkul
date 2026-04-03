@@ -1,5 +1,6 @@
-import type { PeriodicWithdrawalGoalData, Transaction } from '$lib/types'
 import { formatDate } from '$lib/@snaha/kalkul-maths'
+import type { PeriodicWithdrawalGoalData, Transaction } from '$lib/types'
+
 import { calculateRequiredDeposit, goalDataToCalculationInput } from './periodic-withdrawal'
 
 type TransactionLabels = {

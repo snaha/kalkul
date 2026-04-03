@@ -1,13 +1,13 @@
-import type { PortfolioNested } from '$lib/types'
 import type { GraphData } from '$lib/@snaha/kalkul-maths'
 import {
+  aggregateGraphData,
+  calculateDateRange,
+  generateGraphDateLabels,
   getGraphData,
   getSamplingPeriodCount,
-  generateGraphDateLabels,
-  aggregateGraphData,
   prepareInvestmentBaseData,
-  calculateDateRange,
 } from '$lib/@snaha/kalkul-maths'
+import type { PortfolioNested } from '$lib/types'
 
 export interface PortfolioSimulation {
   data: GraphData[]

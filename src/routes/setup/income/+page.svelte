@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { _ } from 'svelte-i18n'
+
   import {
     ArrowRight,
     ChevronsUpDown,
@@ -8,9 +10,10 @@
     SquarePen,
     Trash2,
   } from '@lucide/svelte'
+
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
-  import { _ } from 'svelte-i18n'
+
   import { Button } from '$lib/components/ui/button'
   import { Card, CardContent } from '$lib/components/ui/card'
   import { Checkbox } from '$lib/components/ui/checkbox'
@@ -20,9 +23,9 @@
   import * as Select from '$lib/components/ui/select'
   import { Separator } from '$lib/components/ui/separator'
   import { Switch } from '$lib/components/ui/switch'
-  import { appStore } from '$lib/stores/app.svelte'
-  import type { Income as IncomeData } from '$lib/schemas'
   import routes from '$lib/routes'
+  import type { Income as IncomeData } from '$lib/schemas'
+  import { appStore } from '$lib/stores/app.svelte'
 
   interface IncomeUI {
     id: string

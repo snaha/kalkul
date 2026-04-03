@@ -1,8 +1,7 @@
-<!-- prettier-ignore-file -->
 <!-- localization-test-file -->
 <!-- This file contains examples of hardcoded text that should be caught by check-locales -->
 
-<script>
+<script lang="ts">
   /* eslint-disable */
   // Code snippets that should NOT be caught
   let message = 'code'

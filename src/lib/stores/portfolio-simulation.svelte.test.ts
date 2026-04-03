@@ -1,7 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { withPortfolioSimulationStore } from './portfolio-simulation.svelte'
-import type { InvestmentNested, Portfolio, Transaction } from '$lib/types'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { getGraphDataForPortfolio } from '$lib/@snaha/kalkul-maths'
+import type { InvestmentNested, Portfolio, Transaction } from '$lib/types'
+
+import { withPortfolioSimulationStore } from './portfolio-simulation.svelte'
 
 describe('withPortfolioSimulationStore', () => {
   const mockPortfolio: Portfolio = {

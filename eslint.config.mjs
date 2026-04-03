@@ -1,8 +1,9 @@
+import svelteParser from 'svelte-eslint-parser'
+
 import js from '@eslint/js'
 import eslintConfigPrettier from 'eslint-config-prettier'
 import eslintPluginSvelte from 'eslint-plugin-svelte'
 import globals from 'globals'
-import svelteParser from 'svelte-eslint-parser'
 import typescriptEslint from 'typescript-eslint'
 
 export default typescriptEslint.config(

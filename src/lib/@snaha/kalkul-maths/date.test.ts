@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { formatDate, incrementDate, calculatePeriodDifference } from './date'
+
+import { calculatePeriodDifference, formatDate, incrementDate } from './date'
 
 describe('#formatDate', () => {
   it('formats a date to yyyy-MM-dd', () => {

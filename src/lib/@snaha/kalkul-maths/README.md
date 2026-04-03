@@ -30,9 +30,9 @@ pnpm add @snaha/kalkul-maths
 
 ```typescript
 import {
+  createTransactionMap,
   getCurrentInvestmentValue,
   getInvestmentValues,
-  createTransactionMap,
 } from '@snaha/kalkul-maths'
 
 // Create transaction data
@@ -101,7 +101,7 @@ const exitFee = calculateExitFee(500, 'percentage', 0.015)
 Handle various transaction types and recurring patterns.
 
 ```typescript
-import { createTransactionMap, calculateTotalAmount } from '@snaha/kalkul-maths'
+import { calculateTotalAmount, createTransactionMap } from '@snaha/kalkul-maths'
 
 const transactions = [
   {
@@ -186,7 +186,7 @@ interface Transaction {
 ### Basic Investment Calculation
 
 ```typescript
-import { getCurrentInvestmentValue, getBaseData } from '@snaha/kalkul-maths'
+import { getBaseData, getCurrentInvestmentValue } from '@snaha/kalkul-maths'
 
 const transactions = [
   {
@@ -335,12 +335,12 @@ The library is written in TypeScript and provides full type definitions:
 
 ```typescript
 import type {
-  Investment,
-  Transaction,
-  TransactionMap,
-  InvestmentData,
   FeeBreakdown,
   GraphData,
+  Investment,
+  InvestmentData,
+  Transaction,
+  TransactionMap,
 } from '@snaha/kalkul-maths'
 ```
 

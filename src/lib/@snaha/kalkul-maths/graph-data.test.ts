@@ -1,7 +1,9 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
+import type { Investment, InvestmentNested, Portfolio, Transaction } from '$lib/types'
+
 import { getCumulativeValues, getGraphData, getGraphDataForPortfolio } from './graph-data'
 import { getBaseData } from './investment-calculations'
-import type { Investment, InvestmentNested, Portfolio, Transaction } from '$lib/types'
 import type { GraphData } from './types'
 
 describe('getCumulativeValues', () => {

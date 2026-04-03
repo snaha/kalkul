@@ -1,7 +1,9 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte'
-  import '../app.css'
+  import { onDestroy, onMount } from 'svelte'
+
   import { appStore } from '$lib/stores/app.svelte'
+
+  import '../app.css'
 
   let { children } = $props()
 

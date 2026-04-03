@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { createTransactionMap, addTransaction, addSingleEvent } from './transaction-map'
+
+import { addSingleEvent, addTransaction, createTransactionMap } from './transaction-map'
 import type { Transaction } from './types'
 
 describe('#createTransactionMap', () => {

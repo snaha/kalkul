@@ -1,15 +1,16 @@
-import type { Period } from './types'
 import {
   addDays,
   addMonths,
   addWeeks,
   addYears,
+  formatDate as dfnsFormatDate,
   differenceInDays,
   differenceInMonths,
   differenceInWeeks,
   differenceInYears,
-  formatDate as dfnsFormatDate,
 } from 'date-fns'
+
+import type { Period } from './types'
 
 export function formatDate(date: Date): string {
   return dfnsFormatDate(date, 'yyyy-MM-dd')
