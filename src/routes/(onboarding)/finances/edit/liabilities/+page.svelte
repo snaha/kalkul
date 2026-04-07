@@ -1,21 +1,14 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import { ArrowRight, ChevronsUpDown, EllipsisVertical, Plus, SquarePen } from '@lucide/svelte'
+  import { ArrowRight, Plus } from '@lucide/svelte'
 
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
 
+  import EditableItemCard from '$lib/components/editable-item-card.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
-  import { Card, CardContent } from '$lib/components/ui/card'
-  import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-  } from '$lib/components/ui/dropdown-menu'
-  import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select'
   import { Switch } from '$lib/components/ui/switch'
@@ -157,154 +150,103 @@
 
   <div class="flex w-full flex-col gap-4">
     {#each liabilities as liability (liability.id)}
-      <Card>
-        <CardContent class="flex flex-col gap-4 p-4">
-          <div class="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onclick={() => {
-                liability.editing = !liability.editing
+      <EditableItemCard
+        item={liability}
+        collapsedValue={formatBalance(liability.outstandingBalance)}
+        colorDot="bg-chart-1"
+        onToggleEditing={() => {
+          liability.editing = !liability.editing
+        }}
+        onDuplicate={() => duplicateLiability(liability)}
+        onDelete={() => deleteLiability(liability)}
+        onStartEditingName={() => {
+          liability.editingName = true
+        }}
+        onStopEditingName={() => {
+          liability.editingName = false
+        }}
+      >
+        {#snippet expandedContent()}
+          <div class="flex flex-col gap-2">
+            <Label>{$_('page.setup.liabilities.outstandingBalance')}</Label>
+            <SuffixedInput
+              value={liability.outstandingBalance}
+              suffix={currencyLabel}
+              oninput={(e) => {
+                liability.outstandingBalance = (e.currentTarget as HTMLInputElement).value
               }}
-            >
-              <ChevronsUpDown class="size-4" />
-            </Button>
-            <div class="size-4 shrink-0 rounded-xs bg-chart-1"></div>
-
-            {#if liability.editingName}
-              <Input
-                class="h-8 flex-1"
-                value={liability.name}
-                oninput={(e) => {
-                  liability.name = (e.currentTarget as HTMLInputElement).value
-                }}
-                onblur={() => {
-                  liability.editingName = false
-                }}
-                onkeydown={(e) => {
-                  if (e.key === 'Enter') liability.editingName = false
-                }}
-              />
-            {:else}
-              <span class="flex-1 truncate text-base font-medium">{liability.name}</span>
-            {/if}
-
-            {#if liability.editing}
-              <Button
-                variant="ghost"
-                size="icon"
-                onclick={() => {
-                  liability.editingName = true
-                }}
-              >
-                <SquarePen class="size-4" />
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger>
-                  {#snippet child({ props })}
-                    <Button variant="ghost" size="icon" {...props}>
-                      <EllipsisVertical class="size-4" />
-                    </Button>
-                  {/snippet}
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onclick={() => duplicateLiability(liability)}>
-                    {$_('page.setup.common.duplicate')}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onclick={() => deleteLiability(liability)}>
-                    {$_('page.setup.common.delete')}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            {:else}
-              <span class="shrink-0 text-sm text-foreground">
-                {formatBalance(liability.outstandingBalance)}
-              </span>
-            {/if}
+            />
           </div>
 
-          {#if liability.editing}
-            <div class="flex flex-col gap-2">
-              <Label>{$_('page.setup.liabilities.outstandingBalance')}</Label>
+          <div class="flex items-center gap-2">
+            <div class="flex flex-1 flex-col gap-2">
+              <Label>{$_('page.setup.liabilities.installmentFrequency')}</Label>
+              <Select
+                type="single"
+                value={liability.installmentFrequency}
+                onValueChange={(v) => {
+                  liability.installmentFrequency = v
+                }}
+              >
+                <SelectTrigger class="h-8">
+                  {liability.installmentFrequency === 'yearly'
+                    ? $_('page.setup.common.yearly')
+                    : liability.installmentFrequency === 'weekly'
+                      ? $_('page.setup.common.weekly')
+                      : $_('page.setup.common.monthly')}
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="monthly">{$_('page.setup.common.monthly')}</SelectItem>
+                  <SelectItem value="yearly">{$_('page.setup.common.yearly')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div class="flex flex-1 flex-col gap-2">
+              <Label>{$_('page.setup.liabilities.annualRate')}</Label>
               <SuffixedInput
-                value={liability.outstandingBalance}
+                value={liability.annualRate}
+                suffix="%"
+                oninput={(e) => {
+                  liability.annualRate = (e.currentTarget as HTMLInputElement).value
+                }}
+              />
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <div class="flex flex-1 flex-col gap-2">
+              <Label>{$_('page.setup.liabilities.installmentAmount')}</Label>
+              <SuffixedInput
+                value={liability.installmentAmount}
                 suffix={currencyLabel}
                 oninput={(e) => {
-                  liability.outstandingBalance = (e.currentTarget as HTMLInputElement).value
+                  liability.installmentAmount = (e.currentTarget as HTMLInputElement).value
                 }}
               />
             </div>
-
-            <div class="flex items-center gap-2">
-              <div class="flex flex-1 flex-col gap-2">
-                <Label>{$_('page.setup.liabilities.installmentFrequency')}</Label>
-                <Select
-                  type="single"
-                  value={liability.installmentFrequency}
-                  onValueChange={(v) => {
-                    liability.installmentFrequency = v
-                  }}
-                >
-                  <SelectTrigger class="h-8">
-                    {liability.installmentFrequency === 'yearly'
-                      ? $_('page.setup.common.yearly')
-                      : liability.installmentFrequency === 'weekly'
-                        ? $_('page.setup.common.weekly')
-                        : $_('page.setup.common.monthly')}
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="monthly">{$_('page.setup.common.monthly')}</SelectItem>
-                    <SelectItem value="yearly">{$_('page.setup.common.yearly')}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div class="flex flex-1 flex-col gap-2">
-                <Label>{$_('page.setup.liabilities.annualRate')}</Label>
-                <SuffixedInput
-                  value={liability.annualRate}
-                  suffix="%"
-                  oninput={(e) => {
-                    liability.annualRate = (e.currentTarget as HTMLInputElement).value
-                  }}
-                />
-              </div>
-            </div>
-
-            <div class="flex items-center gap-2">
-              <div class="flex flex-1 flex-col gap-2">
-                <Label>{$_('page.setup.liabilities.installmentAmount')}</Label>
-                <SuffixedInput
-                  value={liability.installmentAmount}
-                  suffix={currencyLabel}
-                  oninput={(e) => {
-                    liability.installmentAmount = (e.currentTarget as HTMLInputElement).value
-                  }}
-                />
-              </div>
-              <div class="flex flex-1 flex-col gap-2">
-                <Label>{$_('page.setup.liabilities.remainingTerm')}</Label>
-                <SuffixedInput
-                  value={liability.remainingTerm}
-                  suffix={$_('page.setup.liabilities.years')}
-                  oninput={(e) => {
-                    liability.remainingTerm = (e.currentTarget as HTMLInputElement).value
-                  }}
-                />
-              </div>
-            </div>
-
-            <div class="flex items-center gap-2">
-              <Switch
-                checked={liability.showAdvanced}
-                onCheckedChange={(v) => {
-                  liability.showAdvanced = v === true
+            <div class="flex flex-1 flex-col gap-2">
+              <Label>{$_('page.setup.liabilities.remainingTerm')}</Label>
+              <SuffixedInput
+                value={liability.remainingTerm}
+                suffix={$_('page.setup.liabilities.years')}
+                oninput={(e) => {
+                  liability.remainingTerm = (e.currentTarget as HTMLInputElement).value
                 }}
               />
-              <span class="text-sm font-medium">{$_('page.setup.common.advancedOptions')}</span>
             </div>
-          {/if}
-        </CardContent>
-      </Card>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <Switch
+              checked={liability.showAdvanced}
+              onCheckedChange={(v) => {
+                liability.showAdvanced = v === true
+              }}
+            />
+            <span class="text-sm font-medium">{$_('page.setup.common.advancedOptions')}</span>
+          </div>
+        {/snippet}
+      </EditableItemCard>
     {/each}
 
     <div>

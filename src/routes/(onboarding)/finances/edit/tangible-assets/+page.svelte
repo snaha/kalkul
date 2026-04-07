@@ -1,21 +1,14 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import { ArrowRight, ChevronsUpDown, EllipsisVertical, Plus, SquarePen } from '@lucide/svelte'
+  import { ArrowRight, Plus } from '@lucide/svelte'
 
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
 
+  import EditableItemCard from '$lib/components/editable-item-card.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
-  import { Card, CardContent } from '$lib/components/ui/card'
-  import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-  } from '$lib/components/ui/dropdown-menu'
-  import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select'
   import { Switch } from '$lib/components/ui/switch'
@@ -172,189 +165,140 @@
 
   <div class="flex w-full flex-col gap-4">
     {#each assets as asset (asset.id)}
-      <Card>
-        <CardContent class="flex flex-col gap-4 p-4">
+      <EditableItemCard
+        item={asset}
+        collapsedValue={formatValue(asset.value)}
+        colorDot="bg-chart-3"
+        onToggleEditing={() => {
+          asset.editing = !asset.editing
+        }}
+        onDuplicate={() => duplicateAsset(asset)}
+        onDelete={() => deleteAsset(asset)}
+        onStartEditingName={() => {
+          asset.editingName = true
+        }}
+        onStopEditingName={() => {
+          asset.editingName = false
+        }}
+      >
+        {#snippet expandedContent()}
           <div class="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onclick={() => {
-                asset.editing = !asset.editing
-              }}
-            >
-              <ChevronsUpDown class="size-4" />
-            </Button>
-            <div class="size-4 shrink-0 rounded-xs bg-chart-3"></div>
-
-            {#if asset.editingName}
-              <Input
-                class="h-8 flex-1"
-                value={asset.name}
+            <div class="flex flex-1 flex-col gap-2">
+              <Label>{$_('page.setup.tangibleAssets.currentValue')}</Label>
+              <SuffixedInput
+                value={asset.value}
+                suffix={currencyLabel}
                 oninput={(e) => {
-                  asset.name = (e.currentTarget as HTMLInputElement).value
-                }}
-                onblur={() => {
-                  asset.editingName = false
-                }}
-                onkeydown={(e) => {
-                  if (e.key === 'Enter') asset.editingName = false
+                  asset.value = (e.currentTarget as HTMLInputElement).value
                 }}
               />
-            {:else}
-              <span class="flex-1 truncate text-base font-medium">{asset.name}</span>
-            {/if}
-
-            {#if asset.editing}
-              <Button
-                variant="ghost"
-                size="icon"
-                onclick={() => {
-                  asset.editingName = true
+            </div>
+            <div class="flex flex-1 flex-col gap-2">
+              <Label>{$_('page.setup.tangibleAssets.status')}</Label>
+              <Select
+                type="single"
+                value={asset.status}
+                onValueChange={(v) => {
+                  asset.status = v
                 }}
               >
-                <SquarePen class="size-4" />
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger>
-                  {#snippet child({ props })}
-                    <Button variant="ghost" size="icon" {...props}>
-                      <EllipsisVertical class="size-4" />
-                    </Button>
-                  {/snippet}
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onclick={() => duplicateAsset(asset)}>
-                    {$_('page.setup.common.duplicate')}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onclick={() => deleteAsset(asset)}>
-                    {$_('page.setup.common.delete')}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            {:else}
-              <span class="shrink-0 text-sm text-foreground">{formatValue(asset.value)}</span>
-            {/if}
+                <SelectTrigger class="h-8">
+                  {asset.status === 'financed'
+                    ? $_('page.setup.tangibleAssets.financed')
+                    : $_('page.setup.tangibleAssets.fullyOwned')}
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fully_owned">
+                    {$_('page.setup.tangibleAssets.fullyOwned')}
+                  </SelectItem>
+                  <SelectItem value="financed">
+                    {$_('page.setup.tangibleAssets.financed')}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          {#if asset.editing}
+          {#if asset.status === 'financed'}
+            <div class="flex flex-col gap-2">
+              <Label>{$_('page.setup.tangibleAssets.outstandingBalance')}</Label>
+              <SuffixedInput
+                value={asset.outstandingBalance}
+                suffix={currencyLabel}
+                oninput={(e) => {
+                  asset.outstandingBalance = (e.currentTarget as HTMLInputElement).value
+                }}
+              />
+            </div>
             <div class="flex items-center gap-2">
               <div class="flex flex-1 flex-col gap-2">
-                <Label>{$_('page.setup.tangibleAssets.currentValue')}</Label>
-                <SuffixedInput
-                  value={asset.value}
-                  suffix={currencyLabel}
-                  oninput={(e) => {
-                    asset.value = (e.currentTarget as HTMLInputElement).value
-                  }}
-                />
-              </div>
-              <div class="flex flex-1 flex-col gap-2">
-                <Label>{$_('page.setup.tangibleAssets.status')}</Label>
+                <Label>{$_('page.setup.tangibleAssets.installmentFrequency')}</Label>
                 <Select
                   type="single"
-                  value={asset.status}
+                  value={asset.installmentFrequency}
                   onValueChange={(v) => {
-                    asset.status = v
+                    asset.installmentFrequency = v
                   }}
                 >
                   <SelectTrigger class="h-8">
-                    {asset.status === 'financed'
-                      ? $_('page.setup.tangibleAssets.financed')
-                      : $_('page.setup.tangibleAssets.fullyOwned')}
+                    {asset.installmentFrequency === 'yearly'
+                      ? $_('page.setup.common.yearly')
+                      : asset.installmentFrequency === 'weekly'
+                        ? $_('page.setup.common.weekly')
+                        : $_('page.setup.common.monthly')}
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="fully_owned">
-                      {$_('page.setup.tangibleAssets.fullyOwned')}
-                    </SelectItem>
-                    <SelectItem value="financed">
-                      {$_('page.setup.tangibleAssets.financed')}
-                    </SelectItem>
+                    <SelectItem value="monthly">{$_('page.setup.common.monthly')}</SelectItem>
+                    <SelectItem value="yearly">{$_('page.setup.common.yearly')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-
-            {#if asset.status === 'financed'}
-              <div class="flex flex-col gap-2">
-                <Label>{$_('page.setup.tangibleAssets.outstandingBalance')}</Label>
+              <div class="flex flex-1 flex-col gap-2">
+                <Label>{$_('page.setup.tangibleAssets.annualRate')}</Label>
                 <SuffixedInput
-                  value={asset.outstandingBalance}
-                  suffix={currencyLabel}
+                  value={asset.annualRate}
+                  suffix="%"
                   oninput={(e) => {
-                    asset.outstandingBalance = (e.currentTarget as HTMLInputElement).value
+                    asset.annualRate = (e.currentTarget as HTMLInputElement).value
                   }}
                 />
               </div>
-              <div class="flex items-center gap-2">
-                <div class="flex flex-1 flex-col gap-2">
-                  <Label>{$_('page.setup.tangibleAssets.installmentFrequency')}</Label>
-                  <Select
-                    type="single"
-                    value={asset.installmentFrequency}
-                    onValueChange={(v) => {
-                      asset.installmentFrequency = v
-                    }}
-                  >
-                    <SelectTrigger class="h-8">
-                      {asset.installmentFrequency === 'yearly'
-                        ? $_('page.setup.common.yearly')
-                        : asset.installmentFrequency === 'weekly'
-                          ? $_('page.setup.common.weekly')
-                          : $_('page.setup.common.monthly')}
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="monthly">{$_('page.setup.common.monthly')}</SelectItem>
-                      <SelectItem value="yearly">{$_('page.setup.common.yearly')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div class="flex flex-1 flex-col gap-2">
-                  <Label>{$_('page.setup.tangibleAssets.annualRate')}</Label>
-                  <SuffixedInput
-                    value={asset.annualRate}
-                    suffix="%"
-                    oninput={(e) => {
-                      asset.annualRate = (e.currentTarget as HTMLInputElement).value
-                    }}
-                  />
-                </div>
-              </div>
-              <div class="flex items-center gap-2">
-                <div class="flex flex-1 flex-col gap-2">
-                  <Label>{$_('page.setup.tangibleAssets.installmentAmount')}</Label>
-                  <SuffixedInput
-                    value={asset.installmentAmount}
-                    suffix={currencyLabel}
-                    oninput={(e) => {
-                      asset.installmentAmount = (e.currentTarget as HTMLInputElement).value
-                    }}
-                  />
-                </div>
-                <div class="flex flex-1 flex-col gap-2">
-                  <Label>{$_('page.setup.tangibleAssets.remainingTerm')}</Label>
-                  <SuffixedInput
-                    value={asset.remainingTerm}
-                    suffix={$_('page.setup.tangibleAssets.years')}
-                    oninput={(e) => {
-                      asset.remainingTerm = (e.currentTarget as HTMLInputElement).value
-                    }}
-                  />
-                </div>
-              </div>
-            {/if}
-
+            </div>
             <div class="flex items-center gap-2">
-              <Switch
-                checked={asset.showAdvanced}
-                onCheckedChange={(v) => {
-                  asset.showAdvanced = v === true
-                }}
-              />
-              <span class="text-sm font-medium">{$_('page.setup.common.advancedOptions')}</span>
+              <div class="flex flex-1 flex-col gap-2">
+                <Label>{$_('page.setup.tangibleAssets.installmentAmount')}</Label>
+                <SuffixedInput
+                  value={asset.installmentAmount}
+                  suffix={currencyLabel}
+                  oninput={(e) => {
+                    asset.installmentAmount = (e.currentTarget as HTMLInputElement).value
+                  }}
+                />
+              </div>
+              <div class="flex flex-1 flex-col gap-2">
+                <Label>{$_('page.setup.tangibleAssets.remainingTerm')}</Label>
+                <SuffixedInput
+                  value={asset.remainingTerm}
+                  suffix={$_('page.setup.tangibleAssets.years')}
+                  oninput={(e) => {
+                    asset.remainingTerm = (e.currentTarget as HTMLInputElement).value
+                  }}
+                />
+              </div>
             </div>
           {/if}
-        </CardContent>
-      </Card>
+
+          <div class="flex items-center gap-2">
+            <Switch
+              checked={asset.showAdvanced}
+              onCheckedChange={(v) => {
+                asset.showAdvanced = v === true
+              }}
+            />
+            <span class="text-sm font-medium">{$_('page.setup.common.advancedOptions')}</span>
+          </div>
+        {/snippet}
+      </EditableItemCard>
     {/each}
 
     <div>

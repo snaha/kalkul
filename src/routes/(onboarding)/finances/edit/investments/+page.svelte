@@ -1,21 +1,14 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import { ArrowRight, ChevronsUpDown, EllipsisVertical, Plus, SquarePen } from '@lucide/svelte'
+  import { ArrowRight, Plus } from '@lucide/svelte'
 
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
 
+  import EditableItemCard from '$lib/components/editable-item-card.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
-  import { Card, CardContent } from '$lib/components/ui/card'
-  import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-  } from '$lib/components/ui/dropdown-menu'
-  import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
   import routes from '$lib/routes'
@@ -147,114 +140,59 @@
 
   <div class="flex w-full flex-col gap-4">
     {#each investments as investment (investment.id)}
-      <Card>
-        <CardContent class="flex flex-col gap-4 p-4">
-          <!-- Header row -->
+      <EditableItemCard
+        item={investment}
+        collapsedValue={formatBalance(investment.balance)}
+        colorDot="bg-chart-2"
+        onToggleEditing={() => {
+          investment.editing = !investment.editing
+        }}
+        onDuplicate={() => duplicateInvestment(investment)}
+        onDelete={() => deleteInvestment(investment)}
+        onStartEditingName={() => {
+          investment.editingName = true
+        }}
+        onStopEditingName={() => {
+          investment.editingName = false
+        }}
+      >
+        {#snippet expandedContent()}
           <div class="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onclick={() => {
-                investment.editing = !investment.editing
-              }}
-            >
-              <ChevronsUpDown class="size-4" />
-            </Button>
-            <div class="size-4 shrink-0 rounded-xs bg-chart-2"></div>
-
-            {#if investment.editingName}
-              <Input
-                class="h-8 flex-1"
-                value={investment.name}
+            <div class="flex flex-1 flex-col gap-2">
+              <Label>{$_('page.setup.investments.currentBalance')}</Label>
+              <SuffixedInput
+                value={investment.balance}
+                suffix={currencyLabel}
                 oninput={(e) => {
-                  investment.name = (e.currentTarget as HTMLInputElement).value
-                }}
-                onblur={() => {
-                  investment.editingName = false
-                }}
-                onkeydown={(e) => {
-                  if (e.key === 'Enter') investment.editingName = false
+                  investment.balance = (e.currentTarget as HTMLInputElement).value
                 }}
               />
-            {:else}
-              <span class="flex-1 truncate text-base font-medium">
-                {investment.name}
-              </span>
-            {/if}
-
-            {#if investment.editing}
-              <Button
-                variant="ghost"
-                size="icon"
-                onclick={() => {
-                  investment.editingName = true
+            </div>
+            <div class="flex w-32 flex-col gap-2">
+              <Label>{$_('page.setup.investments.apy')}</Label>
+              <SuffixedInput
+                value={investment.apy}
+                suffix="%"
+                oninput={(e) => {
+                  investment.apy = (e.currentTarget as HTMLInputElement).value
                 }}
-              >
-                <SquarePen class="size-4" />
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger>
-                  {#snippet child({ props })}
-                    <Button variant="ghost" size="icon" {...props}>
-                      <EllipsisVertical class="size-4" />
-                    </Button>
-                  {/snippet}
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onclick={() => duplicateInvestment(investment)}>
-                    {$_('page.setup.common.duplicate')}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onclick={() => deleteInvestment(investment)}>
-                    {$_('page.setup.common.delete')}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            {:else}
-              <span class="shrink-0 text-sm text-foreground">
-                {formatBalance(investment.balance)}
-              </span>
-            {/if}
+              />
+            </div>
           </div>
 
-          <!-- Expanded content -->
-          {#if investment.editing}
-            <div class="flex items-center gap-2">
-              <div class="flex flex-1 flex-col gap-2">
-                <Label>{$_('page.setup.investments.currentBalance')}</Label>
-                <SuffixedInput
-                  value={investment.balance}
-                  suffix={currencyLabel}
-                  oninput={(e) => {
-                    investment.balance = (e.currentTarget as HTMLInputElement).value
-                  }}
-                />
-              </div>
-              <div class="flex w-32 flex-col gap-2">
-                <Label>{$_('page.setup.investments.apy')}</Label>
-                <SuffixedInput
-                  value={investment.apy}
-                  suffix="%"
-                  oninput={(e) => {
-                    investment.apy = (e.currentTarget as HTMLInputElement).value
-                  }}
-                />
-              </div>
-            </div>
-
-            <div class="flex items-center gap-2">
-              <Switch
-                checked={investment.showAdvanced}
-                onCheckedChange={(v) => {
-                  investment.showAdvanced = v === true
-                }}
-              />
-              <span class="text-sm font-medium">
-                {$_('page.setup.common.advancedOptions')}
-              </span>
-            </div>
-          {/if}
-        </CardContent>
-      </Card>
+          <div class="flex items-center gap-2">
+            <Switch
+              checked={investment.showAdvanced}
+              onCheckedChange={(v) => {
+                investment.showAdvanced = v === true
+              }}
+            />
+            <span class="text-sm font-medium">
+              {$_('page.setup.common.advancedOptions')}
+            </span>
+          </div>
+        {/snippet}
+      </EditableItemCard>
     {/each}
 
     <div>
