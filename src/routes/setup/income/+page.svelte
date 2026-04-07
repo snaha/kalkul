@@ -175,8 +175,15 @@
     goto(resolve(routes.SETUP_EXPENSES))
   }
 
+  function previousStep() {
+    if (appStore.profile.has_liabilities) return routes.SETUP_LIABILITIES
+    if (appStore.profile.has_tangible_assets) return routes.SETUP_TANGIBLE_ASSETS
+    if (appStore.profile.has_investments) return routes.SETUP_INVESTMENTS
+    return routes.SETUP_FINANCES
+  }
+
   function handleBack() {
-    goto(resolve(routes.SETUP_FINANCES))
+    goto(resolve(previousStep()))
   }
 </script>
 

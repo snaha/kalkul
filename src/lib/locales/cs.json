@@ -6,6 +6,33 @@
       "heroAlt": "Osoba plánující finance",
       "getStarted": "Začít"
     },
+    "dashboard": {
+      "finances": {
+        "title": "Aktuální finance",
+        "missing": "Chybí",
+        "addData": "Přidat data",
+        "illustrationAlt": "Ilustrace finančních dat",
+        "emptyTitle": "Aktuální finance",
+        "emptySubtitle": "Zpřesněte své plány",
+        "emptyDescription": "Přidejte, co aktuálně vlastníte",
+        "addFinancialData": "Přidat finanční data",
+        "today": "Dnes",
+        "update": "Aktualizovat",
+        "netWorthSummary": "Vaše aktuální celkové jmění je {amount} {currency}",
+        "lastUpdated": "Naposledy aktualizováno dnes",
+        "keepUpToDate": "Udržujte aktuální pro přesné plánování",
+        "viewAll": "Zobrazit všechna finanční data"
+      },
+      "plans": {
+        "title": "Plány",
+        "addPlan": "Přidat plán",
+        "illustrationAlt": "Ilustrace plánů",
+        "emptyTitle": "Připraveni prozkoumat svou budoucnost?",
+        "emptySubtitle": "Podívejte se, kam vás vaše peníze mohou dovést",
+        "emptyDescription": "Zmapujte svá aktiva, definujte své peněžní toky, zjistěte, co je možné",
+        "makeFirstPlan": "Vytvořte svůj první plán"
+      }
+    },
     "setup": {
       "title": "Úvodní nastavení",
       "continue": "Pokračovat",
@@ -56,6 +83,42 @@
         "weekly": "Týdně",
         "duplicate": "Duplikovat",
         "delete": "Smazat"
+      },
+      "tangibleAssets": {
+        "title": "Hmotný majetek",
+        "description": "Nemovitosti, vozidla a další hodnotný majetek, který vlastníte.",
+        "addAsset": "Přidat hmotný majetek",
+        "currentValue": "Aktuální hodnota",
+        "status": "Stav",
+        "fullyOwned": "Plně vlastněno",
+        "financed": "Financováno",
+        "outstandingBalance": "Nesplacený zůstatek",
+        "installmentFrequency": "Frekvence splátek",
+        "annualRate": "Roční úroková sazba",
+        "installmentAmount": "Výše splátky",
+        "remainingTerm": "Zbývající doba",
+        "years": "let",
+        "defaultName": "Hmotný majetek {index}"
+      },
+      "liabilities": {
+        "title": "Závazky",
+        "description": "Finanční závazky nevázané na konkrétní majetek.",
+        "addLiability": "Přidat závazek",
+        "outstandingBalance": "Nesplacený zůstatek",
+        "installmentFrequency": "Frekvence splátek",
+        "annualRate": "Roční úroková sazba",
+        "installmentAmount": "Výše splátky",
+        "remainingTerm": "Zbývající doba",
+        "years": "let",
+        "defaultName": "Závazek {index}"
+      },
+      "investments": {
+        "title": "Investice",
+        "description": "Investiční účty obsahující cenné papíry jako akcie, dluhopisy apod.",
+        "addInvestment": "Přidat investici",
+        "currentBalance": "Aktuální zůstatek",
+        "apy": "APY",
+        "defaultName": "Investice {index}"
       },
       "income": {
         "title": "Příjmy",

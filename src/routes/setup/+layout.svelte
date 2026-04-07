@@ -10,10 +10,18 @@
   import { Button } from '$lib/components/ui/button'
   import { Progress } from '$lib/components/ui/progress'
   import routes from '$lib/routes'
+  import { appStore } from '$lib/stores/app.svelte'
 
   let { children } = $props()
 
-  const steps = ['/setup', '/setup/finances', '/setup/income', '/setup/expenses'] as const
+  const steps = $derived.by(() => {
+    const base = ['/setup', '/setup/finances'] as string[]
+    if (appStore.profile.has_investments) base.push('/setup/investments')
+    if (appStore.profile.has_tangible_assets) base.push('/setup/tangible-assets')
+    if (appStore.profile.has_liabilities) base.push('/setup/liabilities')
+    base.push('/setup/income', '/setup/expenses')
+    return base
+  })
   const totalSteps = steps.length
 
   let currentStepIndex = $derived.by(() => {

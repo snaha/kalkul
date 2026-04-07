@@ -1,0 +1,282 @@
+<script lang="ts">
+  import { _ } from 'svelte-i18n'
+
+  import { ArrowRight, ChevronsUpDown, EllipsisVertical, Plus, SquarePen } from '@lucide/svelte'
+
+  import { goto } from '$app/navigation'
+  import { resolve } from '$app/paths'
+
+  import SuffixedInput from '$lib/components/suffixed-input.svelte'
+  import { Button } from '$lib/components/ui/button'
+  import { Card, CardContent } from '$lib/components/ui/card'
+  import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+  } from '$lib/components/ui/dropdown-menu'
+  import { Input } from '$lib/components/ui/input'
+  import { Label } from '$lib/components/ui/label'
+  import { Switch } from '$lib/components/ui/switch'
+  import routes from '$lib/routes'
+  import type { ProfileInvestment } from '$lib/schemas'
+  import { appStore } from '$lib/stores/app.svelte'
+
+  interface InvestmentUI {
+    id: string
+    name: string
+    balance: string
+    apy: string
+    editing: boolean
+    editingName: boolean
+    showAdvanced: boolean
+  }
+
+  function storedToUI(stored: ProfileInvestment[]): InvestmentUI[] {
+    return stored.map((inv) => ({
+      id: inv.id,
+      name: inv.name,
+      balance: inv.balance > 0 ? String(inv.balance) : '',
+      apy: inv.apy > 0 ? String(inv.apy) : '',
+      editing: false,
+      editingName: false,
+      showAdvanced: false,
+    }))
+  }
+
+  let investments = $state<InvestmentUI[]>([])
+  let investmentCounter = $state(0)
+  let loaded = $state(false)
+
+  $effect(() => {
+    const stored = appStore.profile.investments
+    if (!loaded && stored && stored.length > 0) {
+      investments = storedToUI(stored)
+      investmentCounter = investments.length
+      loaded = true
+    }
+  })
+
+  let canContinue = $derived(
+    investments.some((i) => i.balance.trim().length > 0 && Number(i.balance) > 0),
+  )
+
+  let currencyLabel = $derived(appStore.profile.currency || 'EUR')
+
+  function addInvestment() {
+    investmentCounter++
+    for (const inv of investments) {
+      inv.editing = false
+    }
+    investments.push({
+      id: crypto.randomUUID(),
+      name: $_('page.setup.investments.defaultName', { values: { index: investmentCounter } }),
+      balance: '',
+      apy: '',
+      editing: true,
+      editingName: false,
+      showAdvanced: false,
+    })
+  }
+
+  function duplicateInvestment(investment: InvestmentUI) {
+    investmentCounter++
+    const idx = investments.indexOf(investment)
+    const copy: InvestmentUI = {
+      ...investment,
+      id: crypto.randomUUID(),
+      name: `${investment.name} (copy)`,
+      editing: true,
+      editingName: false,
+    }
+    investments.splice(idx + 1, 0, copy)
+  }
+
+  function deleteInvestment(investment: InvestmentUI) {
+    const idx = investments.indexOf(investment)
+    if (idx !== -1) investments.splice(idx, 1)
+  }
+
+  function formatBalance(balance: string): string {
+    const num = Number(balance)
+    if (isNaN(num) || num === 0) return ''
+    return `${num.toLocaleString()} ${currencyLabel}`
+  }
+
+  function saveInvestments() {
+    const data: ProfileInvestment[] = investments
+      .filter((i) => i.name.trim().length > 0)
+      .map((i) => ({
+        id: i.id,
+        name: i.name,
+        balance: Number(i.balance) || 0,
+        apy: Number(i.apy) || 0,
+      }))
+    appStore.updateProfile({ investments: data })
+  }
+
+  function nextStep() {
+    if (appStore.profile.has_tangible_assets) return routes.SETUP_TANGIBLE_ASSETS
+    if (appStore.profile.has_liabilities) return routes.SETUP_LIABILITIES
+    return routes.SETUP_INCOME
+  }
+
+  function handleContinue() {
+    saveInvestments()
+    goto(resolve(nextStep()))
+  }
+
+  function handleSkip() {
+    goto(resolve(nextStep()))
+  }
+
+  function handleBack() {
+    goto(resolve(routes.SETUP_FINANCES))
+  }
+</script>
+
+<div class="flex w-full max-w-[576px] flex-col items-end gap-8">
+  <div class="flex w-full flex-col gap-2 text-foreground">
+    <h1 class="text-2xl font-bold leading-8">
+      {$_('page.setup.investments.title')}
+    </h1>
+    <p class="text-base">
+      {$_('page.setup.investments.description')}
+    </p>
+  </div>
+
+  <div class="flex w-full flex-col gap-4">
+    {#each investments as investment (investment.id)}
+      <Card>
+        <CardContent class="flex flex-col gap-4 p-4">
+          <!-- Header row -->
+          <div class="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onclick={() => {
+                investment.editing = !investment.editing
+              }}
+            >
+              <ChevronsUpDown class="size-4" />
+            </Button>
+            <div class="size-4 shrink-0 rounded-xs bg-chart-2"></div>
+
+            {#if investment.editingName}
+              <Input
+                class="h-8 flex-1"
+                value={investment.name}
+                oninput={(e) => {
+                  investment.name = (e.currentTarget as HTMLInputElement).value
+                }}
+                onblur={() => {
+                  investment.editingName = false
+                }}
+                onkeydown={(e) => {
+                  if (e.key === 'Enter') investment.editingName = false
+                }}
+              />
+            {:else}
+              <span class="flex-1 truncate text-base font-medium">
+                {investment.name}
+              </span>
+            {/if}
+
+            {#if investment.editing}
+              <Button
+                variant="ghost"
+                size="icon"
+                onclick={() => {
+                  investment.editingName = true
+                }}
+              >
+                <SquarePen class="size-4" />
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger>
+                  {#snippet child({ props })}
+                    <Button variant="ghost" size="icon" {...props}>
+                      <EllipsisVertical class="size-4" />
+                    </Button>
+                  {/snippet}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onclick={() => duplicateInvestment(investment)}>
+                    {$_('page.setup.common.duplicate')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onclick={() => deleteInvestment(investment)}>
+                    {$_('page.setup.common.delete')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            {:else}
+              <span class="shrink-0 text-sm text-foreground">
+                {formatBalance(investment.balance)}
+              </span>
+            {/if}
+          </div>
+
+          <!-- Expanded content -->
+          {#if investment.editing}
+            <div class="flex items-center gap-2">
+              <div class="flex flex-1 flex-col gap-2">
+                <Label>{$_('page.setup.investments.currentBalance')}</Label>
+                <SuffixedInput
+                  value={investment.balance}
+                  suffix={currencyLabel}
+                  oninput={(e) => {
+                    investment.balance = (e.currentTarget as HTMLInputElement).value
+                  }}
+                />
+              </div>
+              <div class="flex w-32 flex-col gap-2">
+                <Label>{$_('page.setup.investments.apy')}</Label>
+                <SuffixedInput
+                  value={investment.apy}
+                  suffix="%"
+                  oninput={(e) => {
+                    investment.apy = (e.currentTarget as HTMLInputElement).value
+                  }}
+                />
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <Switch
+                checked={investment.showAdvanced}
+                onCheckedChange={(v) => {
+                  investment.showAdvanced = v === true
+                }}
+              />
+              <span class="text-sm font-medium">
+                {$_('page.setup.common.advancedOptions')}
+              </span>
+            </div>
+          {/if}
+        </CardContent>
+      </Card>
+    {/each}
+
+    <div>
+      <Button variant="secondary" onclick={addInvestment}>
+        <Plus class="size-4" />
+        {$_('page.setup.investments.addInvestment')}
+      </Button>
+    </div>
+  </div>
+
+  <div class="flex w-full items-center gap-4">
+    <Button variant="ghost" onclick={handleBack}>
+      {$_('page.setup.back')}
+    </Button>
+    <div class="flex flex-1 items-center justify-end gap-2">
+      <Button variant="ghost" onclick={handleSkip}>
+        {$_('page.setup.skip')}
+      </Button>
+      <Button disabled={!canContinue} onclick={handleContinue}>
+        {$_('page.setup.continue')}
+        <ArrowRight class="size-4" />
+      </Button>
+    </div>
+  </div>
+</div>

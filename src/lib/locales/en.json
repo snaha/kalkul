@@ -6,6 +6,33 @@
       "heroAlt": "Person planning finances",
       "getStarted": "Get started"
     },
+    "dashboard": {
+      "finances": {
+        "title": "Current finances",
+        "missing": "Missing",
+        "addData": "Add data",
+        "illustrationAlt": "Financial data illustration",
+        "emptyTitle": "Current finances",
+        "emptySubtitle": "Make your plans more accurate",
+        "emptyDescription": "Add what you currently own",
+        "addFinancialData": "Add your financial data",
+        "today": "Today",
+        "update": "Update",
+        "netWorthSummary": "Your current total net worth is {amount} {currency}",
+        "lastUpdated": "Last updated today",
+        "keepUpToDate": "Keep it up-to-date for accurate planning",
+        "viewAll": "View all financial data"
+      },
+      "plans": {
+        "title": "Plans",
+        "addPlan": "Add plan",
+        "illustrationAlt": "Plans illustration",
+        "emptyTitle": "Ready to explore your future(s)?",
+        "emptySubtitle": "See where your money can take you",
+        "emptyDescription": "Map your assets, define your cash flows, see what's possible",
+        "makeFirstPlan": "Make your first plan"
+      }
+    },
     "setup": {
       "title": "Initial setup",
       "continue": "Continue",
@@ -56,6 +83,42 @@
         "weekly": "Weekly",
         "duplicate": "Duplicate",
         "delete": "Delete"
+      },
+      "tangibleAssets": {
+        "title": "Tangible assets",
+        "description": "Real estate, vehicles, and other valuable property you own.",
+        "addAsset": "Add tangible asset",
+        "currentValue": "Current value",
+        "status": "Status",
+        "fullyOwned": "Fully owned",
+        "financed": "Financed",
+        "outstandingBalance": "Outstanding balance",
+        "installmentFrequency": "Installment frequency",
+        "annualRate": "Annual percentage rate",
+        "installmentAmount": "Installment amount",
+        "remainingTerm": "Remaining term",
+        "years": "years",
+        "defaultName": "Tangible asset {index}"
+      },
+      "liabilities": {
+        "title": "Liabilities",
+        "description": "Financial obligations not linked a specific asset.",
+        "addLiability": "Add liability",
+        "outstandingBalance": "Outstanding balance",
+        "installmentFrequency": "Installment frequency",
+        "annualRate": "Annual percentage rate",
+        "installmentAmount": "Installment amount",
+        "remainingTerm": "Remaining term",
+        "years": "years",
+        "defaultName": "Liability {index}"
+      },
+      "investments": {
+        "title": "Investments",
+        "description": "Investment accounts holding securities like stocks, bonds, etc.",
+        "addInvestment": "Add investment",
+        "currentBalance": "Current balance",
+        "apy": "APY",
+        "defaultName": "Investment {index}"
       },
       "income": {
         "title": "Incomes",

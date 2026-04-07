@@ -24,6 +24,9 @@ function enrichProfile({
   has_investments,
   has_tangible_assets,
   has_liabilities,
+  investments,
+  tangible_assets,
+  liabilities,
   incomes,
   expenses,
 }: Profile): ProfileStore {
@@ -37,6 +40,9 @@ function enrichProfile({
     has_investments,
     has_tangible_assets,
     has_liabilities,
+    investments,
+    tangible_assets,
+    liabilities,
     incomes,
     expenses,
     get birthDate() {
@@ -53,6 +59,9 @@ function enrichProfile({
         has_investments,
         has_tangible_assets,
         has_liabilities,
+        investments,
+        tangible_assets,
+        liabilities,
         incomes,
         expenses,
       }

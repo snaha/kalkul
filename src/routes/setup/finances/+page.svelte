@@ -40,13 +40,20 @@
     })
   }
 
+  function nextStep() {
+    if (hasInvestments) return routes.SETUP_INVESTMENTS
+    if (hasTangibleAssets) return routes.SETUP_TANGIBLE_ASSETS
+    if (hasLiabilities) return routes.SETUP_LIABILITIES
+    return routes.SETUP_INCOME
+  }
+
   function handleContinue() {
     saveData()
-    goto(resolve(routes.SETUP_INCOME))
+    goto(resolve(nextStep()))
   }
 
   function handleSkip() {
-    goto(resolve(routes.SETUP_INCOME))
+    goto(resolve(nextStep()))
   }
 
   function handleBack() {
