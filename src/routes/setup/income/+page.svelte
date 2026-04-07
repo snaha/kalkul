@@ -6,11 +6,11 @@
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
 
+  import CashFlowItemCard from '$lib/components/cash-flow-item-card.svelte'
+  import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Checkbox } from '$lib/components/ui/checkbox'
   import { Label } from '$lib/components/ui/label'
-  import CashFlowItemCard from '$lib/components/cash-flow-item-card.svelte'
-  import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import routes from '$lib/routes'
   import type { Income as IncomeData } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'

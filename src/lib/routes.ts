@@ -1,4 +1,5 @@
 import { base } from '$app/paths'
+
 const ROUTER = import.meta.env.VITE_ROUTER
 
 const routePrefix = `${base}${ROUTER === 'hash' ? '/#' : ''}`

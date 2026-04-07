@@ -1,7 +1,12 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
-  import { ChevronsUpDown, Copy, EllipsisVertical, SquarePen, Trash2 } from '@lucide/svelte'
   import { _ } from 'svelte-i18n'
+
+  import { ChevronsUpDown, Copy, EllipsisVertical, SquarePen, Trash2 } from '@lucide/svelte'
+
+  import ChangeOverTimeSelector from '$lib/components/change-over-time-selector.svelte'
+  import DateAgeSelector from '$lib/components/date-age-selector.svelte'
+  import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Card, CardContent } from '$lib/components/ui/card'
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
@@ -10,9 +15,6 @@
   import * as Select from '$lib/components/ui/select'
   import { Separator } from '$lib/components/ui/separator'
   import { Switch } from '$lib/components/ui/switch'
-  import SuffixedInput from '$lib/components/suffixed-input.svelte'
-  import DateAgeSelector from '$lib/components/date-age-selector.svelte'
-  import ChangeOverTimeSelector from '$lib/components/change-over-time-selector.svelte'
 
   interface CashFlowItem {
     id: string

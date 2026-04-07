@@ -1,8 +1,9 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
+
+  import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Label } from '$lib/components/ui/label'
   import * as Select from '$lib/components/ui/select'
-  import SuffixedInput from '$lib/components/suffixed-input.svelte'
 
   interface Props {
     mode: 'start' | 'end'
@@ -92,7 +93,7 @@
       >
         <Select.Trigger class="w-full max-w-24">{year}</Select.Trigger>
         <Select.Content>
-          {#each years as y}
+          {#each years as y (y)}
             <Select.Item value={y}>{y}</Select.Item>
           {/each}
         </Select.Content>
@@ -108,7 +109,7 @@
           {months[Number(month)]?.label}
         </Select.Trigger>
         <Select.Content>
-          {#each months as m}
+          {#each months as m (m.value)}
             <Select.Item value={m.value}>{m.label}</Select.Item>
           {/each}
         </Select.Content>

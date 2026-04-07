@@ -6,10 +6,10 @@
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
 
-  import { Button } from '$lib/components/ui/button'
-  import { Label } from '$lib/components/ui/label'
   import CheckboxCard from '$lib/components/checkbox-card.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
+  import { Button } from '$lib/components/ui/button'
+  import { Label } from '$lib/components/ui/label'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
 
