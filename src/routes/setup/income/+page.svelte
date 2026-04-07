@@ -1,31 +1,20 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import {
-    ArrowRight,
-    ChevronsUpDown,
-    Copy,
-    EllipsisVertical,
-    Plus,
-    SquarePen,
-    Trash2,
-  } from '@lucide/svelte'
+  import { ArrowRight, Plus } from '@lucide/svelte'
 
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
 
   import { Button } from '$lib/components/ui/button'
-  import { Card, CardContent } from '$lib/components/ui/card'
   import { Checkbox } from '$lib/components/ui/checkbox'
-  import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
-  import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
-  import * as Select from '$lib/components/ui/select'
-  import { Separator } from '$lib/components/ui/separator'
-  import { Switch } from '$lib/components/ui/switch'
+  import CashFlowItemCard from '$lib/components/cash-flow-item-card.svelte'
+  import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import routes from '$lib/routes'
   import type { Income as IncomeData } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
+  import { calculateAge, getMonthOptions, getYearOptions } from '$lib/utils'
 
   interface IncomeUI {
     id: string
@@ -36,11 +25,24 @@
     withholdTaxes: boolean
     taxPercentage: string
     start: string
+    startYear: string
+    startMonth: string
+    startAge: string
     end: string
+    endYear: string
+    endMonth: string
+    endAge: string
     changeOverTime: string
+    changePercentage: string
     editing: boolean
     editingName: boolean
   }
+
+  const currentYear = new Date().getFullYear()
+  const currentMonth = new Date().getMonth()
+  let currentAge = $derived(calculateAge(appStore.profile.birthDate, currentYear, currentMonth))
+  const years = getYearOptions()
+  const months = getMonthOptions()
 
   function storedToUI(stored: IncomeData[]): IncomeUI[] {
     return stored.map((inc) => ({
@@ -52,8 +54,15 @@
       withholdTaxes: inc.withhold_taxes,
       taxPercentage: inc.tax_percentage !== undefined ? String(inc.tax_percentage) : '',
       start: inc.start,
+      startYear: inc.start_year !== undefined ? String(inc.start_year) : String(currentYear),
+      startMonth: inc.start_month !== undefined ? String(inc.start_month) : String(currentMonth),
+      startAge: inc.start_age !== undefined ? String(inc.start_age) : currentAge,
       end: inc.end,
+      endYear: inc.end_year !== undefined ? String(inc.end_year) : String(currentYear),
+      endMonth: inc.end_month !== undefined ? String(inc.end_month) : String(currentMonth),
+      endAge: inc.end_age !== undefined ? String(inc.end_age) : currentAge,
       changeOverTime: inc.change_over_time,
+      changePercentage: inc.change_percentage !== undefined ? String(inc.change_percentage) : '',
       editing: false,
       editingName: false,
     }))
@@ -90,23 +99,18 @@
       withholdTaxes: false,
       taxPercentage: '',
       start: 'immediately',
+      startYear: String(currentYear),
+      startMonth: String(currentMonth),
+      startAge: currentAge,
       end: 'never',
+      endYear: String(currentYear),
+      endMonth: String(currentMonth),
+      endAge: currentAge,
       changeOverTime: 'none',
+      changePercentage: '',
       editing: true,
       editingName: false,
     })
-  }
-
-  function toggleEditing(income: IncomeUI) {
-    income.editing = !income.editing
-  }
-
-  function startEditingName(income: IncomeUI) {
-    income.editingName = true
-  }
-
-  function stopEditingName(income: IncomeUI) {
-    income.editingName = false
   }
 
   function duplicateIncome(income: IncomeUI) {
@@ -146,19 +150,29 @@
         withhold_taxes: i.withholdTaxes,
         tax_percentage: i.taxPercentage ? Number(i.taxPercentage) : undefined,
         start: i.start,
+        start_year: i.start === 'at_specific_date' ? Number(i.startYear) : undefined,
+        start_month: i.start === 'at_specific_date' ? Number(i.startMonth) : undefined,
+        start_age: i.start === 'when_age_is' ? Number(i.startAge) : undefined,
         end: i.end,
+        end_year: i.end === 'at_specific_date' ? Number(i.endYear) : undefined,
+        end_month: i.end === 'at_specific_date' ? Number(i.endMonth) : undefined,
+        end_age: i.end === 'when_age_is' ? Number(i.endAge) : undefined,
         change_over_time: i.changeOverTime,
+        change_percentage:
+          i.changeOverTime === 'increase_yearly' || i.changeOverTime === 'decrease_yearly'
+            ? Number(i.changePercentage) || 0
+            : undefined,
       }))
     appStore.updateProfile({ incomes: data })
   }
 
   function handleContinue() {
     saveIncomes()
-    goto(resolve(routes.HOME))
+    goto(resolve(routes.SETUP_EXPENSES))
   }
 
   function handleSkip() {
-    goto(resolve(routes.HOME))
+    goto(resolve(routes.SETUP_EXPENSES))
   }
 
   function handleBack() {
@@ -178,262 +192,61 @@
 
   <div class="flex w-full flex-col gap-4">
     {#each incomes as income (income.id)}
-      <Card class="gap-0 py-0">
-        <CardContent class={income.editing ? 'p-4' : 'px-4 py-2.5'}>
-          {#if income.editing}
-            <div class="flex flex-col gap-4">
-              <!-- Header row -->
-              <div class="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  class="shrink-0"
-                  onclick={() => toggleEditing(income)}
-                >
-                  <ChevronsUpDown class="size-4" />
-                </Button>
-                {#if income.editingName}
-                  <Input
-                    value={income.name}
-                    oninput={(e) => {
-                      income.name = (e.target as HTMLInputElement).value
-                    }}
-                    onblur={() => stopEditingName(income)}
-                    onkeydown={(e) => {
-                      if (e.key === 'Enter') stopEditingName(income)
-                    }}
-                    class="flex-1"
-                  />
-                {:else}
-                  <span class="flex-1 truncate text-base font-medium">
-                    {income.name}
-                  </span>
-                  <Button variant="ghost" size="icon" onclick={() => startEditingName(income)}>
-                    <SquarePen class="size-4" />
-                  </Button>
-                {/if}
-                <DropdownMenu.Root>
-                  <DropdownMenu.Trigger>
-                    {#snippet child({ props })}
-                      <Button variant="ghost" size="icon" {...props}>
-                        <EllipsisVertical class="size-4" />
-                      </Button>
-                    {/snippet}
-                  </DropdownMenu.Trigger>
-                  <DropdownMenu.Content align="end">
-                    <DropdownMenu.Item onclick={() => duplicateIncome(income)}>
-                      <Copy class="size-4" />
-                      {$_('page.setup.income.duplicate')}
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Separator />
-                    <DropdownMenu.Item
-                      class="text-destructive"
-                      onclick={() => deleteIncome(income)}
-                    >
-                      <Trash2 class="size-4" />
-                      {$_('page.setup.income.delete')}
-                    </DropdownMenu.Item>
-                  </DropdownMenu.Content>
-                </DropdownMenu.Root>
-              </div>
-
-              <!-- Amount and Frequency row -->
-              <div class="flex items-center gap-2">
-                <div class="flex flex-1 flex-col gap-2">
-                  <Label>{$_('page.setup.income.amount')}</Label>
-                  <div class="relative">
-                    <Input
-                      placeholder="0"
-                      value={income.amount}
-                      oninput={(e) => {
-                        income.amount = (e.target as HTMLInputElement).value
-                      }}
-                      class="pr-14"
-                    />
-                    <span
-                      class="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-sm font-medium text-muted-foreground"
-                    >
-                      {currencyLabel}
-                    </span>
-                  </div>
-                </div>
-                <div class="flex flex-1 flex-col gap-2">
-                  <Label>{$_('page.setup.income.frequency')}</Label>
-                  <Select.Root
-                    type="single"
-                    value={income.frequency}
-                    onValueChange={(v) => {
-                      if (v) income.frequency = v
-                    }}
-                  >
-                    <Select.Trigger class="w-full">
-                      {income.frequency === 'monthly'
-                        ? $_('page.setup.income.monthly')
-                        : income.frequency === 'yearly'
-                          ? $_('page.setup.income.yearly')
-                          : $_('page.setup.income.weekly')}
-                    </Select.Trigger>
-                    <Select.Content>
-                      <Select.Item value="monthly">{$_('page.setup.income.monthly')}</Select.Item>
-                      <Select.Item value="yearly">{$_('page.setup.income.yearly')}</Select.Item>
-                      <Select.Item value="weekly">{$_('page.setup.income.weekly')}</Select.Item>
-                    </Select.Content>
-                  </Select.Root>
-                </div>
-              </div>
-
-              <!-- Advanced options toggle -->
-              <div class="flex cursor-pointer items-center gap-2">
-                <Switch
-                  checked={income.showAdvanced}
+      <CashFlowItemCard
+        item={income}
+        {currencyLabel}
+        amountColor="green"
+        startDescription={$_('page.setup.income.startDescription')}
+        endDescription={$_('page.setup.income.endDescription')}
+        matchInflationDescription={$_('page.setup.income.matchInflationDescription')}
+        changeDescription={$_('page.setup.income.changeDescription')}
+        {years}
+        {months}
+        {formatAmount}
+        onToggleEditing={() => {
+          income.editing = !income.editing
+        }}
+        onDuplicate={() => duplicateIncome(income)}
+        onDelete={() => deleteIncome(income)}
+        onStartEditingName={() => {
+          income.editingName = true
+        }}
+        onStopEditingName={() => {
+          income.editingName = false
+        }}
+      >
+        {#snippet extraAdvancedContent()}
+          <div class="flex items-end gap-4">
+            <div class="flex flex-1 flex-col justify-center">
+              <label class="flex h-8 cursor-pointer items-center gap-2">
+                <Checkbox
+                  checked={income.withholdTaxes}
                   onCheckedChange={(v) => {
-                    income.showAdvanced = v
+                    income.withholdTaxes = v === true
                   }}
                 />
-                <span class="text-sm font-medium">{$_('page.setup.income.advancedOptions')}</span>
-              </div>
-
-              <!-- Advanced options content -->
-              {#if income.showAdvanced}
-                <Separator />
-
-                <!-- Tax withholding -->
-                <div class="flex items-end gap-4">
-                  <div class="flex flex-1 flex-col justify-center">
-                    <label class="flex h-8 cursor-pointer items-center gap-2">
-                      <Checkbox
-                        checked={income.withholdTaxes}
-                        onCheckedChange={(v) => {
-                          income.withholdTaxes = v === true
-                        }}
-                      />
-                      <span class="text-sm font-medium leading-none">
-                        {$_('page.setup.income.withholdTaxes')}
-                      </span>
-                    </label>
-                  </div>
-                  {#if income.withholdTaxes}
-                    <div class="flex flex-1 flex-col gap-2">
-                      <Label>{$_('page.setup.income.percentageToWithhold')}</Label>
-                      <div class="relative">
-                        <Input
-                          placeholder="0"
-                          value={income.taxPercentage}
-                          oninput={(e) => {
-                            income.taxPercentage = (e.target as HTMLInputElement).value
-                          }}
-                          class="pr-8"
-                        />
-                        <span
-                          class="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-sm font-medium text-muted-foreground"
-                        >
-                          %
-                        </span>
-                      </div>
-                    </div>
-                  {:else}
-                    <div class="flex-1"></div>
-                  {/if}
-                </div>
-
-                <Separator />
-
-                <!-- Start -->
-                <div class="flex items-end gap-2">
-                  <div class="flex flex-1 flex-col gap-2">
-                    <Label>{$_('page.setup.income.start')}</Label>
-                    <Select.Root
-                      type="single"
-                      value={income.start}
-                      onValueChange={(v) => {
-                        if (v) income.start = v
-                      }}
-                    >
-                      <Select.Trigger class="w-full">
-                        {$_('page.setup.income.immediately')}
-                      </Select.Trigger>
-                      <Select.Content>
-                        <Select.Item value="immediately">
-                          {$_('page.setup.income.immediately')}
-                        </Select.Item>
-                      </Select.Content>
-                    </Select.Root>
-                  </div>
-                  <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">
-                    {$_('page.setup.income.startDescription')}
-                  </p>
-                </div>
-
-                <!-- End -->
-                <div class="flex items-end gap-2">
-                  <div class="flex flex-1 flex-col gap-2">
-                    <Label>{$_('page.setup.income.end')}</Label>
-                    <Select.Root
-                      type="single"
-                      value={income.end}
-                      onValueChange={(v) => {
-                        if (v) income.end = v
-                      }}
-                    >
-                      <Select.Trigger class="w-full">
-                        {$_('page.setup.income.never')}
-                      </Select.Trigger>
-                      <Select.Content>
-                        <Select.Item value="never">{$_('page.setup.income.never')}</Select.Item>
-                      </Select.Content>
-                    </Select.Root>
-                  </div>
-                  <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">
-                    {$_('page.setup.income.endDescription')}
-                  </p>
-                </div>
-
-                <!-- Change over time -->
-                <div class="flex items-end gap-2">
-                  <div class="flex flex-1 flex-col gap-2">
-                    <Label>{$_('page.setup.income.changeOverTime')}</Label>
-                    <Select.Root
-                      type="single"
-                      value={income.changeOverTime}
-                      onValueChange={(v) => {
-                        if (v) income.changeOverTime = v
-                      }}
-                    >
-                      <Select.Trigger class="w-full">
-                        {$_('page.setup.income.none')}
-                      </Select.Trigger>
-                      <Select.Content>
-                        <Select.Item value="none">{$_('page.setup.income.none')}</Select.Item>
-                      </Select.Content>
-                    </Select.Root>
-                  </div>
-                  <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">
-                    {$_('page.setup.income.changeDescription')}
-                  </p>
-                </div>
-              {/if}
-            </div>
-          {:else}
-            <!-- Collapsed card -->
-            <button
-              class="flex w-full cursor-pointer items-center gap-2"
-              onclick={() => toggleEditing(income)}
-            >
-              <span class="shrink-0 text-muted-foreground">
-                <ChevronsUpDown class="size-4" />
-              </span>
-              <span class="flex-1 truncate text-left text-base font-medium">
-                {income.name}
-              </span>
-              {#if formatAmount(income.amount)}
-                <span class="shrink-0 text-sm text-green-600">
-                  {formatAmount(income.amount)}
+                <span class="text-sm font-medium leading-none">
+                  {$_('page.setup.income.withholdTaxes')}
                 </span>
-              {/if}
-            </button>
-          {/if}
-        </CardContent>
-      </Card>
+              </label>
+            </div>
+            {#if income.withholdTaxes}
+              <div class="flex flex-1 flex-col gap-2">
+                <Label>{$_('page.setup.income.percentageToWithhold')}</Label>
+                <SuffixedInput
+                  value={income.taxPercentage}
+                  suffix="%"
+                  oninput={(e) => {
+                    income.taxPercentage = (e.currentTarget as HTMLInputElement).value
+                  }}
+                />
+              </div>
+            {:else}
+              <div class="flex-1"></div>
+            {/if}
+          </div>
+        {/snippet}
+      </CashFlowItemCard>
     {/each}
 
     <div>

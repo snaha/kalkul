@@ -25,6 +25,7 @@ function enrichProfile({
   has_tangible_assets,
   has_liabilities,
   incomes,
+  expenses,
 }: Profile): ProfileStore {
   return {
     name,
@@ -37,6 +38,7 @@ function enrichProfile({
     has_tangible_assets,
     has_liabilities,
     incomes,
+    expenses,
     get birthDate() {
       return birth_date ? new Date(birth_date) : undefined
     },
@@ -52,6 +54,7 @@ function enrichProfile({
         has_tangible_assets,
         has_liabilities,
         incomes,
+        expenses,
       }
     },
   }

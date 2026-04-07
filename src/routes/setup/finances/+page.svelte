@@ -7,9 +7,9 @@
   import { resolve } from '$app/paths'
 
   import { Button } from '$lib/components/ui/button'
-  import { Checkbox } from '$lib/components/ui/checkbox'
-  import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
+  import CheckboxCard from '$lib/components/checkbox-card.svelte'
+  import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
 
@@ -66,14 +66,14 @@
 
   <div class="flex w-full flex-col gap-2">
     <Label for="setup-cash">{$_('page.setup.finances.cashLabel')}</Label>
-    <div class="relative">
-      <Input id="setup-cash" placeholder="0" bind:value={cashAmount} class="pr-14" />
-      <span
-        class="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-sm font-medium text-muted-foreground"
-      >
-        {appStore.profile.currency || 'EUR'}
-      </span>
-    </div>
+    <SuffixedInput
+      id="setup-cash"
+      value={cashAmount}
+      suffix={appStore.profile.currency || 'EUR'}
+      oninput={(e) => {
+        cashAmount = (e.currentTarget as HTMLInputElement).value
+      }}
+    />
     <p class="text-sm text-muted-foreground">
       {$_('page.setup.finances.cashDescription')}
     </p>
@@ -84,47 +84,32 @@
       {$_('page.setup.finances.whichDoYouHave')}
     </p>
 
-    <label
-      class="flex w-full cursor-pointer items-start gap-2 rounded-md border border-border p-2.5 text-left transition-colors has-[[data-state=checked]]:bg-[rgba(23,23,23,0.05)] dark:has-[[data-state=checked]]:bg-[rgba(255,255,255,0.1)]"
-    >
-      <Checkbox bind:checked={hasInvestments} />
-      <div class="flex flex-col gap-1.5 text-sm">
-        <span class="font-medium leading-none text-foreground">
-          {$_('page.setup.finances.investments')}
-        </span>
-        <span class="leading-5 text-muted-foreground">
-          {$_('page.setup.finances.investmentsDescription')}
-        </span>
-      </div>
-    </label>
+    <CheckboxCard
+      checked={hasInvestments}
+      onCheckedChange={(v) => {
+        hasInvestments = v
+      }}
+      title={$_('page.setup.finances.investments')}
+      description={$_('page.setup.finances.investmentsDescription')}
+    />
 
-    <label
-      class="flex w-full cursor-pointer items-start gap-2 rounded-md border border-border p-2.5 text-left transition-colors has-[[data-state=checked]]:bg-[rgba(23,23,23,0.05)] dark:has-[[data-state=checked]]:bg-[rgba(255,255,255,0.1)]"
-    >
-      <Checkbox bind:checked={hasTangibleAssets} />
-      <div class="flex flex-col gap-1.5 text-sm">
-        <span class="font-medium leading-none text-foreground">
-          {$_('page.setup.finances.tangibleAssets')}
-        </span>
-        <span class="leading-5 text-muted-foreground">
-          {$_('page.setup.finances.tangibleAssetsDescription')}
-        </span>
-      </div>
-    </label>
+    <CheckboxCard
+      checked={hasTangibleAssets}
+      onCheckedChange={(v) => {
+        hasTangibleAssets = v
+      }}
+      title={$_('page.setup.finances.tangibleAssets')}
+      description={$_('page.setup.finances.tangibleAssetsDescription')}
+    />
 
-    <label
-      class="flex w-full cursor-pointer items-start gap-2 rounded-md border border-border p-2.5 text-left transition-colors has-[[data-state=checked]]:bg-[rgba(23,23,23,0.05)] dark:has-[[data-state=checked]]:bg-[rgba(255,255,255,0.1)]"
-    >
-      <Checkbox bind:checked={hasLiabilities} />
-      <div class="flex flex-col gap-1.5 text-sm">
-        <span class="font-medium leading-none text-foreground">
-          {$_('page.setup.finances.liabilities')}
-        </span>
-        <span class="leading-5 text-muted-foreground">
-          {$_('page.setup.finances.liabilitiesDescription')}
-        </span>
-      </div>
-    </label>
+    <CheckboxCard
+      checked={hasLiabilities}
+      onCheckedChange={(v) => {
+        hasLiabilities = v
+      }}
+      title={$_('page.setup.finances.liabilities')}
+      description={$_('page.setup.finances.liabilitiesDescription')}
+    />
   </div>
 
   <div class="flex w-full items-center gap-4">

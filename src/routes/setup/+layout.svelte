@@ -13,7 +13,7 @@
 
   let { children } = $props()
 
-  const steps = ['/setup', '/setup/finances', '/setup/income'] as const
+  const steps = ['/setup', '/setup/finances', '/setup/income', '/setup/expenses'] as const
   const totalSteps = steps.length
 
   let currentStepIndex = $derived.by(() => {

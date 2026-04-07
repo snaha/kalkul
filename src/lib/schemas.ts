@@ -22,8 +22,32 @@ export const incomeSchema = z.object({
   withhold_taxes: z.boolean(),
   tax_percentage: z.number().optional(),
   start: z.string(),
+  start_year: z.number().optional(),
+  start_month: z.number().optional(),
+  start_age: z.number().optional(),
   end: z.string(),
+  end_year: z.number().optional(),
+  end_month: z.number().optional(),
+  end_age: z.number().optional(),
   change_over_time: z.string(),
+  change_percentage: z.number().optional(),
+})
+
+export const expenseSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  amount: z.number(),
+  frequency: z.string(),
+  start: z.string(),
+  start_year: z.number().optional(),
+  start_month: z.number().optional(),
+  start_age: z.number().optional(),
+  end: z.string(),
+  end_year: z.number().optional(),
+  end_month: z.number().optional(),
+  end_age: z.number().optional(),
+  change_over_time: z.string(),
+  change_percentage: z.number().optional(),
 })
 
 export const profileSchema = z.object({
@@ -37,6 +61,7 @@ export const profileSchema = z.object({
   has_tangible_assets: z.boolean().optional(),
   has_liabilities: z.boolean().optional(),
   incomes: z.array(incomeSchema).optional(),
+  expenses: z.array(expenseSchema).optional(),
 })
 
 export const portfolioSchema = z.object({
@@ -116,6 +141,7 @@ export const retirementGoalDataSchema = periodicWithdrawalGoalDataSchema.extend(
 // --- Derived types ---
 
 export type Income = z.infer<typeof incomeSchema>
+export type Expense = z.infer<typeof expenseSchema>
 export type Profile = z.infer<typeof profileSchema>
 export type Portfolio = z.infer<typeof portfolioSchema>
 export type Investment = z.infer<typeof investmentSchema>
