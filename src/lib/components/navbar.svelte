@@ -7,6 +7,7 @@
   import ThemeSwitcher from '$lib/components/theme-switcher.svelte'
   import { Button } from '$lib/components/ui/button'
   import routes from '$lib/routes'
+  import { notImplemented } from '$lib/utils'
 </script>
 
 <header class="flex items-center justify-between bg-neutral-950 p-2">
@@ -15,7 +16,12 @@
   </a>
   <div class="flex items-center gap-4">
     <ThemeSwitcher class="text-white hover:bg-white/10" />
-    <Button variant="ghost" size="icon" class="text-white hover:bg-white/10">
+    <Button
+      variant="ghost"
+      size="icon"
+      class="text-white hover:bg-white/10"
+      onclick={notImplemented}
+    >
       <EllipsisVertical class="size-4" />
     </Button>
   </div>

@@ -13,6 +13,7 @@ export default {
   SETUP_LIABILITIES: `${routePrefix}/setup/liabilities`,
   SETUP_INCOME: `${routePrefix}/setup/income`,
   SETUP_EXPENSES: `${routePrefix}/setup/expenses`,
+  DEV: `${routePrefix}/dev`,
   SETTINGS: `${routePrefix}/settings`,
   FINANCES: `${routePrefix}/finances`,
   FINANCES_CASH: `${routePrefix}/finances/cash`,

@@ -112,6 +112,9 @@ See `README.md` for development commands, project structure, and conventions.
 1. **Adding a New Feature**
    - Check existing patterns in similar features
    - Add tests for business logic
+   - **Stub unimplemented actions**: When building UI that includes buttons or links whose functionality doesn't exist yet, wire them to `notImplemented()` from `$lib/utils`. This shows an alert so users know the feature isn't ready, rather than having silent dead buttons.
+     - ✅ `<Button onclick={notImplemented}>Add plan</Button>`
+     - ❌ `<Button>Add plan</Button>` (silent, no feedback)
    - Use conventional commits
 
 2. **Modifying Financial Calculations**

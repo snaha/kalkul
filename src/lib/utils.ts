@@ -24,6 +24,10 @@ export function getMonthOptions(): { value: string; label: string }[] {
   }))
 }
 
+export function notImplemented() {
+  alert('Not implemented yet')
+}
+
 export function calculateAge(
   birthDate: Date | undefined,
   currentYear: number,

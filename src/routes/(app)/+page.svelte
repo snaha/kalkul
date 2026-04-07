@@ -8,12 +8,14 @@
   import financesIllustration from '$lib/assets/finances-illustration.svg'
   import heroIllustration from '$lib/assets/hero-illustration.svg'
   import plansIllustration from '$lib/assets/plans-illustration.svg'
+  import { CATEGORY_COLORS } from '$lib/chart-colors'
   import DonutChart from '$lib/components/donut-chart.svelte'
   import { Badge } from '$lib/components/ui/badge'
   import { Button } from '$lib/components/ui/button'
   import { Separator } from '$lib/components/ui/separator'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
+  import { notImplemented } from '$lib/utils'
 
   const hasData = $derived(!appStore.loading && !!appStore.profile.name)
   const hasFinancialData = $derived.by(() => {
@@ -27,18 +29,11 @@
 
   const currency = $derived(appStore.profile.currency ?? 'EUR')
 
-  const CHART_COLORS = {
-    cash: 'oklch(0.7 0.15 230)',
-    investments: 'oklch(0.65 0.2 155)',
-    liabilities: 'oklch(0.65 0.2 25)',
-    tangibleAssets: 'oklch(0.55 0.2 300)',
-  }
-
   const chartSegments = $derived.by(() => {
     const segments: { label: string; value: number; color: string }[] = []
     const cash = appStore.profile.cash_amount ?? 0
     if (cash > 0) {
-      segments.push({ label: 'Cash', value: cash, color: CHART_COLORS.cash })
+      segments.push({ label: 'cash', value: cash, color: CATEGORY_COLORS.cash })
     }
     const investmentsTotal = (appStore.profile.investments ?? []).reduce(
       (sum, i) => sum + i.balance,
@@ -46,9 +41,9 @@
     )
     if (investmentsTotal > 0) {
       segments.push({
-        label: 'Investments',
+        label: 'investments',
         value: investmentsTotal,
-        color: CHART_COLORS.investments,
+        color: CATEGORY_COLORS.investments[0],
       })
     }
     const tangibleTotal = (appStore.profile.tangible_assets ?? []).reduce(
@@ -57,9 +52,9 @@
     )
     if (tangibleTotal > 0) {
       segments.push({
-        label: 'Tangible assets',
+        label: 'tangible-assets',
         value: tangibleTotal,
-        color: CHART_COLORS.tangibleAssets,
+        color: CATEGORY_COLORS.tangibleAssets[0],
       })
     }
     const liabilitiesTotal = (appStore.profile.liabilities ?? []).reduce(
@@ -68,9 +63,9 @@
     )
     if (liabilitiesTotal > 0) {
       segments.push({
-        label: 'Liabilities',
+        label: 'liabilities',
         value: liabilitiesTotal,
-        color: CHART_COLORS.liabilities,
+        color: CATEGORY_COLORS.liabilities[0],
       })
     }
     return segments
@@ -78,7 +73,7 @@
 
   const totalNetWorth = $derived(
     chartSegments.reduce(
-      (sum, s) => (s.label === 'Liabilities' ? sum - s.value : sum + s.value),
+      (sum, s) => (s.label === 'liabilities' ? sum - s.value : sum + s.value),
       0,
     ),
   )
@@ -121,7 +116,7 @@
             <SquarePen class="size-4" />
             {$_('page.dashboard.finances.update')}
           </Button>
-          <Button variant="ghost" size="icon" href={resolve(routes.FINANCES)}>
+          <Button variant="ghost" size="icon" onclick={notImplemented}>
             <ArrowRight class="size-4" />
           </Button>
         {:else}
@@ -159,7 +154,7 @@
             <Button variant="ghost" size="sm" href={resolve(routes.SETUP_FINANCES)}>
               {$_('page.dashboard.finances.update')}
             </Button>
-            <Button variant="secondary" size="sm" href={resolve(routes.FINANCES)}>
+            <Button variant="secondary" size="sm" onclick={notImplemented}>
               {$_('page.dashboard.finances.viewAll')}
             </Button>
           </div>
@@ -193,7 +188,7 @@
     <div class="flex flex-1 flex-col">
       <div class="flex items-start gap-4 p-8">
         <h2 class="flex-1 text-2xl font-bold">{$_('page.dashboard.plans.title')}</h2>
-        <Button size="sm">
+        <Button size="sm" onclick={notImplemented}>
           <Plus class="size-4" />
           {$_('page.dashboard.plans.addPlan')}
         </Button>
@@ -213,7 +208,7 @@
             </p>
           </div>
         </div>
-        <Button variant="secondary" size="sm">
+        <Button variant="secondary" size="sm" onclick={notImplemented}>
           {$_('page.dashboard.plans.makeFirstPlan')}
         </Button>
       </div>
