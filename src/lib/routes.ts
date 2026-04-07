@@ -1,28 +1,12 @@
-import { base } from '$app/paths'
-
-const ROUTER = import.meta.env.VITE_ROUTER
-
-const routePrefix = `${base}${ROUTER === 'hash' ? '/#' : ''}`
-
 export default {
-  HOME: `${routePrefix}/`,
-  SETUP: `${routePrefix}/setup`,
-  SETUP_FINANCES: `${routePrefix}/setup/finances`,
-  SETUP_INVESTMENTS: `${routePrefix}/setup/investments`,
-  SETUP_TANGIBLE_ASSETS: `${routePrefix}/setup/tangible-assets`,
-  SETUP_LIABILITIES: `${routePrefix}/setup/liabilities`,
-  SETUP_INCOME: `${routePrefix}/setup/income`,
-  SETUP_EXPENSES: `${routePrefix}/setup/expenses`,
-  DEV: `${routePrefix}/dev`,
-  SETTINGS: `${routePrefix}/settings`,
-  FINANCES: `${routePrefix}/finances`,
-  FINANCES_CASH: `${routePrefix}/finances/cash`,
-  FINANCES_INVESTMENTS: `${routePrefix}/finances/investments`,
-  FINANCES_TANGIBLE_ASSETS: `${routePrefix}/finances/tangible-assets`,
-  FINANCES_LIABILITIES: `${routePrefix}/finances/liabilities`,
-  FINANCES_INCOMES: `${routePrefix}/finances/incomes`,
-  FINANCES_EXPENSES: `${routePrefix}/finances/expenses`,
-  SNAPSHOT_NEW: `${routePrefix}/snapshot/new`,
-  SNAPSHOT_EDIT: (id: string) => `${routePrefix}/snapshot/${id}/edit`,
-  PLAN: (planId: string) => `${routePrefix}/plan/${planId}`,
-}
+  HOME: '/',
+  PROFILE: '/profile',
+  FINANCES_EDIT: '/finances/edit',
+  FINANCES_EDIT_INVESTMENTS: '/finances/edit/investments',
+  FINANCES_EDIT_TANGIBLE_ASSETS: '/finances/edit/tangible-assets',
+  FINANCES_EDIT_LIABILITIES: '/finances/edit/liabilities',
+  FINANCES_EDIT_INCOME: '/finances/edit/income',
+  FINANCES_EDIT_EXPENSES: '/finances/edit/expenses',
+  DEV: '/dev',
+  SETTINGS: '/settings',
+} as const

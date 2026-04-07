@@ -116,9 +116,9 @@
   }
 
   function nextStep() {
-    if (appStore.profile.has_tangible_assets) return routes.SETUP_TANGIBLE_ASSETS
-    if (appStore.profile.has_liabilities) return routes.SETUP_LIABILITIES
-    return routes.SETUP_INCOME
+    if (appStore.profile.has_tangible_assets) return routes.FINANCES_EDIT_TANGIBLE_ASSETS
+    if (appStore.profile.has_liabilities) return routes.FINANCES_EDIT_LIABILITIES
+    return routes.FINANCES_EDIT_INCOME
   }
 
   function handleContinue() {
@@ -131,7 +131,7 @@
   }
 
   function handleBack() {
-    goto(resolve(routes.SETUP_FINANCES))
+    goto(resolve(routes.FINANCES_EDIT))
   }
 </script>
 

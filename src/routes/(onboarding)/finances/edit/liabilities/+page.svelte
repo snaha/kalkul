@@ -130,17 +130,18 @@
 
   function handleContinue() {
     saveLiabilities()
-    goto(resolve(routes.SETUP_INCOME))
+    goto(resolve(routes.FINANCES_EDIT_INCOME))
   }
 
   function handleSkip() {
-    goto(resolve(routes.SETUP_INCOME))
+    goto(resolve(routes.FINANCES_EDIT_INCOME))
   }
 
   function handleBack() {
-    if (appStore.profile.has_tangible_assets) return goto(resolve(routes.SETUP_TANGIBLE_ASSETS))
-    if (appStore.profile.has_investments) return goto(resolve(routes.SETUP_INVESTMENTS))
-    goto(resolve(routes.SETUP_FINANCES))
+    if (appStore.profile.has_tangible_assets)
+      return goto(resolve(routes.FINANCES_EDIT_TANGIBLE_ASSETS))
+    if (appStore.profile.has_investments) return goto(resolve(routes.FINANCES_EDIT_INVESTMENTS))
+    goto(resolve(routes.FINANCES_EDIT))
   }
 </script>
 

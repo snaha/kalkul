@@ -141,8 +141,8 @@
   }
 
   function nextStep() {
-    if (appStore.profile.has_liabilities) return routes.SETUP_LIABILITIES
-    return routes.SETUP_INCOME
+    if (appStore.profile.has_liabilities) return routes.FINANCES_EDIT_LIABILITIES
+    return routes.FINANCES_EDIT_INCOME
   }
 
   function handleContinue() {
@@ -155,8 +155,8 @@
   }
 
   function handleBack() {
-    if (appStore.profile.has_investments) return goto(resolve(routes.SETUP_INVESTMENTS))
-    goto(resolve(routes.SETUP_FINANCES))
+    if (appStore.profile.has_investments) return goto(resolve(routes.FINANCES_EDIT_INVESTMENTS))
+    goto(resolve(routes.FINANCES_EDIT))
   }
 </script>
 

@@ -89,7 +89,7 @@
       updates.birth_date = date.toISOString().split('T')[0]
     }
     appStore.updateProfile(updates)
-    goto(resolve(routes.SETUP_FINANCES))
+    goto(resolve(routes.FINANCES_EDIT))
   }
 </script>
 

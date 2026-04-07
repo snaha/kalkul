@@ -41,10 +41,10 @@
   }
 
   function nextStep() {
-    if (hasInvestments) return routes.SETUP_INVESTMENTS
-    if (hasTangibleAssets) return routes.SETUP_TANGIBLE_ASSETS
-    if (hasLiabilities) return routes.SETUP_LIABILITIES
-    return routes.SETUP_INCOME
+    if (hasInvestments) return routes.FINANCES_EDIT_INVESTMENTS
+    if (hasTangibleAssets) return routes.FINANCES_EDIT_TANGIBLE_ASSETS
+    if (hasLiabilities) return routes.FINANCES_EDIT_LIABILITIES
+    return routes.FINANCES_EDIT_INCOME
   }
 
   function handleContinue() {
@@ -57,7 +57,7 @@
   }
 
   function handleBack() {
-    goto(resolve(routes.SETUP))
+    goto(resolve(routes.PROFILE))
   }
 </script>
 

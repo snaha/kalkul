@@ -165,7 +165,7 @@
   }
 
   function handleBack() {
-    goto(resolve(routes.SETUP_INCOME))
+    goto(resolve(routes.FINANCES_EDIT_INCOME))
   }
 </script>
 

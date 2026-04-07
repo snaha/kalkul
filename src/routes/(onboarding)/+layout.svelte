@@ -15,18 +15,18 @@
   let { children } = $props()
 
   const steps = $derived.by(() => {
-    const base = ['/setup', '/setup/finances'] as string[]
-    if (appStore.profile.has_investments) base.push('/setup/investments')
-    if (appStore.profile.has_tangible_assets) base.push('/setup/tangible-assets')
-    if (appStore.profile.has_liabilities) base.push('/setup/liabilities')
-    base.push('/setup/income', '/setup/expenses')
+    const base = [routes.PROFILE, routes.FINANCES_EDIT] as string[]
+    if (appStore.profile.has_investments) base.push(routes.FINANCES_EDIT_INVESTMENTS)
+    if (appStore.profile.has_tangible_assets) base.push(routes.FINANCES_EDIT_TANGIBLE_ASSETS)
+    if (appStore.profile.has_liabilities) base.push(routes.FINANCES_EDIT_LIABILITIES)
+    base.push(routes.FINANCES_EDIT_INCOME, routes.FINANCES_EDIT_EXPENSES)
     return base
   })
   const totalSteps = steps.length
 
   let currentStepIndex = $derived.by(() => {
     const pathname = page.url.pathname.replace(/\/$/, '')
-    const idx = steps.findIndex((s) => pathname.endsWith(s))
+    const idx = steps.findIndex((s) => pathname === s)
     return Math.max(0, idx)
   })
 

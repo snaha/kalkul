@@ -112,7 +112,7 @@
           {/if}
         </div>
         {#if hasFinancialData}
-          <Button size="sm" href={resolve(routes.SETUP_FINANCES)}>
+          <Button size="sm" href={resolve(routes.FINANCES_EDIT)}>
             <SquarePen class="size-4" />
             {$_('page.dashboard.finances.update')}
           </Button>
@@ -120,7 +120,7 @@
             <ArrowRight class="size-4" />
           </Button>
         {:else}
-          <Button size="sm" href={resolve(routes.SETUP_FINANCES)}>
+          <Button size="sm" href={resolve(routes.FINANCES_EDIT)}>
             <SquarePen class="size-4" />
             {$_('page.dashboard.finances.addData')}
           </Button>
@@ -151,7 +151,7 @@
             </div>
           </div>
           <div class="flex items-center justify-center gap-4">
-            <Button variant="ghost" size="sm" href={resolve(routes.SETUP_FINANCES)}>
+            <Button variant="ghost" size="sm" href={resolve(routes.FINANCES_EDIT)}>
               {$_('page.dashboard.finances.update')}
             </Button>
             <Button variant="secondary" size="sm" onclick={notImplemented}>
@@ -175,7 +175,7 @@
               </p>
             </div>
           </div>
-          <Button variant="secondary" size="sm" href={resolve(routes.SETUP_FINANCES)}>
+          <Button variant="secondary" size="sm" href={resolve(routes.FINANCES_EDIT)}>
             {$_('page.dashboard.finances.addFinancialData')}
           </Button>
         </div>
@@ -226,7 +226,7 @@
           {$_('page.home.heroDescription')}
         </p>
       </div>
-      <Button href={resolve(routes.SETUP)} size="lg">
+      <Button href={resolve(routes.PROFILE)} size="lg">
         {$_('page.home.getStarted')}
         <ArrowRight class="size-4" />
       </Button>
