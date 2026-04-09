@@ -12,11 +12,9 @@
   import { Button } from '$lib/components/ui/button'
   import * as Dialog from '$lib/components/ui/dialog'
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
+  import externalLinks from '$lib/external-links'
   import routes from '$lib/routes'
   import { notImplemented } from '$lib/utils'
-
-  const GITHUB_URL = 'https://github.com/snaha-org/kalkul-next'
-  const DISCORD_URL = 'https://discord.gg/kalkul'
 
   let importOpen = $state(false)
   let feedbackOpen = $state(false)
@@ -50,14 +48,16 @@
         <DropdownMenu.Group>
           <DropdownMenu.Item>
             {#snippet child({ props })}
-              <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" {...props}>
+              <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+              <a href={externalLinks.GITHUB} target="_blank" rel="noopener noreferrer" {...props}>
                 {$_('navbar.menu.visitGithub')}
               </a>
             {/snippet}
           </DropdownMenu.Item>
           <DropdownMenu.Item>
             {#snippet child({ props })}
-              <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" {...props}>
+              <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+              <a href={externalLinks.DISCORD} target="_blank" rel="noopener noreferrer" {...props}>
                 {$_('navbar.menu.joinDiscord')}
               </a>
             {/snippet}
@@ -100,11 +100,21 @@
       </Dialog.Description>
     </Dialog.Header>
     <Dialog.Footer class="sm:justify-start">
-      <Button variant="outline" href={DISCORD_URL} target="_blank" rel="noopener noreferrer">
+      <Button
+        variant="outline"
+        href={externalLinks.DISCORD}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
         <DiscordIcon class="size-4" />
         {$_('navbar.feedback.discussOnDiscord')}
       </Button>
-      <Button variant="outline" href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
+      <Button
+        variant="outline"
+        href={externalLinks.GITHUB}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
         <GithubIcon class="size-4" />
         {$_('navbar.feedback.openIssueOnGithub')}
       </Button>
@@ -124,14 +134,19 @@
     <p class="text-base text-foreground">
       {$_('navbar.license.openSourcePrefix')}
       <a
-        href="https://www.gnu.org/licenses/agpl-3.0.en.html"
+        href={/* eslint-disable-line svelte/no-navigation-without-resolve */ externalLinks.AGPL_LICENSE}
         target="_blank"
         rel="noopener noreferrer"
         class="underline">{$_('navbar.license.licenseName')}</a
       >{$_('navbar.license.openSourceSuffix')}
     </p>
     <Dialog.Footer class="sm:justify-start">
-      <Button variant="outline" href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
+      <Button
+        variant="outline"
+        href={externalLinks.GITHUB}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
         <GithubIcon class="size-4" />
         {$_('navbar.license.visitGithub')}
       </Button>
