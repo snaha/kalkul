@@ -159,5 +159,33 @@
     "light": "Světlý",
     "dark": "Tmavý",
     "system": "Systém"
+  },
+  "navbar": {
+    "menu": {
+      "importData": "Importovat data",
+      "reportBug": "Nahlásit chybu nebo zpětnou vazbu",
+      "visitGithub": "Navštivte naši stránku na GitHubu",
+      "joinDiscord": "Připojte se na náš Discord server",
+      "usageLicense": "Přečíst si podmínky použití a licenci"
+    },
+    "import": {
+      "title": "Importovat data",
+      "description": "Načtěte dříve exportovaný soubor Kalkulu a obnovte své plány, aktiva a peněžní toky.",
+      "chooseFile": "Vyberte soubor k importu"
+    },
+    "feedback": {
+      "title": "Nahlásit chybu nebo zpětnou vazbu",
+      "description": "Kalkul je stále v aktivním vývoji a vaše zpětná vazba utváří, co bude vytvořeno dál. Nahlašte konkrétní chyby nebo problémy na naší stránce na GitHubu, nebo se zapojte do diskuze na Discordu.",
+      "discussOnDiscord": "Diskutovat na Discordu",
+      "openIssueOnGithub": "Nahlásit chybu na GitHubu"
+    },
+    "license": {
+      "title": "Podmínky použití a licence",
+      "disclaimer": "Kalkul je poskytován pouze pro informační účely a nepředstavuje finanční poradenství. Před jakýmkoliv investičním nebo finančním rozhodnutím se vždy poraďte s kvalifikovaným finančním poradcem.",
+      "openSourcePrefix": "Kalkul je open source software vydaný pod",
+      "licenseName": "licencí AGPL-3.0",
+      "openSourceSuffix": ". Můžete jej volně používat, upravovat a distribuovat za stejných podmínek.",
+      "visitGithub": "Navštívit náš GitHub"
+    }
   }
 }

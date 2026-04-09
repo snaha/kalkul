@@ -159,5 +159,33 @@
     "light": "Light",
     "dark": "Dark",
     "system": "System"
+  },
+  "navbar": {
+    "menu": {
+      "importData": "Import data",
+      "reportBug": "Report bug and feedback",
+      "visitGithub": "Visit our Github page",
+      "joinDiscord": "Join our Discord server",
+      "usageLicense": "Read our usage and license terms"
+    },
+    "import": {
+      "title": "Import data",
+      "description": "Load a previously exported Kalkul file to restore your plans, assets, and cash flows.",
+      "chooseFile": "Choose file to import"
+    },
+    "feedback": {
+      "title": "Report bug and feedback",
+      "description": "Kalkul is still in active development and your feedback shapes what gets built next. Report specific bugs or issues on our GitHub page, or join the conversation on Discord.",
+      "discussOnDiscord": "Discuss on Discord",
+      "openIssueOnGithub": "Open issue on Github"
+    },
+    "license": {
+      "title": "Usage and license terms",
+      "disclaimer": "Kalkul is provided for informational purposes only and does not constitute financial advice. Always consult a qualified financial advisor before making investment or financial decisions.",
+      "openSourcePrefix": "Kalkul is open source software released under the",
+      "licenseName": "AGPL-3.0 license",
+      "openSourceSuffix": ". You are free to use, modify, and distribute it under the same terms.",
+      "visitGithub": "Visit our Github"
+    }
   }
 }
