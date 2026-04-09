@@ -1,12 +1,13 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import { ArrowRight, Plus } from '@lucide/svelte'
+  import { Plus } from '@lucide/svelte'
 
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
 
   import EditableItemCard from '$lib/components/editable-item-card.svelte'
+  import OnboardingNav from '$lib/components/onboarding-nav.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Label } from '$lib/components/ui/label'
@@ -14,6 +15,7 @@
   import routes from '$lib/routes'
   import type { ProfileInvestment } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
+  import { formatCurrency } from '$lib/utils'
 
   interface InvestmentUI {
     id: string
@@ -78,7 +80,7 @@
     const copy: InvestmentUI = {
       ...investment,
       id: crypto.randomUUID(),
-      name: `${investment.name} (copy)`,
+      name: $_('page.setup.common.copySuffix', { values: { name: investment.name } }),
       editing: true,
       editingName: false,
     }
@@ -92,8 +94,8 @@
 
   function formatBalance(balance: string): string {
     const num = Number(balance)
-    if (isNaN(num) || num === 0) return ''
-    return `${num.toLocaleString()} ${currencyLabel}`
+    if (!num) return ''
+    return formatCurrency(num, currencyLabel)
   }
 
   function saveInvestments() {
@@ -203,18 +205,10 @@
     </div>
   </div>
 
-  <div class="flex w-full items-center gap-4">
-    <Button variant="ghost" onclick={handleBack}>
-      {$_('page.setup.back')}
-    </Button>
-    <div class="flex flex-1 items-center justify-end gap-2">
-      <Button variant="ghost" onclick={handleSkip}>
-        {$_('page.setup.skip')}
-      </Button>
-      <Button disabled={!canContinue} onclick={handleContinue}>
-        {$_('page.setup.continue')}
-        <ArrowRight class="size-4" />
-      </Button>
-    </div>
-  </div>
+  <OnboardingNav
+    {canContinue}
+    onBack={handleBack}
+    onSkip={handleSkip}
+    onContinue={handleContinue}
+  />
 </div>

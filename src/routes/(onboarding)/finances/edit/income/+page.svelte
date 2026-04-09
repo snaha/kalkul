@@ -1,18 +1,25 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import { ArrowRight, Plus } from '@lucide/svelte'
+  import { Plus } from '@lucide/svelte'
 
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
 
   import CashFlowItemCard from '$lib/components/cash-flow-item-card.svelte'
+  import OnboardingNav from '$lib/components/onboarding-nav.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Checkbox } from '$lib/components/ui/checkbox'
   import { Label } from '$lib/components/ui/label'
   import routes from '$lib/routes'
-  import type { Income as IncomeData } from '$lib/schemas'
+  import type {
+    CashFlowEnd,
+    CashFlowStart,
+    ChangeOverTime,
+    Frequency,
+    Income as IncomeData,
+  } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
   import { calculateAge, getMonthOptions, getYearOptions } from '$lib/utils'
 
@@ -20,19 +27,19 @@
     id: string
     name: string
     amount: string
-    frequency: string
+    frequency: Frequency
     showAdvanced: boolean
     withholdTaxes: boolean
     taxPercentage: string
-    start: string
+    start: CashFlowStart
     startYear: string
     startMonth: string
     startAge: string
-    end: string
+    end: CashFlowEnd
     endYear: string
     endMonth: string
     endAge: string
-    changeOverTime: string
+    changeOverTime: ChangeOverTime
     changePercentage: string
     editing: boolean
     editingName: boolean
@@ -119,7 +126,7 @@
     const copy: IncomeUI = {
       ...income,
       id: crypto.randomUUID(),
-      name: `${income.name} (copy)`,
+      name: $_('page.setup.common.copySuffix', { values: { name: income.name } }),
       editing: true,
       editingName: false,
     }
@@ -132,12 +139,6 @@
   }
 
   let currencyLabel = $derived(appStore.profile.currency || 'EUR')
-
-  function formatAmount(amount: string): string {
-    const num = Number(amount)
-    if (isNaN(num) || num === 0) return ''
-    return `+${num.toLocaleString()} ${currencyLabel}`
-  }
 
   function saveIncomes() {
     const data: IncomeData[] = incomes
@@ -209,7 +210,6 @@
         changeDescription={$_('page.setup.income.changeDescription')}
         {years}
         {months}
-        {formatAmount}
         onToggleEditing={() => {
           income.editing = !income.editing
         }}
@@ -264,18 +264,10 @@
     </div>
   </div>
 
-  <div class="flex w-full items-center gap-4">
-    <Button variant="ghost" onclick={handleBack}>
-      {$_('page.setup.back')}
-    </Button>
-    <div class="flex flex-1 items-center justify-end gap-2">
-      <Button variant="ghost" onclick={handleSkip}>
-        {$_('page.setup.skip')}
-      </Button>
-      <Button disabled={!canContinue} onclick={handleContinue}>
-        {$_('page.setup.continue')}
-        <ArrowRight class="size-4" />
-      </Button>
-    </div>
-  </div>
+  <OnboardingNav
+    {canContinue}
+    onBack={handleBack}
+    onSkip={handleSkip}
+    onContinue={handleContinue}
+  />
 </div>

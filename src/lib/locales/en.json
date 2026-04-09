@@ -82,7 +82,8 @@
         "yearly": "Yearly",
         "weekly": "Weekly",
         "duplicate": "Duplicate",
-        "delete": "Delete"
+        "delete": "Delete",
+        "copySuffix": "{name} (copy)"
       },
       "tangibleAssets": {
         "title": "Tangible assets",

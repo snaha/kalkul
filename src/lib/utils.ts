@@ -28,6 +28,10 @@ export function notImplemented() {
   alert('Not implemented yet')
 }
 
+export function formatCurrency(value: number, currencyLabel: string): string {
+  return `${value.toLocaleString()} ${currencyLabel}`
+}
+
 export function calculateAge(
   birthDate: Date | undefined,
   currentYear: number,

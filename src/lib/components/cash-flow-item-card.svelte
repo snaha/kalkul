@@ -10,22 +10,24 @@
   import * as Select from '$lib/components/ui/select'
   import { Separator } from '$lib/components/ui/separator'
   import { Switch } from '$lib/components/ui/switch'
+  import type { CashFlowEnd, CashFlowStart, ChangeOverTime, Frequency } from '$lib/schemas'
+  import { formatCurrency } from '$lib/utils'
 
   interface CashFlowItem {
     id: string
     name: string
     amount: string
-    frequency: string
+    frequency: Frequency
     showAdvanced: boolean
-    start: string
+    start: CashFlowStart
     startYear: string
     startMonth: string
     startAge: string
-    end: string
+    end: CashFlowEnd
     endYear: string
     endMonth: string
     endAge: string
-    changeOverTime: string
+    changeOverTime: ChangeOverTime
     changePercentage: string
     editing: boolean
     editingName: boolean
@@ -41,7 +43,6 @@
     changeDescription: string
     years: string[]
     months: { value: string; label: string }[]
-    formatAmount: (amount: string) => string
     onToggleEditing: () => void
     onDuplicate: () => void
     onDelete: () => void
@@ -60,7 +61,6 @@
     changeDescription,
     years,
     months,
-    formatAmount,
     onToggleEditing,
     onDuplicate,
     onDelete,
@@ -69,14 +69,20 @@
     extraAdvancedContent,
   }: Props = $props()
 
+  let sign = $derived(amountColor === 'green' ? '+' : '-')
   let collapsedValueClass = $derived(
     amountColor === 'green' ? 'text-green-600' : 'text-destructive',
   )
+  let formattedAmount = $derived.by(() => {
+    const num = Number(item.amount)
+    if (!num) return ''
+    return `${sign}${formatCurrency(num, currencyLabel)}`
+  })
 </script>
 
 <EditableItemCard
   {item}
-  collapsedValue={formatAmount(item.amount)}
+  collapsedValue={formattedAmount}
   {collapsedValueClass}
   {onToggleEditing}
   {onDuplicate}
@@ -103,7 +109,7 @@
           type="single"
           value={item.frequency}
           onValueChange={(v) => {
-            if (v) item.frequency = v
+            if (v) item.frequency = v as Frequency
           }}
         >
           <Select.Trigger class="w-full">
@@ -153,7 +159,7 @@
         {months}
         description={startDescription}
         onValueChange={(v) => {
-          item.start = v
+          item.start = v as CashFlowStart
         }}
         onYearChange={(v) => {
           item.startYear = v
@@ -177,7 +183,7 @@
         {months}
         description={endDescription}
         onValueChange={(v) => {
-          item.end = v
+          item.end = v as CashFlowEnd
         }}
         onYearChange={(v) => {
           item.endYear = v
@@ -197,7 +203,7 @@
         {matchInflationDescription}
         {changeDescription}
         onValueChange={(v) => {
-          item.changeOverTime = v
+          item.changeOverTime = v as ChangeOverTime
         }}
         onPercentageChange={(v) => {
           item.changePercentage = v

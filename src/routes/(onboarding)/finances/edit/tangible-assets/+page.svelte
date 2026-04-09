@@ -1,28 +1,30 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import { ArrowRight, Plus } from '@lucide/svelte'
+  import { Plus } from '@lucide/svelte'
 
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
 
   import EditableItemCard from '$lib/components/editable-item-card.svelte'
+  import OnboardingNav from '$lib/components/onboarding-nav.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Label } from '$lib/components/ui/label'
   import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select'
   import { Switch } from '$lib/components/ui/switch'
   import routes from '$lib/routes'
-  import type { ProfileTangibleAsset } from '$lib/schemas'
+  import type { Frequency, ProfileTangibleAsset, TangibleAssetStatus } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
+  import { formatCurrency } from '$lib/utils'
 
   interface AssetUI {
     id: string
     name: string
     value: string
-    status: string
+    status: TangibleAssetStatus
     outstandingBalance: string
-    installmentFrequency: string
+    installmentFrequency: Frequency
     annualRate: string
     installmentAmount: string
     remainingTerm: string
@@ -97,7 +99,7 @@
     const copy: AssetUI = {
       ...asset,
       id: crypto.randomUUID(),
-      name: `${asset.name} (copy)`,
+      name: $_('page.setup.common.copySuffix', { values: { name: asset.name } }),
       editing: true,
       editingName: false,
     }
@@ -111,8 +113,8 @@
 
   function formatValue(val: string): string {
     const num = Number(val)
-    if (isNaN(num) || num === 0) return ''
-    return `${num.toLocaleString()} ${currencyLabel}`
+    if (!num) return ''
+    return formatCurrency(num, currencyLabel)
   }
 
   function saveAssets() {
@@ -199,7 +201,7 @@
                 type="single"
                 value={asset.status}
                 onValueChange={(v) => {
-                  asset.status = v
+                  asset.status = v as TangibleAssetStatus
                 }}
               >
                 <SelectTrigger class="h-8">
@@ -237,7 +239,7 @@
                   type="single"
                   value={asset.installmentFrequency}
                   onValueChange={(v) => {
-                    asset.installmentFrequency = v
+                    asset.installmentFrequency = v as Frequency
                   }}
                 >
                   <SelectTrigger class="h-8">
@@ -309,18 +311,10 @@
     </div>
   </div>
 
-  <div class="flex w-full items-center gap-4">
-    <Button variant="ghost" onclick={handleBack}>
-      {$_('page.setup.back')}
-    </Button>
-    <div class="flex flex-1 items-center justify-end gap-2">
-      <Button variant="ghost" onclick={handleSkip}>
-        {$_('page.setup.skip')}
-      </Button>
-      <Button disabled={!canContinue} onclick={handleContinue}>
-        {$_('page.setup.continue')}
-        <ArrowRight class="size-4" />
-      </Button>
-    </div>
-  </div>
+  <OnboardingNav
+    {canContinue}
+    onBack={handleBack}
+    onSkip={handleSkip}
+    onContinue={handleContinue}
+  />
 </div>

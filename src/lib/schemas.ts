@@ -1,5 +1,22 @@
 import { z } from 'zod'
 
+// --- Enum schemas ---
+
+export const frequencySchema = z.enum(['monthly', 'yearly', 'weekly'])
+
+export const cashFlowStartSchema = z.enum(['immediately', 'at_specific_date', 'when_age_is'])
+
+export const cashFlowEndSchema = z.enum(['never', 'at_specific_date', 'when_age_is'])
+
+export const changeOverTimeSchema = z.enum([
+  'none',
+  'match_inflation',
+  'increase_yearly',
+  'decrease_yearly',
+])
+
+export const tangibleAssetStatusSchema = z.enum(['fully_owned', 'financed'])
+
 // --- Domain schemas ---
 
 export type Json = string | number | boolean | { [key: string]: Json | undefined } | Json[]
@@ -18,18 +35,18 @@ export const incomeSchema = z.object({
   id: z.string(),
   name: z.string(),
   amount: z.number(),
-  frequency: z.string(),
+  frequency: frequencySchema,
   withhold_taxes: z.boolean(),
   tax_percentage: z.number().optional(),
-  start: z.string(),
+  start: cashFlowStartSchema,
   start_year: z.number().optional(),
   start_month: z.number().optional(),
   start_age: z.number().optional(),
-  end: z.string(),
+  end: cashFlowEndSchema,
   end_year: z.number().optional(),
   end_month: z.number().optional(),
   end_age: z.number().optional(),
-  change_over_time: z.string(),
+  change_over_time: changeOverTimeSchema,
   change_percentage: z.number().optional(),
 })
 
@@ -37,16 +54,16 @@ export const expenseSchema = z.object({
   id: z.string(),
   name: z.string(),
   amount: z.number(),
-  frequency: z.string(),
-  start: z.string(),
+  frequency: frequencySchema,
+  start: cashFlowStartSchema,
   start_year: z.number().optional(),
   start_month: z.number().optional(),
   start_age: z.number().optional(),
-  end: z.string(),
+  end: cashFlowEndSchema,
   end_year: z.number().optional(),
   end_month: z.number().optional(),
   end_age: z.number().optional(),
-  change_over_time: z.string(),
+  change_over_time: changeOverTimeSchema,
   change_percentage: z.number().optional(),
 })
 
@@ -61,9 +78,9 @@ export const profileTangibleAssetSchema = z.object({
   id: z.string(),
   name: z.string(),
   value: z.number(),
-  status: z.string(),
+  status: tangibleAssetStatusSchema,
   outstanding_balance: z.number().optional(),
-  installment_frequency: z.string().optional(),
+  installment_frequency: frequencySchema.optional(),
   annual_rate: z.number().optional(),
   installment_amount: z.number().optional(),
   remaining_term: z.number().optional(),
@@ -73,7 +90,7 @@ export const profileLiabilitySchema = z.object({
   id: z.string(),
   name: z.string(),
   outstanding_balance: z.number(),
-  installment_frequency: z.string(),
+  installment_frequency: frequencySchema,
   annual_rate: z.number(),
   installment_amount: z.number(),
   remaining_term: z.number(),
@@ -186,3 +203,8 @@ export type PortfolioNested = z.infer<typeof portfolioNestedSchema>
 export type StoredData = z.infer<typeof storedDataSchema>
 export type PeriodicWithdrawalGoalData = z.infer<typeof periodicWithdrawalGoalDataSchema>
 export type RetirementGoalData = z.infer<typeof retirementGoalDataSchema>
+export type Frequency = z.infer<typeof frequencySchema>
+export type CashFlowStart = z.infer<typeof cashFlowStartSchema>
+export type CashFlowEnd = z.infer<typeof cashFlowEndSchema>
+export type ChangeOverTime = z.infer<typeof changeOverTimeSchema>
+export type TangibleAssetStatus = z.infer<typeof tangibleAssetStatusSchema>

@@ -82,7 +82,8 @@
         "yearly": "Ročně",
         "weekly": "Týdně",
         "duplicate": "Duplikovat",
-        "delete": "Smazat"
+        "delete": "Smazat",
+        "copySuffix": "{name} (kopie)"
       },
       "tangibleAssets": {
         "title": "Hmotný majetek",
