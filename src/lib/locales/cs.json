@@ -162,6 +162,7 @@
   },
   "navbar": {
     "menu": {
+      "exportData": "Exportovat data",
       "importData": "Importovat data",
       "reportBug": "Nahlásit chybu nebo zpětnou vazbu",
       "visitGithub": "Navštivte naši stránku na GitHubu",
@@ -171,7 +172,13 @@
     "import": {
       "title": "Importovat data",
       "description": "Načtěte dříve exportovaný soubor Kalkulu a obnovte své plány, aktiva a peněžní toky.",
-      "chooseFile": "Vyberte soubor k importu"
+      "descriptionShort": "Načtěte dříve exportovaný soubor Kalkulu.",
+      "warning": "Načtení nového souboru nahradí všechna vaše stávající data. Pokud si je chcete ponechat, nejprve je exportujte.",
+      "chooseFile": "Vyberte soubor k importu",
+      "exportBeforeImporting": "Exportovat před importem",
+      "importAnyway": "Přesto importovat",
+      "backupDownloaded": "Vaše data byla stažena. Nyní můžete bezpečně vybrat soubor k importu.",
+      "error": "Soubor se nepodařilo importovat. Ujistěte se, že jde o platnou zálohu Kalkulu."
     },
     "feedback": {
       "title": "Nahlásit chybu nebo zpětnou vazbu",

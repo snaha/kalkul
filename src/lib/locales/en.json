@@ -162,6 +162,7 @@
   },
   "navbar": {
     "menu": {
+      "exportData": "Export data",
       "importData": "Import data",
       "reportBug": "Report bug and feedback",
       "visitGithub": "Visit our Github page",
@@ -171,7 +172,13 @@
     "import": {
       "title": "Import data",
       "description": "Load a previously exported Kalkul file to restore your plans, assets, and cash flows.",
-      "chooseFile": "Choose file to import"
+      "descriptionShort": "Load a previously exported Kalkul file.",
+      "warning": "Loading a new file will replace all your current data. Export your current data first if you want to keep it.",
+      "chooseFile": "Choose file to import",
+      "exportBeforeImporting": "Export before importing",
+      "importAnyway": "Import anyway",
+      "backupDownloaded": "Your data has been downloaded. You can now safely choose a file to import.",
+      "error": "Could not import file. Please make sure it is a valid Kalkul backup."
     },
     "feedback": {
       "title": "Report bug and feedback",
