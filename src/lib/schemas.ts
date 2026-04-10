@@ -1,3 +1,6 @@
+import { _ } from 'svelte-i18n'
+import { get } from 'svelte/store'
+
 import { z } from 'zod'
 
 // --- Enum schemas ---
@@ -51,20 +54,20 @@ const cashFlowTemporalRefinement = (
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['start_year'],
-        message: 'Required when start is at_specific_date',
+        message: get(_)('validation.required_when_start_at_specific_date'),
       })
     if (obj.start_month === undefined)
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['start_month'],
-        message: 'Required when start is at_specific_date',
+        message: get(_)('validation.required_when_start_at_specific_date'),
       })
   }
   if (obj.start === 'when_age_is' && obj.start_age === undefined) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['start_age'],
-      message: 'Required when start is when_age_is',
+      message: get(_)('validation.required_when_start_when_age_is'),
     })
   }
   if (obj.end === 'at_specific_date') {
@@ -72,20 +75,20 @@ const cashFlowTemporalRefinement = (
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['end_year'],
-        message: 'Required when end is at_specific_date',
+        message: get(_)('validation.required_when_end_at_specific_date'),
       })
     if (obj.end_month === undefined)
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['end_month'],
-        message: 'Required when end is at_specific_date',
+        message: get(_)('validation.required_when_end_at_specific_date'),
       })
   }
   if (obj.end === 'when_age_is' && obj.end_age === undefined) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['end_age'],
-      message: 'Required when end is when_age_is',
+      message: get(_)('validation.required_when_end_when_age_is'),
     })
   }
 }
@@ -155,31 +158,31 @@ export const profileTangibleAssetSchema = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['outstanding_balance'],
-          message: 'Required when financed',
+          message: get(_)('validation.required_when_financed'),
         })
       if (obj.installment_frequency === undefined)
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['installment_frequency'],
-          message: 'Required when financed',
+          message: get(_)('validation.required_when_financed'),
         })
       if (obj.annual_rate === undefined)
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['annual_rate'],
-          message: 'Required when financed',
+          message: get(_)('validation.required_when_financed'),
         })
       if (obj.installment_amount === undefined)
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['installment_amount'],
-          message: 'Required when financed',
+          message: get(_)('validation.required_when_financed'),
         })
       if (obj.remaining_term === undefined)
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['remaining_term'],
-          message: 'Required when financed',
+          message: get(_)('validation.required_when_financed'),
         })
     }
   })

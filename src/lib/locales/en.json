@@ -194,5 +194,12 @@
       "openSourceSuffix": ". You are free to use, modify, and distribute it under the same terms.",
       "visitGithub": "Visit our Github"
     }
+  },
+  "validation": {
+    "required_when_start_at_specific_date": "Required when start is at a specific date",
+    "required_when_start_when_age_is": "Required when start is at a specific age",
+    "required_when_end_at_specific_date": "Required when end is at a specific date",
+    "required_when_end_when_age_is": "Required when end is at a specific age",
+    "required_when_financed": "Required when asset is financed"
   }
 }
