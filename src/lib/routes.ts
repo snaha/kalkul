@@ -8,5 +8,4 @@ export default {
   FINANCES_EDIT_INCOME: '/finances/edit/income',
   FINANCES_EDIT_EXPENSES: '/finances/edit/expenses',
   DEV: '/dev',
-  SETTINGS: '/settings',
 } as const

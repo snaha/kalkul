@@ -15,7 +15,7 @@
   import { Separator } from '$lib/components/ui/separator'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
-  import { notImplemented } from '$lib/utils'
+  import { formatCompactCurrency, formatCurrency, notImplemented } from '$lib/utils'
 
   const hasData = $derived(!appStore.loading && !!appStore.profile.name)
   const hasFinancialData = $derived.by(() => {
@@ -27,7 +27,7 @@
     return false
   })
 
-  const currency = $derived(appStore.profile.currency ?? 'EUR')
+  const currency = $derived(appStore.profile.currencyOrDefault)
 
   const chartSegments = $derived.by(() => {
     const segments: { label: string; value: number; color: string }[] = []
@@ -77,22 +77,6 @@
       0,
     ),
   )
-
-  function formatCompact(value: number): string {
-    if (value >= 1_000_000) {
-      const m = value / 1_000_000
-      return `${m % 1 === 0 ? m.toFixed(0) : m.toFixed(1)}M`
-    }
-    if (value >= 1_000) {
-      const k = value / 1_000
-      return `${k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)}K`
-    }
-    return value.toString()
-  }
-
-  function formatFull(value: number): string {
-    return value.toLocaleString($locale ?? undefined)
-  }
 </script>
 
 {#if hasData}
@@ -134,13 +118,14 @@
         <div class="flex flex-1 flex-col items-center gap-8 p-8">
           <DonutChart
             segments={chartSegments}
-            centerLabel={formatCompact(totalNetWorth)}
-            centerSublabel={currency}
+            centerLabel={formatCompactCurrency(totalNetWorth, currency, $locale ?? undefined)}
           />
           <div class="flex w-full flex-col gap-2 text-center">
             <h3 class="text-xl font-bold">
               {$_('page.dashboard.finances.netWorthSummary', {
-                values: { amount: formatFull(totalNetWorth), currency },
+                values: {
+                  total: formatCurrency(totalNetWorth, currency, $locale ?? undefined),
+                },
               })}
             </h3>
             <div class="flex flex-col gap-1">
@@ -182,7 +167,7 @@
       {/if}
     </div>
 
-    <Separator orientation="vertical" class="!h-auto self-stretch" />
+    <Separator orientation="vertical" class="self-stretch data-[orientation=vertical]:h-auto" />
 
     <!-- Right panel: Plans -->
     <div class="flex flex-1 flex-col">

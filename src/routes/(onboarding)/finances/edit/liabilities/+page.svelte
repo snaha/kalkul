@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { _ } from 'svelte-i18n'
+  import { _, locale } from 'svelte-i18n'
 
   import { Plus } from '@lucide/svelte'
 
   import { goto } from '$app/navigation'
-  import { resolve } from '$app/paths'
 
+  import { CATEGORY_COLORS } from '$lib/chart-colors'
   import EditableItemCard from '$lib/components/editable-item-card.svelte'
   import OnboardingNav from '$lib/components/onboarding-nav.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
@@ -13,6 +13,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select'
   import { Switch } from '$lib/components/ui/switch'
+  import { getNextStepUrl, getPrevStepUrl } from '$lib/onboarding-steps'
   import routes from '$lib/routes'
   import type { Frequency, ProfileLiability } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
@@ -21,11 +22,11 @@
   interface LiabilityUI {
     id: string
     name: string
-    outstandingBalance: string
-    installmentFrequency: Frequency
-    annualRate: string
-    installmentAmount: string
-    remainingTerm: string
+    outstanding_balance: number | undefined
+    installment_frequency: Frequency
+    annual_rate: number | undefined
+    installment_amount: number | undefined
+    remaining_term: number | undefined
     editing: boolean
     editingName: boolean
     showAdvanced: boolean
@@ -35,11 +36,11 @@
     return stored.map((l) => ({
       id: l.id,
       name: l.name,
-      outstandingBalance: l.outstanding_balance > 0 ? String(l.outstanding_balance) : '',
-      installmentFrequency: l.installment_frequency,
-      annualRate: l.annual_rate > 0 ? String(l.annual_rate) : '',
-      installmentAmount: l.installment_amount > 0 ? String(l.installment_amount) : '',
-      remainingTerm: l.remaining_term > 0 ? String(l.remaining_term) : '',
+      outstanding_balance: l.outstanding_balance > 0 ? l.outstanding_balance : undefined,
+      installment_frequency: l.installment_frequency,
+      annual_rate: l.annual_rate > 0 ? l.annual_rate : undefined,
+      installment_amount: l.installment_amount > 0 ? l.installment_amount : undefined,
+      remaining_term: l.remaining_term > 0 ? l.remaining_term : undefined,
       editing: false,
       editingName: false,
       showAdvanced: false,
@@ -48,24 +49,21 @@
 
   let liabilities = $state<LiabilityUI[]>([])
   let liabilityCounter = $state(0)
-  let loaded = $state(false)
+  let hydrated = $state(false)
 
   $effect(() => {
+    if (hydrated || appStore.loading) return
     const stored = appStore.profile.liabilities
-    if (!loaded && stored && stored.length > 0) {
+    if (stored && stored.length > 0) {
       liabilities = storedToUI(stored)
       liabilityCounter = liabilities.length
-      loaded = true
     }
+    hydrated = true
   })
 
-  let canContinue = $derived(
-    liabilities.some(
-      (l) => l.outstandingBalance.trim().length > 0 && Number(l.outstandingBalance) > 0,
-    ),
-  )
+  let canContinue = $derived(liabilities.some((l) => (l.outstanding_balance ?? 0) > 0))
 
-  let currencyLabel = $derived(appStore.profile.currency || 'EUR')
+  let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
   function addLiability() {
     liabilityCounter++
@@ -73,11 +71,11 @@
     liabilities.push({
       id: crypto.randomUUID(),
       name: $_('page.setup.liabilities.defaultName', { values: { index: liabilityCounter } }),
-      outstandingBalance: '',
-      installmentFrequency: 'monthly',
-      annualRate: '',
-      installmentAmount: '',
-      remainingTerm: '',
+      outstanding_balance: undefined,
+      installment_frequency: 'monthly',
+      annual_rate: undefined,
+      installment_amount: undefined,
+      remaining_term: undefined,
       editing: true,
       editingName: false,
       showAdvanced: false,
@@ -87,14 +85,13 @@
   function duplicateLiability(liability: LiabilityUI) {
     liabilityCounter++
     const idx = liabilities.indexOf(liability)
-    const copy: LiabilityUI = {
+    liabilities.splice(idx + 1, 0, {
       ...liability,
       id: crypto.randomUUID(),
       name: $_('page.setup.common.copySuffix', { values: { name: liability.name } }),
       editing: true,
       editingName: false,
-    }
-    liabilities.splice(idx + 1, 0, copy)
+    })
   }
 
   function deleteLiability(liability: LiabilityUI) {
@@ -102,10 +99,15 @@
     if (idx !== -1) liabilities.splice(idx, 1)
   }
 
-  function formatBalance(val: string): string {
-    const num = Number(val)
-    if (!num) return ''
-    return formatCurrency(num, currencyLabel)
+  function formatBalance(val: number | undefined): string {
+    if (val === undefined || val === 0) return ''
+    return formatCurrency(val, currencyLabel, $locale ?? undefined)
+  }
+
+  function frequencyLabel(f: Frequency): string {
+    if (f === 'yearly') return $_('page.setup.common.yearly')
+    if (f === 'weekly') return $_('page.setup.common.weekly')
+    return $_('page.setup.common.monthly')
   }
 
   function saveLiabilities() {
@@ -114,29 +116,32 @@
       .map((l) => ({
         id: l.id,
         name: l.name,
-        outstanding_balance: Number(l.outstandingBalance) || 0,
-        installment_frequency: l.installmentFrequency,
-        annual_rate: Number(l.annualRate) || 0,
-        installment_amount: Number(l.installmentAmount) || 0,
-        remaining_term: Number(l.remainingTerm) || 0,
+        outstanding_balance: l.outstanding_balance ?? 0,
+        installment_frequency: l.installment_frequency,
+        annual_rate: l.annual_rate ?? 0,
+        installment_amount: l.installment_amount ?? 0,
+        remaining_term: l.remaining_term ?? 0,
       }))
-    appStore.updateProfile({ liabilities: data })
+    appStore.updateProfile({
+      liabilities: data,
+      has_liabilities: data.length > 0,
+    })
   }
 
   function handleContinue() {
     saveLiabilities()
-    goto(resolve(routes.FINANCES_EDIT_INCOME))
+    // eslint-disable-next-line svelte/no-navigation-without-resolve
+    goto(getNextStepUrl(routes.FINANCES_EDIT_LIABILITIES, appStore.profile))
   }
 
   function handleSkip() {
-    goto(resolve(routes.FINANCES_EDIT_INCOME))
+    // eslint-disable-next-line svelte/no-navigation-without-resolve
+    goto(getNextStepUrl(routes.FINANCES_EDIT_LIABILITIES, appStore.profile))
   }
 
   function handleBack() {
-    if (appStore.profile.has_tangible_assets)
-      return goto(resolve(routes.FINANCES_EDIT_TANGIBLE_ASSETS))
-    if (appStore.profile.has_investments) return goto(resolve(routes.FINANCES_EDIT_INVESTMENTS))
-    goto(resolve(routes.FINANCES_EDIT))
+    // eslint-disable-next-line svelte/no-navigation-without-resolve
+    goto(getPrevStepUrl(routes.FINANCES_EDIT_LIABILITIES, appStore.profile))
   }
 </script>
 
@@ -154,8 +159,8 @@
     {#each liabilities as liability (liability.id)}
       <EditableItemCard
         item={liability}
-        collapsedValue={formatBalance(liability.outstandingBalance)}
-        colorDot="bg-chart-1"
+        collapsedValue={formatBalance(liability.outstanding_balance)}
+        dotColor={CATEGORY_COLORS.liabilities[0]}
         onToggleEditing={() => {
           liability.editing = !liability.editing
         }}
@@ -172,10 +177,10 @@
           <div class="flex flex-col gap-2">
             <Label>{$_('page.setup.liabilities.outstandingBalance')}</Label>
             <SuffixedInput
-              value={liability.outstandingBalance}
+              value={liability.outstanding_balance}
               suffix={currencyLabel}
-              oninput={(e) => {
-                liability.outstandingBalance = (e.currentTarget as HTMLInputElement).value
+              onValueChange={(v) => {
+                liability.outstanding_balance = v
               }}
             />
           </div>
@@ -185,31 +190,28 @@
               <Label>{$_('page.setup.liabilities.installmentFrequency')}</Label>
               <Select
                 type="single"
-                value={liability.installmentFrequency}
+                value={liability.installment_frequency}
                 onValueChange={(v) => {
-                  liability.installmentFrequency = v as Frequency
+                  liability.installment_frequency = v as Frequency
                 }}
               >
                 <SelectTrigger class="h-8">
-                  {liability.installmentFrequency === 'yearly'
-                    ? $_('page.setup.common.yearly')
-                    : liability.installmentFrequency === 'weekly'
-                      ? $_('page.setup.common.weekly')
-                      : $_('page.setup.common.monthly')}
+                  {frequencyLabel(liability.installment_frequency)}
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="monthly">{$_('page.setup.common.monthly')}</SelectItem>
                   <SelectItem value="yearly">{$_('page.setup.common.yearly')}</SelectItem>
+                  <SelectItem value="weekly">{$_('page.setup.common.weekly')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div class="flex flex-1 flex-col gap-2">
               <Label>{$_('page.setup.liabilities.annualRate')}</Label>
               <SuffixedInput
-                value={liability.annualRate}
+                value={liability.annual_rate}
                 suffix="%"
-                oninput={(e) => {
-                  liability.annualRate = (e.currentTarget as HTMLInputElement).value
+                onValueChange={(v) => {
+                  liability.annual_rate = v
                 }}
               />
             </div>
@@ -219,20 +221,20 @@
             <div class="flex flex-1 flex-col gap-2">
               <Label>{$_('page.setup.liabilities.installmentAmount')}</Label>
               <SuffixedInput
-                value={liability.installmentAmount}
+                value={liability.installment_amount}
                 suffix={currencyLabel}
-                oninput={(e) => {
-                  liability.installmentAmount = (e.currentTarget as HTMLInputElement).value
+                onValueChange={(v) => {
+                  liability.installment_amount = v
                 }}
               />
             </div>
             <div class="flex flex-1 flex-col gap-2">
               <Label>{$_('page.setup.liabilities.remainingTerm')}</Label>
               <SuffixedInput
-                value={liability.remainingTerm}
+                value={liability.remaining_term}
                 suffix={$_('page.setup.liabilities.years')}
-                oninput={(e) => {
-                  liability.remainingTerm = (e.currentTarget as HTMLInputElement).value
+                onValueChange={(v) => {
+                  liability.remaining_term = v
                 }}
               />
             </div>

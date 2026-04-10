@@ -19,7 +19,7 @@
     item: EditableItem
     collapsedValue?: string
     collapsedValueClass?: string
-    colorDot?: string
+    dotColor?: string
     onToggleEditing: () => void
     onDuplicate: () => void
     onDelete: () => void
@@ -32,7 +32,7 @@
     item,
     collapsedValue,
     collapsedValueClass,
-    colorDot,
+    dotColor,
     onToggleEditing,
     onDuplicate,
     onDelete,
@@ -51,8 +51,8 @@
           <Button variant="ghost" size="icon" class="shrink-0" onclick={onToggleEditing}>
             <ChevronsUpDown class="size-4" />
           </Button>
-          {#if colorDot}
-            <div class="size-4 shrink-0 rounded-xs {colorDot}"></div>
+          {#if dotColor}
+            <div class="size-4 shrink-0 rounded-xs" style:background-color={dotColor}></div>
           {/if}
           {#if item.editingName}
             <Input
@@ -100,27 +100,28 @@
       </div>
     {:else}
       <!-- Collapsed card -->
-      <div class="flex items-center gap-2">
-        <Button variant="ghost" size="icon" class="shrink-0" onclick={onToggleEditing}>
-          <ChevronsUpDown class="size-4" />
-        </Button>
-        {#if colorDot}
-          <div class="size-4 shrink-0 rounded-xs {colorDot}"></div>
-        {/if}
-        <button
-          class="flex flex-1 cursor-pointer items-center gap-2 truncate"
-          onclick={onToggleEditing}
+      <button
+        type="button"
+        class="flex w-full cursor-pointer items-center gap-2 text-left"
+        onclick={onToggleEditing}
+      >
+        <span
+          class="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground"
         >
-          <span class="flex-1 truncate text-left text-base font-medium">
-            {item.name}
-          </span>
-        </button>
+          <ChevronsUpDown class="size-4" />
+        </span>
+        {#if dotColor}
+          <div class="size-4 shrink-0 rounded-xs" style:background-color={dotColor}></div>
+        {/if}
+        <span class="flex-1 truncate text-base font-medium">
+          {item.name}
+        </span>
         {#if collapsedValue}
           <span class="shrink-0 text-sm {collapsedValueClass ?? 'text-foreground'}">
             {collapsedValue}
           </span>
         {/if}
-      </div>
+      </button>
     {/if}
   </CardContent>
 </Card>

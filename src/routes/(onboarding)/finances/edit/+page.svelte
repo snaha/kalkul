@@ -10,50 +10,48 @@
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Label } from '$lib/components/ui/label'
+  import { getNextStepUrl } from '$lib/onboarding-steps'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
 
-  let cashAmount = $state('')
+  let cashAmount = $state<number | undefined>(undefined)
   let hasInvestments = $state(false)
   let hasTangibleAssets = $state(false)
   let hasLiabilities = $state(false)
+  let hydrated = $state(false)
 
   $effect(() => {
+    if (hydrated || appStore.loading) return
     const p = appStore.profile
-    if (p.cash_amount !== undefined && !cashAmount) cashAmount = String(p.cash_amount)
-    if (p.has_investments) hasInvestments = p.has_investments
-    if (p.has_tangible_assets) hasTangibleAssets = p.has_tangible_assets
-    if (p.has_liabilities) hasLiabilities = p.has_liabilities
+    cashAmount = p.cash_amount
+    hasInvestments = p.has_investments ?? false
+    hasTangibleAssets = p.has_tangible_assets ?? false
+    hasLiabilities = p.has_liabilities ?? false
+    hydrated = true
   })
 
   let canContinue = $derived(
-    cashAmount.trim().length > 0 || hasInvestments || hasTangibleAssets || hasLiabilities,
+    (cashAmount ?? 0) > 0 || hasInvestments || hasTangibleAssets || hasLiabilities,
   )
 
   function saveData() {
-    const amount = Number(cashAmount)
     appStore.updateProfile({
-      cash_amount: isNaN(amount) ? undefined : amount,
+      cash_amount: cashAmount,
       has_investments: hasInvestments,
       has_tangible_assets: hasTangibleAssets,
       has_liabilities: hasLiabilities,
     })
   }
 
-  function nextStep() {
-    if (hasInvestments) return routes.FINANCES_EDIT_INVESTMENTS
-    if (hasTangibleAssets) return routes.FINANCES_EDIT_TANGIBLE_ASSETS
-    if (hasLiabilities) return routes.FINANCES_EDIT_LIABILITIES
-    return routes.FINANCES_EDIT_INCOME
-  }
-
   function handleContinue() {
     saveData()
-    goto(resolve(nextStep()))
+    // eslint-disable-next-line svelte/no-navigation-without-resolve
+    goto(getNextStepUrl(routes.FINANCES_EDIT, appStore.profile))
   }
 
   function handleSkip() {
-    goto(resolve(nextStep()))
+    // eslint-disable-next-line svelte/no-navigation-without-resolve
+    goto(getNextStepUrl(routes.FINANCES_EDIT, appStore.profile))
   }
 
   function handleBack() {
@@ -76,9 +74,9 @@
     <SuffixedInput
       id="setup-cash"
       value={cashAmount}
-      suffix={appStore.profile.currency || 'EUR'}
-      oninput={(e) => {
-        cashAmount = (e.currentTarget as HTMLInputElement).value
+      suffix={appStore.profile.currencyOrDefault}
+      onValueChange={(v) => {
+        cashAmount = v
       }}
     />
     <p class="text-sm text-muted-foreground">

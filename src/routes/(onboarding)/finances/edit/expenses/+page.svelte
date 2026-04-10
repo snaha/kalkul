@@ -1,68 +1,39 @@
 <script lang="ts">
-  import { _ } from 'svelte-i18n'
+  import { _, locale } from 'svelte-i18n'
 
   import { Plus } from '@lucide/svelte'
 
   import { goto } from '$app/navigation'
-  import { resolve } from '$app/paths'
 
   import CashFlowItemCard from '$lib/components/cash-flow-item-card.svelte'
   import OnboardingNav from '$lib/components/onboarding-nav.svelte'
   import { Button } from '$lib/components/ui/button'
+  import { getNextStepUrl, getPrevStepUrl } from '$lib/onboarding-steps'
   import routes from '$lib/routes'
-  import type {
-    CashFlowEnd,
-    CashFlowStart,
-    ChangeOverTime,
-    Expense as ExpenseData,
-    Frequency,
-  } from '$lib/schemas'
+  import type { Expense as ExpenseData } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
   import { calculateAge, getMonthOptions, getYearOptions } from '$lib/utils'
 
-  interface ExpenseUI {
-    id: string
-    name: string
-    amount: string
-    frequency: Frequency
+  type ExpenseUI = Omit<ExpenseData, 'amount'> & {
+    amount: number | undefined
     showAdvanced: boolean
-    start: CashFlowStart
-    startYear: string
-    startMonth: string
-    startAge: string
-    end: CashFlowEnd
-    endYear: string
-    endMonth: string
-    endAge: string
-    changeOverTime: ChangeOverTime
-    changePercentage: string
     editing: boolean
     editingName: boolean
   }
 
   const currentYear = new Date().getFullYear()
   const currentMonth = new Date().getMonth()
-  let currentAge = $derived(calculateAge(appStore.profile.birthDate, currentYear, currentMonth))
+  let currentAge = $derived(
+    Number(calculateAge(appStore.profile.birthDate, currentYear, currentMonth)) || undefined,
+  )
   const years = getYearOptions()
-  const months = getMonthOptions()
+  let months = $derived(getMonthOptions($locale ?? undefined))
 
   function storedToUI(stored: ExpenseData[]): ExpenseUI[] {
     return stored.map((exp) => ({
-      id: exp.id,
-      name: exp.name,
-      amount: exp.amount > 0 ? String(exp.amount) : '',
-      frequency: exp.frequency,
+      ...exp,
+      amount: exp.amount > 0 ? exp.amount : undefined,
       showAdvanced: false,
-      start: exp.start,
-      startYear: exp.start_year !== undefined ? String(exp.start_year) : String(currentYear),
-      startMonth: exp.start_month !== undefined ? String(exp.start_month) : String(currentMonth),
-      startAge: exp.start_age !== undefined ? String(exp.start_age) : currentAge,
-      end: exp.end,
-      endYear: exp.end_year !== undefined ? String(exp.end_year) : String(currentYear),
-      endMonth: exp.end_month !== undefined ? String(exp.end_month) : String(currentMonth),
-      endAge: exp.end_age !== undefined ? String(exp.end_age) : currentAge,
-      changeOverTime: exp.change_over_time,
-      changePercentage: exp.change_percentage !== undefined ? String(exp.change_percentage) : '',
       editing: false,
       editingName: false,
     }))
@@ -70,42 +41,39 @@
 
   let expenses = $state<ExpenseUI[]>([])
   let expenseCounter = $state(0)
-  let loaded = $state(false)
+  let hydrated = $state(false)
 
   $effect(() => {
+    if (hydrated || appStore.loading) return
     const stored = appStore.profile.expenses
-    if (!loaded && stored && stored.length > 0) {
+    if (stored && stored.length > 0) {
       expenses = storedToUI(stored)
       expenseCounter = expenses.length
-      loaded = true
     }
+    hydrated = true
   })
 
-  let canContinue = $derived(
-    expenses.some((e) => e.amount.trim().length > 0 && Number(e.amount) > 0),
-  )
+  let canContinue = $derived(expenses.some((e) => (e.amount ?? 0) > 0))
 
   function addExpense() {
     expenseCounter++
-    for (const exp of expenses) {
-      exp.editing = false
-    }
+    for (const exp of expenses) exp.editing = false
     expenses.push({
       id: crypto.randomUUID(),
       name: $_('page.setup.expenses.defaultName', { values: { index: expenseCounter } }),
-      amount: '',
+      amount: undefined,
       frequency: 'monthly',
       showAdvanced: false,
       start: 'immediately',
-      startYear: String(currentYear),
-      startMonth: String(currentMonth),
-      startAge: currentAge,
+      start_year: currentYear,
+      start_month: currentMonth,
+      start_age: currentAge,
       end: 'never',
-      endYear: String(currentYear),
-      endMonth: String(currentMonth),
-      endAge: currentAge,
-      changeOverTime: 'none',
-      changePercentage: '',
+      end_year: currentYear,
+      end_month: currentMonth,
+      end_age: currentAge,
+      change_over_time: 'none',
+      change_percentage: undefined,
       editing: true,
       editingName: false,
     })
@@ -114,14 +82,13 @@
   function duplicateExpense(expense: ExpenseUI) {
     expenseCounter++
     const idx = expenses.indexOf(expense)
-    const copy: ExpenseUI = {
+    expenses.splice(idx + 1, 0, {
       ...expense,
       id: crypto.randomUUID(),
       name: $_('page.setup.common.copySuffix', { values: { name: expense.name } }),
       editing: true,
       editingName: false,
-    }
-    expenses.splice(idx + 1, 0, copy)
+    })
   }
 
   function deleteExpense(expense: ExpenseUI) {
@@ -129,7 +96,7 @@
     if (idx !== -1) expenses.splice(idx, 1)
   }
 
-  let currencyLabel = $derived(appStore.profile.currency || 'EUR')
+  let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
   function saveExpenses() {
     const data: ExpenseData[] = expenses
@@ -137,20 +104,20 @@
       .map((e) => ({
         id: e.id,
         name: e.name,
-        amount: Number(e.amount) || 0,
+        amount: e.amount ?? 0,
         frequency: e.frequency,
         start: e.start,
-        start_year: e.start === 'at_specific_date' ? Number(e.startYear) : undefined,
-        start_month: e.start === 'at_specific_date' ? Number(e.startMonth) : undefined,
-        start_age: e.start === 'when_age_is' ? Number(e.startAge) : undefined,
+        start_year: e.start === 'at_specific_date' ? e.start_year : undefined,
+        start_month: e.start === 'at_specific_date' ? e.start_month : undefined,
+        start_age: e.start === 'when_age_is' ? e.start_age : undefined,
         end: e.end,
-        end_year: e.end === 'at_specific_date' ? Number(e.endYear) : undefined,
-        end_month: e.end === 'at_specific_date' ? Number(e.endMonth) : undefined,
-        end_age: e.end === 'when_age_is' ? Number(e.endAge) : undefined,
-        change_over_time: e.changeOverTime,
+        end_year: e.end === 'at_specific_date' ? e.end_year : undefined,
+        end_month: e.end === 'at_specific_date' ? e.end_month : undefined,
+        end_age: e.end === 'when_age_is' ? e.end_age : undefined,
+        change_over_time: e.change_over_time,
         change_percentage:
-          e.changeOverTime === 'increase_yearly' || e.changeOverTime === 'decrease_yearly'
-            ? Number(e.changePercentage) || 0
+          e.change_over_time === 'increase_yearly' || e.change_over_time === 'decrease_yearly'
+            ? (e.change_percentage ?? 0)
             : undefined,
       }))
     appStore.updateProfile({ expenses: data })
@@ -158,15 +125,18 @@
 
   function handleContinue() {
     saveExpenses()
-    goto(resolve(routes.HOME))
+    // eslint-disable-next-line svelte/no-navigation-without-resolve
+    goto(getNextStepUrl(routes.FINANCES_EDIT_EXPENSES, appStore.profile))
   }
 
   function handleSkip() {
-    goto(resolve(routes.HOME))
+    // eslint-disable-next-line svelte/no-navigation-without-resolve
+    goto(getNextStepUrl(routes.FINANCES_EDIT_EXPENSES, appStore.profile))
   }
 
   function handleBack() {
-    goto(resolve(routes.FINANCES_EDIT_INCOME))
+    // eslint-disable-next-line svelte/no-navigation-without-resolve
+    goto(getPrevStepUrl(routes.FINANCES_EDIT_EXPENSES, appStore.profile))
   }
 </script>
 
@@ -185,7 +155,7 @@
       <CashFlowItemCard
         item={expense}
         {currencyLabel}
-        amountColor="destructive"
+        sentiment="negative"
         startDescription={$_('page.setup.expenses.startDescription')}
         endDescription={$_('page.setup.expenses.endDescription')}
         matchInflationDescription={$_('page.setup.expenses.matchInflationDescription')}

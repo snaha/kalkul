@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { _ } from 'svelte-i18n'
+  import { _, locale } from 'svelte-i18n'
 
   import { Plus } from '@lucide/svelte'
 
   import { goto } from '$app/navigation'
-  import { resolve } from '$app/paths'
 
+  import { CATEGORY_COLORS } from '$lib/chart-colors'
   import EditableItemCard from '$lib/components/editable-item-card.svelte'
   import OnboardingNav from '$lib/components/onboarding-nav.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
@@ -13,6 +13,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select'
   import { Switch } from '$lib/components/ui/switch'
+  import { getNextStepUrl, getPrevStepUrl } from '$lib/onboarding-steps'
   import routes from '$lib/routes'
   import type { Frequency, ProfileTangibleAsset, TangibleAssetStatus } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
@@ -21,13 +22,13 @@
   interface AssetUI {
     id: string
     name: string
-    value: string
+    value: number | undefined
     status: TangibleAssetStatus
-    outstandingBalance: string
-    installmentFrequency: Frequency
-    annualRate: string
-    installmentAmount: string
-    remainingTerm: string
+    outstanding_balance: number | undefined
+    installment_frequency: Frequency
+    annual_rate: number | undefined
+    installment_amount: number | undefined
+    remaining_term: number | undefined
     editing: boolean
     editingName: boolean
     showAdvanced: boolean
@@ -37,20 +38,20 @@
     return stored.map((a) => ({
       id: a.id,
       name: a.name,
-      value: a.value > 0 ? String(a.value) : '',
+      value: a.value > 0 ? a.value : undefined,
       status: a.status,
-      outstandingBalance:
+      outstanding_balance:
         a.outstanding_balance !== undefined && a.outstanding_balance > 0
-          ? String(a.outstanding_balance)
-          : '',
-      installmentFrequency: a.installment_frequency ?? 'monthly',
-      annualRate: a.annual_rate !== undefined && a.annual_rate > 0 ? String(a.annual_rate) : '',
-      installmentAmount:
+          ? a.outstanding_balance
+          : undefined,
+      installment_frequency: a.installment_frequency ?? 'monthly',
+      annual_rate: a.annual_rate !== undefined && a.annual_rate > 0 ? a.annual_rate : undefined,
+      installment_amount:
         a.installment_amount !== undefined && a.installment_amount > 0
-          ? String(a.installment_amount)
-          : '',
-      remainingTerm:
-        a.remaining_term !== undefined && a.remaining_term > 0 ? String(a.remaining_term) : '',
+          ? a.installment_amount
+          : undefined,
+      remaining_term:
+        a.remaining_term !== undefined && a.remaining_term > 0 ? a.remaining_term : undefined,
       editing: false,
       editingName: false,
       showAdvanced: false,
@@ -59,20 +60,21 @@
 
   let assets = $state<AssetUI[]>([])
   let assetCounter = $state(0)
-  let loaded = $state(false)
+  let hydrated = $state(false)
 
   $effect(() => {
+    if (hydrated || appStore.loading) return
     const stored = appStore.profile.tangible_assets
-    if (!loaded && stored && stored.length > 0) {
+    if (stored && stored.length > 0) {
       assets = storedToUI(stored)
       assetCounter = assets.length
-      loaded = true
     }
+    hydrated = true
   })
 
-  let canContinue = $derived(assets.some((a) => a.value.trim().length > 0 && Number(a.value) > 0))
+  let canContinue = $derived(assets.some((a) => (a.value ?? 0) > 0))
 
-  let currencyLabel = $derived(appStore.profile.currency || 'EUR')
+  let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
   function addAsset() {
     assetCounter++
@@ -80,13 +82,13 @@
     assets.push({
       id: crypto.randomUUID(),
       name: $_('page.setup.tangibleAssets.defaultName', { values: { index: assetCounter } }),
-      value: '',
+      value: undefined,
       status: 'fully_owned',
-      outstandingBalance: '',
-      installmentFrequency: 'monthly',
-      annualRate: '',
-      installmentAmount: '',
-      remainingTerm: '',
+      outstanding_balance: undefined,
+      installment_frequency: 'monthly',
+      annual_rate: undefined,
+      installment_amount: undefined,
+      remaining_term: undefined,
       editing: true,
       editingName: false,
       showAdvanced: false,
@@ -96,14 +98,13 @@
   function duplicateAsset(asset: AssetUI) {
     assetCounter++
     const idx = assets.indexOf(asset)
-    const copy: AssetUI = {
+    assets.splice(idx + 1, 0, {
       ...asset,
       id: crypto.randomUUID(),
       name: $_('page.setup.common.copySuffix', { values: { name: asset.name } }),
       editing: true,
       editingName: false,
-    }
-    assets.splice(idx + 1, 0, copy)
+    })
   }
 
   function deleteAsset(asset: AssetUI) {
@@ -111,10 +112,15 @@
     if (idx !== -1) assets.splice(idx, 1)
   }
 
-  function formatValue(val: string): string {
-    const num = Number(val)
-    if (!num) return ''
-    return formatCurrency(num, currencyLabel)
+  function formatValue(val: number | undefined): string {
+    if (val === undefined || val === 0) return ''
+    return formatCurrency(val, currencyLabel, $locale ?? undefined)
+  }
+
+  function frequencyLabel(f: Frequency): string {
+    if (f === 'yearly') return $_('page.setup.common.yearly')
+    if (f === 'weekly') return $_('page.setup.common.weekly')
+    return $_('page.setup.common.monthly')
   }
 
   function saveAssets() {
@@ -123,35 +129,34 @@
       .map((a) => ({
         id: a.id,
         name: a.name,
-        value: Number(a.value) || 0,
+        value: a.value ?? 0,
         status: a.status,
-        outstanding_balance:
-          a.status === 'financed' ? Number(a.outstandingBalance) || 0 : undefined,
-        installment_frequency: a.status === 'financed' ? a.installmentFrequency : undefined,
-        annual_rate: a.status === 'financed' ? Number(a.annualRate) || 0 : undefined,
-        installment_amount: a.status === 'financed' ? Number(a.installmentAmount) || 0 : undefined,
-        remaining_term: a.status === 'financed' ? Number(a.remainingTerm) || 0 : undefined,
+        outstanding_balance: a.status === 'financed' ? (a.outstanding_balance ?? 0) : undefined,
+        installment_frequency: a.status === 'financed' ? a.installment_frequency : undefined,
+        annual_rate: a.status === 'financed' ? (a.annual_rate ?? 0) : undefined,
+        installment_amount: a.status === 'financed' ? (a.installment_amount ?? 0) : undefined,
+        remaining_term: a.status === 'financed' ? (a.remaining_term ?? 0) : undefined,
       }))
-    appStore.updateProfile({ tangible_assets: data })
-  }
-
-  function nextStep() {
-    if (appStore.profile.has_liabilities) return routes.FINANCES_EDIT_LIABILITIES
-    return routes.FINANCES_EDIT_INCOME
+    appStore.updateProfile({
+      tangible_assets: data,
+      has_tangible_assets: data.length > 0,
+    })
   }
 
   function handleContinue() {
     saveAssets()
-    goto(resolve(nextStep()))
+    // eslint-disable-next-line svelte/no-navigation-without-resolve
+    goto(getNextStepUrl(routes.FINANCES_EDIT_TANGIBLE_ASSETS, appStore.profile))
   }
 
   function handleSkip() {
-    goto(resolve(nextStep()))
+    // eslint-disable-next-line svelte/no-navigation-without-resolve
+    goto(getNextStepUrl(routes.FINANCES_EDIT_TANGIBLE_ASSETS, appStore.profile))
   }
 
   function handleBack() {
-    if (appStore.profile.has_investments) return goto(resolve(routes.FINANCES_EDIT_INVESTMENTS))
-    goto(resolve(routes.FINANCES_EDIT))
+    // eslint-disable-next-line svelte/no-navigation-without-resolve
+    goto(getPrevStepUrl(routes.FINANCES_EDIT_TANGIBLE_ASSETS, appStore.profile))
   }
 </script>
 
@@ -170,7 +175,7 @@
       <EditableItemCard
         item={asset}
         collapsedValue={formatValue(asset.value)}
-        colorDot="bg-chart-3"
+        dotColor={CATEGORY_COLORS.tangibleAssets[0]}
         onToggleEditing={() => {
           asset.editing = !asset.editing
         }}
@@ -190,8 +195,8 @@
               <SuffixedInput
                 value={asset.value}
                 suffix={currencyLabel}
-                oninput={(e) => {
-                  asset.value = (e.currentTarget as HTMLInputElement).value
+                onValueChange={(v) => {
+                  asset.value = v
                 }}
               />
             </div>
@@ -225,10 +230,10 @@
             <div class="flex flex-col gap-2">
               <Label>{$_('page.setup.tangibleAssets.outstandingBalance')}</Label>
               <SuffixedInput
-                value={asset.outstandingBalance}
+                value={asset.outstanding_balance}
                 suffix={currencyLabel}
-                oninput={(e) => {
-                  asset.outstandingBalance = (e.currentTarget as HTMLInputElement).value
+                onValueChange={(v) => {
+                  asset.outstanding_balance = v
                 }}
               />
             </div>
@@ -237,31 +242,28 @@
                 <Label>{$_('page.setup.tangibleAssets.installmentFrequency')}</Label>
                 <Select
                   type="single"
-                  value={asset.installmentFrequency}
+                  value={asset.installment_frequency}
                   onValueChange={(v) => {
-                    asset.installmentFrequency = v as Frequency
+                    asset.installment_frequency = v as Frequency
                   }}
                 >
                   <SelectTrigger class="h-8">
-                    {asset.installmentFrequency === 'yearly'
-                      ? $_('page.setup.common.yearly')
-                      : asset.installmentFrequency === 'weekly'
-                        ? $_('page.setup.common.weekly')
-                        : $_('page.setup.common.monthly')}
+                    {frequencyLabel(asset.installment_frequency)}
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="monthly">{$_('page.setup.common.monthly')}</SelectItem>
                     <SelectItem value="yearly">{$_('page.setup.common.yearly')}</SelectItem>
+                    <SelectItem value="weekly">{$_('page.setup.common.weekly')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div class="flex flex-1 flex-col gap-2">
                 <Label>{$_('page.setup.tangibleAssets.annualRate')}</Label>
                 <SuffixedInput
-                  value={asset.annualRate}
+                  value={asset.annual_rate}
                   suffix="%"
-                  oninput={(e) => {
-                    asset.annualRate = (e.currentTarget as HTMLInputElement).value
+                  onValueChange={(v) => {
+                    asset.annual_rate = v
                   }}
                 />
               </div>
@@ -270,20 +272,20 @@
               <div class="flex flex-1 flex-col gap-2">
                 <Label>{$_('page.setup.tangibleAssets.installmentAmount')}</Label>
                 <SuffixedInput
-                  value={asset.installmentAmount}
+                  value={asset.installment_amount}
                   suffix={currencyLabel}
-                  oninput={(e) => {
-                    asset.installmentAmount = (e.currentTarget as HTMLInputElement).value
+                  onValueChange={(v) => {
+                    asset.installment_amount = v
                   }}
                 />
               </div>
               <div class="flex flex-1 flex-col gap-2">
                 <Label>{$_('page.setup.tangibleAssets.remainingTerm')}</Label>
                 <SuffixedInput
-                  value={asset.remainingTerm}
+                  value={asset.remaining_term}
                   suffix={$_('page.setup.tangibleAssets.years')}
-                  oninput={(e) => {
-                    asset.remainingTerm = (e.currentTarget as HTMLInputElement).value
+                  onValueChange={(v) => {
+                    asset.remaining_term = v
                   }}
                 />
               </div>

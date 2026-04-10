@@ -2,6 +2,7 @@ import { SvelteSet } from 'svelte/reactivity'
 
 import { type StoredData, storedDataSchema } from '$lib/schemas'
 import type { Portfolio, PortfolioNested, Profile } from '$lib/types'
+import { DEFAULT_CURRENCY } from '$lib/utils'
 
 import type { PortfolioStore } from './portfolio.svelte'
 import { withPortfolioStore } from './portfolio.svelte'
@@ -11,6 +12,7 @@ const STORAGE_KEY = 'kalkul-data'
 
 export type ProfileStore = Profile & {
   readonly birthDate: Date | undefined
+  readonly currencyOrDefault: string
   toJSON: () => Profile
 }
 
@@ -47,6 +49,9 @@ function enrichProfile({
     expenses,
     get birthDate() {
       return birth_date ? new Date(birth_date) : undefined
+    },
+    get currencyOrDefault() {
+      return currency ?? DEFAULT_CURRENCY
     },
     toJSON(): Profile {
       return {

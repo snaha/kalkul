@@ -8,16 +8,16 @@
   interface Props {
     mode: 'start' | 'end'
     value: string
-    year: string
-    month: string
-    age: string
+    year: number | undefined
+    month: number | undefined
+    age: number | undefined
     years: string[]
     months: { value: string; label: string }[]
     description: string
     onValueChange: (v: string) => void
-    onYearChange: (v: string) => void
-    onMonthChange: (v: string) => void
-    onAgeChange: (v: string) => void
+    onYearChange: (v: number | undefined) => void
+    onMonthChange: (v: number | undefined) => void
+    onAgeChange: (v: number | undefined) => void
   }
 
   let {
@@ -56,6 +56,9 @@
   let defaultLabel = $derived(
     mode === 'start' ? $_('page.setup.common.immediately') : $_('page.setup.common.never'),
   )
+
+  let yearString = $derived(year !== undefined ? String(year) : '')
+  let monthString = $derived(month !== undefined ? String(month) : '')
 </script>
 
 <div class="flex items-end gap-2">
@@ -86,12 +89,12 @@
     <div class="flex flex-1 items-center gap-2">
       <Select.Root
         type="single"
-        value={year}
+        value={yearString}
         onValueChange={(v) => {
-          if (v) onYearChange(v)
+          if (v) onYearChange(Number(v))
         }}
       >
-        <Select.Trigger class="w-full max-w-24">{year}</Select.Trigger>
+        <Select.Trigger class="w-full max-w-24">{yearString}</Select.Trigger>
         <Select.Content>
           {#each years as y (y)}
             <Select.Item value={y}>{y}</Select.Item>
@@ -100,13 +103,13 @@
       </Select.Root>
       <Select.Root
         type="single"
-        value={month}
+        value={monthString}
         onValueChange={(v) => {
-          if (v) onMonthChange(v)
+          if (v) onMonthChange(Number(v))
         }}
       >
         <Select.Trigger class="w-full">
-          {months[Number(month)]?.label}
+          {month !== undefined ? months[month]?.label : ''}
         </Select.Trigger>
         <Select.Content>
           {#each months as m (m.value)}
@@ -120,9 +123,7 @@
       <SuffixedInput
         value={age}
         suffix={$_('page.setup.common.yearsOld')}
-        oninput={(e) => {
-          onAgeChange((e.currentTarget as HTMLInputElement).value)
-        }}
+        onValueChange={onAgeChange}
       />
     </div>
   {:else}

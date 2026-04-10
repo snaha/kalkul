@@ -1,10 +1,9 @@
 <script lang="ts">
-  import { _ } from 'svelte-i18n'
+  import { _, locale } from 'svelte-i18n'
 
   import { Plus } from '@lucide/svelte'
 
   import { goto } from '$app/navigation'
-  import { resolve } from '$app/paths'
 
   import CashFlowItemCard from '$lib/components/cash-flow-item-card.svelte'
   import OnboardingNav from '$lib/components/onboarding-nav.svelte'
@@ -12,64 +11,32 @@
   import { Button } from '$lib/components/ui/button'
   import { Checkbox } from '$lib/components/ui/checkbox'
   import { Label } from '$lib/components/ui/label'
+  import { getNextStepUrl, getPrevStepUrl } from '$lib/onboarding-steps'
   import routes from '$lib/routes'
-  import type {
-    CashFlowEnd,
-    CashFlowStart,
-    ChangeOverTime,
-    Frequency,
-    Income as IncomeData,
-  } from '$lib/schemas'
+  import type { Income as IncomeData } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
   import { calculateAge, getMonthOptions, getYearOptions } from '$lib/utils'
 
-  interface IncomeUI {
-    id: string
-    name: string
-    amount: string
-    frequency: Frequency
+  type IncomeUI = Omit<IncomeData, 'amount'> & {
+    amount: number | undefined
     showAdvanced: boolean
-    withholdTaxes: boolean
-    taxPercentage: string
-    start: CashFlowStart
-    startYear: string
-    startMonth: string
-    startAge: string
-    end: CashFlowEnd
-    endYear: string
-    endMonth: string
-    endAge: string
-    changeOverTime: ChangeOverTime
-    changePercentage: string
     editing: boolean
     editingName: boolean
   }
 
   const currentYear = new Date().getFullYear()
   const currentMonth = new Date().getMonth()
-  let currentAge = $derived(calculateAge(appStore.profile.birthDate, currentYear, currentMonth))
+  let currentAge = $derived(
+    Number(calculateAge(appStore.profile.birthDate, currentYear, currentMonth)) || undefined,
+  )
   const years = getYearOptions()
-  const months = getMonthOptions()
+  let months = $derived(getMonthOptions($locale ?? undefined))
 
   function storedToUI(stored: IncomeData[]): IncomeUI[] {
     return stored.map((inc) => ({
-      id: inc.id,
-      name: inc.name,
-      amount: inc.amount > 0 ? String(inc.amount) : '',
-      frequency: inc.frequency,
+      ...inc,
+      amount: inc.amount > 0 ? inc.amount : undefined,
       showAdvanced: false,
-      withholdTaxes: inc.withhold_taxes,
-      taxPercentage: inc.tax_percentage !== undefined ? String(inc.tax_percentage) : '',
-      start: inc.start,
-      startYear: inc.start_year !== undefined ? String(inc.start_year) : String(currentYear),
-      startMonth: inc.start_month !== undefined ? String(inc.start_month) : String(currentMonth),
-      startAge: inc.start_age !== undefined ? String(inc.start_age) : currentAge,
-      end: inc.end,
-      endYear: inc.end_year !== undefined ? String(inc.end_year) : String(currentYear),
-      endMonth: inc.end_month !== undefined ? String(inc.end_month) : String(currentMonth),
-      endAge: inc.end_age !== undefined ? String(inc.end_age) : currentAge,
-      changeOverTime: inc.change_over_time,
-      changePercentage: inc.change_percentage !== undefined ? String(inc.change_percentage) : '',
       editing: false,
       editingName: false,
     }))
@@ -77,44 +44,41 @@
 
   let incomes = $state<IncomeUI[]>([])
   let incomeCounter = $state(0)
-  let loaded = $state(false)
+  let hydrated = $state(false)
 
   $effect(() => {
+    if (hydrated || appStore.loading) return
     const stored = appStore.profile.incomes
-    if (!loaded && stored && stored.length > 0) {
+    if (stored && stored.length > 0) {
       incomes = storedToUI(stored)
       incomeCounter = incomes.length
-      loaded = true
     }
+    hydrated = true
   })
 
-  let canContinue = $derived(
-    incomes.some((i) => i.amount.trim().length > 0 && Number(i.amount) > 0),
-  )
+  let canContinue = $derived(incomes.some((i) => (i.amount ?? 0) > 0))
 
   function addIncome() {
     incomeCounter++
-    for (const inc of incomes) {
-      inc.editing = false
-    }
+    for (const inc of incomes) inc.editing = false
     incomes.push({
       id: crypto.randomUUID(),
       name: $_('page.setup.income.defaultName', { values: { index: incomeCounter } }),
-      amount: '',
+      amount: undefined,
       frequency: 'monthly',
       showAdvanced: false,
-      withholdTaxes: false,
-      taxPercentage: '',
+      withhold_taxes: false,
+      tax_percentage: undefined,
       start: 'immediately',
-      startYear: String(currentYear),
-      startMonth: String(currentMonth),
-      startAge: currentAge,
+      start_year: currentYear,
+      start_month: currentMonth,
+      start_age: currentAge,
       end: 'never',
-      endYear: String(currentYear),
-      endMonth: String(currentMonth),
-      endAge: currentAge,
-      changeOverTime: 'none',
-      changePercentage: '',
+      end_year: currentYear,
+      end_month: currentMonth,
+      end_age: currentAge,
+      change_over_time: 'none',
+      change_percentage: undefined,
       editing: true,
       editingName: false,
     })
@@ -123,14 +87,13 @@
   function duplicateIncome(income: IncomeUI) {
     incomeCounter++
     const idx = incomes.indexOf(income)
-    const copy: IncomeUI = {
+    incomes.splice(idx + 1, 0, {
       ...income,
       id: crypto.randomUUID(),
       name: $_('page.setup.common.copySuffix', { values: { name: income.name } }),
       editing: true,
       editingName: false,
-    }
-    incomes.splice(idx + 1, 0, copy)
+    })
   }
 
   function deleteIncome(income: IncomeUI) {
@@ -138,7 +101,7 @@
     if (idx !== -1) incomes.splice(idx, 1)
   }
 
-  let currencyLabel = $derived(appStore.profile.currency || 'EUR')
+  let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
   function saveIncomes() {
     const data: IncomeData[] = incomes
@@ -146,22 +109,22 @@
       .map((i) => ({
         id: i.id,
         name: i.name,
-        amount: Number(i.amount) || 0,
+        amount: i.amount ?? 0,
         frequency: i.frequency,
-        withhold_taxes: i.withholdTaxes,
-        tax_percentage: i.taxPercentage ? Number(i.taxPercentage) : undefined,
+        withhold_taxes: i.withhold_taxes,
+        tax_percentage: i.tax_percentage,
         start: i.start,
-        start_year: i.start === 'at_specific_date' ? Number(i.startYear) : undefined,
-        start_month: i.start === 'at_specific_date' ? Number(i.startMonth) : undefined,
-        start_age: i.start === 'when_age_is' ? Number(i.startAge) : undefined,
+        start_year: i.start === 'at_specific_date' ? i.start_year : undefined,
+        start_month: i.start === 'at_specific_date' ? i.start_month : undefined,
+        start_age: i.start === 'when_age_is' ? i.start_age : undefined,
         end: i.end,
-        end_year: i.end === 'at_specific_date' ? Number(i.endYear) : undefined,
-        end_month: i.end === 'at_specific_date' ? Number(i.endMonth) : undefined,
-        end_age: i.end === 'when_age_is' ? Number(i.endAge) : undefined,
-        change_over_time: i.changeOverTime,
+        end_year: i.end === 'at_specific_date' ? i.end_year : undefined,
+        end_month: i.end === 'at_specific_date' ? i.end_month : undefined,
+        end_age: i.end === 'when_age_is' ? i.end_age : undefined,
+        change_over_time: i.change_over_time,
         change_percentage:
-          i.changeOverTime === 'increase_yearly' || i.changeOverTime === 'decrease_yearly'
-            ? Number(i.changePercentage) || 0
+          i.change_over_time === 'increase_yearly' || i.change_over_time === 'decrease_yearly'
+            ? (i.change_percentage ?? 0)
             : undefined,
       }))
     appStore.updateProfile({ incomes: data })
@@ -169,22 +132,18 @@
 
   function handleContinue() {
     saveIncomes()
-    goto(resolve(routes.FINANCES_EDIT_EXPENSES))
+    // eslint-disable-next-line svelte/no-navigation-without-resolve
+    goto(getNextStepUrl(routes.FINANCES_EDIT_INCOME, appStore.profile))
   }
 
   function handleSkip() {
-    goto(resolve(routes.FINANCES_EDIT_EXPENSES))
-  }
-
-  function previousStep() {
-    if (appStore.profile.has_liabilities) return routes.FINANCES_EDIT_LIABILITIES
-    if (appStore.profile.has_tangible_assets) return routes.FINANCES_EDIT_TANGIBLE_ASSETS
-    if (appStore.profile.has_investments) return routes.FINANCES_EDIT_INVESTMENTS
-    return routes.FINANCES_EDIT
+    // eslint-disable-next-line svelte/no-navigation-without-resolve
+    goto(getNextStepUrl(routes.FINANCES_EDIT_INCOME, appStore.profile))
   }
 
   function handleBack() {
-    goto(resolve(previousStep()))
+    // eslint-disable-next-line svelte/no-navigation-without-resolve
+    goto(getPrevStepUrl(routes.FINANCES_EDIT_INCOME, appStore.profile))
   }
 </script>
 
@@ -203,7 +162,7 @@
       <CashFlowItemCard
         item={income}
         {currencyLabel}
-        amountColor="green"
+        sentiment="positive"
         startDescription={$_('page.setup.income.startDescription')}
         endDescription={$_('page.setup.income.endDescription')}
         matchInflationDescription={$_('page.setup.income.matchInflationDescription')}
@@ -227,9 +186,9 @@
             <div class="flex flex-1 flex-col justify-center">
               <label class="flex h-8 cursor-pointer items-center gap-2">
                 <Checkbox
-                  checked={income.withholdTaxes}
+                  checked={income.withhold_taxes}
                   onCheckedChange={(v) => {
-                    income.withholdTaxes = v === true
+                    income.withhold_taxes = v === true
                   }}
                 />
                 <span class="text-sm font-medium leading-none">
@@ -237,14 +196,14 @@
                 </span>
               </label>
             </div>
-            {#if income.withholdTaxes}
+            {#if income.withhold_taxes}
               <div class="flex flex-1 flex-col gap-2">
                 <Label>{$_('page.setup.income.percentageToWithhold')}</Label>
                 <SuffixedInput
-                  value={income.taxPercentage}
+                  value={income.tax_percentage}
                   suffix="%"
-                  oninput={(e) => {
-                    income.taxPercentage = (e.currentTarget as HTMLInputElement).value
+                  onValueChange={(v) => {
+                    income.tax_percentage = v
                   }}
                 />
               </div>

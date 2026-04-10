@@ -1,17 +1,18 @@
 <script lang="ts">
-  import { _ } from 'svelte-i18n'
+  import { _, locale } from 'svelte-i18n'
 
   import { Plus } from '@lucide/svelte'
 
   import { goto } from '$app/navigation'
-  import { resolve } from '$app/paths'
 
+  import { CATEGORY_COLORS } from '$lib/chart-colors'
   import EditableItemCard from '$lib/components/editable-item-card.svelte'
   import OnboardingNav from '$lib/components/onboarding-nav.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
+  import { getNextStepUrl, getPrevStepUrl } from '$lib/onboarding-steps'
   import routes from '$lib/routes'
   import type { ProfileInvestment } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
@@ -20,8 +21,8 @@
   interface InvestmentUI {
     id: string
     name: string
-    balance: string
-    apy: string
+    balance: number | undefined
+    apy: number | undefined
     editing: boolean
     editingName: boolean
     showAdvanced: boolean
@@ -31,8 +32,8 @@
     return stored.map((inv) => ({
       id: inv.id,
       name: inv.name,
-      balance: inv.balance > 0 ? String(inv.balance) : '',
-      apy: inv.apy > 0 ? String(inv.apy) : '',
+      balance: inv.balance > 0 ? inv.balance : undefined,
+      apy: inv.apy > 0 ? inv.apy : undefined,
       editing: false,
       editingName: false,
       showAdvanced: false,
@@ -41,33 +42,30 @@
 
   let investments = $state<InvestmentUI[]>([])
   let investmentCounter = $state(0)
-  let loaded = $state(false)
+  let hydrated = $state(false)
 
   $effect(() => {
+    if (hydrated || appStore.loading) return
     const stored = appStore.profile.investments
-    if (!loaded && stored && stored.length > 0) {
+    if (stored && stored.length > 0) {
       investments = storedToUI(stored)
       investmentCounter = investments.length
-      loaded = true
     }
+    hydrated = true
   })
 
-  let canContinue = $derived(
-    investments.some((i) => i.balance.trim().length > 0 && Number(i.balance) > 0),
-  )
+  let canContinue = $derived(investments.some((i) => (i.balance ?? 0) > 0))
 
-  let currencyLabel = $derived(appStore.profile.currency || 'EUR')
+  let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
   function addInvestment() {
     investmentCounter++
-    for (const inv of investments) {
-      inv.editing = false
-    }
+    for (const inv of investments) inv.editing = false
     investments.push({
       id: crypto.randomUUID(),
       name: $_('page.setup.investments.defaultName', { values: { index: investmentCounter } }),
-      balance: '',
-      apy: '',
+      balance: undefined,
+      apy: undefined,
       editing: true,
       editingName: false,
       showAdvanced: false,
@@ -77,14 +75,13 @@
   function duplicateInvestment(investment: InvestmentUI) {
     investmentCounter++
     const idx = investments.indexOf(investment)
-    const copy: InvestmentUI = {
+    investments.splice(idx + 1, 0, {
       ...investment,
       id: crypto.randomUUID(),
       name: $_('page.setup.common.copySuffix', { values: { name: investment.name } }),
       editing: true,
       editingName: false,
-    }
-    investments.splice(idx + 1, 0, copy)
+    })
   }
 
   function deleteInvestment(investment: InvestmentUI) {
@@ -92,10 +89,9 @@
     if (idx !== -1) investments.splice(idx, 1)
   }
 
-  function formatBalance(balance: string): string {
-    const num = Number(balance)
-    if (!num) return ''
-    return formatCurrency(num, currencyLabel)
+  function formatBalance(balance: number | undefined): string {
+    if (balance === undefined || balance === 0) return ''
+    return formatCurrency(balance, currencyLabel, $locale ?? undefined)
   }
 
   function saveInvestments() {
@@ -104,29 +100,29 @@
       .map((i) => ({
         id: i.id,
         name: i.name,
-        balance: Number(i.balance) || 0,
-        apy: Number(i.apy) || 0,
+        balance: i.balance ?? 0,
+        apy: i.apy ?? 0,
       }))
-    appStore.updateProfile({ investments: data })
-  }
-
-  function nextStep() {
-    if (appStore.profile.has_tangible_assets) return routes.FINANCES_EDIT_TANGIBLE_ASSETS
-    if (appStore.profile.has_liabilities) return routes.FINANCES_EDIT_LIABILITIES
-    return routes.FINANCES_EDIT_INCOME
+    appStore.updateProfile({
+      investments: data,
+      has_investments: data.length > 0,
+    })
   }
 
   function handleContinue() {
     saveInvestments()
-    goto(resolve(nextStep()))
+    // eslint-disable-next-line svelte/no-navigation-without-resolve
+    goto(getNextStepUrl(routes.FINANCES_EDIT_INVESTMENTS, appStore.profile))
   }
 
   function handleSkip() {
-    goto(resolve(nextStep()))
+    // eslint-disable-next-line svelte/no-navigation-without-resolve
+    goto(getNextStepUrl(routes.FINANCES_EDIT_INVESTMENTS, appStore.profile))
   }
 
   function handleBack() {
-    goto(resolve(routes.FINANCES_EDIT))
+    // eslint-disable-next-line svelte/no-navigation-without-resolve
+    goto(getPrevStepUrl(routes.FINANCES_EDIT_INVESTMENTS, appStore.profile))
   }
 </script>
 
@@ -145,7 +141,7 @@
       <EditableItemCard
         item={investment}
         collapsedValue={formatBalance(investment.balance)}
-        colorDot="bg-chart-2"
+        dotColor={CATEGORY_COLORS.investments[0]}
         onToggleEditing={() => {
           investment.editing = !investment.editing
         }}
@@ -165,8 +161,8 @@
               <SuffixedInput
                 value={investment.balance}
                 suffix={currencyLabel}
-                oninput={(e) => {
-                  investment.balance = (e.currentTarget as HTMLInputElement).value
+                onValueChange={(v) => {
+                  investment.balance = v
                 }}
               />
             </div>
@@ -175,8 +171,8 @@
               <SuffixedInput
                 value={investment.apy}
                 suffix="%"
-                oninput={(e) => {
-                  investment.apy = (e.currentTarget as HTMLInputElement).value
+                onValueChange={(v) => {
+                  investment.apy = v
                 }}
               />
             </div>

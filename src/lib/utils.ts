@@ -12,15 +12,22 @@ export type WithoutChildrenOrChild<T> = T extends { children?: infer _C; child?:
   ? Omit<T, 'children' | 'child'>
   : T
 
+export const DEFAULT_CURRENCY = 'EUR'
+
 export function getYearOptions(count = 50): string[] {
   const currentYear = new Date().getFullYear()
   return Array.from({ length: count }, (_, i) => String(currentYear + i))
 }
 
-export function getMonthOptions(): { value: string; label: string }[] {
+export function getBirthYearOptions(earliestYear = 1930): string[] {
+  const currentYear = new Date().getFullYear()
+  return Array.from({ length: currentYear - earliestYear + 1 }, (_, i) => String(currentYear - i))
+}
+
+export function getMonthOptions(locale?: string): { value: string; label: string }[] {
   return Array.from({ length: 12 }, (_, i) => ({
     value: String(i),
-    label: new Date(2000, i).toLocaleString(undefined, { month: 'long' }),
+    label: new Date(2000, i).toLocaleString(locale ?? undefined, { month: 'long' }),
   }))
 }
 
@@ -28,8 +35,30 @@ export function notImplemented() {
   alert('Not implemented yet')
 }
 
-export function formatCurrency(value: number, currencyLabel: string): string {
-  return `${value.toLocaleString()} ${currencyLabel}`
+export function formatCurrency(value: number, currency: string, locale?: string): string {
+  try {
+    return new Intl.NumberFormat(locale ?? undefined, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    }).format(value)
+  } catch {
+    // Fallback for unsupported currency codes
+    return `${value.toLocaleString(locale ?? undefined)} ${currency}`
+  }
+}
+
+export function formatCompactCurrency(value: number, currency: string, locale?: string): string {
+  try {
+    return new Intl.NumberFormat(locale ?? undefined, {
+      style: 'currency',
+      currency,
+      notation: 'compact',
+      maximumFractionDigits: 1,
+    }).format(value)
+  } catch {
+    return `${value.toLocaleString(locale ?? undefined)} ${currency}`
+  }
 }
 
 export function calculateAge(

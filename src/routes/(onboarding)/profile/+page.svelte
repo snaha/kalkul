@@ -12,35 +12,31 @@
   import * as Select from '$lib/components/ui/select'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
+  import { DEFAULT_CURRENCY, getBirthYearOptions, getMonthOptions } from '$lib/utils'
 
   let name = $state('')
   let birthYear = $state('')
   let birthMonth = $state('')
   let location = $state('')
   let currency = $state('')
-  let initialized = $state(false)
+  let hydrated = $state(false)
 
+  // Hydrate form state from the store exactly once, on first load.
   $effect(() => {
+    if (hydrated || appStore.loading) return
     const p = appStore.profile
-    if (!initialized && p.name) {
-      name = p.name
-      initialized = true
-    }
-    if (p.location && !location) location = p.location
-    if (p.currency && !currency) currency = p.currency
+    name = p.name
+    if (p.location) location = p.location
+    if (p.currency) currency = p.currency
     if (p.birthDate) {
-      const date = p.birthDate
-      if (!birthYear) birthYear = String(date.getFullYear())
-      if (!birthMonth) birthMonth = String(date.getMonth())
+      birthYear = String(p.birthDate.getFullYear())
+      birthMonth = String(p.birthDate.getMonth())
     }
+    hydrated = true
   })
 
-  const currentYear = new Date().getFullYear()
-  const years = Array.from({ length: currentYear - 1930 + 1 }, (_, i) => String(currentYear - i))
-  const months = Array.from({ length: 12 }, (_, i) => ({
-    value: String(i),
-    label: new Date(2000, i).toLocaleString(undefined, { month: 'long' }),
-  }))
+  const years = getBirthYearOptions()
+  const months = getMonthOptions()
 
   const countryCurrencyMap: Record<string, string> = {
     CZ: 'CZK',
@@ -178,7 +174,7 @@
             {#if currency}
               {currencies.find((c) => c.value === currency)?.label}
             {:else}
-              <span class="text-muted-foreground">EUR</span>
+              <span class="text-muted-foreground">{DEFAULT_CURRENCY}</span>
             {/if}
           </Select.Trigger>
           <Select.Content>

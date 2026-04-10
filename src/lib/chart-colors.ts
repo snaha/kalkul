@@ -1,5 +1,6 @@
 // Tailwind color values used for chart segments per financial category.
-// Each item in a category gets the next color, cycling when exhausted.
+// The onboarding list dots and the dashboard donut chart both source their
+// colors from this palette so they stay in sync.
 
 export const CATEGORY_COLORS = {
   // Single value — cash is always one segment

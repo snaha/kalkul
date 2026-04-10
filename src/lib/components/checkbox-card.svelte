@@ -12,7 +12,7 @@
 </script>
 
 <label
-  class="flex w-full cursor-pointer items-start gap-2 rounded-md border border-border p-2.5 text-left transition-colors has-[[data-state=checked]]:bg-[rgba(23,23,23,0.05)] dark:has-[[data-state=checked]]:bg-[rgba(255,255,255,0.1)]"
+  class="flex w-full cursor-pointer items-start gap-2 rounded-md border border-border p-2.5 text-left transition-colors has-[[data-state=checked]]:bg-accent"
 >
   <Checkbox {checked} {onCheckedChange} />
   <div class="flex flex-col gap-1.5 text-sm">

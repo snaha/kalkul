@@ -9,20 +9,14 @@
   import ThemeSwitcher from '$lib/components/theme-switcher.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Progress } from '$lib/components/ui/progress'
+  import { getOnboardingSteps } from '$lib/onboarding-steps'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
 
   let { children } = $props()
 
-  const steps = $derived.by(() => {
-    const base = [routes.PROFILE, routes.FINANCES_EDIT] as string[]
-    if (appStore.profile.has_investments) base.push(routes.FINANCES_EDIT_INVESTMENTS)
-    if (appStore.profile.has_tangible_assets) base.push(routes.FINANCES_EDIT_TANGIBLE_ASSETS)
-    if (appStore.profile.has_liabilities) base.push(routes.FINANCES_EDIT_LIABILITIES)
-    base.push(routes.FINANCES_EDIT_INCOME, routes.FINANCES_EDIT_EXPENSES)
-    return base
-  })
-  const totalSteps = steps.length
+  const steps = $derived(getOnboardingSteps(appStore.profile))
+  const totalSteps = $derived(steps.length)
 
   let currentStepIndex = $derived.by(() => {
     const pathname = page.url.pathname.replace(/\/$/, '')

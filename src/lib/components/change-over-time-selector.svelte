@@ -7,11 +7,11 @@
 
   interface Props {
     value: string
-    percentage: string
+    percentage: number | undefined
     matchInflationDescription: string
     changeDescription: string
     onValueChange: (v: string) => void
-    onPercentageChange: (v: string) => void
+    onPercentageChange: (v: number | undefined) => void
   }
 
   let {
@@ -65,13 +65,7 @@
   </div>
   {#if value === 'increase_yearly' || value === 'decrease_yearly'}
     <div class="flex flex-1 flex-col gap-2">
-      <SuffixedInput
-        value={percentage}
-        suffix="%"
-        oninput={(e) => {
-          onPercentageChange((e.currentTarget as HTMLInputElement).value)
-        }}
-      />
+      <SuffixedInput value={percentage} suffix="%" onValueChange={onPercentageChange} />
     </div>
   {:else}
     <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">

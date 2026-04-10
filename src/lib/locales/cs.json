@@ -18,7 +18,7 @@
         "addFinancialData": "Přidat finanční data",
         "today": "Dnes",
         "update": "Aktualizovat",
-        "netWorthSummary": "Vaše aktuální celkové jmění je {amount} {currency}",
+        "netWorthSummary": "Vaše aktuální celkové jmění je {total}",
         "lastUpdated": "Naposledy aktualizováno dnes",
         "keepUpToDate": "Udržujte aktuální pro přesné plánování",
         "viewAll": "Zobrazit všechna finanční data"
