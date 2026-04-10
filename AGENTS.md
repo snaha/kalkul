@@ -77,6 +77,16 @@ See `README.md` for development commands, project structure, and conventions.
    - Use generic types, union types, or `unknown` instead of `any` when needed
    - If you must accept any type, use `unknown` and type guards for safety
 
+2. **Data Validation (Zod)**
+   - Zod schemas in `src/lib/schemas.ts` are the **single source of truth** for valid data shapes
+   - `updateProfile()` validates all data with `profileSchema.parse()` before persisting — every caller gets validation for free
+   - Import/restore and localStorage reads also validate via `storedDataSchema.parse()`
+   - **When adding new fields:** update the Zod schema first, then the form — the schema defines what's valid
+   - **Conditional requirements:** use `.superRefine()` for fields that are required only under certain conditions (e.g. `start_year` required when `start === 'at_specific_date'`, financing fields required when `status === 'financed'`)
+   - **Forms handle UX validation** (e.g. `canContinue` checks) to guide the user, but **runtime correctness is enforced by Zod** at the store boundary
+   - Never bypass `updateProfile()` to write profile data — it's the validation gate
+   - TypeScript types are derived from schemas (`z.infer<typeof schema>`) — never define types separately from schemas
+
 ### Naming Conventions
 
 - **File naming**: Use kebab-case for all file names (e.g., `user-profile.ts`, `email-template.svelte`)

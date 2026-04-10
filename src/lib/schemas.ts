@@ -31,41 +31,104 @@ export const jsonSchema: z.ZodType<Json> = z.lazy(() =>
   ]),
 )
 
-export const incomeSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  amount: z.number(),
-  frequency: frequencySchema,
-  withhold_taxes: z.boolean(),
-  tax_percentage: z.number().optional(),
-  start: cashFlowStartSchema,
-  start_year: z.number().optional(),
-  start_month: z.number().optional(),
-  start_age: z.number().optional(),
-  end: cashFlowEndSchema,
-  end_year: z.number().optional(),
-  end_month: z.number().optional(),
-  end_age: z.number().optional(),
-  change_over_time: changeOverTimeSchema,
-  change_percentage: z.number().optional(),
-})
+// --- Cash flow refinement ---
 
-export const expenseSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  amount: z.number(),
-  frequency: frequencySchema,
-  start: cashFlowStartSchema,
-  start_year: z.number().optional(),
-  start_month: z.number().optional(),
-  start_age: z.number().optional(),
-  end: cashFlowEndSchema,
-  end_year: z.number().optional(),
-  end_month: z.number().optional(),
-  end_age: z.number().optional(),
-  change_over_time: changeOverTimeSchema,
-  change_percentage: z.number().optional(),
-})
+const cashFlowTemporalRefinement = (
+  obj: {
+    start: string
+    start_year?: number
+    start_month?: number
+    start_age?: number
+    end: string
+    end_year?: number
+    end_month?: number
+    end_age?: number
+  },
+  ctx: z.RefinementCtx,
+) => {
+  if (obj.start === 'at_specific_date') {
+    if (obj.start_year === undefined)
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['start_year'],
+        message: 'Required when start is at_specific_date',
+      })
+    if (obj.start_month === undefined)
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['start_month'],
+        message: 'Required when start is at_specific_date',
+      })
+  }
+  if (obj.start === 'when_age_is' && obj.start_age === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['start_age'],
+      message: 'Required when start is when_age_is',
+    })
+  }
+  if (obj.end === 'at_specific_date') {
+    if (obj.end_year === undefined)
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['end_year'],
+        message: 'Required when end is at_specific_date',
+      })
+    if (obj.end_month === undefined)
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['end_month'],
+        message: 'Required when end is at_specific_date',
+      })
+  }
+  if (obj.end === 'when_age_is' && obj.end_age === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['end_age'],
+      message: 'Required when end is when_age_is',
+    })
+  }
+}
+
+export const incomeSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    amount: z.number(),
+    frequency: frequencySchema,
+    withhold_taxes: z.boolean(),
+    tax_percentage: z.number().optional(),
+    start: cashFlowStartSchema,
+    start_year: z.number().optional(),
+    start_month: z.number().optional(),
+    start_age: z.number().optional(),
+    end: cashFlowEndSchema,
+    end_year: z.number().optional(),
+    end_month: z.number().optional(),
+    end_age: z.number().optional(),
+    change_over_time: changeOverTimeSchema,
+    change_percentage: z.number().optional(),
+  })
+  .superRefine(cashFlowTemporalRefinement)
+
+export const expenseSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    amount: z.number(),
+    frequency: frequencySchema,
+    start: cashFlowStartSchema,
+    start_year: z.number().optional(),
+    start_month: z.number().optional(),
+    start_age: z.number().optional(),
+    end: cashFlowEndSchema,
+    end_year: z.number().optional(),
+    end_month: z.number().optional(),
+    end_age: z.number().optional(),
+    change_over_time: changeOverTimeSchema,
+    change_percentage: z.number().optional(),
+  })
+  .superRefine(cashFlowTemporalRefinement)
 
 export const profileInvestmentSchema = z.object({
   id: z.string(),
@@ -74,17 +137,52 @@ export const profileInvestmentSchema = z.object({
   apy: z.number(),
 })
 
-export const profileTangibleAssetSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  value: z.number(),
-  status: tangibleAssetStatusSchema,
-  outstanding_balance: z.number().optional(),
-  installment_frequency: frequencySchema.optional(),
-  annual_rate: z.number().optional(),
-  installment_amount: z.number().optional(),
-  remaining_term: z.number().optional(),
-})
+export const profileTangibleAssetSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    value: z.number(),
+    status: tangibleAssetStatusSchema,
+    outstanding_balance: z.number().optional(),
+    installment_frequency: frequencySchema.optional(),
+    annual_rate: z.number().optional(),
+    installment_amount: z.number().optional(),
+    remaining_term: z.number().optional(),
+  })
+  .superRefine((obj, ctx) => {
+    if (obj.status === 'financed') {
+      if (obj.outstanding_balance === undefined)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['outstanding_balance'],
+          message: 'Required when financed',
+        })
+      if (obj.installment_frequency === undefined)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['installment_frequency'],
+          message: 'Required when financed',
+        })
+      if (obj.annual_rate === undefined)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['annual_rate'],
+          message: 'Required when financed',
+        })
+      if (obj.installment_amount === undefined)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['installment_amount'],
+          message: 'Required when financed',
+        })
+      if (obj.remaining_term === undefined)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['remaining_term'],
+          message: 'Required when financed',
+        })
+    }
+  })
 
 export const profileLiabilitySchema = z.object({
   id: z.string(),

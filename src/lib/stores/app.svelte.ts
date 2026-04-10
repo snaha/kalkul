@@ -1,6 +1,6 @@
 import { SvelteSet } from 'svelte/reactivity'
 
-import { type StoredData, storedDataSchema } from '$lib/schemas'
+import { type StoredData, profileSchema, storedDataSchema } from '$lib/schemas'
 import type { Portfolio, PortfolioNested, Profile } from '$lib/types'
 import {
   DEFAULT_CURRENCY,
@@ -200,7 +200,9 @@ function withAppStore() {
     // --- Profile ---
 
     updateProfile(updates: Partial<Profile>) {
-      profile = enrichProfile({ ...profile, ...updates })
+      const merged = { ...profile.toJSON(), ...updates }
+      const validated = profileSchema.parse(merged)
+      profile = enrichProfile(validated)
       persist()
     },
 
