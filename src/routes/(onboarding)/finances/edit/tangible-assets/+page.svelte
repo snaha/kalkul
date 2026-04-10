@@ -17,6 +17,7 @@
   import routes from '$lib/routes'
   import type { Frequency, ProfileTangibleAsset, TangibleAssetStatus } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
+  import { notImplemented } from '$lib/utils'
 
   interface AssetUI {
     id: string
@@ -30,7 +31,6 @@
     remaining_term: number | undefined
     editing: boolean
     editingName: boolean
-    showAdvanced: boolean
   }
 
   function storedToUI(stored: ProfileTangibleAsset[]): AssetUI[] {
@@ -53,7 +53,6 @@
         a.remaining_term !== undefined && a.remaining_term > 0 ? a.remaining_term : undefined,
       editing: false,
       editingName: false,
-      showAdvanced: false,
     }))
   }
 
@@ -90,7 +89,6 @@
       remaining_term: undefined,
       editing: true,
       editingName: false,
-      showAdvanced: false,
     })
   }
 
@@ -297,13 +295,10 @@
           {/if}
 
           <div class="flex items-center gap-2">
-            <Switch
-              checked={asset.showAdvanced}
-              onCheckedChange={(v) => {
-                asset.showAdvanced = v === true
-              }}
-            />
-            <span class="text-sm font-medium">{$_('page.setup.common.advancedOptions')}</span>
+            <Switch checked={false} onCheckedChange={notImplemented} />
+            <span class="text-sm font-medium text-muted-foreground">
+              {$_('page.setup.common.advancedOptions')}
+            </span>
           </div>
         {/snippet}
       </EditableItemCard>

@@ -16,6 +16,7 @@
   import routes from '$lib/routes'
   import type { ProfileInvestment } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
+  import { notImplemented } from '$lib/utils'
 
   interface InvestmentUI {
     id: string
@@ -24,7 +25,6 @@
     apy: number | undefined
     editing: boolean
     editingName: boolean
-    showAdvanced: boolean
   }
 
   function storedToUI(stored: ProfileInvestment[]): InvestmentUI[] {
@@ -35,7 +35,6 @@
       apy: inv.apy > 0 ? inv.apy : undefined,
       editing: false,
       editingName: false,
-      showAdvanced: false,
     }))
   }
 
@@ -67,7 +66,6 @@
       apy: undefined,
       editing: true,
       editingName: false,
-      showAdvanced: false,
     })
   }
 
@@ -180,13 +178,8 @@
           </div>
 
           <div class="flex items-center gap-2">
-            <Switch
-              checked={investment.showAdvanced}
-              onCheckedChange={(v) => {
-                investment.showAdvanced = v === true
-              }}
-            />
-            <span class="text-sm font-medium">
+            <Switch checked={false} onCheckedChange={notImplemented} />
+            <span class="text-sm font-medium text-muted-foreground">
               {$_('page.setup.common.advancedOptions')}
             </span>
           </div>
