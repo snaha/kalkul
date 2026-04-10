@@ -1,1 +1,0 @@
-import{vt as e}from"./D-Y_PHsy.js";e();
