@@ -14,6 +14,29 @@ export type WithoutChildrenOrChild<T> = T extends { children?: infer _C; child?:
 
 export const DEFAULT_CURRENCY = 'EUR'
 
+/** Maps profile country codes to BCP 47 locale tags for number/currency formatting. */
+const COUNTRY_LOCALE_MAP: Record<string, string> = {
+  CZ: 'cs-CZ',
+  SK: 'sk-SK',
+  HU: 'hu-HU',
+  FR: 'fr-FR',
+}
+
+/**
+ * Resolve the locale for number/currency formatting.
+ * Prefers the profile's country, falls back to browser locale.
+ */
+export function getFormattingLocale(
+  country: string | undefined,
+  browserLocale: string | undefined,
+): string | undefined {
+  if (country) {
+    const mapped = COUNTRY_LOCALE_MAP[country]
+    if (mapped) return mapped
+  }
+  return browserLocale ?? undefined
+}
+
 export function getYearOptions(count = 50): string[] {
   const currentYear = new Date().getFullYear()
   return Array.from({ length: count }, (_, i) => String(currentYear + i))

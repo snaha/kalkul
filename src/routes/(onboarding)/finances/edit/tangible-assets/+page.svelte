@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { _, locale } from 'svelte-i18n'
+  import { _ } from 'svelte-i18n'
 
   import { Plus } from '@lucide/svelte'
 
@@ -17,7 +17,6 @@
   import routes from '$lib/routes'
   import type { Frequency, ProfileTangibleAsset, TangibleAssetStatus } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
-  import { formatCurrency } from '$lib/utils'
 
   interface AssetUI {
     id: string
@@ -114,7 +113,7 @@
 
   function formatValue(val: number | undefined): string {
     if (val === undefined || val === 0) return ''
-    return formatCurrency(val, currencyLabel, $locale ?? undefined)
+    return appStore.formatCurrency(val)
   }
 
   function frequencyLabel(f: Frequency): string {
@@ -195,6 +194,7 @@
               <SuffixedInput
                 value={asset.value}
                 suffix={currencyLabel}
+                formatNumber={appStore.formatNumber}
                 onValueChange={(v) => {
                   asset.value = v
                 }}
@@ -232,6 +232,7 @@
               <SuffixedInput
                 value={asset.outstanding_balance}
                 suffix={currencyLabel}
+                formatNumber={appStore.formatNumber}
                 onValueChange={(v) => {
                   asset.outstanding_balance = v
                 }}
@@ -262,6 +263,7 @@
                 <SuffixedInput
                   value={asset.annual_rate}
                   suffix="%"
+                  formatNumber={appStore.formatNumber}
                   onValueChange={(v) => {
                     asset.annual_rate = v
                   }}
@@ -274,6 +276,7 @@
                 <SuffixedInput
                   value={asset.installment_amount}
                   suffix={currencyLabel}
+                  formatNumber={appStore.formatNumber}
                   onValueChange={(v) => {
                     asset.installment_amount = v
                   }}
@@ -284,6 +287,7 @@
                 <SuffixedInput
                   value={asset.remaining_term}
                   suffix={$_('page.setup.tangibleAssets.years')}
+                  formatNumber={appStore.formatNumber}
                   onValueChange={(v) => {
                     asset.remaining_term = v
                   }}

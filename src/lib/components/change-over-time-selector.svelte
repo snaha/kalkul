@@ -10,6 +10,7 @@
     percentage: number | undefined
     matchInflationDescription: string
     changeDescription: string
+    formatNumber?: (n: number) => string
     onValueChange: (v: string) => void
     onPercentageChange: (v: number | undefined) => void
   }
@@ -19,6 +20,7 @@
     percentage,
     matchInflationDescription,
     changeDescription,
+    formatNumber,
     onValueChange,
     onPercentageChange,
   }: Props = $props()
@@ -65,7 +67,12 @@
   </div>
   {#if value === 'increase_yearly' || value === 'decrease_yearly'}
     <div class="flex flex-1 flex-col gap-2">
-      <SuffixedInput value={percentage} suffix="%" onValueChange={onPercentageChange} />
+      <SuffixedInput
+        value={percentage}
+        suffix="%"
+        {formatNumber}
+        onValueChange={onPercentageChange}
+      />
     </div>
   {:else}
     <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">

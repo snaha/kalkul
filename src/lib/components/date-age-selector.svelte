@@ -18,6 +18,7 @@
     onYearChange: (v: number | undefined) => void
     onMonthChange: (v: number | undefined) => void
     onAgeChange: (v: number | undefined) => void
+    formatNumber?: (n: number) => string
   }
 
   let {
@@ -33,6 +34,7 @@
     onYearChange,
     onMonthChange,
     onAgeChange,
+    formatNumber,
   }: Props = $props()
 
   let label = $derived(
@@ -123,6 +125,7 @@
       <SuffixedInput
         value={age}
         suffix={$_('page.setup.common.yearsOld')}
+        {formatNumber}
         onValueChange={onAgeChange}
       />
     </div>

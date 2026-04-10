@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { _, locale } from 'svelte-i18n'
+  import { _ } from 'svelte-i18n'
 
   import { ArrowRight, Calendar, Plus, SquarePen } from '@lucide/svelte'
 
@@ -15,7 +15,7 @@
   import { Separator } from '$lib/components/ui/separator'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
-  import { formatCompactCurrency, formatCurrency, notImplemented } from '$lib/utils'
+  import { notImplemented } from '$lib/utils'
 
   const hasData = $derived(!appStore.loading && !!appStore.profile.name)
   const hasFinancialData = $derived.by(() => {
@@ -26,8 +26,6 @@
     if ((appStore.profile.liabilities ?? []).some((l) => l.outstanding_balance > 0)) return true
     return false
   })
-
-  const currency = $derived(appStore.profile.currencyOrDefault)
 
   const chartSegments = $derived.by(() => {
     const segments: { label: string; value: number; color: string }[] = []
@@ -118,13 +116,13 @@
         <div class="flex flex-1 flex-col items-center gap-8 p-8">
           <DonutChart
             segments={chartSegments}
-            centerLabel={formatCompactCurrency(totalNetWorth, currency, $locale ?? undefined)}
+            centerLabel={appStore.formatCompactCurrency(totalNetWorth)}
           />
           <div class="flex w-full flex-col gap-2 text-center">
             <h3 class="text-xl font-bold">
               {$_('page.dashboard.finances.netWorthSummary', {
                 values: {
-                  total: formatCurrency(totalNetWorth, currency, $locale ?? undefined),
+                  total: appStore.formatCurrency(totalNetWorth),
                 },
               })}
             </h3>

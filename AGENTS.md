@@ -50,6 +50,17 @@ See `README.md` for development commands, project structure, and conventions.
    - Example: `new Date().toLocaleDateString($locale ?? undefined)` instead of `new Date().toLocaleDateString(get(locale) || 'cs')`
    - This avoids unnecessary imports of `get` from `svelte/store` and is more reactive
 
+4. **Number & Currency Formatting**
+   - All number and currency formatting goes through `appStore` methods: `formatNumber`, `formatCurrency`, `formatCompactCurrency`
+   - These methods resolve the formatting locale from the user's profile `location` (country code), falling back to the browser locale
+   - Country-to-locale mapping is in `COUNTRY_LOCALE_MAP` in `src/lib/utils.ts` (e.g. `CZ` → `cs-CZ`, `SK` → `sk-SK`)
+   - The browser locale is synced to `appStore.browserLocale` via an `$effect` in the root layout (`+layout.svelte`)
+   - **Never pass locale strings through component props** — instead pass formatter functions from `appStore`
+   - For components that format numbers (e.g. `SuffixedInput`), pass `formatNumber={appStore.formatNumber}`
+   - For components that display formatted currency (e.g. `CashFlowItemCard`), pass `formatCurrency={appStore.formatCurrency}`
+   - Month names and other UI labels still use `$locale` from `svelte-i18n` (these are translations, not number formatting)
+   - The low-level `formatCurrency` and `formatCompactCurrency` functions in `src/lib/utils.ts` accept an explicit locale parameter — these are used internally by the store and should not be called directly from components
+
 ### Important Patterns
 
 1. **Type Safety**

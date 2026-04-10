@@ -75,6 +75,7 @@
       id="setup-cash"
       value={cashAmount}
       suffix={appStore.profile.currencyOrDefault}
+      formatNumber={appStore.formatNumber}
       onValueChange={(v) => {
         cashAmount = v
       }}

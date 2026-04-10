@@ -154,7 +154,7 @@
     {#each expenses as expense (expense.id)}
       <CashFlowItemCard
         item={expense}
-        {currencyLabel}
+        suffix={currencyLabel}
         sentiment="negative"
         startDescription={$_('page.setup.expenses.startDescription')}
         endDescription={$_('page.setup.expenses.endDescription')}
@@ -162,6 +162,8 @@
         changeDescription={$_('page.setup.expenses.changeDescription')}
         {years}
         {months}
+        formatCurrency={appStore.formatCurrency}
+        formatNumber={appStore.formatNumber}
         onToggleEditing={() => {
           expense.editing = !expense.editing
         }}

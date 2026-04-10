@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { locale } from 'svelte-i18n'
-
   import { Input } from '$lib/components/ui/input'
   import { cn } from '$lib/utils'
 
@@ -10,10 +8,19 @@
     placeholder?: string
     id?: string
     class?: string
+    formatNumber?: (n: number) => string
     onValueChange: (value: number | undefined) => void
   }
 
-  let { value, suffix, placeholder = '0', id, class: className, onValueChange }: Props = $props()
+  let {
+    value,
+    suffix,
+    placeholder = '0',
+    id,
+    class: className,
+    formatNumber,
+    onValueChange,
+  }: Props = $props()
 
   let focused = $state(false)
   let draft = $state('')
@@ -44,7 +51,8 @@
 
   function formatDisplay(n: number | undefined): string {
     if (n === undefined || !Number.isFinite(n)) return ''
-    return n.toLocaleString($locale ?? undefined, { maximumFractionDigits: 4 })
+    if (formatNumber) return formatNumber(n)
+    return n.toLocaleString(undefined, { maximumFractionDigits: 4 })
   }
 
   // What the input should show given focus state.

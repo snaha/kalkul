@@ -2,7 +2,12 @@ import { SvelteSet } from 'svelte/reactivity'
 
 import { type StoredData, storedDataSchema } from '$lib/schemas'
 import type { Portfolio, PortfolioNested, Profile } from '$lib/types'
-import { DEFAULT_CURRENCY } from '$lib/utils'
+import {
+  DEFAULT_CURRENCY,
+  formatCompactCurrency,
+  formatCurrency,
+  getFormattingLocale,
+} from '$lib/utils'
 
 import type { PortfolioStore } from './portfolio.svelte'
 import { withPortfolioStore } from './portfolio.svelte'
@@ -92,6 +97,7 @@ function loadData(): StoredData {
 }
 
 function withAppStore() {
+  let browserLocale = $state<string | undefined>(undefined)
   let profile = $state<ProfileStore>(enrichProfile({ ...DEFAULT_PROFILE }))
   let portfolios = $state<PortfolioStore[]>([])
   let loading = $state(true)
@@ -142,6 +148,9 @@ function withAppStore() {
   }
 
   return {
+    set browserLocale(value: string | undefined) {
+      browserLocale = value
+    },
     get lastUpdated() {
       return lastUpdated
     },
@@ -171,6 +180,21 @@ function withAppStore() {
     deletePortfolio,
     get hiddenIds() {
       return hiddenInvestmentIds
+    },
+
+    // --- Formatting ---
+
+    formatNumber(value: number) {
+      const loc = getFormattingLocale(profile.location, browserLocale)
+      return value.toLocaleString(loc ?? undefined, { maximumFractionDigits: 4 })
+    },
+    formatCurrency(value: number) {
+      const loc = getFormattingLocale(profile.location, browserLocale)
+      return formatCurrency(value, profile.currencyOrDefault, loc)
+    },
+    formatCompactCurrency(value: number) {
+      const loc = getFormattingLocale(profile.location, browserLocale)
+      return formatCompactCurrency(value, profile.currencyOrDefault, loc)
     },
 
     // --- Profile ---

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { _, locale } from 'svelte-i18n'
+  import { _ } from 'svelte-i18n'
 
   import { Plus } from '@lucide/svelte'
 
@@ -16,7 +16,6 @@
   import routes from '$lib/routes'
   import type { ProfileInvestment } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
-  import { formatCurrency } from '$lib/utils'
 
   interface InvestmentUI {
     id: string
@@ -91,7 +90,7 @@
 
   function formatBalance(balance: number | undefined): string {
     if (balance === undefined || balance === 0) return ''
-    return formatCurrency(balance, currencyLabel, $locale ?? undefined)
+    return appStore.formatCurrency(balance)
   }
 
   function saveInvestments() {
@@ -161,6 +160,7 @@
               <SuffixedInput
                 value={investment.balance}
                 suffix={currencyLabel}
+                formatNumber={appStore.formatNumber}
                 onValueChange={(v) => {
                   investment.balance = v
                 }}
@@ -171,6 +171,7 @@
               <SuffixedInput
                 value={investment.apy}
                 suffix="%"
+                formatNumber={appStore.formatNumber}
                 onValueChange={(v) => {
                   investment.apy = v
                 }}

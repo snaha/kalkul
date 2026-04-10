@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
-  import { _, locale } from 'svelte-i18n'
+  import { _ } from 'svelte-i18n'
 
   import ChangeOverTimeSelector from '$lib/components/change-over-time-selector.svelte'
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
@@ -11,7 +11,6 @@
   import { Separator } from '$lib/components/ui/separator'
   import { Switch } from '$lib/components/ui/switch'
   import type { CashFlowEnd, CashFlowStart, ChangeOverTime, Frequency } from '$lib/schemas'
-  import { formatCurrency } from '$lib/utils'
 
   interface CashFlowItem {
     id: string
@@ -35,7 +34,7 @@
 
   interface Props {
     item: CashFlowItem
-    currencyLabel: string
+    suffix: string
     sentiment: 'positive' | 'negative'
     startDescription: string
     endDescription: string
@@ -43,6 +42,8 @@
     changeDescription: string
     years: string[]
     months: { value: string; label: string }[]
+    formatCurrency: (value: number) => string
+    formatNumber?: (value: number) => string
     onToggleEditing: () => void
     onDuplicate: () => void
     onDelete: () => void
@@ -53,7 +54,7 @@
 
   let {
     item,
-    currencyLabel,
+    suffix,
     sentiment,
     startDescription,
     endDescription,
@@ -61,6 +62,8 @@
     changeDescription,
     years,
     months,
+    formatCurrency,
+    formatNumber,
     onToggleEditing,
     onDuplicate,
     onDelete,
@@ -73,7 +76,7 @@
   let collapsedValueClass = $derived(sentiment === 'positive' ? 'text-success' : 'text-destructive')
   let formattedAmount = $derived.by(() => {
     if (item.amount === undefined || item.amount === 0) return ''
-    return `${sign}${formatCurrency(item.amount, currencyLabel, $locale ?? undefined)}`
+    return `${sign}${formatCurrency(item.amount)}`
   })
 </script>
 
@@ -94,7 +97,8 @@
         <Label>{$_('page.setup.common.amount')}</Label>
         <SuffixedInput
           value={item.amount}
-          suffix={currencyLabel}
+          {suffix}
+          {formatNumber}
           onValueChange={(v) => {
             item.amount = v
           }}
@@ -155,6 +159,7 @@
         {years}
         {months}
         description={startDescription}
+        {formatNumber}
         onValueChange={(v) => {
           item.start = v as CashFlowStart
         }}
@@ -179,6 +184,7 @@
         {years}
         {months}
         description={endDescription}
+        {formatNumber}
         onValueChange={(v) => {
           item.end = v as CashFlowEnd
         }}
@@ -199,6 +205,7 @@
         percentage={item.change_percentage}
         {matchInflationDescription}
         {changeDescription}
+        {formatNumber}
         onValueChange={(v) => {
           item.change_over_time = v as ChangeOverTime
         }}

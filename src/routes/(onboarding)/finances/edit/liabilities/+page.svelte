@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { _, locale } from 'svelte-i18n'
+  import { _ } from 'svelte-i18n'
 
   import { Plus } from '@lucide/svelte'
 
@@ -17,7 +17,6 @@
   import routes from '$lib/routes'
   import type { Frequency, ProfileLiability } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
-  import { formatCurrency } from '$lib/utils'
 
   interface LiabilityUI {
     id: string
@@ -101,7 +100,7 @@
 
   function formatBalance(val: number | undefined): string {
     if (val === undefined || val === 0) return ''
-    return formatCurrency(val, currencyLabel, $locale ?? undefined)
+    return appStore.formatCurrency(val)
   }
 
   function frequencyLabel(f: Frequency): string {
@@ -179,6 +178,7 @@
             <SuffixedInput
               value={liability.outstanding_balance}
               suffix={currencyLabel}
+              formatNumber={appStore.formatNumber}
               onValueChange={(v) => {
                 liability.outstanding_balance = v
               }}
@@ -210,6 +210,7 @@
               <SuffixedInput
                 value={liability.annual_rate}
                 suffix="%"
+                formatNumber={appStore.formatNumber}
                 onValueChange={(v) => {
                   liability.annual_rate = v
                 }}
@@ -223,6 +224,7 @@
               <SuffixedInput
                 value={liability.installment_amount}
                 suffix={currencyLabel}
+                formatNumber={appStore.formatNumber}
                 onValueChange={(v) => {
                   liability.installment_amount = v
                 }}
@@ -233,6 +235,7 @@
               <SuffixedInput
                 value={liability.remaining_term}
                 suffix={$_('page.setup.liabilities.years')}
+                formatNumber={appStore.formatNumber}
                 onValueChange={(v) => {
                   liability.remaining_term = v
                 }}
