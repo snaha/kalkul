@@ -49,6 +49,10 @@ export default typescriptEslint.config(
           message:
             'Unnecessary file extension in import. Only .svelte, .svg, .json, and .css extensions are allowed.',
         },
+        {
+          selector: 'ImportDeclaration[source.value=/\\/index$/]',
+          message: 'Do not import from /index explicitly. Import from the directory instead.',
+        },
       ],
     },
   },

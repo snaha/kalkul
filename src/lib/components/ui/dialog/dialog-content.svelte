@@ -7,8 +7,8 @@
 
   import { type WithoutChildrenOrChild, cn } from '$lib/utils'
 
+  import * as Dialog from '.'
   import DialogPortal from './dialog-portal.svelte'
-  import * as Dialog from './index'
 
   let {
     ref = $bindable(null),
