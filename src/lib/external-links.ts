@@ -17,7 +17,7 @@
  * comment for `svelte/no-navigation-without-resolve`.
  */
 export default {
-  GITHUB: 'https://github.com/snaha-org/kalkul-next',
-  DISCORD: 'https://discord.gg/kalkul',
+  GITHUB: 'https://github.com/snaha/kalkul-next',
+  DISCORD: 'https://discord.gg/HKV8tkWrZV',
   AGPL_LICENSE: 'https://www.gnu.org/licenses/agpl-3.0.en.html',
 } as const
