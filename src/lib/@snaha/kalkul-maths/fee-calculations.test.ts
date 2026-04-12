@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
+
+import type { Investment } from '$lib/types'
+
+import { DAYS_PER_YEAR } from './constants'
 import {
+  calculateDailyFees,
+  calculateDailyManagementFees,
   calculateEntryFee,
   calculateExitFee,
-  calculateDailyManagementFees,
-  calculateDailyFees,
 } from './fee-calculations'
-import type { Investment } from '$lib/types'
-import { DAYS_PER_YEAR } from './constants'
 
 const DEFAULT_INVESTMENT: Investment = {
   apy: 0,

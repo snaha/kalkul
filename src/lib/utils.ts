@@ -1,79 +1,96 @@
-export function capitalizeFirstLetter(s: string) {
-  if (s.length === 0) {
-    return s
+import { type ClassValue, clsx } from 'clsx'
+import { twMerge } from 'tailwind-merge'
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+
+export type WithElementRef<T, El extends HTMLElement = HTMLElement> = T & { ref?: El | null }
+
+export type WithoutChild<T> = T extends { child?: infer _C } ? Omit<T, 'child'> : T
+export type WithoutChildrenOrChild<T> = T extends { children?: infer _C; child?: infer _C2 }
+  ? Omit<T, 'children' | 'child'>
+  : T
+
+export const DEFAULT_CURRENCY = 'EUR'
+
+/** Maps profile country codes to BCP 47 locale tags for number/currency formatting. */
+const COUNTRY_LOCALE_MAP: Record<string, string> = {
+  CZ: 'cs-CZ',
+  SK: 'sk-SK',
+  HU: 'hu-HU',
+  FR: 'fr-FR',
+}
+
+/**
+ * Resolve the locale for number/currency formatting.
+ * Prefers the profile's country, falls back to browser locale.
+ */
+export function getFormattingLocale(
+  country: string | undefined,
+  browserLocale: string | undefined,
+): string | undefined {
+  if (country) {
+    const mapped = COUNTRY_LOCALE_MAP[country]
+    if (mapped) return mapped
   }
-  return s.charAt(0).toUpperCase() + s.slice(1)
+  return browserLocale ?? undefined
 }
 
-export function formatAge(birthDate: Date, currentDate = new Date()): string {
-  // Extract year, month, and day components
-  const birthYear = birthDate.getFullYear()
-  const birthMonth = (birthDate.getMonth() + 1).toFixed().padStart(2, '0')
-  const birthDay = birthDate.getDate().toFixed().padStart(2, '0')
-
-  const currentMonth = (currentDate.getMonth() + 1).toFixed().padStart(2, '0')
-  const currentDay = currentDate.getDate().toFixed().padStart(2, '0')
-  const compareDayOfMonth = `${currentMonth}${currentDay}`.localeCompare(`${birthMonth}${birthDay}`)
-
-  const age = currentDate.getFullYear() - birthYear - (compareDayOfMonth === -1 ? 1 : 0)
-  return age.toFixed()
+export function getYearOptions(count = 50): string[] {
+  const currentYear = new Date().getFullYear()
+  return Array.from({ length: count }, (_, i) => String(currentYear + i))
 }
 
-export function formatCurrency(
-  value: number | bigint,
-  currency: string,
-  locale: string | null | undefined,
-  options?: Intl.NumberFormatOptions,
-) {
-  const intl = new Intl.NumberFormat(locale || undefined, {
-    currencyDisplay: 'code',
-    maximumFractionDigits: 0,
-    ...options,
-  })
-  return `${intl.format(value)} ${currency}`
+export function getBirthYearOptions(earliestYear = 1930): string[] {
+  const currentYear = new Date().getFullYear()
+  return Array.from({ length: currentYear - earliestYear + 1 }, (_, i) => String(currentYear - i))
 }
 
-export function formatNumber(
-  value: number,
-  locale: string | null | undefined,
-  options?: Intl.NumberFormatOptions,
-) {
-  const intl = new Intl.NumberFormat(locale || undefined, {
-    style: 'decimal',
-    ...options,
-  })
-  return intl.format(value)
+export function getMonthOptions(locale?: string): { value: string; label: string }[] {
+  return Array.from({ length: 12 }, (_, i) => ({
+    value: String(i),
+    label: new Date(2000, i).toLocaleString(locale ?? undefined, { month: 'long' }),
+  }))
 }
 
-export function parseLocalizedNumber(value: string, locale: string | null | undefined): number {
-  // Get the thousand separator for the locale
-  const formatter = new Intl.NumberFormat(locale || undefined)
-  const parts = formatter.formatToParts(1234.5)
-  const groupSeparator = parts.find((part) => part.type === 'group')?.value || ','
+export function notImplemented() {
+  alert('Not implemented yet')
+}
 
-  // Remove all thousand separators
-  let normalized = value.replace(new RegExp(`\\${groupSeparator}`, 'g'), '')
-
-  // Handle both . and , as decimal separators intelligently
-  // If there's only one decimal separator (either . or ,), treat it as decimal
-  const dotCount = (normalized.match(/\./g) || []).length
-  const commaCount = (normalized.match(/,/g) || []).length
-
-  if (dotCount === 1 && commaCount === 0) {
-    // Only dots, keep as is
-  } else if (commaCount === 1 && dotCount === 0) {
-    // Only comma, convert to dot
-    normalized = normalized.replace(',', '.')
-  } else if (dotCount > 1 || commaCount > 1 || (dotCount > 0 && commaCount > 0)) {
-    // Multiple separators or mixed - invalid, return 0
-    return 0
+export function formatCurrency(value: number, currency: string, locale?: string): string {
+  try {
+    return new Intl.NumberFormat(locale ?? undefined, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    }).format(value)
+  } catch {
+    // Fallback for unsupported currency codes
+    return `${value.toLocaleString(locale ?? undefined)} ${currency}`
   }
-
-  return parseFloat(normalized) || 0
 }
 
-export const asyncTimeout = (ms: number) => {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms)
-  })
+export function formatCompactCurrency(value: number, currency: string, locale?: string): string {
+  try {
+    return new Intl.NumberFormat(locale ?? undefined, {
+      style: 'currency',
+      currency,
+      notation: 'compact',
+      maximumFractionDigits: 1,
+    }).format(value)
+  } catch {
+    return `${value.toLocaleString(locale ?? undefined)} ${currency}`
+  }
+}
+
+export function calculateAge(
+  birthDate: Date | undefined,
+  currentYear: number,
+  currentMonth: number,
+): string {
+  if (!birthDate) return ''
+  let age = currentYear - birthDate.getFullYear()
+  if (currentMonth < birthDate.getMonth()) age--
+  return String(age)
 }

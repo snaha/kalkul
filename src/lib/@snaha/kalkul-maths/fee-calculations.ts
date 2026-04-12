@@ -1,13 +1,15 @@
 import Decimal from 'decimal.js'
+
 import { type Investment } from '$lib/types'
-import { type EntryFeeType, type FeeType, DEFAULT_FEE_TYPE } from './types'
+
 import {
+  DAYS_PER_YEAR,
   DECIMAL_0,
   DECIMAL_1,
-  PERCENTAGE_DIVISOR,
-  DAYS_PER_YEAR,
   FORTY_SIXTY_FEE_RATIO,
+  PERCENTAGE_DIVISOR,
 } from './constants'
+import { DEFAULT_FEE_TYPE, type EntryFeeType, type FeeType } from './types'
 
 Decimal.set({ precision: 30 })
 

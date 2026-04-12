@@ -1,8 +1,9 @@
+import svelteParser from 'svelte-eslint-parser'
+
 import js from '@eslint/js'
 import eslintConfigPrettier from 'eslint-config-prettier'
 import eslintPluginSvelte from 'eslint-plugin-svelte'
 import globals from 'globals'
-import svelteParser from 'svelte-eslint-parser'
 import typescriptEslint from 'typescript-eslint'
 
 export default typescriptEslint.config(
@@ -16,11 +17,31 @@ export default typescriptEslint.config(
       ecmaVersion: 2022,
       sourceType: 'module',
       globals: { ...globals.node, ...globals.browser },
+    },
+  },
+  {
+    files: ['**/*.svelte', '**/*.svelte.ts'],
+    languageOptions: {
       parser: svelteParser,
       parserOptions: {
         parser: typescriptEslint.parser,
         extraFileExtensions: ['.svelte'],
       },
+    },
+  },
+  {
+    files: ['src/lib/components/ui/**/*.svelte'],
+    rules: {
+      'svelte/valid-compile': 'off',
+      'svelte/no-navigation-without-resolve': 'off',
+    },
+  },
+  {
+    rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
     },
   },
   {

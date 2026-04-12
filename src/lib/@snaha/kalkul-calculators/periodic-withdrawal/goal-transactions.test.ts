@@ -1,6 +1,8 @@
-import { describe, it, expect } from 'vitest'
-import { goalToTransactions } from './goal-transactions'
+import { describe, expect, it } from 'vitest'
+
 import type { RetirementGoalData } from '$lib/types'
+
+import { goalToTransactions } from './goal-transactions'
 
 describe('goalToTransactions', () => {
   const mockLabels = {

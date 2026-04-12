@@ -1,27 +1,80 @@
 import { SvelteSet } from 'svelte/reactivity'
+
+import { type StoredData, profileSchema, storedDataSchema } from '$lib/schemas'
 import type { Portfolio, PortfolioNested, Profile } from '$lib/types'
+import {
+  DEFAULT_CURRENCY,
+  formatCompactCurrency,
+  formatCurrency,
+  getFormattingLocale,
+} from '$lib/utils'
+
 import type { PortfolioStore } from './portfolio.svelte'
 import { withPortfolioStore } from './portfolio.svelte'
-import { storedDataSchema, type StoredData } from '$lib/schemas'
 import { storageErrorStore } from './storage-error.svelte'
 
 const STORAGE_KEY = 'kalkul-data'
 
 export type ProfileStore = Profile & {
   readonly birthDate: Date | undefined
+  readonly currencyOrDefault: string
   toJSON: () => Profile
 }
 
-function enrichProfile({ name, email, birth_date }: Profile): ProfileStore {
+function enrichProfile({
+  name,
+  email,
+  birth_date,
+  location,
+  currency,
+  cash_amount,
+  has_investments,
+  has_tangible_assets,
+  has_liabilities,
+  investments,
+  tangible_assets,
+  liabilities,
+  incomes,
+  expenses,
+}: Profile): ProfileStore {
   return {
     name,
     email,
     birth_date,
+    location,
+    currency,
+    cash_amount,
+    has_investments,
+    has_tangible_assets,
+    has_liabilities,
+    investments,
+    tangible_assets,
+    liabilities,
+    incomes,
+    expenses,
     get birthDate() {
       return birth_date ? new Date(birth_date) : undefined
     },
+    get currencyOrDefault() {
+      return currency ?? DEFAULT_CURRENCY
+    },
     toJSON(): Profile {
-      return { name, email, birth_date }
+      return {
+        name,
+        email,
+        birth_date,
+        location,
+        currency,
+        cash_amount,
+        has_investments,
+        has_tangible_assets,
+        has_liabilities,
+        investments,
+        tangible_assets,
+        liabilities,
+        incomes,
+        expenses,
+      }
     },
   }
 }
@@ -44,6 +97,7 @@ function loadData(): StoredData {
 }
 
 function withAppStore() {
+  let browserLocale = $state<string | undefined>(undefined)
   let profile = $state<ProfileStore>(enrichProfile({ ...DEFAULT_PROFILE }))
   let portfolios = $state<PortfolioStore[]>([])
   let loading = $state(true)
@@ -94,6 +148,9 @@ function withAppStore() {
   }
 
   return {
+    set browserLocale(value: string | undefined) {
+      browserLocale = value
+    },
     get lastUpdated() {
       return lastUpdated
     },
@@ -125,10 +182,27 @@ function withAppStore() {
       return hiddenInvestmentIds
     },
 
+    // --- Formatting ---
+
+    formatNumber(value: number) {
+      const loc = getFormattingLocale(profile.location, browserLocale)
+      return value.toLocaleString(loc ?? undefined, { maximumFractionDigits: 4 })
+    },
+    formatCurrency(value: number) {
+      const loc = getFormattingLocale(profile.location, browserLocale)
+      return formatCurrency(value, profile.currencyOrDefault, loc)
+    },
+    formatCompactCurrency(value: number) {
+      const loc = getFormattingLocale(profile.location, browserLocale)
+      return formatCompactCurrency(value, profile.currencyOrDefault, loc)
+    },
+
     // --- Profile ---
 
     updateProfile(updates: Partial<Profile>) {
-      profile = enrichProfile({ ...profile, ...updates })
+      const merged = { ...profile.toJSON(), ...updates }
+      const validated = profileSchema.parse(merged)
+      profile = enrichProfile(validated)
       persist()
     },
 

@@ -13,19 +13,16 @@ See `README.md` for development commands, project structure, and conventions.
 **Kalkul** is a financial portfolio management application built as a local-first static SPA using localStorage for data persistence. Key areas to understand:
 
 1. **Financial Calculations** (`src/lib/@snaha/kalkul-maths/`)
-
    - Always use Decimal.js for monetary calculations
    - Never use native JavaScript numbers for financial data
    - Test extensively when modifying calculation logic
 
 2. **State Management** (`src/lib/stores/`)
-
    - Uses Svelte 5 runes (`.svelte.ts` files)
    - State is reactive and type-safe
    - Follow existing patterns when adding new stores
 
 3. **Internationalization (i18n)**
-
    - Uses `svelte-i18n` library for translations
    - Translation files in `src/lib/locales/` (currently `cs.json` and `en.json`)
    - Nested structure for organized translations (e.g., `page.account.settings`)
@@ -50,14 +47,23 @@ See `README.md` for development commands, project structure, and conventions.
    ```
 
    **Accessing current locale**: Use `$locale` directly instead of `get(locale)`
-
    - Example: `new Date().toLocaleDateString($locale ?? undefined)` instead of `new Date().toLocaleDateString(get(locale) || 'cs')`
    - This avoids unnecessary imports of `get` from `svelte/store` and is more reactive
+
+4. **Number & Currency Formatting**
+   - All number and currency formatting goes through `appStore` methods: `formatNumber`, `formatCurrency`, `formatCompactCurrency`
+   - These methods resolve the formatting locale from the user's profile `location` (country code), falling back to the browser locale
+   - Country-to-locale mapping is in `COUNTRY_LOCALE_MAP` in `src/lib/utils.ts` (e.g. `CZ` → `cs-CZ`, `SK` → `sk-SK`)
+   - The browser locale is synced to `appStore.browserLocale` via an `$effect` in the root layout (`+layout.svelte`)
+   - **Never pass locale strings through component props** — instead pass formatter functions from `appStore`
+   - For components that format numbers (e.g. `SuffixedInput`), pass `formatNumber={appStore.formatNumber}`
+   - For components that display formatted currency (e.g. `CashFlowItemCard`), pass `formatCurrency={appStore.formatCurrency}`
+   - Month names and other UI labels still use `$locale` from `svelte-i18n` (these are translations, not number formatting)
+   - The low-level `formatCurrency` and `formatCompactCurrency` functions in `src/lib/utils.ts` accept an explicit locale parameter — these are used internally by the store and should not be called directly from components
 
 ### Important Patterns
 
 1. **Type Safety**
-
    - TypeScript strict mode is enabled
    - Always run `pnpm check` before committing
    - **CRITICAL: Never use `null` in your code** - always use `undefined` instead for optional/missing values
@@ -70,6 +76,16 @@ See `README.md` for development commands, project structure, and conventions.
    - **Never use `any` type** - always use proper TypeScript types for type safety
    - Use generic types, union types, or `unknown` instead of `any` when needed
    - If you must accept any type, use `unknown` and type guards for safety
+
+2. **Data Validation (Zod)**
+   - Zod schemas in `src/lib/schemas.ts` are the **single source of truth** for valid data shapes
+   - `updateProfile()` validates all data with `profileSchema.parse()` before persisting — every caller gets validation for free
+   - Import/restore and localStorage reads also validate via `storedDataSchema.parse()`
+   - **When adding new fields:** update the Zod schema first, then the form — the schema defines what's valid
+   - **Conditional requirements:** use `.superRefine()` for fields that are required only under certain conditions (e.g. `start_year` required when `start === 'at_specific_date'`, financing fields required when `status === 'financed'`)
+   - **Forms handle UX validation** (e.g. `canContinue` checks) to guide the user, but **runtime correctness is enforced by Zod** at the store boundary
+   - Never bypass `updateProfile()` to write profile data — it's the validation gate
+   - TypeScript types are derived from schemas (`z.infer<typeof schema>`) — never define types separately from schemas
 
 ### Naming Conventions
 
@@ -86,67 +102,58 @@ See `README.md` for development commands, project structure, and conventions.
   - ✅ `import { Server } from '@modelcontextprotocol/sdk/server/index'`
   - ❌ `import { Server } from '@modelcontextprotocol/sdk/server/index.js'`
 
-2. **Testing Financial Logic**
+### External Links
 
+All external (outbound) URLs live in `src/lib/external-links.ts`. Never hard-code external URLs in components — import and use the constants instead. This keeps links in one place so they can be updated consistently and mocked in tests.
+
+- ✅ `import externalLinks from '$lib/external-links'` then `<Button href={externalLinks.GITHUB} target="_blank" rel="noopener noreferrer">`
+- ❌ `<a href="https://github.com/snaha-org/kalkul-next">` inline in a component
+
+When linking from a bare `<a>` tag (not the `Button` component), the `svelte/no-navigation-without-resolve` ESLint rule will flag the `href` attribute — suppress it on the href line with an inline `eslint-disable-line svelte/no-navigation-without-resolve` comment. The `Button` component is not flagged.
+
+2. **Testing Financial Logic**
    - Financial calculations must have unit tests
    - Use test files alongside source (`*.test.ts`)
    - Test edge cases with various decimal precisions
 
 3. **Component Architecture**
-
    - Components in `src/lib/components/` are reusable
    - Route-specific components stay in route folders
    - Use composition over inheritance
 
-4. **Design System (Diete)**
+4. **UI Components (shadcn-svelte)**
+   - Uses **shadcn-svelte** for UI components (built on bits-ui + Tailwind CSS v4)
+   - UI components are located in `src/lib/components/ui/`
+   - Add new components via CLI: `pnpm dlx shadcn-svelte@next add <component>`
+   - Configuration in `components.json` at project root
+   - Always prefer shadcn-svelte components over custom HTML elements for consistency
+   - Use Tailwind CSS utility classes for styling and layout
+   - Use `cn()` utility from `$lib/utils` for conditional class merging
 
-   - Uses **Diete** design system for UI components
-   - Design system components are located in `src/lib/components/ui/`
-   - Key components include: `Typography`, `Button`, `Input`, `Dropdown`, `List`, `Vertical`, `Horizontal`, etc.
-   - Full documentation available at https://diete.design
-   - Always prefer Diete components over custom HTML elements for consistency
-   - Use CSS custom properties (e.g., `--padding`, `--half-padding`, `--double-padding`) for spacing
-   - Follow Diete patterns for layout, typography, and interactions
-
-   **Important Layout Component Properties:**
-
-   - `Vertical` component uses `--vertical-gap` (NOT `--gap`)
-   - `Horizontal` component uses `--horizontal-gap` (NOT `--gap`)
-   - Example: `<Vertical --vertical-gap="var(--padding)">` and `<Horizontal --horizontal-gap="var(--half-padding)">`
-   - **Alignment properties**:
-     - `Vertical`: `--vertical-align-items` and `--vertical-justify-content`
-     - `Horizontal`: `--horizontal-align-items` and `--horizontal-justify-content`
-     - Example: `<Vertical --vertical-align-items="start">` and `<Horizontal --horizontal-align-items="center">`
-   - **Style properties**: CSS custom properties can be passed directly to components
-     - Example: `<Divider --divider-color="black" />` instead of `<Divider style="--divider-color: black;" />`
-
-   **Prefer Component Properties Over CSS:**
-
-   - Diete components provide properties to achieve visual and behavioral changes
-   - **Always use component properties first**, only resort to custom CSS if the property doesn't exist
-   - Examples:
-     - ✅ `<Typography font="mono">` instead of ❌ `<Typography class="monospace">` with custom CSS
-     - ✅ `<Typography variant="small">` instead of ❌ `<Typography style="font-size: 0.875rem;">`
-     - ✅ `<Button variant="ghost">` instead of ❌ `<Button class="ghost-button">` with custom CSS
-   - This ensures consistency with the design system and reduces custom CSS maintenance
+5. **Assets (images, SVGs)**
+   - Component-used assets live in `src/lib/assets/` and are imported as Vite modules
+   - This gives content-hashed filenames, build-time missing-file errors, and knip can detect unused assets
+   - ✅ `import logo from '$lib/assets/logo.svg'` then `<img src={logo} />`
+   - ❌ Placing component-used images in `static/` and referencing via `{base}/path`
+   - The `static/` folder is reserved for files that need fixed URLs: favicons, PWA icons, `manifest.json`, fonts
 
 ### Common Tasks
 
 1. **Adding a New Feature**
-
    - Check existing patterns in similar features
    - Add tests for business logic
+   - **Stub unimplemented actions**: When building UI that includes buttons or links whose functionality doesn't exist yet, wire them to `notImplemented()` from `$lib/utils`. This shows an alert so users know the feature isn't ready, rather than having silent dead buttons.
+     - ✅ `<Button onclick={notImplemented}>Add plan</Button>`
+     - ❌ `<Button>Add plan</Button>` (silent, no feedback)
    - Use conventional commits
 
 2. **Modifying Financial Calculations**
-
    - Review existing tests in `@snaha/kalkul-maths`
    - Always use Decimal.js
    - Consider precision and rounding implications
    - Add comprehensive test coverage
 
 3. **Working with State**
-
    - Use existing stores when possible
    - Follow Svelte 5 runes patterns
    - Keep stores focused and single-purpose
@@ -164,14 +171,12 @@ See `README.md` for development commands, project structure, and conventions.
 **Kalkul uses a three-tier testing approach:**
 
 1. **Unit Tests** (`pnpm test:unit` - Vitest)
-
    - Financial calculations and business logic
    - Utilities and helper functions
    - Store/state management
    - Files: `*.test.ts`
 
 2. **Component Tests** (`pnpm test:ct` - Playwright)
-
    - UI component behavior and user interactions
    - Cross-browser compatibility (Chrome, Firefox, WebKit)
    - Real browser environment with actual rendering

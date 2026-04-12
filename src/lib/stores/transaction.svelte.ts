@@ -1,4 +1,5 @@
 import type { Transaction } from '$lib/types'
+
 import type { InvestmentStore } from './investment.svelte'
 
 export type TransactionStore = Transaction & {

@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest'
+
+import type { Investment } from '$lib/types'
+
+import { DAYS_PER_YEAR } from './constants'
 import {
-  getInvestmentValues,
+  getBaseData,
   getCurrentInvestmentValue,
   getCurrentPortfolioValue,
-  getBaseData,
+  getInvestmentValues,
 } from './investment-calculations'
-import type { Investment } from '$lib/types'
 import type { Transaction, TransactionMap, TransactionMapEntry } from './types'
-import { DAYS_PER_YEAR } from './constants'
 
 // Helper function to convert test data to new TransactionMap format
 function createTransactionMap(entries: Array<[string, number]>): TransactionMap {

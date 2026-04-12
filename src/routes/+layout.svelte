@@ -1,12 +1,18 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte'
-  import '../app.pcss'
+  import { onDestroy, onMount } from 'svelte'
+  import { locale } from 'svelte-i18n'
+
   import { appStore } from '$lib/stores/app.svelte'
-  import StorageErrorBanner from '$lib/components/storage-error-banner.svelte'
+
+  import '../app.css'
 
   let { children } = $props()
 
   let cleanupSync: (() => void) | undefined
+
+  $effect(() => {
+    appStore.browserLocale = $locale ?? undefined
+  })
 
   onMount(() => {
     appStore.load()
@@ -18,5 +24,4 @@
   })
 </script>
 
-<StorageErrorBanner />
 {@render children()}

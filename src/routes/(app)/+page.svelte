@@ -1,357 +1,218 @@
 <script lang="ts">
-  import Button from '$lib/components/ui/button.svelte'
-  import SearchInput from '$lib/components/ui/input/search-input.svelte'
-  import Typography from '$lib/components/ui/typography.svelte'
-  import {
-    OverflowMenuVertical,
-    Folder,
-    FolderDetails,
-    TrashCan,
-    ArrowRight,
-    Copy,
-    Edit,
-  } from 'carbon-icons-svelte'
-  import { _, locale } from 'svelte-i18n'
-  import { formatCurrency } from '$lib/utils'
-  import { formatDate } from '$lib/@snaha/kalkul-maths/date'
-  import Loader from '$lib/components/ui/loader.svelte'
-  import { goto } from '$app/navigation'
+  import { _ } from 'svelte-i18n'
+
+  import { ArrowRight, Calendar, Plus, SquarePen } from '@lucide/svelte'
+
+  import { resolve } from '$app/paths'
+
+  import financesIllustration from '$lib/assets/finances-illustration.svg'
+  import heroIllustration from '$lib/assets/hero-illustration.svg'
+  import plansIllustration from '$lib/assets/plans-illustration.svg'
+  import { CATEGORY_COLORS } from '$lib/chart-colors'
+  import DonutChart from '$lib/components/donut-chart.svelte'
+  import { Badge } from '$lib/components/ui/badge'
+  import { Button } from '$lib/components/ui/button'
+  import { Separator } from '$lib/components/ui/separator'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
-  import Header from '$lib/components/header.svelte'
-  import Dropdown from '$lib/components/ui/dropdown.svelte'
-  import List from '$lib/components/ui/list/list.svelte'
-  import ListItem from '$lib/components/ui/list/list-item.svelte'
-  import DeleteModal from '$lib/components/delete-modal.svelte'
-  import { base } from '$app/paths'
-  import DesktopOnly from '$lib/components/desktop-only.svelte'
-  import MobileOnly from '$lib/components/mobile-only.svelte'
-  import Vertical from '$lib/components/ui/vertical.svelte'
-  import Horizontal from '$lib/components/ui/horizontal.svelte'
-  import ContentLayout from '$lib/components/content-layout.svelte'
-  import { getCurrentPortfolioValue } from '$lib/@snaha/kalkul-maths'
-  import {
-    differenceInDays,
-    differenceInMonths,
-    differenceInWeeks,
-    differenceInYears,
-  } from 'date-fns'
-  import type { Portfolio } from '$lib/types'
-  import EditProfile from '$lib/components/edit-profile.svelte'
-  import Fullscreen from '$lib/components/fullscreen.svelte'
+  import { notImplemented } from '$lib/utils'
 
-  const needsOnboarding = $derived(!appStore.loading && appStore.profile.name === '')
+  const hasData = $derived(!appStore.loading && !!appStore.profile.name)
+  const hasFinancialData = $derived.by(() => {
+    if (!hasData) return false
+    if ((appStore.profile.cash_amount ?? 0) > 0) return true
+    if ((appStore.profile.investments ?? []).some((i) => i.balance > 0)) return true
+    if ((appStore.profile.tangible_assets ?? []).some((a) => a.value > 0)) return true
+    if ((appStore.profile.liabilities ?? []).some((l) => l.outstanding_balance > 0)) return true
+    return false
+  })
 
-  let showConfirmModal = $state(false)
-  let portfolioToBeDeleted: string | undefined = $state()
-  let searchQuery = $state('')
-  let filteredPortfolios = $derived(searchByName(searchQuery))
-
-  function addPortfolio() {
-    goto(routes.NEW_PORTFOLIO)
-  }
-
-  function confirmDeletePortfolio(portfolioId: string) {
-    showConfirmModal = true
-    portfolioToBeDeleted = portfolioId
-  }
-
-  function deletePortfolio() {
-    if (portfolioToBeDeleted) {
-      appStore.portfolios.find((p) => p.id === portfolioToBeDeleted)?.delete()
-      portfolioToBeDeleted = undefined
-      showConfirmModal = false
+  const chartSegments = $derived.by(() => {
+    const segments: { label: string; value: number; color: string }[] = []
+    const cash = appStore.profile.cash_amount ?? 0
+    if (cash > 0) {
+      segments.push({ label: 'cash', value: cash, color: CATEGORY_COLORS.cash })
     }
-  }
-
-  function searchByName(searchQuery: string) {
-    if (searchQuery) {
-      return appStore.portfolios.filter((portfolio) =>
-        portfolio.name.toLowerCase().includes(searchQuery.toLowerCase()),
-      )
-    } else {
-      return appStore.portfolios
-    }
-  }
-
-  function portfolioValue(portfolioId: string): number {
-    const portfolio = appStore.portfolios.find((p) => p.id === portfolioId)
-    if (!portfolio) return 0
-    return getCurrentPortfolioValue(
-      {
-        filter: (id: string) => portfolio.investments.find((i) => i.id === id)?.transactions ?? [],
-      },
-      portfolio.investments,
+    const investmentsTotal = (appStore.profile.investments ?? []).reduce(
+      (sum, i) => sum + i.balance,
+      0,
     )
-  }
+    if (investmentsTotal > 0) {
+      segments.push({
+        label: 'investments',
+        value: investmentsTotal,
+        color: CATEGORY_COLORS.investments[0],
+      })
+    }
+    const tangibleTotal = (appStore.profile.tangible_assets ?? []).reduce(
+      (sum, a) => sum + a.value,
+      0,
+    )
+    if (tangibleTotal > 0) {
+      segments.push({
+        label: 'tangible-assets',
+        value: tangibleTotal,
+        color: CATEGORY_COLORS.tangibleAssets[0],
+      })
+    }
+    const liabilitiesTotal = (appStore.profile.liabilities ?? []).reduce(
+      (sum, l) => sum + l.outstanding_balance,
+      0,
+    )
+    if (liabilitiesTotal > 0) {
+      segments.push({
+        label: 'liabilities',
+        value: liabilitiesTotal,
+        color: CATEGORY_COLORS.liabilities[0],
+      })
+    }
+    return segments
+  })
 
-  function portfolioPeriod(portfolio: Portfolio) {
-    const yearDiff = differenceInYears(portfolio.end_date, portfolio.start_date)
-    if (yearDiff > 0) {
-      return `${yearDiff}${$_('common.abbreviations.year')}`
-    }
-    const monthDiff = differenceInMonths(portfolio.end_date, portfolio.start_date)
-    if (monthDiff > 0) {
-      return `${monthDiff}${$_('common.abbreviations.month')}`
-    }
-    const weekDiff = differenceInWeeks(portfolio.end_date, portfolio.start_date)
-    if (weekDiff > 0) {
-      return `${weekDiff}${$_('common.abbreviations.week')}`
-    }
-    const dayDiff = differenceInDays(portfolio.end_date, portfolio.start_date)
-    return `${dayDiff}${$_('common.abbreviations.day')}`
-  }
+  const totalNetWorth = $derived(
+    chartSegments.reduce(
+      (sum, s) => (s.label === 'liabilities' ? sum - s.value : sum + s.value),
+      0,
+    ),
+  )
 </script>
 
-{#snippet portfolioDropdown(portfolioId: string)}
-  <Dropdown left buttonDimension="compact">
-    {#snippet button()}
-      <OverflowMenuVertical size={24} />
-    {/snippet}
-    <List>
-      <ListItem onclick={() => goto(routes.PORTFOLIO(portfolioId))}
-        ><Folder size={24} />{$_('page.portfolio.openPortfolio')}</ListItem
-      >
-      <ListItem onclick={() => goto(routes.EDIT_PORTFOLIO(portfolioId))}
-        ><FolderDetails size={24} />{$_('page.portfolio.editPortfolioDetails')}</ListItem
-      >
-      <ListItem onclick={() => appStore.portfolios.find((p) => p.id === portfolioId)?.duplicate()}
-        ><Copy size={24} />{$_('page.portfolio.duplicatePortfolio')}</ListItem
-      >
-      <ListItem onclick={() => confirmDeletePortfolio(portfolioId)}
-        ><TrashCan size={24} />{$_('page.portfolio.deletePortfolio')}</ListItem
-      >
-    </List>
-  </Dropdown>
-{/snippet}
+{#if hasData}
+  <div class="flex flex-1">
+    <!-- Left panel: Current finances -->
+    <div class="flex flex-1 flex-col">
+      <div class="flex items-start gap-4 p-8">
+        <div class="flex flex-1 items-center gap-2">
+          <h2 class="text-2xl font-bold">{$_('page.dashboard.finances.title')}</h2>
+          {#if hasFinancialData}
+            <Badge variant="outline">
+              <Calendar class="size-3" />
+              {$_('page.dashboard.finances.today')}
+            </Badge>
+          {:else}
+            <Badge variant="destructive">{$_('page.dashboard.finances.missing')}</Badge>
+          {/if}
+        </div>
+        {#if hasFinancialData}
+          <Button size="sm" href={resolve(routes.FINANCES_EDIT)}>
+            <SquarePen class="size-4" />
+            {$_('page.dashboard.finances.update')}
+          </Button>
+          <Button variant="ghost" size="icon" onclick={notImplemented}>
+            <ArrowRight class="size-4" />
+          </Button>
+        {:else}
+          <Button size="sm" href={resolve(routes.FINANCES_EDIT)}>
+            <SquarePen class="size-4" />
+            {$_('page.dashboard.finances.addData')}
+          </Button>
+          <Button variant="ghost" size="icon" disabled>
+            <ArrowRight class="size-4" />
+          </Button>
+        {/if}
+      </div>
 
-{#if needsOnboarding}
-  <Fullscreen>
-    <EditProfile />
-  </Fullscreen>
-{:else}
-  <Header />
-  <ContentLayout centered={false}>
-    {#if appStore.loading}
-      <Typography>{$_('common.loading')}</Typography><Loader />
-    {:else if appStore.portfolios.length === 0}
-      <section class="empty">
-        <img src={`${base}/images/no-portfolio.svg`} alt={$_('common.noPortfolioYet')} />
-        <Typography variant="h4">{$_('page.home.noPortfoliosYet')}</Typography>
-        <Typography>{$_('page.home.createYourFirstPortfolio')}</Typography>
-        <div class="spacer"></div>
-        <Button variant="strong" dimension="compact" onclick={addPortfolio}
-          >{$_('page.portfolio.addPortfolio')}</Button
-        >
-      </section>
-    {:else}
-      <DesktopOnly>
-        <section class="horizontal">
-          <Typography variant="h4">{$_('page.home.allPortfolios')}</Typography>
-          <div class="grower"></div>
-          <SearchInput
-            bind:value={searchQuery}
-            dimension="compact"
-            variant="solid"
-            placeholder={$_('common.search')}
-          ></SearchInput>
-          <Button dimension="compact" variant="strong" onclick={addPortfolio}
-            >{$_('page.portfolio.addPortfolio')}</Button
-          >
-          <Button dimension="compact" variant="ghost" onclick={() => goto(routes.EDIT_PROFILE)}
-            ><Edit size={24} />{$_('page.home.editProfile')}</Button
-          >
-        </section>
+      {#if hasFinancialData}
+        <div class="flex flex-1 flex-col items-center gap-8 p-8">
+          <DonutChart
+            segments={chartSegments}
+            centerLabel={appStore.formatCompactCurrency(totalNetWorth)}
+          />
+          <div class="flex w-full flex-col gap-2 text-center">
+            <h3 class="text-xl font-bold">
+              {$_('page.dashboard.finances.netWorthSummary', {
+                values: {
+                  total: appStore.formatCurrency(totalNetWorth),
+                },
+              })}
+            </h3>
+            <div class="flex flex-col gap-1">
+              <p class="text-base">{$_('page.dashboard.finances.lastUpdated')}</p>
+              <p class="text-sm text-muted-foreground">
+                {$_('page.dashboard.finances.keepUpToDate')}
+              </p>
+            </div>
+          </div>
+          <div class="flex items-center justify-center gap-4">
+            <Button variant="ghost" size="sm" href={resolve(routes.FINANCES_EDIT)}>
+              {$_('page.dashboard.finances.update')}
+            </Button>
+            <Button variant="secondary" size="sm" onclick={notImplemented}>
+              {$_('page.dashboard.finances.viewAll')}
+            </Button>
+          </div>
+        </div>
+      {:else}
+        <div class="flex flex-1 flex-col items-center gap-8 p-8">
+          <img
+            src={financesIllustration}
+            alt={$_('page.dashboard.finances.illustrationAlt')}
+            class="size-64"
+          />
+          <div class="flex w-full flex-col gap-2 text-center">
+            <h3 class="text-xl font-bold">{$_('page.dashboard.finances.emptyTitle')}</h3>
+            <div class="flex flex-col gap-1">
+              <p class="text-base">{$_('page.dashboard.finances.emptySubtitle')}</p>
+              <p class="text-sm text-muted-foreground">
+                {$_('page.dashboard.finances.emptyDescription')}
+              </p>
+            </div>
+          </div>
+          <Button variant="secondary" size="sm" href={resolve(routes.FINANCES_EDIT)}>
+            {$_('page.dashboard.finances.addFinancialData')}
+          </Button>
+        </div>
+      {/if}
+    </div>
 
-        <ul>
-          <li class="portfolios title">
-            <span>{$_('common.portfolioName')}</span>
-            <span>{$_('common.currency')}</span>
-            <span>{$_('common.startDate')}</span>
-            <span>{$_('common.period')}</span>
-            <span class="right-aligned">{$_('common.inflation')}</span>
-            <span class="right-aligned">{$_('common.currentValue')}</span>
-            <span></span>
-          </li>
-          {#each filteredPortfolios as portfolio}
-            <!-- svelte-ignore a11y_click_events_have_key_events -->
-            <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-            <li
-              class="portfolios portfolio"
-              onclick={(e: MouseEvent) => {
-                if (!e.defaultPrevented) {
-                  goto(routes.PORTFOLIO(portfolio.id))
-                }
-              }}
-            >
-              <span>{portfolio.name}</span>
-              <span>{portfolio.currency}</span>
-              <span>{formatDate(new Date(portfolio.start_date))}</span>
-              <span>{portfolioPeriod(portfolio)}</span>
-              <span class="right-aligned">{portfolio.inflation_rate * 100}%</span>
-              <span class="right-aligned"
-                >{formatCurrency(portfolioValue(portfolio.id), portfolio.currency, $locale, {
-                  maximumFractionDigits: 0,
-                })}</span
-              >
-              <span class="right-aligned">{@render portfolioDropdown(portfolio.id)}</span>
-            </li>
-          {/each}
-        </ul>
-      </DesktopOnly>
-      <MobileOnly>
-        <Vertical>
-          <Horizontal --horizontal-justify-content="space-between">
-            <Typography variant="h4">{$_('page.home.allPortfolios')}</Typography>
+    <Separator orientation="vertical" class="self-stretch data-[orientation=vertical]:h-auto" />
 
-            <Button dimension="compact" variant="strong" onclick={addPortfolio}
-              >{$_('page.portfolio.addPortfolio')}</Button
-            >
-          </Horizontal>
-          <Horizontal>
-            <SearchInput
-              bind:value={searchQuery}
-              dimension="compact"
-              variant="solid"
-              placeholder={$_('common.search')}
-              class="grower"
-            ></SearchInput>
-            {#if searchQuery.length > 0}
-              <Button dimension="compact" variant="ghost" onclick={() => (searchQuery = '')}
-                >{$_('page.home.clearSearch')}</Button
-              >
-            {/if}
-          </Horizontal>
-        </Vertical>
-
-        <ul class="mobile">
-          {#each filteredPortfolios as portfolio}
-            <!-- svelte-ignore a11y_click_events_have_key_events -->
-            <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-            <li
-              class="portfolio mobile"
-              onclick={(e: MouseEvent) => {
-                if (!e.defaultPrevented) {
-                  goto(routes.PORTFOLIO(portfolio.id))
-                }
-              }}
-            >
-              <span>{portfolio.name}</span>
-              <span class="right-aligned"><ArrowRight /></span>
-            </li>
-          {/each}
-        </ul>
-
-        <Horizontal --horizontal-justify-content="space-between">
-          <Button variant="ghost" dimension="compact" onclick={addPortfolio}
-            >{$_('page.portfolio.addPortfolio')}</Button
-          >
-          <Button dimension="compact" variant="ghost" onclick={() => goto(routes.EDIT_PROFILE)}
-            ><Edit size={24} />{$_('page.home.editProfile')}</Button
-          >
-        </Horizontal>
-      </MobileOnly>
-    {/if}
-  </ContentLayout>
+    <!-- Right panel: Plans -->
+    <div class="flex flex-1 flex-col">
+      <div class="flex items-start gap-4 p-8">
+        <h2 class="flex-1 text-2xl font-bold">{$_('page.dashboard.plans.title')}</h2>
+        <Button size="sm" onclick={notImplemented}>
+          <Plus class="size-4" />
+          {$_('page.dashboard.plans.addPlan')}
+        </Button>
+      </div>
+      <div class="flex flex-1 flex-col items-center gap-8 p-8">
+        <img
+          src={plansIllustration}
+          alt={$_('page.dashboard.plans.illustrationAlt')}
+          class="size-64"
+        />
+        <div class="flex w-full flex-col gap-2 text-center">
+          <h3 class="text-xl font-bold">{$_('page.dashboard.plans.emptyTitle')}</h3>
+          <div class="flex flex-col gap-1">
+            <p class="text-base">{$_('page.dashboard.plans.emptySubtitle')}</p>
+            <p class="text-sm text-muted-foreground">
+              {$_('page.dashboard.plans.emptyDescription')}
+            </p>
+          </div>
+        </div>
+        <Button variant="secondary" size="sm" onclick={notImplemented}>
+          {$_('page.dashboard.plans.makeFirstPlan')}
+        </Button>
+      </div>
+    </div>
+  </div>
+{:else if !appStore.loading}
+  <div class="flex flex-1 flex-col items-center p-8">
+    <div class="flex w-full max-w-[576px] flex-col items-center gap-4">
+      <img src={heroIllustration} alt={$_('page.home.heroAlt')} class="size-80" />
+      <div class="flex w-full flex-col gap-2 text-center text-foreground">
+        <h1 class="text-3xl font-bold leading-9">
+          {$_('page.home.heroTitle')}
+        </h1>
+        <p class="text-lg">
+          {$_('page.home.heroDescription')}
+        </p>
+      </div>
+      <Button href={resolve(routes.PROFILE)} size="lg">
+        {$_('page.home.getStarted')}
+        <ArrowRight class="size-4" />
+      </Button>
+    </div>
+  </div>
 {/if}
-
-<DeleteModal
-  confirm={deletePortfolio}
-  oncancel={() => (showConfirmModal = false)}
-  bind:open={showConfirmModal}
-  title={$_('page.home.deletePortfolio')}
-  text={$_('page.home.deletePortfolioWarning')}
-/>
-
-<style>
-  :root {
-    --max-width: 1370px;
-  }
-  .horizontal {
-    display: flex;
-    flex-direction: row;
-    justify-content: flex-start;
-    align-items: center;
-    gap: var(--half-padding);
-  }
-  :global(.grower) {
-    flex: 1;
-  }
-  ul {
-    padding-left: 0;
-    margin: 0;
-  }
-  ul.mobile {
-    display: flex;
-    flex-direction: column;
-    border-top: 1px solid var(--colors-low);
-    margin: 0;
-  }
-  li > span {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: var(--half-padding);
-    overflow-wrap: anywhere;
-  }
-  .portfolios {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 42px;
-    align-items: center;
-    gap: var(--half-padding);
-    border-bottom: 1px solid var(--colors-low);
-    background-color: var(--colors-ultra-low);
-    padding-top: var(--half-padding);
-    padding-bottom: var(--half-padding);
-    width: 100%;
-  }
-  .title {
-    border-bottom: 1px solid var(--colors-ultra-high);
-    color: var(--colors-ultra-high);
-    font-size: var(--font-size-h5);
-    font-family: var(--font-family-sans-serif);
-    font-weight: 700;
-  }
-  .portfolio {
-    border-bottom: 1px solid var(--colors-low);
-    font-size: var(--font-size);
-    font-family: var(--font-family-sans-serif);
-    cursor: pointer;
-  }
-  .portfolio.mobile {
-    display: flex;
-    justify-content: space-between;
-    padding: var(--padding) var(--half-padding);
-    width: 100%;
-    gap: var(--half-padding);
-  }
-  .portfolio:hover {
-    background-color: color-mix(in srgb, var(--colors-low) 25%, transparent);
-  }
-  .right-aligned {
-    display: flex;
-    justify-content: flex-end;
-    text-align: right;
-  }
-  .empty {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    gap: var(--half-padding);
-    height: 80vh;
-  }
-  .spacer {
-    margin-top: var(--half-padding);
-  }
-  :global(.text-center) {
-    text-align: center;
-  }
-  :global(.max560) {
-    max-width: 560px;
-    width: 100%;
-  }
-  :global(.bg-ultra-low) {
-    background-color: var(--colors-ultra-low);
-  }
-</style>

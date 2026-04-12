@@ -1,359 +1,205 @@
 {
   "page": {
     "home": {
-      "allPortfolios": "All portfolios",
-      "clearSearch": "Clear search",
-      "noPortfoliosYet": "No portfolio yet",
-      "createYourFirstPortfolio": "Create your first portfolio",
-      "editProfile": "Edit profile",
-      "deletePortfolio": "Delete portfolio?",
-      "deletePortfolioWarning": "This portfolio and all the investments it contains will be deleted permanently. There's no undo."
+      "heroTitle": "See where your money could take you",
+      "heroDescription": "Kalkul helps you plan with your complete financial picture — and stress-test every decision before you make it.",
+      "heroAlt": "Person planning finances",
+      "getStarted": "Get started"
     },
-    "profile": {
-      "editProfile": "Edit profile",
-      "profileName": "Your name",
-      "profileEmailExplanation": "This will be used for sharing portfolios."
-    },
-    "retirement": {
-      "title": "Retirement",
-      "ageToday": "Your age today",
-      "retirementAge": "Retirement age",
-      "withdrawalStart": "Retirement start",
-      "withdrawalDuration": "Retirement length",
-      "inflation": "Inflation",
-      "desiredRetirementBudget": "Desired retirement budget",
-      "inTodaysMoney": "In today's money",
-      "currentSavings": "Current savings",
-      "earmarkedForRetirement": "Earmarked for retirement",
-      "depositPeriod": "Deposit frequency",
-      "depositStart": "Deposit start",
-      "calculateDepositAmount": "Calculate deposit amount",
-      "yearsOld": "Years old",
-      "perMonth": "per month",
-      "perYear": "per year",
-      "monthly": "Monthly",
-      "yearly": "Yearly",
-      "preview": {
-        "title": "Retirement Preview",
-        "budgetLabel": "Retirement budget"
-      }
-    },
-    "education": {
-      "defaultName": "Education",
-      "preview": {
-        "title": "Education Preview",
-        "budgetLabel": "Education budget"
+    "dashboard": {
+      "finances": {
+        "title": "Current finances",
+        "missing": "Missing",
+        "addData": "Add data",
+        "illustrationAlt": "Financial data illustration",
+        "emptyTitle": "Current finances",
+        "emptySubtitle": "Make your plans more accurate",
+        "emptyDescription": "Add what you currently own",
+        "addFinancialData": "Add your financial data",
+        "today": "Today",
+        "update": "Update",
+        "netWorthSummary": "Your current total net worth is {total}",
+        "lastUpdated": "Last updated today",
+        "keepUpToDate": "Keep it up-to-date for accurate planning",
+        "viewAll": "View all financial data"
       },
-      "form": {
-        "title": "Kid education",
-        "kidName": "Kid name",
-        "kidNamePlaceholder": "Kid",
-        "goalName": "Goal name",
-        "goalNamePlaceholder": "Kid - education",
-        "educationStart": "Education start",
-        "educationLength": "Education length",
-        "annualEducationCost": "Annual education cost",
-        "inTodaysMoney": "In today's money",
-        "currentSavings": "Current savings",
-        "currentSavingsHelper": "Earmarked for your kid's education",
-        "depositFrequency": "Deposit frequency"
+      "plans": {
+        "title": "Plans",
+        "addPlan": "Add plan",
+        "illustrationAlt": "Plans illustration",
+        "emptyTitle": "Ready to explore your future(s)?",
+        "emptySubtitle": "See where your money can take you",
+        "emptyDescription": "Map your assets, define your cash flows, see what's possible",
+        "makeFirstPlan": "Make your first plan"
       }
     },
-    "portfolio": {
-      "noInvestmentYet": "No investment yet",
-      "createYourFirstInvestment": "Create a first investment in this portfolio",
-      "addInvestment": "Add investment",
-      "addGoal": "Add goal",
-      "addPortfolio": "Add portfolio",
-      "openPortfolio": "Open portfolio",
-      "editPortfolioDetails": "Edit portfolio details",
-      "duplicatePortfolio": "Duplicate portfolio",
-      "deletePortfolio": "Delete portfolio"
-    },
-    "goals": {
-      "title": "Goals",
-      "linkedInvestments": "Linked Investments",
-      "new": {
-        "title": "Add goal",
-        "subtitle": "Choose a calculator to get started."
+    "setup": {
+      "title": "Initial setup",
+      "continue": "Continue",
+      "back": "Back",
+      "skip": "Skip",
+      "aboutYou": {
+        "title": "About you",
+        "description": "Tell us a bit about yourself. We'll use your age to make projections meaningful to you.",
+        "name": "Name",
+        "namePlaceholder": "What should we call you?",
+        "birthdate": "Birthdate",
+        "selectYear": "Select year",
+        "selectMonth": "Select month",
+        "location": "Location",
+        "selectCountry": "Select country"
       },
-      "calculators": {
-        "comingSoon": "Coming soon",
-        "retirement": {
-          "title": "Retirement",
-          "description": "Calculate the amount of money needed to save and invest to achieve financial independence."
-        },
-        "kidEducation": {
-          "title": "Kid education",
-          "description": "Calculate the amount of money needed to save and invest to cover for a kid's education expenses."
-        },
-        "itemPurchase": {
-          "title": "Item purchase",
-          "description": "Calculate the amount of money needed to save and invest to make a specific purchase at the desired time."
-        },
-        "optimisedWithdrawals": {
-          "title": "Optimised withdrawals",
-          "description": "Calculate the optimal withdrawal strategy to live comfortably from current portfolio savings."
-        },
-        "houseBuying": {
-          "title": "House buying",
-          "description": "Calculate the amount of money needed to save and invest for a home down payment and purchase."
-        }
+      "finances": {
+        "title": "Current financial situation",
+        "description": "Add your current finances to see realistic projections based on your actual situation. You can skip or adjust details later.",
+        "cashLabel": "How much cash do you have?",
+        "cashDescription": "Total amount of immediately available funds across all accounts",
+        "whichDoYouHave": "Which of these do you currently have?",
+        "investments": "Investments",
+        "investmentsDescription": "Stocks, bonds, mutual funds, ETFs, and other securities",
+        "tangibleAssets": "Tangible assets",
+        "tangibleAssetsDescription": "Real estate, vehicles, and other assets (even if financed)",
+        "liabilities": "Liabilities",
+        "liabilitiesDescription": "Loans or other obligations (not linked to an asset above)"
+      },
+      "common": {
+        "amount": "Amount",
+        "frequency": "Frequency",
+        "advancedOptions": "Advanced options",
+        "start": "Start",
+        "end": "End",
+        "changeOverTime": "Change over time",
+        "immediately": "Immediately",
+        "atSpecificDate": "At specific date\u2026",
+        "whenAgeIs": "When your age is\u2026",
+        "yearsOld": "Years old",
+        "never": "Never",
+        "none": "None",
+        "matchInflation": "Match inflation",
+        "increaseYearlyBy": "Increase yearly by\u2026",
+        "decreaseYearlyBy": "Decrease yearly by\u2026",
+        "monthly": "Monthly",
+        "yearly": "Yearly",
+        "weekly": "Weekly",
+        "duplicate": "Duplicate",
+        "delete": "Delete",
+        "copySuffix": "{name} (copy)"
+      },
+      "tangibleAssets": {
+        "title": "Tangible assets",
+        "description": "Real estate, vehicles, and other valuable property you own.",
+        "addAsset": "Add tangible asset",
+        "currentValue": "Current value",
+        "status": "Status",
+        "fullyOwned": "Fully owned",
+        "financed": "Financed",
+        "outstandingBalance": "Outstanding balance",
+        "installmentFrequency": "Installment frequency",
+        "annualRate": "Annual percentage rate",
+        "installmentAmount": "Installment amount",
+        "remainingTerm": "Remaining term",
+        "years": "years",
+        "defaultName": "Tangible asset {index}"
+      },
+      "liabilities": {
+        "title": "Liabilities",
+        "description": "Financial obligations not linked a specific asset.",
+        "addLiability": "Add liability",
+        "outstandingBalance": "Outstanding balance",
+        "installmentFrequency": "Installment frequency",
+        "annualRate": "Annual percentage rate",
+        "installmentAmount": "Installment amount",
+        "remainingTerm": "Remaining term",
+        "years": "years",
+        "defaultName": "Liability {index}"
+      },
+      "investments": {
+        "title": "Investments",
+        "description": "Investment accounts holding securities like stocks, bonds, etc.",
+        "addInvestment": "Add investment",
+        "currentBalance": "Current balance",
+        "apy": "APY",
+        "defaultName": "Investment {index}"
+      },
+      "income": {
+        "title": "Incomes",
+        "description": "Salary, business income, and other regular earnings.",
+        "addIncome": "Add income",
+        "withholdTaxes": "Withhold taxes on this income",
+        "percentageToWithhold": "Percentage to withhold",
+        "startDescription": "Income will automatically start from the beginning of your plan",
+        "endDescription": "Income will automatically last for the entire period of your plan",
+        "matchInflationDescription": "Income amount will be automatically adjusted to match the inflation set in your plan",
+        "changeDescription": "Income amount will remain the same for the entire period of your plan",
+        "defaultName": "Income {index}"
+      },
+      "expenses": {
+        "title": "Expenses",
+        "description": "Living costs, recurring bills, and regular financial commitments.",
+        "addExpense": "Add expense",
+        "startDescription": "Expense will automatically start from the beginning of your plan",
+        "endDescription": "Expense will automatically last for the entire period of your plan",
+        "matchInflationDescription": "Expense amount will be automatically adjusted to match the inflation set in your plan",
+        "changeDescription": "Expense amount will remain the same for the entire period of your plan",
+        "defaultName": "Expense {index}"
       }
-    }
-  },
-  "component": {
-    "goals-periodic-withdrawal-preview": {
-      "depositToMatch": "Deposit {amount} {currency} {frequency} to match the goals."
-    },
-    "deleteModal": {
-      "confirmDelete": "Confirm delete",
-      "cancelDelete": "Don't delete"
-    },
-    "editInvestment": {
-      "addInvestment": "Add investment",
-      "editInvestment": "Edit investment",
-      "investmentName": "Investment name",
-      "advancedSetup": "Advanced setup",
-      "createInvestment": "Create investment",
-      "deleteInvestmentWarning": "This investment will be deleted permanently. There's no undo.",
-      "deleteInvestmentWarningTitle": "Delete investment?",
-      "terHelper": "Annual total fund cost – includes management, operation and administration.",
-      "entryFeeHelper": "Fee paid when entering the investment – usually once or ongoing.",
-      "exitFeeHelper": "Fee charged when withdrawing the investment – can be fixed or percentage.",
-      "successFeeHelper": "Fee for achieving above-standard returns",
-      "managementFeeHelper": "Regular fee for investment management – usually annual percentage of asset value."
-    },
-    "editPortfolio": {
-      "addPortfolio": "Add portfolio",
-      "editPortfolio": "Edit portfolio",
-      "atPortfolioStart": "at portfolio start",
-      "atPortfolioEnd": "at portfolio end",
-      "horizon": "Horizon",
-      "createPortfolio": "Create portfolio",
-      "deletePortfolio": "Delete portfolio",
-      "portfolioName": "Portfolio name",
-      "deletePortfolioWarning": "This portfolio and all the investments it contains will be deleted permanently. There's no undo.",
-      "deletePortfolioWarningTitle": "Delete portfolio?",
-      "invalidDateRangeError": "Invalid date range: end date must be later than start date"
-    },
-    "editTransaction": {
-      "addTransaction": "Add transaction",
-      "editTransaction": "Edit transaction",
-      "deleteConfirmWarning": "Are you sure you want to delete?",
-      "repeatLabel": "Repeats every",
-      "occurrences": "occurrences",
-      "for": "For",
-      "deleteTransaction": "Delete transaction",
-      "inflationAdjusted": "Adjust for inflation"
-    },
-    "help": {
-      "title": "Help",
-      "text": "Kalkul is a financial portfolio management app. All data is stored locally in your browser."
-    },
-    "header": {
-      "helpButton": "Help",
-      "settings": "Settings"
-    },
-    "investmentCard": {
-      "removeFocus": "Remove focus",
-      "focusInChart": "Focus in chart",
-      "hideInChart": "Hide in chart",
-      "editInvestmentDetails": "Edit investment details",
-      "duplicateInvestment": "Duplicate investment",
-      "deleteInvestment": "Delete investment",
-      "noTransactions": "No transactions",
-      "noTransactionsText": "Add deposits or withdrawals to this goal"
-    },
-    "goalCard": {
-      "removeFocus": "Remove focus",
-      "focusInChart": "Focus in chart",
-      "hideInChart": "Hide in chart",
-      "editGoalDetails": "Edit goal details",
-      "duplicateGoal": "Duplicate goal",
-      "deleteGoal": "Delete goal",
-      "deleteGoalWarning": "This goal will be deleted permanently. There's no undo.",
-      "deleteGoalWarningTitle": "Delete goal?",
-      "explainInvestmentsText": "You've set the big picture with this goal. Next, switch to the Investments tab to add the specific products and transactions that will make it happen."
-    },
-    "portfolioHeader": {
-      "addInvestment": "Add investment",
-      "editPortfolio": "Edit portfolio details",
-      "duplicatePortfolio": "Duplicate portfolio",
-      "deletePortfolio": "Delete portfolio",
-      "deletePortfolioWarning": "This portfolio and all the investments it contains will be deleted permanently. There's no undo.",
-      "deletePortfolioWarningTitle": "Delete portfolio?",
-      "pdfExport": "PDF export"
-    },
-    "PDFExport": {
-      "value": "Value",
-      "inflationAdjusted": "Inflation adjusted",
-      "exportTitle": "Export PDF",
-      "exportDescription": "The \"Value\" chart is included by default. You can use the options below to customise your PDF file.",
-      "exportButton": "Export PDF",
-      "includeBreakdown": "Include portfolio breakdown at key date(s)",
-      "breakdownExplanation": "Show a breakdown of the portfolio value at specific dates.",
-      "addKeyDate": "Add key date"
-    },
-    "tooltipTransaction": {
-      "totalDeposits": "Total deposits",
-      "totalWithdrawals": "Total withdrawals",
-      "totalFees": "Total fees",
-      "missingFunds": "Missing funds"
-    },
-    "transactionCard": {
-      "deleteWarning": "Are you sure you want to delete?",
-      "insufficientFunds": "Insufficient funds",
-      "missingFunds": "Missing funds"
-    },
-    "viewHeader": {
-      "madeWithKalkul": "Made with {link}",
-      "editTransaction": "Edit transaction",
-      "duplicateTransaction": "Duplicate transaction",
-      "deleteTransaction": "Delete transaction",
-      "totalDeposited": "Total deposited: {amount}",
-      "totalWithdrawn": "Total withdrawn: {amount}",
-      "inflationAdjustmentTooltip": "Adjust the transaction amount to preserve purchasing power over time."
-    },
-    "sidebar": {
-      "noGoalsYetTitle": "No goals yet",
-      "noGoalsYetDescription": "Define high-level financial objectives and target amounts. Goals help you stay focused on the big picture.",
-      "noInvestmentsYetTitle": "No investments yet",
-      "noInvestmentsYetDescription": "Add the specific investment products and transactions that make up your portfolio. Pro tip: link transactions to goals to easily compare against the big picture target."
     }
   },
   "common": {
-    "abbreviations": {
-      "year": "y",
-      "month": "m",
-      "week": "w",
-      "day": "d"
+    "countries": {
+      "czechRepublic": "Czech Republic",
+      "hungary": "Hungary",
+      "slovakia": "Slovakia",
+      "france": "France",
+      "other": "Other"
     },
-    "periodicWithdrawal": {
-      "whatYouNeed": "What you'll need",
-      "whatYouHave": "What you'll have",
-      "perMonth": "per month",
-      "perYear": "per year",
-      "setDepositAmount": "Set deposit amount",
-      "depositInRealValue": "Deposit amount in real value (today's money) — it will be automatically adjusted to match inflation.",
-      "createPlan": "Create plan",
-      "modifyParameters": "Modify parameters"
+    "currency": "Currency"
+  },
+  "theme": {
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "navbar": {
+    "menu": {
+      "exportData": "Export data",
+      "importData": "Import data",
+      "reportBug": "Report bug and feedback",
+      "visitGithub": "Visit our Github page",
+      "joinDiscord": "Join our Discord server",
+      "usageLicense": "Read our usage and license terms"
     },
-    "notFound": "Not found",
-    "nominal": "Nominal",
-    "total": "Total",
-    "loading": "Loading...",
-    "calculatingChartData": "Calculating chart data",
-    "name": "Name",
-    "birthDate": "Birthdate",
-    "age": "Age",
-
-    "investments": "Investments",
-    "year": "Year",
-    "week": "Week",
-    "month": "Month",
-    "day": "Day",
-    "email": "Email",
-    "emailOptional": "Email (Optional)",
-    "cancel": "Cancel",
-    "done": "Done",
-    "saveChanges": "Save changes",
-    "addTransaction": "Add transaction",
-    "years": "years",
-    "details": "Details",
-    "apy": "APY",
-    "fees": "Fees",
-    "successFee": "Success fee",
-    "managementFee": "Management fee",
-    "percentage": "Percentage",
-    "fixedFee": "Fixed fee",
-    "ter": "TER (Total Expense Ratio)",
-    "entryFee": "Entry fee",
-    "entryFeePayment": "Entry fee payment",
-    "exitFee": "Exit fee",
-    "ongoing": "Ongoing",
-    "upfront": "Upfront",
-    "currency": "Currency",
-    "inflation": "Inflation",
-    "startDate": "Start date",
-    "endDate": "End date",
-    "type": "Type",
-    "deposit": "Deposit",
-    "withdrawal": "Withdrawal",
-    "deposits": "Deposits",
-    "withdrawals": "Withdrawals",
-    "recurring": "Recurring",
-    "amount": "Amount",
-    "label": "Label (optional)",
-    "labelPlaceholderDeposit": "e.g. Initial investment, Monthly savings",
-    "labelPlaceholderWithdrawal": "e.g. House downpayment, Retirement withdrawal",
-    "create": "Create",
-    "showInflation": "Show inflation",
-    "value": "Value",
-    "viewValue": "View value",
-    "transactions": "Transactions",
-    "breakdown": "Breakdown",
-    "viewBreakdown": "View breakdown",
-    "showToday": "Show today",
-    "portfolioName": "Portfolio name",
-    "currentValue": "Today's value",
-    "withdrawn": "Withdrawn",
-    "deposited": "Deposited",
-    "investmentValue": "Investment value",
-    "investmentValueAsOf": "Investment value as of {date}",
-    "interestEarned": "Interest earned",
-    "totalDeposited": "Cumulative deposits until {date}",
-    "totalWithdrawn": "Cumulative withdrawals until {date}",
-    "totalFees": "Cumulative fees until {date}",
-    "totalInterestEarned": "Cumulative interest earned until {date}",
-    "investment": "Investment",
-    "portfolio": "Portfolio",
-    "inflationAdjusted": "Inflation adjusted",
-    "noTransactionYet": "No transaction yet",
-
-    "noPortfolioYet": "No portfolio yet",
-    "noInvestmentsYet": "No investments yet",
-    "search": "Search",
-    "period": "Period",
-
-    "realValue": "Real value",
-    "nominalValue": "Nominal value",
-    "totalReal": "Total (real)",
-    "totalNominal": "Total (nominal)"
-  },
-  "error": {
-    "emailError": "This doesn't look like a correct email",
-    "birthDateError": "Birthdate cannot be in the future.",
-    "birthDateUndefined": "Please set valid birthdate",
-    "invalidYear": "Invalid year",
-    "invalidMonth": "Invalid month",
-    "invalidDay": "Invalid day",
-    "invalidDate": "Invalid date",
-    "storageFull": "Your changes could not be saved because the browser storage is full. Please export a backup and free up space."
-  },
-  "action": {
-    "close": "Close"
-  },
-  "settings": {
-    "title": "Settings",
-    "language": "Language",
-    "backup": "Backup & Restore",
-    "backupDescription": "Export all data as a JSON file or import a backup from a previously exported file.",
-    "exportBackup": "Export backup",
-    "importBackup": "Import backup",
-    "importError": "Invalid backup format",
-    "importSuccess": "Backup imported successfully"
-  },
-  "demo": {
-    "transactions": {
-      "initialSavings": "Initial Savings",
-      "regularDeposit": "Regular Deposit",
-      "retirementWithdrawal": "Retirement Withdrawal",
-      "educationWithdrawal": "Education Withdrawal"
+    "import": {
+      "title": "Import data",
+      "description": "Load a previously exported Kalkul file to restore your plans, assets, and cash flows.",
+      "descriptionShort": "Load a previously exported Kalkul file.",
+      "warning": "Loading a new file will replace all your current data. Export your current data first if you want to keep it.",
+      "chooseFile": "Choose file to import",
+      "exportBeforeImporting": "Export before importing",
+      "importAnyway": "Import anyway",
+      "backupDownloaded": "Your data has been downloaded. You can now safely choose a file to import.",
+      "error": "Could not import file. Please make sure it is a valid Kalkul backup."
     },
-    "investments": {
-      "retirement": "Retirement"
+    "feedback": {
+      "title": "Report bug and feedback",
+      "description": "Kalkul is still in active development and your feedback shapes what gets built next. Report specific bugs or issues on our GitHub page, or join the conversation on Discord.",
+      "discussOnDiscord": "Discuss on Discord",
+      "openIssueOnGithub": "Open issue on Github"
     },
-    "notImplemented": "This feature is not yet implemented"
+    "license": {
+      "title": "Usage and license terms",
+      "disclaimer": "Kalkul is provided for informational purposes only and does not constitute financial advice. Always consult a qualified financial advisor before making investment or financial decisions.",
+      "openSourcePrefix": "Kalkul is open source software released under the",
+      "licenseName": "AGPL-3.0 license",
+      "openSourceSuffix": ". You are free to use, modify, and distribute it under the same terms.",
+      "visitGithub": "Visit our Github"
+    }
+  },
+  "validation": {
+    "required_when_start_at_specific_date": "Required when start is at a specific date",
+    "required_when_start_when_age_is": "Required when start is at a specific age",
+    "required_when_end_at_specific_date": "Required when end is at a specific date",
+    "required_when_end_when_age_is": "Required when end is at a specific age",
+    "required_when_financed": "Required when asset is financed"
   }
 }

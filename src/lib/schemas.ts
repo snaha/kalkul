@@ -1,4 +1,24 @@
+import { _ } from 'svelte-i18n'
+import { get } from 'svelte/store'
+
 import { z } from 'zod'
+
+// --- Enum schemas ---
+
+export const frequencySchema = z.enum(['monthly', 'yearly', 'weekly'])
+
+export const cashFlowStartSchema = z.enum(['immediately', 'at_specific_date', 'when_age_is'])
+
+export const cashFlowEndSchema = z.enum(['never', 'at_specific_date', 'when_age_is'])
+
+export const changeOverTimeSchema = z.enum([
+  'none',
+  'match_inflation',
+  'increase_yearly',
+  'decrease_yearly',
+])
+
+export const tangibleAssetStatusSchema = z.enum(['fully_owned', 'financed'])
 
 // --- Domain schemas ---
 
@@ -9,15 +29,189 @@ export const jsonSchema: z.ZodType<Json> = z.lazy(() =>
     z.string(),
     z.number(),
     z.boolean(),
-    z.record(jsonSchema.optional()),
+    z.record(z.string(), jsonSchema.optional()),
     z.array(jsonSchema),
   ]),
 )
+
+// --- Cash flow refinement ---
+
+const cashFlowTemporalRefinement = (
+  obj: {
+    start: string
+    start_year?: number
+    start_month?: number
+    start_age?: number
+    end: string
+    end_year?: number
+    end_month?: number
+    end_age?: number
+  },
+  ctx: z.RefinementCtx,
+) => {
+  if (obj.start === 'at_specific_date') {
+    if (obj.start_year === undefined)
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['start_year'],
+        message: get(_)('validation.required_when_start_at_specific_date'),
+      })
+    if (obj.start_month === undefined)
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['start_month'],
+        message: get(_)('validation.required_when_start_at_specific_date'),
+      })
+  }
+  if (obj.start === 'when_age_is' && obj.start_age === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['start_age'],
+      message: get(_)('validation.required_when_start_when_age_is'),
+    })
+  }
+  if (obj.end === 'at_specific_date') {
+    if (obj.end_year === undefined)
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['end_year'],
+        message: get(_)('validation.required_when_end_at_specific_date'),
+      })
+    if (obj.end_month === undefined)
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['end_month'],
+        message: get(_)('validation.required_when_end_at_specific_date'),
+      })
+  }
+  if (obj.end === 'when_age_is' && obj.end_age === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['end_age'],
+      message: get(_)('validation.required_when_end_when_age_is'),
+    })
+  }
+}
+
+export const incomeSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    amount: z.number(),
+    frequency: frequencySchema,
+    withhold_taxes: z.boolean(),
+    tax_percentage: z.number().optional(),
+    start: cashFlowStartSchema,
+    start_year: z.number().optional(),
+    start_month: z.number().optional(),
+    start_age: z.number().optional(),
+    end: cashFlowEndSchema,
+    end_year: z.number().optional(),
+    end_month: z.number().optional(),
+    end_age: z.number().optional(),
+    change_over_time: changeOverTimeSchema,
+    change_percentage: z.number().optional(),
+  })
+  .superRefine(cashFlowTemporalRefinement)
+
+export const expenseSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    amount: z.number(),
+    frequency: frequencySchema,
+    start: cashFlowStartSchema,
+    start_year: z.number().optional(),
+    start_month: z.number().optional(),
+    start_age: z.number().optional(),
+    end: cashFlowEndSchema,
+    end_year: z.number().optional(),
+    end_month: z.number().optional(),
+    end_age: z.number().optional(),
+    change_over_time: changeOverTimeSchema,
+    change_percentage: z.number().optional(),
+  })
+  .superRefine(cashFlowTemporalRefinement)
+
+export const profileInvestmentSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  balance: z.number(),
+  apy: z.number(),
+})
+
+export const profileTangibleAssetSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    value: z.number(),
+    status: tangibleAssetStatusSchema,
+    outstanding_balance: z.number().optional(),
+    installment_frequency: frequencySchema.optional(),
+    annual_rate: z.number().optional(),
+    installment_amount: z.number().optional(),
+    remaining_term: z.number().optional(),
+  })
+  .superRefine((obj, ctx) => {
+    if (obj.status === 'financed') {
+      if (obj.outstanding_balance === undefined)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['outstanding_balance'],
+          message: get(_)('validation.required_when_financed'),
+        })
+      if (obj.installment_frequency === undefined)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['installment_frequency'],
+          message: get(_)('validation.required_when_financed'),
+        })
+      if (obj.annual_rate === undefined)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['annual_rate'],
+          message: get(_)('validation.required_when_financed'),
+        })
+      if (obj.installment_amount === undefined)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['installment_amount'],
+          message: get(_)('validation.required_when_financed'),
+        })
+      if (obj.remaining_term === undefined)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['remaining_term'],
+          message: get(_)('validation.required_when_financed'),
+        })
+    }
+  })
+
+export const profileLiabilitySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  outstanding_balance: z.number(),
+  installment_frequency: frequencySchema,
+  annual_rate: z.number(),
+  installment_amount: z.number(),
+  remaining_term: z.number(),
+})
 
 export const profileSchema = z.object({
   name: z.string(),
   email: z.string(),
   birth_date: z.string().optional(),
+  location: z.string().optional(),
+  currency: z.string().optional(),
+  cash_amount: z.number().optional(),
+  has_investments: z.boolean().optional(),
+  has_tangible_assets: z.boolean().optional(),
+  has_liabilities: z.boolean().optional(),
+  investments: z.array(profileInvestmentSchema).optional(),
+  tangible_assets: z.array(profileTangibleAssetSchema).optional(),
+  liabilities: z.array(profileLiabilitySchema).optional(),
+  incomes: z.array(incomeSchema).optional(),
+  expenses: z.array(expenseSchema).optional(),
 })
 
 export const portfolioSchema = z.object({
@@ -94,19 +288,13 @@ export const retirementGoalDataSchema = periodicWithdrawalGoalDataSchema.extend(
   type: z.literal('retirement'),
 })
 
-export const educationGoalDataSchema = periodicWithdrawalGoalDataSchema.extend({
-  type: z.literal('education'),
-  childName: z.string(),
-  name: z.string(),
-})
-
-export const goalDataSchema = z.discriminatedUnion('type', [
-  retirementGoalDataSchema,
-  educationGoalDataSchema,
-])
-
 // --- Derived types ---
 
+export type ProfileInvestment = z.infer<typeof profileInvestmentSchema>
+export type ProfileTangibleAsset = z.infer<typeof profileTangibleAssetSchema>
+export type ProfileLiability = z.infer<typeof profileLiabilitySchema>
+export type Income = z.infer<typeof incomeSchema>
+export type Expense = z.infer<typeof expenseSchema>
 export type Profile = z.infer<typeof profileSchema>
 export type Portfolio = z.infer<typeof portfolioSchema>
 export type Investment = z.infer<typeof investmentSchema>
@@ -116,11 +304,8 @@ export type PortfolioNested = z.infer<typeof portfolioNestedSchema>
 export type StoredData = z.infer<typeof storedDataSchema>
 export type PeriodicWithdrawalGoalData = z.infer<typeof periodicWithdrawalGoalDataSchema>
 export type RetirementGoalData = z.infer<typeof retirementGoalDataSchema>
-export type EducationGoalData = z.infer<typeof educationGoalDataSchema>
-export type GoalData = z.infer<typeof goalDataSchema>
-
-// --- Other schemas ---
-
-export const emailFormSchema = z.object({
-  email: z.string().email({ message: 'error.emailError' }),
-})
+export type Frequency = z.infer<typeof frequencySchema>
+export type CashFlowStart = z.infer<typeof cashFlowStartSchema>
+export type CashFlowEnd = z.infer<typeof cashFlowEndSchema>
+export type ChangeOverTime = z.infer<typeof changeOverTimeSchema>
+export type TangibleAssetStatus = z.infer<typeof tangibleAssetStatusSchema>

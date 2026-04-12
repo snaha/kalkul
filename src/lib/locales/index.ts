@@ -1,5 +1,6 @@
-import { browser } from '$app/environment'
 import { init, register } from 'svelte-i18n'
+
+import { browser } from '$app/environment'
 
 export const defaultLocale = 'en'
 export const LOCALE_STORAGE_KEY = 'locale'

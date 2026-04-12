@@ -1,6 +1,6 @@
+import { calculateInflationAdjustedAmount } from './calculation-utils'
 import { formatDate, incrementDate } from './date'
 import type { Transaction, TransactionMap } from './types'
-import { calculateInflationAdjustedAmount } from './calculation-utils'
 
 export function createTransactionMap(
   transactions: Omit<Transaction, 'type'>[],

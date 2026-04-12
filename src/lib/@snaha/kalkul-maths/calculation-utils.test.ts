@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { calculateTotalDepositAmount, calculateInflationAdjustedAmount } from './calculation-utils'
+
+import { calculateInflationAdjustedAmount, calculateTotalDepositAmount } from './calculation-utils'
 import type { TransactionMap, TransactionMapEntry } from './types'
 
 // Helper function to convert test data to new TransactionMap format
