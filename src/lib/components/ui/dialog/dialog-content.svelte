@@ -5,10 +5,10 @@
   import XIcon from '@lucide/svelte/icons/x'
   import { Dialog as DialogPrimitive } from 'bits-ui'
 
-  import { type WithoutChildrenOrChild, cn } from '$lib/utils.js'
+  import { type WithoutChildrenOrChild, cn } from '$lib/utils'
 
   import DialogPortal from './dialog-portal.svelte'
-  import * as Dialog from './index.js'
+  import * as Dialog from './index'
 
   let {
     ref = $bindable(null),

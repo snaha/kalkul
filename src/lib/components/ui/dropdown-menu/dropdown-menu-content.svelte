@@ -3,7 +3,7 @@
 
   import { DropdownMenu as DropdownMenuPrimitive } from 'bits-ui'
 
-  import { type WithoutChildrenOrChild, cn } from '$lib/utils.js'
+  import { type WithoutChildrenOrChild, cn } from '$lib/utils'
 
   import DropdownMenuPortal from './dropdown-menu-portal.svelte'
 
