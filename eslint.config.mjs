@@ -42,6 +42,18 @@ export default typescriptEslint.config(
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'ImportDeclaration[source.value=/\\/.*\\.(?!(svelte|svg|json|css)$)\\w+$/]',
+          message:
+            'Unnecessary file extension in import. Only .svelte, .svg, .json, and .css extensions are allowed.',
+        },
+        {
+          selector: 'ImportDeclaration[source.value=/\\/index$/]',
+          message: 'Do not import from /index explicitly. Import from the directory instead.',
+        },
+      ],
     },
   },
   {

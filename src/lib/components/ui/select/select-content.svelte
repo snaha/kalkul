@@ -3,8 +3,8 @@
 
   import { Select as SelectPrimitive } from 'bits-ui'
 
-  import type { WithoutChildrenOrChild } from '$lib/utils.js'
-  import { type WithoutChild, cn } from '$lib/utils.js'
+  import type { WithoutChildrenOrChild } from '$lib/utils'
+  import { type WithoutChild, cn } from '$lib/utils'
 
   import SelectPortal from './select-portal.svelte'
   import SelectScrollDownButton from './select-scroll-down-button.svelte'
