@@ -4,7 +4,7 @@
   import { type WithoutChildrenOrChild, cn } from '$lib/utils'
 
   let {
-    ref = $bindable(),
+    ref = $bindable(null),
     value = $bindable(),
     orientation = 'horizontal',
     class: className,

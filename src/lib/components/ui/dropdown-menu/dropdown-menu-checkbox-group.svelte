@@ -2,7 +2,7 @@
   import { DropdownMenu as DropdownMenuPrimitive } from 'bits-ui'
 
   let {
-    ref = $bindable(),
+    ref = $bindable(null),
     value = $bindable([]),
     ...restProps
   }: DropdownMenuPrimitive.CheckboxGroupProps = $props()

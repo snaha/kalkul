@@ -11,7 +11,7 @@
   import DialogPortal from './dialog-portal.svelte'
 
   let {
-    ref = $bindable(),
+    ref = $bindable(null),
     class: className,
     portalProps,
     children,

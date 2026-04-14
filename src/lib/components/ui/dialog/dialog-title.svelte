@@ -3,7 +3,11 @@
 
   import { cn } from '$lib/utils'
 
-  let { ref = $bindable(), class: className, ...restProps }: DialogPrimitive.TitleProps = $props()
+  let {
+    ref = $bindable(null),
+    class: className,
+    ...restProps
+  }: DialogPrimitive.TitleProps = $props()
 </script>
 
 <DialogPrimitive.Title

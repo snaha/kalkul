@@ -3,7 +3,11 @@
 
   import { cn } from '$lib/utils'
 
-  let { ref = $bindable(), class: className, ...restProps }: SelectPrimitive.GroupProps = $props()
+  let {
+    ref = $bindable(null),
+    class: className,
+    ...restProps
+  }: SelectPrimitive.GroupProps = $props()
 </script>
 
 <SelectPrimitive.Group

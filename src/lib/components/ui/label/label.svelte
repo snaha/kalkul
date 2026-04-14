@@ -3,7 +3,7 @@
 
   import { cn } from '$lib/utils'
 
-  let { ref = $bindable(), class: className, ...restProps }: LabelPrimitive.RootProps = $props()
+  let { ref = $bindable(null), class: className, ...restProps }: LabelPrimitive.RootProps = $props()
 </script>
 
 <LabelPrimitive.Root

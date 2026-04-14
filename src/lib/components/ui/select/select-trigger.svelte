@@ -5,7 +5,7 @@
   import { type WithoutChild, cn } from '$lib/utils'
 
   let {
-    ref = $bindable(),
+    ref = $bindable(null),
     class: className,
     children,
     size = 'default',

@@ -4,7 +4,7 @@
   import { cn } from '$lib/utils'
 
   let {
-    ref = $bindable(),
+    ref = $bindable(null),
     class: className,
     inset,
     variant = 'default',
