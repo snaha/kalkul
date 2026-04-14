@@ -36,6 +36,7 @@ function enrichProfile({
   liabilities,
   incomes,
   expenses,
+  hide_plan_intro,
 }: Profile): ProfileStore {
   return {
     name,
@@ -52,6 +53,7 @@ function enrichProfile({
     liabilities,
     incomes,
     expenses,
+    hide_plan_intro,
     get birthDate() {
       return birth_date ? new Date(birth_date) : undefined
     },
@@ -74,6 +76,7 @@ function enrichProfile({
         liabilities,
         incomes,
         expenses,
+        hide_plan_intro,
       }
     },
   }

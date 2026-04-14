@@ -20,6 +20,10 @@ export const changeOverTimeSchema = z.enum([
 
 export const tangibleAssetStatusSchema = z.enum(['fully_owned', 'financed'])
 
+export const planStartTypeSchema = z.enum(['now', 'at_specific_date'])
+
+export const planEndTypeSchema = z.enum(['when_age_is', 'at_specific_date'])
+
 // --- Domain schemas ---
 
 export type Json = string | number | boolean | { [key: string]: Json | undefined } | Json[]
@@ -212,15 +216,23 @@ export const profileSchema = z.object({
   liabilities: z.array(profileLiabilitySchema).optional(),
   incomes: z.array(incomeSchema).optional(),
   expenses: z.array(expenseSchema).optional(),
+  hide_plan_intro: z.boolean().optional(),
 })
 
 export const portfolioSchema = z.object({
   id: z.string(),
   name: z.string(),
+  notes: z.string().optional(),
   currency: z.string(),
   start_date: z.string(),
   end_date: z.string(),
   inflation_rate: z.number(),
+  include_cash: z.boolean().optional(),
+  included_investment_ids: z.array(z.string()).optional(),
+  included_tangible_asset_ids: z.array(z.string()).optional(),
+  included_liability_ids: z.array(z.string()).optional(),
+  included_income_ids: z.array(z.string()).optional(),
+  included_expense_ids: z.array(z.string()).optional(),
 })
 
 export const transactionTypeSchema = z.enum(['deposit', 'withdrawal'])
@@ -309,3 +321,5 @@ export type CashFlowStart = z.infer<typeof cashFlowStartSchema>
 export type CashFlowEnd = z.infer<typeof cashFlowEndSchema>
 export type ChangeOverTime = z.infer<typeof changeOverTimeSchema>
 export type TangibleAssetStatus = z.infer<typeof tangibleAssetStatusSchema>
+export type PlanStartType = z.infer<typeof planStartTypeSchema>
+export type PlanEndType = z.infer<typeof planEndTypeSchema>

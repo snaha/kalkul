@@ -1,5 +1,52 @@
 {
   "page": {
+    "addPlan": {
+      "title": "Add plan",
+      "whatIsAPlan": {
+        "title": "What is a plan?",
+        "description1": "A plan is a timeline of your assets and cash flows that lets you explore different financial futures based on your current situation and the choices you make.",
+        "description2": "It brings together everything you own or owe - cash, investments, tangible assets and liabilities - alongside the money moving in, out and between them.",
+        "description3": "You can import your existing financial data as a starting point, then adjust assets and cash flows to fit the specific scenario you want to explore."
+      },
+      "dontShowNextTime": "Don't show this next time",
+      "details": {
+        "title": "Plan details",
+        "description": "Provide basic information about this plan.",
+        "planName": "Plan name",
+        "notes": "Notes",
+        "notesPlaceholder": "Say something about this plan",
+        "start": "Start",
+        "startNow": "Now",
+        "startAtDate": "At specific date...",
+        "end": "End",
+        "endWhenAgeIs": "When your age is",
+        "endAtDate": "At specific date...",
+        "yearsOld": "Years old",
+        "currency": "Currency",
+        "inflation": "Inflation"
+      },
+      "data": {
+        "title": "Financial data",
+        "description": "By default all your current financial data is included to give your plan an accurate starting point.",
+        "subDescription": "You can remove anything that doesn't apply to this plan, and edit any values, settings, or amounts to fit the scenario you want to explore. New assets or cash flows can also be added directly in the plan.",
+        "includeCash": "Include current cash",
+        "includeInvestments": "Include all investments",
+        "includeTangibleAssets": "Include all tangible assets",
+        "includeLiabilities": "Include all liabilities",
+        "includeIncomes": "Include all incomes",
+        "includeExpenses": "Include all expenses",
+        "selectAll": "Select all",
+        "deselectAll": "Deselect all"
+      },
+      "back": "Back",
+      "continue": "Continue",
+      "createPlan": "Create plan"
+    },
+    "plan": {
+      "notImplemented": "Plan view is not implemented yet",
+      "notFound": "Plan not found",
+      "backToHome": "Back to home"
+    },
     "home": {
       "heroTitle": "See where your money could take you",
       "heroDescription": "Kalkul helps you plan with your complete financial picture — and stress-test every decision before you make it.",
@@ -30,7 +77,8 @@
         "emptyTitle": "Ready to explore your future(s)?",
         "emptySubtitle": "See where your money can take you",
         "emptyDescription": "Map your assets, define your cash flows, see what's possible",
-        "makeFirstPlan": "Make your first plan"
+        "makeFirstPlan": "Make your first plan",
+        "noNotes": "No description"
       }
     },
     "setup": {
