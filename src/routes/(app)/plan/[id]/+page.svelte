@@ -32,37 +32,74 @@
   const planId = $derived(page.params.id)
   const plan = $derived(appStore.portfolios.find((p) => p.id === planId))
 
+  // Year range from portfolio dates
+  const startYear = $derived(
+    plan ? new Date(plan.start_date).getFullYear() : new Date().getFullYear(),
+  )
+  const endYear = $derived(plan ? new Date(plan.end_date).getFullYear() : new Date().getFullYear())
+
   // State for UI
   let activeTab = $state<'cashflows' | 'assets'>('cashflows')
   let searchQuery = $state('')
-  let selectedYear = $state(2026)
+  let selectedYear = $state(new Date().getFullYear())
   let isPanelOpen = $state(true)
 
-  // Sample category data - will be replaced with real data from plan
+  // Clamp selected year to valid range when portfolio changes
+  $effect(() => {
+    if (selectedYear < startYear) selectedYear = startYear
+    if (selectedYear > endYear) selectedYear = endYear
+  })
+
+  // Category counts from profile data
+  const transfersCount = $derived(0) // Future: count transfers
+  const incomesCount = $derived((appStore.profile.incomes ?? []).length)
+  const expensesCount = $derived((appStore.profile.expenses ?? []).length)
+  const cashCount = $derived(appStore.profile.cash_amount ? 1 : 0)
+  const investmentsCount = $derived((appStore.profile.investments ?? []).length)
+  const tangibleAssetsCount = $derived((appStore.profile.tangible_assets ?? []).length)
+  const liabilitiesCount = $derived((appStore.profile.liabilities ?? []).length)
+
+  // Breakdown values from profile data
+  const cashValue = $derived(appStore.profile.cash_amount ?? 0)
+  const investmentsValue = $derived(
+    (appStore.profile.investments ?? []).reduce((sum, inv) => sum + (inv.balance ?? 0), 0),
+  )
+  const tangibleAssetsValue = $derived(
+    (appStore.profile.tangible_assets ?? []).reduce((sum, asset) => sum + (asset.value ?? 0), 0),
+  )
+  const liabilitiesValue = $derived(
+    (appStore.profile.liabilities ?? []).reduce(
+      (sum, liability) => sum + (liability.outstanding_balance ?? 0),
+      0,
+    ),
+  )
+  const netWorth = $derived(cashValue + investmentsValue + tangibleAssetsValue - liabilitiesValue)
+
+  // Category data for UI
   const cashFlowCategories = $derived([
-    { id: 'transfers', label: $_('page.plan.transfers'), count: 0 },
-    { id: 'incomes', label: $_('page.plan.incomes'), count: 0 },
-    { id: 'expenses', label: $_('page.plan.expenses'), count: 0 },
+    { id: 'transfers', label: $_('page.plan.transfers'), count: transfersCount },
+    { id: 'incomes', label: $_('page.plan.incomes'), count: incomesCount },
+    { id: 'expenses', label: $_('page.plan.expenses'), count: expensesCount },
   ])
 
   const assetCategories = $derived([
-    { id: 'cash', label: $_('page.plan.cash'), count: plan ? 1 : 0, color: CATEGORY_COLORS.cash },
+    { id: 'cash', label: $_('page.plan.cash'), count: cashCount, color: CATEGORY_COLORS.cash },
     {
       id: 'investments',
       label: $_('page.plan.investments'),
-      count: 0,
+      count: investmentsCount,
       color: CATEGORY_COLORS.investments[0],
     },
     {
       id: 'tangibleAssets',
       label: $_('page.plan.tangibleAssets'),
-      count: 0,
+      count: tangibleAssetsCount,
       color: CATEGORY_COLORS.tangibleAssets[0],
     },
     {
       id: 'liabilities',
       label: $_('page.plan.liabilities'),
-      count: 0,
+      count: liabilitiesCount,
       color: CATEGORY_COLORS.liabilities[0],
     },
   ])
@@ -95,33 +132,36 @@
       id: 'cash',
       label: $_('page.plan.cash'),
       color: CATEGORY_COLORS.cash,
-      value: 0,
-      formattedValue: appStore.formatCurrency(0),
+      value: cashValue,
+      formattedValue: appStore.formatCurrency(cashValue),
       isNegative: false,
     },
     {
       id: 'investments',
       label: $_('page.plan.investments'),
       color: CATEGORY_COLORS.investments[0],
-      value: 0,
-      formattedValue: appStore.formatCurrency(0),
+      value: investmentsValue,
+      formattedValue: appStore.formatCurrency(investmentsValue),
       isNegative: false,
     },
     {
       id: 'tangibleAssets',
       label: $_('page.plan.tangibleAssets'),
       color: CATEGORY_COLORS.tangibleAssets[0],
-      value: 0,
-      formattedValue: appStore.formatCurrency(0),
+      value: tangibleAssetsValue,
+      formattedValue: appStore.formatCurrency(tangibleAssetsValue),
       isNegative: false,
     },
     {
       id: 'liabilities',
       label: $_('page.plan.liabilities'),
       color: CATEGORY_COLORS.liabilities[0],
-      value: 0,
-      formattedValue: '-' + appStore.formatCurrency(0),
-      isNegative: true,
+      value: liabilitiesValue,
+      formattedValue:
+        liabilitiesValue > 0
+          ? '-' + appStore.formatCurrency(liabilitiesValue)
+          : appStore.formatCurrency(0),
+      isNegative: liabilitiesValue > 0,
     },
   ])
 
@@ -133,8 +173,12 @@
     { id: 'liabilities', label: $_('page.plan.liabilitiesBalance') },
   ])
 
-  // Calculate age from birth year (placeholder - will use actual data)
-  const currentAge = $derived(43)
+  // Calculate age from birth date for the selected year
+  const currentAge = $derived.by(() => {
+    if (!appStore.profile.birth_date) return undefined
+    const birthYear = new Date(appStore.profile.birth_date).getFullYear()
+    return selectedYear - birthYear
+  })
 </script>
 
 {#if plan}
@@ -290,10 +334,18 @@
 
           <!-- Age slider field -->
           <div class="px-4 py-4">
-            <p class="mb-1 text-sm font-medium">
-              {$_('page.plan.age', { values: { age: currentAge } })}
-            </p>
-            <Slider type="single" bind:value={selectedYear} min={2024} max={2060} step={1} />
+            {#if currentAge !== undefined}
+              <p class="mb-1 text-sm font-medium">
+                {$_('page.plan.age', { values: { age: currentAge } })}
+              </p>
+            {/if}
+            <Slider
+              type="single"
+              bind:value={selectedYear}
+              min={startYear}
+              max={endYear}
+              step={1}
+            />
           </div>
         </div>
 
@@ -302,7 +354,7 @@
           <!-- Net worth -->
           <div class="px-2 py-2">
             <p class="text-sm font-medium">{$_('page.plan.netWorth')}</p>
-            <p class="mt-1 text-lg">{appStore.formatCurrency(0)}</p>
+            <p class="mt-1 text-lg">{appStore.formatCurrency(netWorth)}</p>
           </div>
 
           <!-- Category breakdown (4 rows, 28px each, with 16x16 squares) -->
