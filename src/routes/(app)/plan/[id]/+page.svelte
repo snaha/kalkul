@@ -1,21 +1,13 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import {
-    ArrowLeft,
-    ChevronRight,
-    Copy,
-    FileText,
-    Plus,
-    Search,
-    SlidersHorizontal,
-    X,
-  } from '@lucide/svelte'
+  import { ArrowLeft, ChevronRight, Copy, PanelLeft, Search, Settings2, X } from '@lucide/svelte'
 
   import { resolve } from '$app/paths'
   import { page } from '$app/state'
 
   import { CATEGORY_COLORS } from '$lib/chart-colors'
+  import { Badge } from '$lib/components/ui/badge'
   import { Button } from '$lib/components/ui/button'
   import {
     Collapsible,
@@ -133,7 +125,7 @@
       label: $_('page.plan.cash'),
       color: CATEGORY_COLORS.cash,
       value: cashValue,
-      formattedValue: appStore.formatCurrency(cashValue),
+      formattedValue: appStore.formatCurrencyCode(cashValue),
       isNegative: false,
     },
     {
@@ -141,7 +133,7 @@
       label: $_('page.plan.investments'),
       color: CATEGORY_COLORS.investments[0],
       value: investmentsValue,
-      formattedValue: appStore.formatCurrency(investmentsValue),
+      formattedValue: appStore.formatCurrencyCode(investmentsValue),
       isNegative: false,
     },
     {
@@ -149,7 +141,7 @@
       label: $_('page.plan.tangibleAssets'),
       color: CATEGORY_COLORS.tangibleAssets[0],
       value: tangibleAssetsValue,
-      formattedValue: appStore.formatCurrency(tangibleAssetsValue),
+      formattedValue: appStore.formatCurrencyCode(tangibleAssetsValue),
       isNegative: false,
     },
     {
@@ -159,8 +151,8 @@
       value: liabilitiesValue,
       formattedValue:
         liabilitiesValue > 0
-          ? '-' + appStore.formatCurrency(liabilitiesValue)
-          : appStore.formatCurrency(0),
+          ? '-' + appStore.formatCurrencyCode(liabilitiesValue)
+          : appStore.formatCurrencyCode(0),
       isNegative: liabilitiesValue > 0,
     },
   ])
@@ -184,9 +176,9 @@
 {#if plan}
   <div class="flex flex-1 overflow-hidden">
     <!-- Left Panel: Cash flows / Assets -->
-    <div class="flex w-[256px] shrink-0 flex-col bg-sidebar">
+    <div class="flex w-[256px] shrink-0 flex-col gap-2 bg-sidebar p-2">
       <!-- Pill Tabs -->
-      <div class="p-4">
+      <div class="p-2">
         <div class="flex h-8 rounded-lg bg-muted p-[3px]">
           <button
             class={cn(
@@ -213,85 +205,51 @@
         </div>
       </div>
 
-      <!-- Search with keyboard shortcut -->
-      <div class="px-4 pb-4">
+      <!-- Search -->
+      <div class="p-2">
         <div class="relative">
           <Search class="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder={activeTab === 'cashflows'
               ? $_('page.plan.searchCashFlows')
               : $_('page.plan.searchAssets')}
-            class="h-8 pl-8 pr-10"
+            class="h-8 pl-8"
             bind:value={searchQuery}
           />
-          <kbd
-            class="absolute right-2.5 top-1/2 -translate-y-1/2 rounded bg-muted px-1 text-xs text-muted-foreground"
-          >
-            ⌘F
-          </kbd>
         </div>
       </div>
 
-      <!-- Category rows (simple, non-collapsible for cash flows, collapsible for assets) -->
+      <!-- Category rows -->
       <div class="flex flex-1 flex-col overflow-y-auto">
         {#each categories as category (category.id)}
-          {#if activeTab === 'cashflows'}
-            <!-- Simple rows for cash flows -->
-            <button class="flex w-full items-center justify-between px-4 py-2 hover:bg-accent">
+          <button
+            class="flex h-8 w-full items-center justify-between rounded-md px-2 hover:bg-accent"
+          >
+            <div class="flex items-center gap-1">
               <span class="text-sm font-medium">{category.label}</span>
-              <div class="flex items-center gap-2">
-                <span class="text-sm text-muted-foreground">{category.count}</span>
-                <ChevronRight class="size-4 text-muted-foreground" />
-              </div>
-            </button>
-          {:else}
-            <!-- Collapsible rows for assets with color dots -->
-            <Collapsible>
-              <CollapsibleTrigger
-                class="flex w-full items-center justify-between px-4 py-2 hover:bg-accent"
-              >
-                <div class="flex items-center gap-2">
-                  {#if 'color' in category}
-                    <div class="size-3 rounded-sm" style="background-color: {category.color}"></div>
-                  {/if}
-                  <span class="text-sm font-medium">{category.label}</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <span class="text-sm text-muted-foreground">{category.count}</span>
-                  <ChevronRight
-                    class="size-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90"
-                  />
-                </div>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div class="py-2 pl-9 pr-4 text-sm text-muted-foreground">
-                  {$_('page.plan.noItems')}
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-          {/if}
+              {#if category.count > 0}
+                <Badge variant="outline">{category.count}</Badge>
+              {/if}
+            </div>
+            <ChevronRight class="size-4 text-muted-foreground" />
+          </button>
         {/each}
-      </div>
-
-      <!-- Add button -->
-      <div class="p-4">
-        <Button class="w-full" onclick={notImplemented}>
-          <Plus class="size-3" />
-          {activeTab === 'cashflows' ? $_('page.plan.addCashFlow') : $_('page.plan.addAsset')}
-        </Button>
       </div>
     </div>
 
     <!-- Center Panel: Chart area (placeholder) -->
     <div class="flex flex-1 flex-col overflow-hidden border-l">
       <!-- Header with icons -->
-      <div class="flex items-center justify-between px-4 py-3">
-        <div class="flex items-center gap-2">
-          <FileText class="size-4" />
-          <h2 class="text-sm font-semibold">{$_('page.plan.stackedNetWorth')}</h2>
+      <div class="flex items-center justify-between px-4 py-4">
+        <div class="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onclick={notImplemented}>
+            <PanelLeft class="size-4" />
+          </Button>
+          <Separator orientation="vertical" class="!h-8" />
+          <h2 class="text-xl font-bold">{$_('page.plan.stackedNetWorth')}</h2>
         </div>
-        <Button variant="ghost" size="icon-xs" onclick={notImplemented}>
-          <SlidersHorizontal class="size-4" />
+        <Button variant="ghost" size="icon" onclick={notImplemented}>
+          <Settings2 class="size-4" />
         </Button>
       </div>
 
@@ -304,7 +262,7 @@
       <div class="flex justify-center gap-6 px-4 py-3">
         {#each legendItems as item (item.id)}
           <div class="flex items-center gap-1.5">
-            <div class="size-2.5 rounded-sm" style="background-color: {item.color}"></div>
+            <div class="size-2.5 rounded-[2px]" style="background-color: {item.color}"></div>
             <span class="text-xs">{item.label}</span>
           </div>
         {/each}
@@ -322,10 +280,10 @@
     <!-- Right Panel: Details inspector -->
     {#if isPanelOpen}
       <div class="flex w-[320px] shrink-0 flex-col overflow-hidden border-l">
-        <!-- Header section (120px total height) -->
-        <div class="shrink-0">
+        <!-- Header section -->
+        <div class="flex shrink-0 flex-col gap-4 p-4">
           <!-- Year + close button row -->
-          <div class="flex items-center justify-between px-4 pt-4">
+          <div class="flex items-center justify-between">
             <p class="text-lg font-bold">{selectedYear}</p>
             <Button variant="ghost" size="icon" onclick={() => (isPanelOpen = false)}>
               <X class="size-4" />
@@ -333,14 +291,15 @@
           </div>
 
           <!-- Age slider field -->
-          <div class="px-4 py-4">
+          <div class="flex flex-col">
             {#if currentAge !== undefined}
-              <p class="mb-1 text-sm font-medium">
+              <p class="text-sm font-medium">
                 {$_('page.plan.age', { values: { age: currentAge } })}
               </p>
             {/if}
             <Slider
               type="single"
+              class="mt-3"
               bind:value={selectedYear}
               min={startYear}
               max={endYear}
@@ -354,7 +313,7 @@
           <!-- Net worth -->
           <div class="px-2 py-2">
             <p class="text-sm font-medium">{$_('page.plan.netWorth')}</p>
-            <p class="mt-1 text-lg">{appStore.formatCurrency(netWorth)}</p>
+            <p class="mt-1 text-lg">{appStore.formatCurrencyCode(netWorth)}</p>
           </div>
 
           <!-- Category breakdown (4 rows, 28px each, with 16x16 squares) -->
@@ -362,7 +321,7 @@
             {#each breakdownItems as item (item.id)}
               <div class="flex h-7 items-center justify-between">
                 <div class="flex items-center gap-2">
-                  <div class="size-4 rounded-sm" style="background-color: {item.color}"></div>
+                  <div class="size-4 rounded-[2px]" style="background-color: {item.color}"></div>
                   <span class="text-sm">{item.label}</span>
                 </div>
                 <span class="text-sm tabular-nums" class:text-destructive={item.isNegative}>

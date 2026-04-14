@@ -72,6 +72,20 @@ export function formatCurrency(value: number, currency: string, locale?: string)
   }
 }
 
+export function formatCurrencyCode(value: number, currency: string, locale?: string): string {
+  try {
+    return new Intl.NumberFormat(locale ?? undefined, {
+      style: 'currency',
+      currency,
+      currencyDisplay: 'code',
+      maximumFractionDigits: 0,
+    }).format(value)
+  } catch {
+    // Fallback for unsupported currency codes
+    return `${value.toLocaleString(locale ?? undefined)} ${currency}`
+  }
+}
+
 export function formatCompactCurrency(value: number, currency: string, locale?: string): string {
   try {
     return new Intl.NumberFormat(locale ?? undefined, {
