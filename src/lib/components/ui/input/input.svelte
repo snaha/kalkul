@@ -11,7 +11,7 @@
   >
 
   let {
-    ref = $bindable(null),
+    ref = $bindable(),
     value = $bindable(),
     type,
     files = $bindable(),

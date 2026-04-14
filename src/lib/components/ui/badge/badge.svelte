@@ -27,7 +27,7 @@
   import { type WithElementRef, cn } from '$lib/utils'
 
   let {
-    ref = $bindable(null),
+    ref = $bindable(),
     href,
     class: className,
     variant = 'default',

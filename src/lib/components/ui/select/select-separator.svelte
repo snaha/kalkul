@@ -4,11 +4,7 @@
   import { Separator } from '$lib/components/ui/separator'
   import { cn } from '$lib/utils'
 
-  let {
-    ref = $bindable(null),
-    class: className,
-    ...restProps
-  }: SeparatorPrimitive.RootProps = $props()
+  let { ref = $bindable(), class: className, ...restProps }: SeparatorPrimitive.RootProps = $props()
 </script>
 
 <Separator

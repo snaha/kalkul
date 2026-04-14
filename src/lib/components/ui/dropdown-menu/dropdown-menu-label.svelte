@@ -4,7 +4,7 @@
   import { type WithElementRef, cn } from '$lib/utils'
 
   let {
-    ref = $bindable(null),
+    ref = $bindable(),
     class: className,
     inset,
     children,

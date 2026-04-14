@@ -11,7 +11,7 @@
   import SelectScrollUpButton from './select-scroll-up-button.svelte'
 
   let {
-    ref = $bindable(null),
+    ref = $bindable(),
     class: className,
     sideOffset = 4,
     portalProps,

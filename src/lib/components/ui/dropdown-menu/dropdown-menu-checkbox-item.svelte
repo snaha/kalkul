@@ -8,7 +8,7 @@
   import { type WithoutChildrenOrChild, cn } from '$lib/utils'
 
   let {
-    ref = $bindable(null),
+    ref = $bindable(),
     checked = $bindable(false),
     indeterminate = $bindable(false),
     class: className,

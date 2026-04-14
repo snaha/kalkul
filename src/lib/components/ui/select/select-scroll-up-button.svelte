@@ -5,7 +5,7 @@
   import { type WithoutChildrenOrChild, cn } from '$lib/utils'
 
   let {
-    ref = $bindable(null),
+    ref = $bindable(),
     class: className,
     ...restProps
   }: WithoutChildrenOrChild<SelectPrimitive.ScrollUpButtonProps> = $props()

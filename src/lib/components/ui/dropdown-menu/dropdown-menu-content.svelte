@@ -8,7 +8,7 @@
   import DropdownMenuPortal from './dropdown-menu-portal.svelte'
 
   let {
-    ref = $bindable(null),
+    ref = $bindable(),
     sideOffset = 4,
     portalProps,
     class: className,
