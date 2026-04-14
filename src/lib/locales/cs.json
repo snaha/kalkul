@@ -65,7 +65,9 @@
       "keyFigures": "Klíčové údaje",
       "investmentsValue": "Hodnota investic",
       "tangibleAssetsValue": "Hodnota hmotných aktiv",
-      "liabilitiesBalance": "Zůstatek závazků"
+      "liabilitiesBalance": "Zůstatek závazků",
+      "addCashFlow": "Přidat peněžní tok",
+      "addAsset": "Přidat aktivum"
     },
     "home": {
       "heroTitle": "Podívejte se, kam vás vaše peníze mohou dovést",

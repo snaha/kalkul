@@ -1,7 +1,16 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import { ArrowLeft, ChevronRight, Copy, PanelLeft, Search, Settings2, X } from '@lucide/svelte'
+  import {
+    ArrowLeft,
+    ChevronRight,
+    PanelLeft,
+    Plus,
+    Rows2,
+    Search,
+    Settings2,
+    X,
+  } from '@lucide/svelte'
 
   import { resolve } from '$app/paths'
   import { page } from '$app/state'
@@ -235,6 +244,14 @@
           </button>
         {/each}
       </div>
+
+      <!-- Add button footer -->
+      <div class="shrink-0 p-4">
+        <Button class="w-full" onclick={notImplemented}>
+          <Plus class="size-4" />
+          {activeTab === 'cashflows' ? $_('page.plan.addCashFlow') : $_('page.plan.addAsset')}
+        </Button>
+      </div>
     </div>
 
     <!-- Center Panel: Chart area (placeholder) -->
@@ -270,8 +287,8 @@
 
       <!-- Compare button -->
       <div class="flex justify-center px-4 py-3">
-        <Button variant="outline" size="xs" onclick={notImplemented}>
-          <Copy class="size-3" />
+        <Button variant="secondary" onclick={notImplemented}>
+          <Rows2 class="size-4" />
           {$_('page.plan.comparePlan')}
         </Button>
       </div>
@@ -334,7 +351,7 @@
           <Separator class="mx-2" />
 
           <!-- Expandable detail sections (32px height each) -->
-          <div class="flex flex-col">
+          <div class="flex flex-col gap-4">
             {#each detailSections as section (section.id)}
               <Collapsible>
                 <CollapsibleTrigger

@@ -65,7 +65,9 @@
       "keyFigures": "Key figures",
       "investmentsValue": "Investments value",
       "tangibleAssetsValue": "Tangible assets value",
-      "liabilitiesBalance": "Liabilities balance"
+      "liabilitiesBalance": "Liabilities balance",
+      "addCashFlow": "Add cash flow",
+      "addAsset": "Add asset"
     },
     "home": {
       "heroTitle": "See where your money could take you",
