@@ -1,37 +1,359 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import { ArrowLeft } from '@lucide/svelte'
+  import {
+    ArrowLeft,
+    ChevronRight,
+    Copy,
+    FileText,
+    Plus,
+    Search,
+    SlidersHorizontal,
+    X,
+  } from '@lucide/svelte'
 
   import { resolve } from '$app/paths'
   import { page } from '$app/state'
 
+  import { CATEGORY_COLORS } from '$lib/chart-colors'
   import { Button } from '$lib/components/ui/button'
+  import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+  } from '$lib/components/ui/collapsible'
+  import { Input } from '$lib/components/ui/input'
+  import { Separator } from '$lib/components/ui/separator'
+  import { Slider } from '$lib/components/ui/slider'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
+  import { cn, notImplemented } from '$lib/utils'
 
   const planId = $derived(page.params.id)
   const plan = $derived(appStore.portfolios.find((p) => p.id === planId))
+
+  // State for UI
+  let activeTab = $state<'cashflows' | 'assets'>('cashflows')
+  let searchQuery = $state('')
+  let selectedYear = $state(2026)
+  let isPanelOpen = $state(true)
+
+  // Sample category data - will be replaced with real data from plan
+  const cashFlowCategories = $derived([
+    { id: 'transfers', label: $_('page.plan.transfers'), count: 0 },
+    { id: 'incomes', label: $_('page.plan.incomes'), count: 0 },
+    { id: 'expenses', label: $_('page.plan.expenses'), count: 0 },
+  ])
+
+  const assetCategories = $derived([
+    { id: 'cash', label: $_('page.plan.cash'), count: plan ? 1 : 0, color: CATEGORY_COLORS.cash },
+    {
+      id: 'investments',
+      label: $_('page.plan.investments'),
+      count: 0,
+      color: CATEGORY_COLORS.investments[0],
+    },
+    {
+      id: 'tangibleAssets',
+      label: $_('page.plan.tangibleAssets'),
+      count: 0,
+      color: CATEGORY_COLORS.tangibleAssets[0],
+    },
+    {
+      id: 'liabilities',
+      label: $_('page.plan.liabilities'),
+      count: 0,
+      color: CATEGORY_COLORS.liabilities[0],
+    },
+  ])
+
+  const categories = $derived(activeTab === 'cashflows' ? cashFlowCategories : assetCategories)
+
+  // Legend items for the chart
+  const legendItems = [
+    { id: 'cash', label: $_('page.plan.cash'), color: CATEGORY_COLORS.cash },
+    {
+      id: 'investments',
+      label: $_('page.plan.investments'),
+      color: CATEGORY_COLORS.investments[0],
+    },
+    {
+      id: 'tangibleAssets',
+      label: $_('page.plan.tangibleAssets'),
+      color: CATEGORY_COLORS.tangibleAssets[0],
+    },
+    {
+      id: 'liabilities',
+      label: $_('page.plan.liabilities'),
+      color: CATEGORY_COLORS.liabilities[0],
+    },
+  ]
+
+  // Breakdown items for the right panel
+  const breakdownItems = $derived([
+    {
+      id: 'cash',
+      label: $_('page.plan.cash'),
+      color: CATEGORY_COLORS.cash,
+      value: 0,
+      formattedValue: appStore.formatCurrency(0),
+      isNegative: false,
+    },
+    {
+      id: 'investments',
+      label: $_('page.plan.investments'),
+      color: CATEGORY_COLORS.investments[0],
+      value: 0,
+      formattedValue: appStore.formatCurrency(0),
+      isNegative: false,
+    },
+    {
+      id: 'tangibleAssets',
+      label: $_('page.plan.tangibleAssets'),
+      color: CATEGORY_COLORS.tangibleAssets[0],
+      value: 0,
+      formattedValue: appStore.formatCurrency(0),
+      isNegative: false,
+    },
+    {
+      id: 'liabilities',
+      label: $_('page.plan.liabilities'),
+      color: CATEGORY_COLORS.liabilities[0],
+      value: 0,
+      formattedValue: '-' + appStore.formatCurrency(0),
+      isNegative: true,
+    },
+  ])
+
+  // Detail sections for the right panel
+  const detailSections = $derived([
+    { id: 'keyFigures', label: $_('page.plan.keyFigures') },
+    { id: 'investments', label: $_('page.plan.investmentsValue') },
+    { id: 'tangibleAssets', label: $_('page.plan.tangibleAssetsValue') },
+    { id: 'liabilities', label: $_('page.plan.liabilitiesBalance') },
+  ])
+
+  // Calculate age from birth year (placeholder - will use actual data)
+  const currentAge = $derived(43)
 </script>
 
-<div class="flex flex-1 flex-col items-center justify-center gap-8 p-8">
-  {#if plan}
-    <div class="flex flex-col items-center gap-4 text-center">
-      <h1 class="text-3xl font-bold">{plan.name}</h1>
-      {#if plan.notes}
-        <p class="text-muted-foreground">{plan.notes}</p>
-      {/if}
-      <p class="text-lg text-muted-foreground">
-        {$_('page.plan.notImplemented')}
-      </p>
+{#if plan}
+  <div class="flex flex-1 overflow-hidden">
+    <!-- Left Panel: Cash flows / Assets -->
+    <div class="flex w-[256px] shrink-0 flex-col bg-sidebar">
+      <!-- Pill Tabs -->
+      <div class="p-4">
+        <div class="flex h-8 rounded-lg bg-muted p-[3px]">
+          <button
+            class={cn(
+              'flex-1 rounded-md text-sm font-medium transition-all',
+              activeTab === 'cashflows'
+                ? 'bg-background shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+            onclick={() => (activeTab = 'cashflows')}
+          >
+            {$_('page.plan.cashFlows')}
+          </button>
+          <button
+            class={cn(
+              'flex-1 rounded-md text-sm font-medium transition-all',
+              activeTab === 'assets'
+                ? 'bg-background shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+            onclick={() => (activeTab = 'assets')}
+          >
+            {$_('page.plan.assets')}
+          </button>
+        </div>
+      </div>
+
+      <!-- Search with keyboard shortcut -->
+      <div class="px-4 pb-4">
+        <div class="relative">
+          <Search class="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder={activeTab === 'cashflows'
+              ? $_('page.plan.searchCashFlows')
+              : $_('page.plan.searchAssets')}
+            class="h-8 pl-8 pr-10"
+            bind:value={searchQuery}
+          />
+          <kbd
+            class="absolute right-2.5 top-1/2 -translate-y-1/2 rounded bg-muted px-1 text-xs text-muted-foreground"
+          >
+            ⌘F
+          </kbd>
+        </div>
+      </div>
+
+      <!-- Category rows (simple, non-collapsible for cash flows, collapsible for assets) -->
+      <div class="flex flex-1 flex-col overflow-y-auto">
+        {#each categories as category (category.id)}
+          {#if activeTab === 'cashflows'}
+            <!-- Simple rows for cash flows -->
+            <button class="flex w-full items-center justify-between px-4 py-2 hover:bg-accent">
+              <span class="text-sm font-medium">{category.label}</span>
+              <div class="flex items-center gap-2">
+                <span class="text-sm text-muted-foreground">{category.count}</span>
+                <ChevronRight class="size-4 text-muted-foreground" />
+              </div>
+            </button>
+          {:else}
+            <!-- Collapsible rows for assets with color dots -->
+            <Collapsible>
+              <CollapsibleTrigger
+                class="flex w-full items-center justify-between px-4 py-2 hover:bg-accent"
+              >
+                <div class="flex items-center gap-2">
+                  {#if 'color' in category}
+                    <div class="size-3 rounded-sm" style="background-color: {category.color}"></div>
+                  {/if}
+                  <span class="text-sm font-medium">{category.label}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-sm text-muted-foreground">{category.count}</span>
+                  <ChevronRight
+                    class="size-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90"
+                  />
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div class="py-2 pl-9 pr-4 text-sm text-muted-foreground">
+                  {$_('page.plan.noItems')}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          {/if}
+        {/each}
+      </div>
+
+      <!-- Add button -->
+      <div class="p-4">
+        <Button class="w-full" onclick={notImplemented}>
+          <Plus class="size-3" />
+          {activeTab === 'cashflows' ? $_('page.plan.addCashFlow') : $_('page.plan.addAsset')}
+        </Button>
+      </div>
     </div>
-  {:else}
+
+    <!-- Center Panel: Chart area (placeholder) -->
+    <div class="flex flex-1 flex-col overflow-hidden border-l">
+      <!-- Header with icons -->
+      <div class="flex items-center justify-between px-4 py-3">
+        <div class="flex items-center gap-2">
+          <FileText class="size-4" />
+          <h2 class="text-sm font-semibold">{$_('page.plan.stackedNetWorth')}</h2>
+        </div>
+        <Button variant="ghost" size="icon-xs" onclick={notImplemented}>
+          <SlidersHorizontal class="size-4" />
+        </Button>
+      </div>
+
+      <!-- Chart placeholder -->
+      <div class="flex flex-1 items-center justify-center">
+        <p class="text-muted-foreground">{$_('page.plan.chartPlaceholder')}</p>
+      </div>
+
+      <!-- Legend -->
+      <div class="flex justify-center gap-6 px-4 py-3">
+        {#each legendItems as item (item.id)}
+          <div class="flex items-center gap-1.5">
+            <div class="size-2.5 rounded-sm" style="background-color: {item.color}"></div>
+            <span class="text-xs">{item.label}</span>
+          </div>
+        {/each}
+      </div>
+
+      <!-- Compare button -->
+      <div class="flex justify-center px-4 py-3">
+        <Button variant="outline" size="xs" onclick={notImplemented}>
+          <Copy class="size-3" />
+          {$_('page.plan.comparePlan')}
+        </Button>
+      </div>
+    </div>
+
+    <!-- Right Panel: Details inspector -->
+    {#if isPanelOpen}
+      <div class="flex w-[320px] shrink-0 flex-col overflow-hidden border-l">
+        <!-- Header section (120px total height) -->
+        <div class="shrink-0">
+          <!-- Year + close button row -->
+          <div class="flex items-center justify-between px-4 pt-4">
+            <p class="text-lg font-bold">{selectedYear}</p>
+            <Button variant="ghost" size="icon" onclick={() => (isPanelOpen = false)}>
+              <X class="size-4" />
+            </Button>
+          </div>
+
+          <!-- Age slider field -->
+          <div class="px-4 py-4">
+            <p class="mb-1 text-sm font-medium">
+              {$_('page.plan.age', { values: { age: currentAge } })}
+            </p>
+            <Slider type="single" bind:value={selectedYear} min={2024} max={2060} step={1} />
+          </div>
+        </div>
+
+        <!-- Content section -->
+        <div class="flex flex-1 flex-col overflow-y-auto px-2 gap-4">
+          <!-- Net worth -->
+          <div class="px-2 py-2">
+            <p class="text-sm font-medium">{$_('page.plan.netWorth')}</p>
+            <p class="mt-1 text-lg">{appStore.formatCurrency(0)}</p>
+          </div>
+
+          <!-- Category breakdown (4 rows, 28px each, with 16x16 squares) -->
+          <div class="flex flex-col px-2 py-2">
+            {#each breakdownItems as item (item.id)}
+              <div class="flex h-7 items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <div class="size-4 rounded-sm" style="background-color: {item.color}"></div>
+                  <span class="text-sm">{item.label}</span>
+                </div>
+                <span class="text-sm tabular-nums" class:text-destructive={item.isNegative}>
+                  {item.formattedValue}
+                </span>
+              </div>
+            {/each}
+          </div>
+
+          <Separator class="mx-2" />
+
+          <!-- Expandable detail sections (32px height each) -->
+          <div class="flex flex-col">
+            {#each detailSections as section (section.id)}
+              <Collapsible>
+                <CollapsibleTrigger
+                  class="flex h-8 w-full items-center justify-between px-2 hover:bg-accent"
+                >
+                  <span class="text-sm font-medium">{section.label}</span>
+                  <ChevronRight
+                    class="size-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90"
+                  />
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div class="px-2 pb-2 text-sm text-muted-foreground">
+                    {$_('page.plan.noData')}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            {/each}
+          </div>
+        </div>
+      </div>
+    {/if}
+  </div>
+{:else}
+  <div class="flex flex-1 flex-col items-center justify-center gap-8 p-8">
     <div class="flex flex-col items-center gap-4 text-center">
       <h1 class="text-2xl font-bold">{$_('page.plan.notFound')}</h1>
     </div>
-  {/if}
-  <Button variant="secondary" href={resolve(routes.HOME)}>
-    <ArrowLeft class="size-4" />
-    {$_('page.plan.backToHome')}
-  </Button>
-</div>
+    <Button variant="secondary" href={resolve(routes.HOME)}>
+      <ArrowLeft class="size-4" />
+      {$_('page.plan.backToHome')}
+    </Button>
+  </div>
+{/if}
