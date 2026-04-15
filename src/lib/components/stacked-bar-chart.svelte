@@ -71,6 +71,7 @@
     selectedYear?: number
     hoveredYear?: number
     height?: number
+    width?: number
     ariaLabel?: string
     showSelectedIndicator?: boolean
     onYearClick?: (year: number) => void
@@ -82,6 +83,7 @@
     selectedYear,
     hoveredYear,
     height = 284,
+    width,
     ariaLabel,
     showSelectedIndicator = true,
     onYearClick,
@@ -91,7 +93,7 @@
   let svgElement: SVGSVGElement | undefined = $state()
 
   // Chart layout constants
-  const BAR_WIDTH = 14
+  const MIN_BAR_WIDTH = 14
   const BAR_GAP = 4
   const PADDING_LEFT = 21
   const PADDING_RIGHT = 8
@@ -110,10 +112,23 @@
   const negativeHeight = $derived(chartHeight * (1 - BASELINE_RATIO))
   const baselineY = $derived(PADDING_TOP + positiveHeight)
 
-  // Calculate required width based on data
-  const chartWidth = $derived(
-    PADDING_LEFT + data.length * (BAR_WIDTH + BAR_GAP) - BAR_GAP + PADDING_RIGHT,
+  // Use provided width or calculate minimum based on data
+  const minChartWidth = $derived(
+    PADDING_LEFT + data.length * (MIN_BAR_WIDTH + BAR_GAP) - BAR_GAP + PADDING_RIGHT,
   )
+  const chartWidth = $derived(width ? Math.max(width, minChartWidth) : minChartWidth)
+
+  // Calculate dynamic bar width to fill available space
+  const barWidth = $derived.by(() => {
+    if (data.length === 0) return MIN_BAR_WIDTH
+    const availableWidth = chartWidth - PADDING_LEFT - PADDING_RIGHT
+    const totalGapWidth = (data.length - 1) * BAR_GAP
+    const calculatedWidth = (availableWidth - totalGapWidth) / data.length
+    return Math.max(calculatedWidth, MIN_BAR_WIDTH)
+  })
+
+  // Scale corner radius with bar width
+  const cornerRadius = $derived(Math.min(CORNER_RADIUS, barWidth / 4))
 
   // Find max values for scaling
   const maxPositive = $derived.by(() => {
@@ -138,7 +153,7 @@
   // Generate bar segments for each data point
   const bars = $derived.by(() => {
     return data.map((d, i) => {
-      const x = PADDING_LEFT + i * (BAR_WIDTH + BAR_GAP)
+      const x = PADDING_LEFT + i * (barWidth + BAR_GAP)
       const isSelected = d.year === selectedYear
 
       // Calculate heights for each segment
@@ -245,7 +260,7 @@
     const barTopY = bar.segments.length > 0 ? Math.min(...bar.segments.map((s) => s.y)) : baselineY
 
     // Convert SVG coordinates to page coordinates
-    const barCenterX = bar.x + BAR_WIDTH / 2
+    const barCenterX = bar.x + barWidth / 2
     const pageX = svgRect.left + barCenterX * scaleX
     const pageY = svgRect.top + barTopY * scaleY
 
@@ -311,7 +326,7 @@
       <rect
         x={bar.x - BAR_GAP / 2}
         y={PADDING_TOP}
-        width={BAR_WIDTH + BAR_GAP}
+        width={barWidth + BAR_GAP}
         height={chartHeight}
         fill="transparent"
       />
@@ -322,10 +337,10 @@
             d={createRoundedRectPath(
               bar.x,
               segment.y,
-              BAR_WIDTH,
+              barWidth,
               segment.height,
-              segment.roundTop ? CORNER_RADIUS : 0,
-              segment.roundBottom ? CORNER_RADIUS : 0,
+              segment.roundTop ? cornerRadius : 0,
+              segment.roundBottom ? cornerRadius : 0,
             )}
             fill={segment.color}
           />
@@ -334,7 +349,7 @@
           <rect
             x={bar.x}
             y={segment.y}
-            width={BAR_WIDTH}
+            width={barWidth}
             height={segment.height}
             fill={segment.color}
           />
@@ -346,9 +361,9 @@
   <!-- Vertical dashed indicator line for hovered bar -->
   {#if hoveredBar}
     <line
-      x1={hoveredBar.x + BAR_WIDTH / 2}
+      x1={hoveredBar.x + barWidth / 2}
       y1={height - 2}
-      x2={hoveredBar.x + BAR_WIDTH / 2}
+      x2={hoveredBar.x + barWidth / 2}
       y2={2}
       stroke="currentColor"
       stroke-dasharray="2 2"
@@ -360,9 +375,9 @@
   <!-- Vertical solid indicator line for selected bar -->
   {#if selectedBar && showSelectedIndicator}
     <line
-      x1={selectedBar.x + BAR_WIDTH / 2}
+      x1={selectedBar.x + barWidth / 2}
       y1={height - 2}
-      x2={selectedBar.x + BAR_WIDTH / 2}
+      x2={selectedBar.x + barWidth / 2}
       y2={2}
       stroke="currentColor"
       class="text-muted-foreground pointer-events-none"

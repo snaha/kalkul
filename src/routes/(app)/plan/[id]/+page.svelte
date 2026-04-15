@@ -55,11 +55,13 @@
   let chartContainerRef: HTMLDivElement | undefined = $state()
   let pageContainerRef: HTMLDivElement | undefined = $state()
   let chartContainerHeight = $state(0)
+  let chartContainerWidth = $state(0)
 
-  // Measure chart container height
-  function measureChartHeight() {
+  // Measure chart container dimensions
+  function measureChartDimensions() {
     if (chartContainerRef) {
       chartContainerHeight = chartContainerRef.clientHeight
+      chartContainerWidth = chartContainerRef.clientWidth
     }
   }
 
@@ -72,14 +74,14 @@
 
     // Wait for layout to settle, then measure
     tick().then(() => {
-      requestAnimationFrame(measureChartHeight)
+      requestAnimationFrame(measureChartDimensions)
     })
   })
 
   // Measure on window resize
   $effect(() => {
     const handleResize = () => {
-      requestAnimationFrame(measureChartHeight)
+      requestAnimationFrame(measureChartDimensions)
     }
 
     window.addEventListener('resize', handleResize)
@@ -365,12 +367,13 @@
         bind:this={chartContainerRef}
         class="relative flex min-h-0 flex-1 items-stretch justify-center overflow-x-auto px-4"
       >
-        {#if chartData.length > 0 && chartContainerHeight > 0}
+        {#if chartData.length > 0 && chartContainerHeight > 0 && chartContainerWidth > 0}
           <StackedBarChart
             data={chartData}
             {selectedYear}
             {hoveredYear}
             height={chartContainerHeight}
+            width={chartContainerWidth}
             ariaLabel={$_('page.plan.chartAriaLabel')}
             onYearClick={handleYearClick}
             onYearHover={handleYearHover}
