@@ -16,6 +16,11 @@
   import { page } from '$app/state'
 
   import { CATEGORY_COLORS } from '$lib/chart-colors'
+  import ChartTooltipContent from '$lib/components/chart-tooltip-content.svelte'
+  import StackedBarChart, {
+    type BarData,
+    type HoverPosition,
+  } from '$lib/components/stacked-bar-chart.svelte'
   import { Badge } from '$lib/components/ui/badge'
   import { Button } from '$lib/components/ui/button'
   import {
@@ -44,6 +49,9 @@
   let searchQuery = $state('')
   let selectedYear = $state(new Date().getFullYear())
   let isPanelOpen = $state(true)
+  let hoveredYear = $state<number | undefined>(undefined)
+  let hoverPosition = $state<HoverPosition | undefined>(undefined)
+  let chartContainerRef: HTMLDivElement | undefined = $state()
 
   // Clamp selected year to valid range when portfolio changes
   $effect(() => {
@@ -180,6 +188,54 @@
     const birthYear = new Date(appStore.profile.birth_date).getFullYear()
     return selectedYear - birthYear
   })
+
+  // Calculate age for hovered year
+  const hoveredAge = $derived.by(() => {
+    if (!appStore.profile.birth_date || hoveredYear === undefined) return undefined
+    const birthYear = new Date(appStore.profile.birth_date).getFullYear()
+    return hoveredYear - birthYear
+  })
+
+  // Get data for hovered year
+  const hoveredData = $derived.by(() => {
+    if (hoveredYear === undefined) return undefined
+    return chartData.find((d) => d.year === hoveredYear)
+  })
+
+  // Calculate tooltip position relative to the chart container
+  const tooltipPosition = $derived.by(() => {
+    if (!hoverPosition || !chartContainerRef) return undefined
+    const containerRect = chartContainerRef.getBoundingClientRect()
+    const left = hoverPosition.x - containerRect.left
+    const top = hoverPosition.y - containerRect.top
+    const isRightSide = left > containerRect.width / 2
+    return { left, top, isRightSide }
+  })
+
+  // Generate chart data for all years in the portfolio range
+  // Currently uses static values - future enhancement will integrate with getGraphDataForPortfolio()
+  const chartData = $derived.by((): BarData[] => {
+    const years: BarData[] = []
+    for (let year = startYear; year <= endYear; year++) {
+      years.push({
+        year,
+        cash: cashValue,
+        investments: investmentsValue,
+        tangibleAssets: tangibleAssetsValue,
+        liabilities: liabilitiesValue,
+      })
+    }
+    return years
+  })
+
+  function handleYearClick(year: number) {
+    selectedYear = year
+  }
+
+  function handleYearHover(year: number | undefined, position?: HoverPosition) {
+    hoveredYear = year
+    hoverPosition = position
+  }
 </script>
 
 {#if plan}
@@ -270,9 +326,48 @@
         </Button>
       </div>
 
-      <!-- Chart placeholder -->
-      <div class="flex flex-1 items-center justify-center">
-        <p class="text-muted-foreground">{$_('page.plan.chartPlaceholder')}</p>
+      <!-- Chart -->
+      <div
+        bind:this={chartContainerRef}
+        class="relative flex flex-1 items-end justify-center overflow-x-auto px-4"
+      >
+        {#if chartData.length > 0}
+          <StackedBarChart
+            data={chartData}
+            {selectedYear}
+            {hoveredYear}
+            height={284}
+            ariaLabel={$_('page.plan.chartAriaLabel')}
+            onYearClick={handleYearClick}
+            onYearHover={handleYearHover}
+          />
+        {:else}
+          <p class="text-muted-foreground">{$_('page.plan.chartPlaceholder')}</p>
+        {/if}
+
+        <!-- Hover tooltip -->
+        {#if hoveredData && tooltipPosition}
+          <div
+            class="pointer-events-none absolute z-50 w-[320px] rounded-lg border bg-popover p-2.5 text-popover-foreground shadow-md"
+            style="left: {tooltipPosition.left}px; top: {tooltipPosition.top}px; transform: {tooltipPosition.isRightSide
+              ? 'translate(-100%, -100%) translateY(-16px)'
+              : 'translateY(-100%) translateY(-16px)'};"
+          >
+            <ChartTooltipContent
+              year={hoveredData.year}
+              age={hoveredAge}
+              netWorth={hoveredData.cash +
+                hoveredData.investments +
+                hoveredData.tangibleAssets -
+                hoveredData.liabilities}
+              cash={hoveredData.cash}
+              investments={hoveredData.investments}
+              tangibleAssets={hoveredData.tangibleAssets}
+              liabilities={hoveredData.liabilities}
+              formatCurrency={appStore.formatCurrencyCode}
+            />
+          </div>
+        {/if}
       </div>
 
       <!-- Legend -->

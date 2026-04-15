@@ -31,7 +31,13 @@ const TECHNICAL_ATTRS = [
   'd',
   'fill',
   'stroke',
+  'stroke-dasharray',
+  'stroke-width',
+  'stroke-linecap',
+  'stroke-linejoin',
+  'dasharray', // captured from stroke-dasharray by \w+ pattern
   'transform',
+  'preserveAspectRatio',
   'xmlns:xlink',
   'role',
   'aria-label',
