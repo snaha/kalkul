@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte'
   import { _ } from 'svelte-i18n'
 
   import {
@@ -53,16 +54,36 @@
   let hoverPosition = $state<HoverPosition | undefined>(undefined)
   let chartContainerRef: HTMLDivElement | undefined = $state()
   let pageContainerRef: HTMLDivElement | undefined = $state()
-  let chartContainerHeight = $state(284) // Default fallback
+  let chartContainerHeight = $state(0)
 
-  // Track chart container height with ResizeObserver
+  // Measure chart container height
+  function measureChartHeight() {
+    if (chartContainerRef) {
+      chartContainerHeight = chartContainerRef.clientHeight
+    }
+  }
+
+  // Measure on mount and when sidebar toggles
   $effect(() => {
     if (!chartContainerRef) return
-    const observer = new ResizeObserver((entries) => {
-      chartContainerHeight = entries[0].contentRect.height
+
+    // Track sidebar state to trigger remeasure
+    const _sidebarOpen = isPanelOpen
+
+    // Wait for layout to settle, then measure
+    tick().then(() => {
+      requestAnimationFrame(measureChartHeight)
     })
-    observer.observe(chartContainerRef)
-    return () => observer.disconnect()
+  })
+
+  // Measure on window resize
+  $effect(() => {
+    const handleResize = () => {
+      requestAnimationFrame(measureChartHeight)
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
   })
 
   // Clamp selected year to valid range when portfolio changes
@@ -242,6 +263,7 @@
 
   function handleYearClick(year: number) {
     selectedYear = year
+    isPanelOpen = true
   }
 
   function handleYearHover(year: number | undefined, position?: HoverPosition) {
@@ -323,7 +345,7 @@
     </div>
 
     <!-- Center Panel: Chart area (placeholder) -->
-    <div class="flex flex-1 flex-col overflow-hidden border-l">
+    <div class="flex min-h-0 flex-1 flex-col overflow-hidden border-l">
       <!-- Header with icons -->
       <div class="flex items-center justify-between px-4 py-4">
         <div class="flex items-center gap-4">
@@ -341,9 +363,9 @@
       <!-- Chart -->
       <div
         bind:this={chartContainerRef}
-        class="relative flex flex-1 items-stretch justify-center overflow-x-auto px-4"
+        class="relative flex min-h-0 flex-1 items-stretch justify-center overflow-x-auto px-4"
       >
-        {#if chartData.length > 0}
+        {#if chartData.length > 0 && chartContainerHeight > 0}
           <StackedBarChart
             data={chartData}
             {selectedYear}
@@ -352,6 +374,7 @@
             ariaLabel={$_('page.plan.chartAriaLabel')}
             onYearClick={handleYearClick}
             onYearHover={handleYearHover}
+            showSelectedIndicator={isPanelOpen}
           />
         {:else}
           <p class="text-muted-foreground">{$_('page.plan.chartPlaceholder')}</p>

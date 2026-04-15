@@ -72,6 +72,7 @@
     hoveredYear?: number
     height?: number
     ariaLabel?: string
+    showSelectedIndicator?: boolean
     onYearClick?: (year: number) => void
     onYearHover?: (year: number | undefined, position?: HoverPosition) => void
   }
@@ -82,6 +83,7 @@
     hoveredYear,
     height = 284,
     ariaLabel,
+    showSelectedIndicator = true,
     onYearClick,
     onYearHover,
   }: Props = $props()
@@ -356,7 +358,7 @@
   {/if}
 
   <!-- Vertical solid indicator line for selected bar -->
-  {#if selectedBar}
+  {#if selectedBar && showSelectedIndicator}
     <line
       x1={selectedBar.x + BAR_WIDTH / 2}
       y1={height - 2}
