@@ -50,6 +50,7 @@
   let searchQuery = $state('')
   let selectedYear = $state(new Date().getFullYear())
   let isPanelOpen = $state(true)
+  let isLeftPanelOpen = $state(true)
   let hoveredYear = $state<number | undefined>(undefined)
   let hoverPosition = $state<HoverPosition | undefined>(undefined)
   let chartContainerRef: HTMLDivElement | undefined = $state()
@@ -71,6 +72,7 @@
 
     // Track sidebar state to trigger remeasure
     const _sidebarOpen = isPanelOpen
+    const _leftSidebarOpen = isLeftPanelOpen
 
     // Wait for layout to settle, then measure
     tick().then(() => {
@@ -277,81 +279,85 @@
 {#if plan}
   <div bind:this={pageContainerRef} class="relative flex flex-1 overflow-hidden">
     <!-- Left Panel: Cash flows / Assets -->
-    <div class="flex w-[256px] shrink-0 flex-col gap-2 bg-sidebar p-2">
-      <!-- Pill Tabs -->
-      <div class="p-2">
-        <div class="flex h-8 rounded-lg bg-muted p-[3px]">
-          <button
-            class={cn(
-              'flex-1 rounded-md text-sm font-medium transition-all',
-              activeTab === 'cashflows'
-                ? 'bg-background shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-            onclick={() => (activeTab = 'cashflows')}
-          >
-            {$_('page.plan.cashFlows')}
-          </button>
-          <button
-            class={cn(
-              'flex-1 rounded-md text-sm font-medium transition-all',
-              activeTab === 'assets'
-                ? 'bg-background shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-            onclick={() => (activeTab = 'assets')}
-          >
-            {$_('page.plan.assets')}
-          </button>
+    {#if isLeftPanelOpen}
+      <div class="flex w-[256px] shrink-0 flex-col gap-2 bg-sidebar p-2">
+        <!-- Pill Tabs -->
+        <div class="p-2">
+          <div class="flex h-8 rounded-lg bg-muted p-[3px]">
+            <button
+              class={cn(
+                'flex-1 rounded-md text-sm font-medium transition-all',
+                activeTab === 'cashflows'
+                  ? 'bg-background shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+              onclick={() => (activeTab = 'cashflows')}
+            >
+              {$_('page.plan.cashFlows')}
+            </button>
+            <button
+              class={cn(
+                'flex-1 rounded-md text-sm font-medium transition-all',
+                activeTab === 'assets'
+                  ? 'bg-background shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+              onclick={() => (activeTab = 'assets')}
+            >
+              {$_('page.plan.assets')}
+            </button>
+          </div>
+        </div>
+
+        <!-- Search -->
+        <div class="p-2">
+          <div class="relative">
+            <Search
+              class="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            />
+            <Input
+              placeholder={activeTab === 'cashflows'
+                ? $_('page.plan.searchCashFlows')
+                : $_('page.plan.searchAssets')}
+              class="h-8 pl-8"
+              bind:value={searchQuery}
+            />
+          </div>
+        </div>
+
+        <!-- Category rows -->
+        <div class="flex flex-1 flex-col overflow-y-auto">
+          {#each categories as category (category.id)}
+            <button
+              class="flex h-8 w-full items-center justify-between rounded-md px-2 hover:bg-accent"
+            >
+              <div class="flex items-center gap-1">
+                <span class="text-sm font-medium">{category.label}</span>
+                {#if category.count > 0}
+                  <Badge variant="outline">{category.count}</Badge>
+                {/if}
+              </div>
+              <ChevronRight class="size-4 text-muted-foreground" />
+            </button>
+          {/each}
+        </div>
+
+        <!-- Add button footer -->
+        <div class="shrink-0 p-4">
+          <Button class="w-full" onclick={notImplemented}>
+            <Plus class="size-4" />
+            {activeTab === 'cashflows' ? $_('page.plan.addCashFlow') : $_('page.plan.addAsset')}
+          </Button>
         </div>
       </div>
-
-      <!-- Search -->
-      <div class="p-2">
-        <div class="relative">
-          <Search class="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder={activeTab === 'cashflows'
-              ? $_('page.plan.searchCashFlows')
-              : $_('page.plan.searchAssets')}
-            class="h-8 pl-8"
-            bind:value={searchQuery}
-          />
-        </div>
-      </div>
-
-      <!-- Category rows -->
-      <div class="flex flex-1 flex-col overflow-y-auto">
-        {#each categories as category (category.id)}
-          <button
-            class="flex h-8 w-full items-center justify-between rounded-md px-2 hover:bg-accent"
-          >
-            <div class="flex items-center gap-1">
-              <span class="text-sm font-medium">{category.label}</span>
-              {#if category.count > 0}
-                <Badge variant="outline">{category.count}</Badge>
-              {/if}
-            </div>
-            <ChevronRight class="size-4 text-muted-foreground" />
-          </button>
-        {/each}
-      </div>
-
-      <!-- Add button footer -->
-      <div class="shrink-0 p-4">
-        <Button class="w-full" onclick={notImplemented}>
-          <Plus class="size-4" />
-          {activeTab === 'cashflows' ? $_('page.plan.addCashFlow') : $_('page.plan.addAsset')}
-        </Button>
-      </div>
-    </div>
+    {/if}
 
     <!-- Center Panel: Chart area (placeholder) -->
     <div class="flex min-h-0 flex-1 flex-col overflow-hidden border-l">
       <!-- Header with icons -->
       <div class="flex items-center justify-between px-4 py-4">
         <div class="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onclick={notImplemented}>
+          <Button variant="ghost" size="icon" onclick={() => (isLeftPanelOpen = !isLeftPanelOpen)}>
             <PanelLeft class="size-4" />
           </Button>
           <Separator orientation="vertical" class="!h-8" />
