@@ -6,6 +6,7 @@ import {
   DEFAULT_CURRENCY,
   formatCompactCurrency,
   formatCurrency,
+  formatCurrencyCode,
   getFormattingLocale,
 } from '$lib/utils'
 
@@ -36,6 +37,7 @@ function enrichProfile({
   liabilities,
   incomes,
   expenses,
+  hide_plan_intro,
 }: Profile): ProfileStore {
   return {
     name,
@@ -52,6 +54,7 @@ function enrichProfile({
     liabilities,
     incomes,
     expenses,
+    hide_plan_intro,
     get birthDate() {
       return birth_date ? new Date(birth_date) : undefined
     },
@@ -74,6 +77,7 @@ function enrichProfile({
         liabilities,
         incomes,
         expenses,
+        hide_plan_intro,
       }
     },
   }
@@ -195,6 +199,10 @@ function withAppStore() {
     formatCompactCurrency(value: number) {
       const loc = getFormattingLocale(profile.location, browserLocale)
       return formatCompactCurrency(value, profile.currencyOrDefault, loc)
+    },
+    formatCurrencyCode(value: number) {
+      const loc = getFormattingLocale(profile.location, browserLocale)
+      return formatCurrencyCode(value, profile.currencyOrDefault, loc)
     },
 
     // --- Profile ---

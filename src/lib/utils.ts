@@ -8,11 +8,19 @@ export function cn(...inputs: ClassValue[]) {
 export type WithElementRef<T, El extends HTMLElement = HTMLElement> = T & { ref?: El | null }
 
 export type WithoutChild<T> = T extends { child?: infer _C } ? Omit<T, 'child'> : T
+export type WithoutChildren<T> = T extends { children?: infer _C } ? Omit<T, 'children'> : T
 export type WithoutChildrenOrChild<T> = T extends { children?: infer _C; child?: infer _C2 }
   ? Omit<T, 'children' | 'child'>
   : T
 
 export const DEFAULT_CURRENCY = 'EUR'
+
+export const CURRENCY_OPTIONS = [
+  { value: 'EUR', label: 'EUR' },
+  { value: 'CZK', label: 'CZK' },
+  { value: 'HUF', label: 'HUF' },
+  { value: 'USD', label: 'USD' },
+] as const
 
 /** Maps profile country codes to BCP 47 locale tags for number/currency formatting. */
 const COUNTRY_LOCALE_MAP: Record<string, string> = {
@@ -63,6 +71,20 @@ export function formatCurrency(value: number, currency: string, locale?: string)
     return new Intl.NumberFormat(locale ?? undefined, {
       style: 'currency',
       currency,
+      maximumFractionDigits: 0,
+    }).format(value)
+  } catch {
+    // Fallback for unsupported currency codes
+    return `${value.toLocaleString(locale ?? undefined)} ${currency}`
+  }
+}
+
+export function formatCurrencyCode(value: number, currency: string, locale?: string): string {
+  try {
+    return new Intl.NumberFormat(locale ?? undefined, {
+      style: 'currency',
+      currency,
+      currencyDisplay: 'code',
       maximumFractionDigits: 0,
     }).format(value)
   } catch {

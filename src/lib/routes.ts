@@ -7,5 +7,9 @@ export default {
   FINANCES_EDIT_LIABILITIES: '/finances/edit/liabilities',
   FINANCES_EDIT_INCOME: '/finances/edit/income',
   FINANCES_EDIT_EXPENSES: '/finances/edit/expenses',
+  PLAN_ADD_INTRO: '/plan/add/intro',
+  PLAN_ADD_DETAILS: '/plan/add/details',
+  PLAN_ADD_DATA: '/plan/add/data',
+  PLAN_VIEW: '/plan',
   DEV: '/dev',
 } as const

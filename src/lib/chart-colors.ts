@@ -4,7 +4,7 @@
 
 export const CATEGORY_COLORS = {
   // Single value — cash is always one segment
-  cash: '#0ea5e9', // sky-500
+  cash: '#7dd3fc', // sky-300
 
   investments: [
     '#14b8a6', // teal-500

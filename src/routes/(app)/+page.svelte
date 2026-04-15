@@ -5,6 +5,7 @@
 
   import { resolve } from '$app/paths'
 
+  import { getFirstAddPlanStepUrl } from '$lib/add-plan-steps'
   import financesIllustration from '$lib/assets/finances-illustration.svg'
   import heroIllustration from '$lib/assets/hero-illustration.svg'
   import plansIllustration from '$lib/assets/plans-illustration.svg'
@@ -16,6 +17,8 @@
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
   import { notImplemented } from '$lib/utils'
+
+  const addPlanUrl = $derived(getFirstAddPlanStepUrl(appStore.profile))
 
   const hasData = $derived(!appStore.loading && !!appStore.profile.name)
   const hasFinancialData = $derived.by(() => {
@@ -171,30 +174,59 @@
     <div class="flex flex-1 flex-col">
       <div class="flex items-start gap-4 p-8">
         <h2 class="flex-1 text-2xl font-bold">{$_('page.dashboard.plans.title')}</h2>
-        <Button size="sm" onclick={notImplemented}>
+        <Button size="sm" href={addPlanUrl}>
           <Plus class="size-4" />
           {$_('page.dashboard.plans.addPlan')}
         </Button>
       </div>
-      <div class="flex flex-1 flex-col items-center gap-8 p-8">
-        <img
-          src={plansIllustration}
-          alt={$_('page.dashboard.plans.illustrationAlt')}
-          class="size-64"
-        />
-        <div class="flex w-full flex-col gap-2 text-center">
-          <h3 class="text-xl font-bold">{$_('page.dashboard.plans.emptyTitle')}</h3>
-          <div class="flex flex-col gap-1">
-            <p class="text-base">{$_('page.dashboard.plans.emptySubtitle')}</p>
-            <p class="text-sm text-muted-foreground">
-              {$_('page.dashboard.plans.emptyDescription')}
-            </p>
-          </div>
+
+      {#if appStore.portfolios.length > 0}
+        <!-- Plan cards list -->
+        <div class="flex flex-col gap-4 overflow-y-auto p-8 pt-0">
+          {#each appStore.portfolios as portfolio (portfolio.id)}
+            <a
+              href={resolve(`${routes.PLAN_VIEW}/${portfolio.id}`)}
+              class="flex items-center gap-4 rounded-xl border bg-card p-4 shadow-xs transition-colors hover:bg-accent"
+            >
+              <!-- Chart thumbnail placeholder -->
+              <div
+                class="flex h-[81px] w-[144px] shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted"
+              >
+                <Calendar class="size-8 text-muted-foreground" />
+              </div>
+
+              <!-- Text content -->
+              <div class="flex flex-1 flex-col gap-1">
+                <p class="font-bold">{portfolio.name}</p>
+                <p class="text-muted-foreground">
+                  {portfolio.notes || $_('page.dashboard.plans.noNotes')}
+                </p>
+              </div>
+            </a>
+          {/each}
         </div>
-        <Button variant="secondary" size="sm" onclick={notImplemented}>
-          {$_('page.dashboard.plans.makeFirstPlan')}
-        </Button>
-      </div>
+      {:else}
+        <!-- Empty state -->
+        <div class="flex flex-1 flex-col items-center gap-8 p-8">
+          <img
+            src={plansIllustration}
+            alt={$_('page.dashboard.plans.illustrationAlt')}
+            class="size-64"
+          />
+          <div class="flex w-full flex-col gap-2 text-center">
+            <h3 class="text-xl font-bold">{$_('page.dashboard.plans.emptyTitle')}</h3>
+            <div class="flex flex-col gap-1">
+              <p class="text-base">{$_('page.dashboard.plans.emptySubtitle')}</p>
+              <p class="text-sm text-muted-foreground">
+                {$_('page.dashboard.plans.emptyDescription')}
+              </p>
+            </div>
+          </div>
+          <Button variant="secondary" size="sm" href={addPlanUrl}>
+            {$_('page.dashboard.plans.makeFirstPlan')}
+          </Button>
+        </div>
+      {/if}
     </div>
   </div>
 {:else if !appStore.loading}
