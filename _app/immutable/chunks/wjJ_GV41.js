@@ -1,0 +1,1 @@
+import{H as e,K as t}from"./BInY2BFS.js";function n(n){t(()=>e(()=>n()))}export{n as t};
