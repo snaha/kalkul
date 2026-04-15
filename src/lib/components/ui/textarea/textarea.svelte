@@ -4,7 +4,7 @@
   import { type WithElementRef, type WithoutChildren, cn } from '$lib/utils'
 
   let {
-    ref = $bindable(null),
+    ref = $bindable(),
     value = $bindable(),
     class: className,
     'data-slot': dataSlot = 'textarea',
