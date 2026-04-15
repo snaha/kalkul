@@ -156,6 +156,7 @@
         year: d.year,
         x,
         isSelected,
+        isHovered: d.year === hoveredYear,
         segments: [
           // Cash (top of positive stack)
           {
@@ -213,6 +214,9 @@
   // Find the bar data for the hovered year to draw the indicator line
   const hoveredBar = $derived(bars.find((b) => b.year === hoveredYear))
 
+  // Find the bar data for the selected year to draw the solid indicator line
+  const selectedBar = $derived(bars.find((b) => b.year === selectedYear))
+
   function handleBarClick(year: number) {
     onYearClick?.(year)
   }
@@ -257,7 +261,7 @@
 
 <svg
   bind:this={svgElement}
-  class="w-full"
+  class="h-full w-full"
   viewBox="0 0 {chartWidth} {height}"
   preserveAspectRatio="xMidYMid meet"
   role="img"
@@ -292,7 +296,7 @@
   {#each bars as bar (bar.year)}
     <g
       class="cursor-pointer transition-opacity"
-      class:opacity-60={selectedYear !== undefined && !bar.isSelected}
+      class:opacity-60={hoveredYear !== undefined && bar.year === hoveredYear}
       role="button"
       tabindex="0"
       onclick={() => handleBarClick(bar.year)}
@@ -301,6 +305,14 @@
       onmouseleave={handleBarMouseLeave}
       aria-label="Year {bar.year}"
     >
+      <!-- Invisible hit area to prevent tooltip flashing between bars -->
+      <rect
+        x={bar.x - BAR_GAP / 2}
+        y={PADDING_TOP}
+        width={BAR_WIDTH + BAR_GAP}
+        height={chartHeight}
+        fill="transparent"
+      />
       {#each bar.segments as segment (segment.id)}
         {#if segment.roundTop || segment.roundBottom}
           <!-- Use path for rounded corners -->
@@ -331,16 +343,27 @@
 
   <!-- Vertical dashed indicator line for hovered bar -->
   {#if hoveredBar}
-    {@const barTopY =
-      hoveredBar.segments.length > 0 ? Math.min(...hoveredBar.segments.map((s) => s.y)) : baselineY}
     <line
       x1={hoveredBar.x + BAR_WIDTH / 2}
-      y1={barTopY - 8}
+      y1={height - 2}
       x2={hoveredBar.x + BAR_WIDTH / 2}
-      y2={PADDING_TOP}
+      y2={2}
       stroke="currentColor"
       stroke-dasharray="2 2"
-      class="text-muted-foreground"
+      class="text-muted-foreground pointer-events-none"
+      stroke-width="1"
+    />
+  {/if}
+
+  <!-- Vertical solid indicator line for selected bar -->
+  {#if selectedBar}
+    <line
+      x1={selectedBar.x + BAR_WIDTH / 2}
+      y1={height - 2}
+      x2={selectedBar.x + BAR_WIDTH / 2}
+      y2={2}
+      stroke="currentColor"
+      class="text-muted-foreground pointer-events-none"
       stroke-width="1"
     />
   {/if}

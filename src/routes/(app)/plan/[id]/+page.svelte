@@ -52,6 +52,18 @@
   let hoveredYear = $state<number | undefined>(undefined)
   let hoverPosition = $state<HoverPosition | undefined>(undefined)
   let chartContainerRef: HTMLDivElement | undefined = $state()
+  let pageContainerRef: HTMLDivElement | undefined = $state()
+  let chartContainerHeight = $state(284) // Default fallback
+
+  // Track chart container height with ResizeObserver
+  $effect(() => {
+    if (!chartContainerRef) return
+    const observer = new ResizeObserver((entries) => {
+      chartContainerHeight = entries[0].contentRect.height
+    })
+    observer.observe(chartContainerRef)
+    return () => observer.disconnect()
+  })
 
   // Clamp selected year to valid range when portfolio changes
   $effect(() => {
@@ -202,10 +214,10 @@
     return chartData.find((d) => d.year === hoveredYear)
   })
 
-  // Calculate tooltip position relative to the chart container
+  // Calculate tooltip position relative to the page container (allows tooltip to overlay sidebars)
   const tooltipPosition = $derived.by(() => {
-    if (!hoverPosition || !chartContainerRef) return undefined
-    const containerRect = chartContainerRef.getBoundingClientRect()
+    if (!hoverPosition || !pageContainerRef) return undefined
+    const containerRect = pageContainerRef.getBoundingClientRect()
     const left = hoverPosition.x - containerRect.left
     const top = hoverPosition.y - containerRect.top
     const isRightSide = left > containerRect.width / 2
@@ -239,7 +251,7 @@
 </script>
 
 {#if plan}
-  <div class="flex flex-1 overflow-hidden">
+  <div bind:this={pageContainerRef} class="relative flex flex-1 overflow-hidden">
     <!-- Left Panel: Cash flows / Assets -->
     <div class="flex w-[256px] shrink-0 flex-col gap-2 bg-sidebar p-2">
       <!-- Pill Tabs -->
@@ -329,44 +341,20 @@
       <!-- Chart -->
       <div
         bind:this={chartContainerRef}
-        class="relative flex flex-1 items-end justify-center overflow-x-auto px-4"
+        class="relative flex flex-1 items-stretch justify-center overflow-x-auto px-4"
       >
         {#if chartData.length > 0}
           <StackedBarChart
             data={chartData}
             {selectedYear}
             {hoveredYear}
-            height={284}
+            height={chartContainerHeight}
             ariaLabel={$_('page.plan.chartAriaLabel')}
             onYearClick={handleYearClick}
             onYearHover={handleYearHover}
           />
         {:else}
           <p class="text-muted-foreground">{$_('page.plan.chartPlaceholder')}</p>
-        {/if}
-
-        <!-- Hover tooltip -->
-        {#if hoveredData && tooltipPosition}
-          <div
-            class="pointer-events-none absolute z-50 w-[320px] rounded-lg border bg-popover p-2.5 text-popover-foreground shadow-md"
-            style="left: {tooltipPosition.left}px; top: {tooltipPosition.top}px; transform: {tooltipPosition.isRightSide
-              ? 'translate(-100%, -100%) translateY(-16px)'
-              : 'translateY(-100%) translateY(-16px)'};"
-          >
-            <ChartTooltipContent
-              year={hoveredData.year}
-              age={hoveredAge}
-              netWorth={hoveredData.cash +
-                hoveredData.investments +
-                hoveredData.tangibleAssets -
-                hoveredData.liabilities}
-              cash={hoveredData.cash}
-              investments={hoveredData.investments}
-              tangibleAssets={hoveredData.tangibleAssets}
-              liabilities={hoveredData.liabilities}
-              formatCurrency={appStore.formatCurrencyCode}
-            />
-          </div>
         {/if}
       </div>
 
@@ -466,6 +454,30 @@
             {/each}
           </div>
         </div>
+      </div>
+    {/if}
+
+    <!-- Hover tooltip - at page level to allow overlaying sidebars -->
+    {#if hoveredData && tooltipPosition}
+      <div
+        class="pointer-events-none absolute z-50 w-[320px] rounded-lg border bg-popover p-2.5 text-popover-foreground shadow-md"
+        style="left: {tooltipPosition.left}px; top: {tooltipPosition.top}px; transform: {tooltipPosition.isRightSide
+          ? 'translate(-100%, 0) translateY(8px)'
+          : 'translateY(8px)'};"
+      >
+        <ChartTooltipContent
+          year={hoveredData.year}
+          age={hoveredAge}
+          netWorth={hoveredData.cash +
+            hoveredData.investments +
+            hoveredData.tangibleAssets -
+            hoveredData.liabilities}
+          cash={hoveredData.cash}
+          investments={hoveredData.investments}
+          tangibleAssets={hoveredData.tangibleAssets}
+          liabilities={hoveredData.liabilities}
+          formatCurrency={appStore.formatCurrencyCode}
+        />
       </div>
     {/if}
   </div>
