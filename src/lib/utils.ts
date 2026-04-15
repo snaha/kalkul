@@ -15,6 +15,13 @@ export type WithoutChildrenOrChild<T> = T extends { children?: infer _C; child?:
 
 export const DEFAULT_CURRENCY = 'EUR'
 
+export const CURRENCY_OPTIONS = [
+  { value: 'EUR', label: 'EUR' },
+  { value: 'CZK', label: 'CZK' },
+  { value: 'HUF', label: 'HUF' },
+  { value: 'USD', label: 'USD' },
+] as const
+
 /** Maps profile country codes to BCP 47 locale tags for number/currency formatting. */
 const COUNTRY_LOCALE_MAP: Record<string, string> = {
   CZ: 'cs-CZ',

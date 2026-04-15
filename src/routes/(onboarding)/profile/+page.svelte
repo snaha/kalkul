@@ -12,7 +12,12 @@
   import * as Select from '$lib/components/ui/select'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
-  import { DEFAULT_CURRENCY, getBirthYearOptions, getMonthOptions } from '$lib/utils'
+  import {
+    CURRENCY_OPTIONS,
+    DEFAULT_CURRENCY,
+    getBirthYearOptions,
+    getMonthOptions,
+  } from '$lib/utils'
 
   let name = $state('')
   let birthYear = $state('')
@@ -53,13 +58,6 @@
     { value: 'FR', label: $_('common.countries.france') },
     { value: 'other', label: $_('common.countries.other') },
   ])
-
-  const currencies = [
-    { value: 'EUR', label: 'EUR' },
-    { value: 'CZK', label: 'CZK' },
-    { value: 'HUF', label: 'HUF' },
-    { value: 'USD', label: 'USD' },
-  ]
 
   let userChangedCurrency = $state(false)
 
@@ -172,13 +170,13 @@
         >
           <Select.Trigger class="w-full">
             {#if currency}
-              {currencies.find((c) => c.value === currency)?.label}
+              {CURRENCY_OPTIONS.find((c) => c.value === currency)?.label}
             {:else}
               <span class="text-muted-foreground">{DEFAULT_CURRENCY}</span>
             {/if}
           </Select.Trigger>
           <Select.Content>
-            {#each currencies as cur (cur.value)}
+            {#each CURRENCY_OPTIONS as cur (cur.value)}
               <Select.Item value={cur.value} label={cur.label} />
             {/each}
           </Select.Content>

@@ -5,6 +5,7 @@
 
   import { goto } from '$app/navigation'
 
+  import { formatDate } from '$lib/@snaha/kalkul-maths'
   import { getNextAddPlanStepUrl, getPrevAddPlanStepUrl } from '$lib/add-plan-steps'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
@@ -15,7 +16,7 @@
   import routes from '$lib/routes'
   import type { PlanEndType, PlanStartType } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
-  import { DEFAULT_CURRENCY, getMonthOptions, getYearOptions } from '$lib/utils'
+  import { CURRENCY_OPTIONS, DEFAULT_CURRENCY, getMonthOptions, getYearOptions } from '$lib/utils'
 
   // Generate a default plan name based on existing portfolios
   function getDefaultPlanName(): string {
@@ -38,20 +39,13 @@
   const years = getYearOptions()
   const months = $derived(getMonthOptions($locale ?? undefined))
 
-  const currencies = [
-    { value: 'EUR', label: 'EUR' },
-    { value: 'CZK', label: 'CZK' },
-    { value: 'HUF', label: 'HUF' },
-    { value: 'USD', label: 'USD' },
-  ]
-
   // Calculate date from start of current month
   function getStartDate(): string {
     if (startType === 'now') {
       const now = new Date()
-      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+      return formatDate(new Date(now.getFullYear(), now.getMonth(), 1))
     }
-    return `${startYear}-${String(Number(startMonth) + 1).padStart(2, '0')}-01`
+    return formatDate(new Date(Number(startYear), Number(startMonth), 1))
   }
 
   // Calculate end date based on age or specific date
@@ -59,22 +53,24 @@
     if (endType === 'when_age_is' && endAge !== undefined) {
       const birthDate = appStore.profile.birthDate
       if (birthDate) {
-        const endYear = birthDate.getFullYear() + endAge
-        const endMonth = birthDate.getMonth() + 1
-        return `${endYear}-${String(endMonth).padStart(2, '0')}-01`
+        return formatDate(new Date(birthDate.getFullYear() + endAge, birthDate.getMonth(), 1))
       }
       // Fallback: use start year + age
       const startYearNum = startType === 'now' ? new Date().getFullYear() : Number(startYear)
-      return `${startYearNum + endAge}-01-01`
+      return formatDate(new Date(startYearNum + endAge, 0, 1))
     }
     if (endYear && endMonth !== '') {
-      return `${endYear}-${String(Number(endMonth) + 1).padStart(2, '0')}-01`
+      return formatDate(new Date(Number(endYear), Number(endMonth), 1))
     }
-    // Fallback
-    return `${new Date().getFullYear() + 30}-01-01`
+    // Fallback (unreachable due to canContinue validation)
+    return formatDate(new Date(new Date().getFullYear() + 30, 0, 1))
   }
 
-  let canContinue = $derived(name.trim().length > 0 && inflation !== undefined)
+  let canContinue = $derived(
+    name.trim().length > 0 &&
+      inflation !== undefined &&
+      (endType === 'when_age_is' || (endYear !== '' && endMonth !== '')),
+  )
 
   function handleBack() {
     // URL is already resolved by getPrevAddPlanStepUrl
@@ -225,10 +221,10 @@
         <Label>{$_('page.addPlan.details.currency')}</Label>
         <Select.Root type="single" bind:value={currency}>
           <Select.Trigger class="w-full">
-            {currencies.find((c) => c.value === currency)?.label ?? currency}
+            {CURRENCY_OPTIONS.find((c) => c.value === currency)?.label ?? currency}
           </Select.Trigger>
           <Select.Content>
-            {#each currencies as cur (cur.value)}
+            {#each CURRENCY_OPTIONS as cur (cur.value)}
               <Select.Item value={cur.value} label={cur.label} />
             {/each}
           </Select.Content>
