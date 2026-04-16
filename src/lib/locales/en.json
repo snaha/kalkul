@@ -54,6 +54,7 @@
       "expenses": "Expenses",
       "stackedNetWorth": "Stacked net worth",
       "chartPlaceholder": "Chart will be displayed here",
+      "chartAriaLabel": "Stacked bar chart showing net worth breakdown by year",
       "comparePlan": "Compare plan",
       "age": "Age {age}",
       "netWorth": "Net worth",

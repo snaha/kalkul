@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte'
   import { _ } from 'svelte-i18n'
 
   import {
@@ -16,6 +17,11 @@
   import { page } from '$app/state'
 
   import { CATEGORY_COLORS } from '$lib/chart-colors'
+  import ChartTooltipContent from '$lib/components/chart-tooltip-content.svelte'
+  import StackedBarChart, {
+    type BarData,
+    type HoverPosition,
+  } from '$lib/components/stacked-bar-chart.svelte'
   import { Badge } from '$lib/components/ui/badge'
   import { Button } from '$lib/components/ui/button'
   import {
@@ -44,6 +50,45 @@
   let searchQuery = $state('')
   let selectedYear = $state(new Date().getFullYear())
   let isPanelOpen = $state(true)
+  let isLeftPanelOpen = $state(true)
+  let hoveredYear = $state<number | undefined>(undefined)
+  let hoverPosition = $state<HoverPosition | undefined>(undefined)
+  let chartContainerRef: HTMLDivElement | undefined = $state()
+  let pageContainerRef: HTMLDivElement | undefined = $state()
+  let chartContainerHeight = $state(0)
+  let chartContainerWidth = $state(0)
+
+  // Measure chart container dimensions
+  function measureChartDimensions() {
+    if (chartContainerRef) {
+      chartContainerHeight = chartContainerRef.clientHeight
+      chartContainerWidth = chartContainerRef.clientWidth
+    }
+  }
+
+  // Measure on mount and when sidebar toggles
+  $effect(() => {
+    if (!chartContainerRef) return
+
+    // Track sidebar state to trigger remeasure
+    const _sidebarOpen = isPanelOpen
+    const _leftSidebarOpen = isLeftPanelOpen
+
+    // Wait for layout to settle, then measure
+    tick().then(() => {
+      requestAnimationFrame(measureChartDimensions)
+    })
+  })
+
+  // Measure on window resize
+  $effect(() => {
+    const handleResize = () => {
+      requestAnimationFrame(measureChartDimensions)
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  })
 
   // Clamp selected year to valid range when portfolio changes
   $effect(() => {
@@ -180,86 +225,139 @@
     const birthYear = new Date(appStore.profile.birth_date).getFullYear()
     return selectedYear - birthYear
   })
+
+  // Calculate age for hovered year
+  const hoveredAge = $derived.by(() => {
+    if (!appStore.profile.birth_date || hoveredYear === undefined) return undefined
+    const birthYear = new Date(appStore.profile.birth_date).getFullYear()
+    return hoveredYear - birthYear
+  })
+
+  // Get data for hovered year
+  const hoveredData = $derived.by(() => {
+    if (hoveredYear === undefined) return undefined
+    return chartData.find((d) => d.year === hoveredYear)
+  })
+
+  // Calculate tooltip position relative to the page container (allows tooltip to overlay sidebars)
+  const tooltipPosition = $derived.by(() => {
+    if (!hoverPosition || !pageContainerRef) return undefined
+    const containerRect = pageContainerRef.getBoundingClientRect()
+    const left = hoverPosition.x - containerRect.left
+    const top = hoverPosition.y - containerRect.top
+    const isRightSide = left > containerRect.width / 2
+    return { left, top, isRightSide }
+  })
+
+  // Generate chart data for all years in the portfolio range
+  // Currently uses static values - future enhancement will integrate with getGraphDataForPortfolio()
+  const chartData = $derived.by((): BarData[] => {
+    const years: BarData[] = []
+    for (let year = startYear; year <= endYear; year++) {
+      years.push({
+        year,
+        cash: cashValue,
+        investments: investmentsValue,
+        tangibleAssets: tangibleAssetsValue,
+        liabilities: liabilitiesValue,
+      })
+    }
+    return years
+  })
+
+  function handleYearClick(year: number) {
+    selectedYear = year
+    isPanelOpen = true
+  }
+
+  function handleYearHover(year: number | undefined, position?: HoverPosition) {
+    hoveredYear = year
+    hoverPosition = position
+  }
 </script>
 
 {#if plan}
-  <div class="flex flex-1 overflow-hidden">
+  <div bind:this={pageContainerRef} class="relative flex flex-1 overflow-hidden">
     <!-- Left Panel: Cash flows / Assets -->
-    <div class="flex w-[256px] shrink-0 flex-col gap-2 bg-sidebar p-2">
-      <!-- Pill Tabs -->
-      <div class="p-2">
-        <div class="flex h-8 rounded-lg bg-muted p-[3px]">
-          <button
-            class={cn(
-              'flex-1 rounded-md text-sm font-medium transition-all',
-              activeTab === 'cashflows'
-                ? 'bg-background shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-            onclick={() => (activeTab = 'cashflows')}
-          >
-            {$_('page.plan.cashFlows')}
-          </button>
-          <button
-            class={cn(
-              'flex-1 rounded-md text-sm font-medium transition-all',
-              activeTab === 'assets'
-                ? 'bg-background shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-            onclick={() => (activeTab = 'assets')}
-          >
-            {$_('page.plan.assets')}
-          </button>
+    {#if isLeftPanelOpen}
+      <div class="flex w-[256px] shrink-0 flex-col gap-2 bg-sidebar p-2">
+        <!-- Pill Tabs -->
+        <div class="p-2">
+          <div class="flex h-8 rounded-lg bg-muted p-[3px]">
+            <button
+              class={cn(
+                'flex-1 rounded-md text-sm font-medium transition-all',
+                activeTab === 'cashflows'
+                  ? 'bg-background shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+              onclick={() => (activeTab = 'cashflows')}
+            >
+              {$_('page.plan.cashFlows')}
+            </button>
+            <button
+              class={cn(
+                'flex-1 rounded-md text-sm font-medium transition-all',
+                activeTab === 'assets'
+                  ? 'bg-background shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+              onclick={() => (activeTab = 'assets')}
+            >
+              {$_('page.plan.assets')}
+            </button>
+          </div>
+        </div>
+
+        <!-- Search -->
+        <div class="p-2">
+          <div class="relative">
+            <Search
+              class="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            />
+            <Input
+              placeholder={activeTab === 'cashflows'
+                ? $_('page.plan.searchCashFlows')
+                : $_('page.plan.searchAssets')}
+              class="h-8 pl-8"
+              bind:value={searchQuery}
+            />
+          </div>
+        </div>
+
+        <!-- Category rows -->
+        <div class="flex flex-1 flex-col overflow-y-auto">
+          {#each categories as category (category.id)}
+            <button
+              class="flex h-8 w-full items-center justify-between rounded-md px-2 hover:bg-accent"
+            >
+              <div class="flex items-center gap-1">
+                <span class="text-sm font-medium">{category.label}</span>
+                {#if category.count > 0}
+                  <Badge variant="outline">{category.count}</Badge>
+                {/if}
+              </div>
+              <ChevronRight class="size-4 text-muted-foreground" />
+            </button>
+          {/each}
+        </div>
+
+        <!-- Add button footer -->
+        <div class="shrink-0 p-4">
+          <Button class="w-full" onclick={notImplemented}>
+            <Plus class="size-4" />
+            {activeTab === 'cashflows' ? $_('page.plan.addCashFlow') : $_('page.plan.addAsset')}
+          </Button>
         </div>
       </div>
-
-      <!-- Search -->
-      <div class="p-2">
-        <div class="relative">
-          <Search class="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder={activeTab === 'cashflows'
-              ? $_('page.plan.searchCashFlows')
-              : $_('page.plan.searchAssets')}
-            class="h-8 pl-8"
-            bind:value={searchQuery}
-          />
-        </div>
-      </div>
-
-      <!-- Category rows -->
-      <div class="flex flex-1 flex-col overflow-y-auto">
-        {#each categories as category (category.id)}
-          <button
-            class="flex h-8 w-full items-center justify-between rounded-md px-2 hover:bg-accent"
-          >
-            <div class="flex items-center gap-1">
-              <span class="text-sm font-medium">{category.label}</span>
-              {#if category.count > 0}
-                <Badge variant="outline">{category.count}</Badge>
-              {/if}
-            </div>
-            <ChevronRight class="size-4 text-muted-foreground" />
-          </button>
-        {/each}
-      </div>
-
-      <!-- Add button footer -->
-      <div class="shrink-0 p-4">
-        <Button class="w-full" onclick={notImplemented}>
-          <Plus class="size-4" />
-          {activeTab === 'cashflows' ? $_('page.plan.addCashFlow') : $_('page.plan.addAsset')}
-        </Button>
-      </div>
-    </div>
+    {/if}
 
     <!-- Center Panel: Chart area (placeholder) -->
-    <div class="flex flex-1 flex-col overflow-hidden border-l">
+    <div class="flex min-h-0 flex-1 flex-col overflow-hidden border-l">
       <!-- Header with icons -->
       <div class="flex items-center justify-between px-4 py-4">
         <div class="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onclick={notImplemented}>
+          <Button variant="ghost" size="icon" onclick={() => (isLeftPanelOpen = !isLeftPanelOpen)}>
             <PanelLeft class="size-4" />
           </Button>
           <Separator orientation="vertical" class="!h-8" />
@@ -270,9 +368,26 @@
         </Button>
       </div>
 
-      <!-- Chart placeholder -->
-      <div class="flex flex-1 items-center justify-center">
-        <p class="text-muted-foreground">{$_('page.plan.chartPlaceholder')}</p>
+      <!-- Chart -->
+      <div
+        bind:this={chartContainerRef}
+        class="relative flex min-h-0 flex-1 items-stretch justify-center overflow-x-auto px-4"
+      >
+        {#if chartData.length > 0 && chartContainerHeight > 0 && chartContainerWidth > 0}
+          <StackedBarChart
+            data={chartData}
+            {selectedYear}
+            {hoveredYear}
+            height={chartContainerHeight}
+            width={chartContainerWidth}
+            ariaLabel={$_('page.plan.chartAriaLabel')}
+            onYearClick={handleYearClick}
+            onYearHover={handleYearHover}
+            showSelectedIndicator={isPanelOpen}
+          />
+        {:else}
+          <p class="text-muted-foreground">{$_('page.plan.chartPlaceholder')}</p>
+        {/if}
       </div>
 
       <!-- Legend -->
@@ -371,6 +486,30 @@
             {/each}
           </div>
         </div>
+      </div>
+    {/if}
+
+    <!-- Hover tooltip - at page level to allow overlaying sidebars -->
+    {#if hoveredData && tooltipPosition}
+      <div
+        class="pointer-events-none absolute z-50 w-[320px] rounded-lg border bg-popover p-2.5 text-popover-foreground shadow-md"
+        style="left: {tooltipPosition.left}px; top: {tooltipPosition.top}px; transform: {tooltipPosition.isRightSide
+          ? 'translate(-100%, 0) translateY(8px)'
+          : 'translateY(8px)'};"
+      >
+        <ChartTooltipContent
+          year={hoveredData.year}
+          age={hoveredAge}
+          netWorth={hoveredData.cash +
+            hoveredData.investments +
+            hoveredData.tangibleAssets -
+            hoveredData.liabilities}
+          cash={hoveredData.cash}
+          investments={hoveredData.investments}
+          tangibleAssets={hoveredData.tangibleAssets}
+          liabilities={hoveredData.liabilities}
+          formatCurrency={appStore.formatCurrencyCode}
+        />
       </div>
     {/if}
   </div>
