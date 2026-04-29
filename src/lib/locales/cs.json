@@ -124,8 +124,7 @@
         "netWorth": "Čisté jmění"
       },
       "cash": {
-        "title": "Hotovost",
-        "description": "Celková částka okamžitě dostupných prostředků na všech účtech."
+        "title": "Hotovost"
       },
       "investments": {
         "title": "Investice",

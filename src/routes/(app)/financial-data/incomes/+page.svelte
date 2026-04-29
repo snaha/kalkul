@@ -1,7 +1,13 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
+  import { Plus } from '@lucide/svelte'
+
+  import { resolve } from '$app/paths'
+
   import ReadOnlyCashFlowRow from '$lib/components/read-only-cash-flow-row.svelte'
+  import { Button } from '$lib/components/ui/button'
+  import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
 
   const incomes = $derived(appStore.profile.incomes ?? [])
@@ -51,3 +57,8 @@
     {/each}
   </div>
 {/if}
+
+<Button variant="secondary" size="sm" href={resolve(routes.FINANCES_EDIT_INCOME)}>
+  <Plus class="size-4" />
+  {$_('page.setup.income.addIncome')}
+</Button>

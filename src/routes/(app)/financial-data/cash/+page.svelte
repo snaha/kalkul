@@ -3,6 +3,8 @@
 
   import { CATEGORY_COLORS } from '$lib/chart-colors'
   import DonutChart from '$lib/components/donut-chart.svelte'
+  import SuffixedInput from '$lib/components/suffixed-input.svelte'
+  import { Label } from '$lib/components/ui/label'
   import { getCashTotal } from '$lib/financial-totals'
   import { appStore } from '$lib/stores/app.svelte'
 
@@ -20,6 +22,10 @@
     const dd = String(d.getDate()).padStart(2, '0')
     return `${yyyy}-${mm}-${dd}`
   })
+
+  function handleCashChange(value: number | undefined) {
+    appStore.updateProfile({ cash_amount: value })
+  }
 </script>
 
 <div class="flex w-full flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-8">
@@ -33,6 +39,17 @@
   </div>
 </div>
 
-<p class="text-sm leading-5 text-muted-foreground">
-  {$_('page.financialData.cash.description')}
-</p>
+<div class="flex w-full flex-col items-start gap-2">
+  <Label for="cash-amount">{$_('page.setup.finances.cashLabel')}</Label>
+  <SuffixedInput
+    id="cash-amount"
+    value={appStore.profile.cash_amount}
+    suffix={appStore.profile.currencyOrDefault}
+    formatNumber={appStore.formatNumber}
+    onValueChange={handleCashChange}
+    class="w-full"
+  />
+  <p class="text-sm leading-5 text-muted-foreground">
+    {$_('page.setup.finances.cashDescription')}
+  </p>
+</div>

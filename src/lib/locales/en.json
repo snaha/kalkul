@@ -124,8 +124,7 @@
         "netWorth": "Net worth"
       },
       "cash": {
-        "title": "Cash",
-        "description": "Total amount of immediately available funds across all accounts."
+        "title": "Cash"
       },
       "investments": {
         "title": "Investments",

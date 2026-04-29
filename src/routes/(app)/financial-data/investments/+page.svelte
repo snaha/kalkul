@@ -1,10 +1,16 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
+  import { Plus } from '@lucide/svelte'
+
+  import { resolve } from '$app/paths'
+
   import { CATEGORY_COLORS } from '$lib/chart-colors'
   import DonutChart from '$lib/components/donut-chart.svelte'
   import ReadOnlyItemCard from '$lib/components/read-only-item-card.svelte'
+  import { Button } from '$lib/components/ui/button'
   import { getInvestmentsTotal } from '$lib/financial-totals'
+  import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
 
   const investments = $derived(appStore.profile.investments ?? [])
@@ -60,3 +66,8 @@
     {/each}
   </div>
 {/if}
+
+<Button variant="secondary" size="sm" href={resolve(routes.FINANCES_EDIT_INVESTMENTS)}>
+  <Plus class="size-4" />
+  {$_('page.setup.investments.addInvestment')}
+</Button>
