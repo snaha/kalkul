@@ -104,6 +104,62 @@
         "noNotes": "No description"
       }
     },
+    "financialData": {
+      "title": "Financial data",
+      "update": "Update",
+      "nav": {
+        "overview": "Overview",
+        "cash": "Cash",
+        "investments": "Investments",
+        "tangibleAssets": "Tangible assets",
+        "liabilities": "Liabilities",
+        "incomes": "Incomes",
+        "expenses": "Expenses"
+      },
+      "overview": {
+        "netWorthLabel": "Current net worth",
+        "updateButton": "Update financial data",
+        "lastUpdated": "Last updated {date}",
+        "totalAssets": "Total assets",
+        "netWorth": "Net worth"
+      },
+      "cash": {
+        "title": "Cash",
+        "description": "Total amount of immediately available funds across all accounts."
+      },
+      "investments": {
+        "title": "Investments",
+        "description": "Investment accounts holding securities like stocks, bonds, etc.",
+        "empty": "No investments added."
+      },
+      "tangibleAssets": {
+        "title": "Tangible assets",
+        "description": "Real estate, vehicles, and other real assets you own.",
+        "empty": "No tangible assets added."
+      },
+      "liabilities": {
+        "title": "Liabilities",
+        "description": "Financial obligations not linked to a specific asset.",
+        "empty": "No liabilities added."
+      },
+      "incomes": {
+        "title": "Incomes",
+        "description": "Salary, business income, and other regular earnings.",
+        "empty": "No incomes added."
+      },
+      "expenses": {
+        "title": "Expenses",
+        "description": "Living costs, recurring bills, and regular financial commitments.",
+        "empty": "No expenses added."
+      },
+      "frequency": {
+        "short": {
+          "monthly": "m",
+          "yearly": "y",
+          "weekly": "w"
+        }
+      }
+    },
     "setup": {
       "title": "Initial setup",
       "continue": "Continue",

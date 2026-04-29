@@ -9,75 +9,21 @@
   import financesIllustration from '$lib/assets/finances-illustration.svg'
   import heroIllustration from '$lib/assets/hero-illustration.svg'
   import plansIllustration from '$lib/assets/plans-illustration.svg'
-  import { CATEGORY_COLORS } from '$lib/chart-colors'
   import DonutChart from '$lib/components/donut-chart.svelte'
   import { Badge } from '$lib/components/ui/badge'
   import { Button } from '$lib/components/ui/button'
   import { Separator } from '$lib/components/ui/separator'
+  import { getNetWorth, getOverviewSegments, hasAnyFinancialData } from '$lib/financial-totals'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
-  import { notImplemented } from '$lib/utils'
 
   const addPlanUrl = $derived(getFirstAddPlanStepUrl(appStore.profile))
 
   const hasData = $derived(!appStore.loading && !!appStore.profile.name)
-  const hasFinancialData = $derived.by(() => {
-    if (!hasData) return false
-    if ((appStore.profile.cash_amount ?? 0) > 0) return true
-    if ((appStore.profile.investments ?? []).some((i) => i.balance > 0)) return true
-    if ((appStore.profile.tangible_assets ?? []).some((a) => a.value > 0)) return true
-    if ((appStore.profile.liabilities ?? []).some((l) => l.outstanding_balance > 0)) return true
-    return false
-  })
+  const hasFinancialData = $derived(hasData && hasAnyFinancialData(appStore.profile))
 
-  const chartSegments = $derived.by(() => {
-    const segments: { label: string; value: number; color: string }[] = []
-    const cash = appStore.profile.cash_amount ?? 0
-    if (cash > 0) {
-      segments.push({ label: 'cash', value: cash, color: CATEGORY_COLORS.cash })
-    }
-    const investmentsTotal = (appStore.profile.investments ?? []).reduce(
-      (sum, i) => sum + i.balance,
-      0,
-    )
-    if (investmentsTotal > 0) {
-      segments.push({
-        label: 'investments',
-        value: investmentsTotal,
-        color: CATEGORY_COLORS.investments[0],
-      })
-    }
-    const tangibleTotal = (appStore.profile.tangible_assets ?? []).reduce(
-      (sum, a) => sum + a.value,
-      0,
-    )
-    if (tangibleTotal > 0) {
-      segments.push({
-        label: 'tangible-assets',
-        value: tangibleTotal,
-        color: CATEGORY_COLORS.tangibleAssets[0],
-      })
-    }
-    const liabilitiesTotal = (appStore.profile.liabilities ?? []).reduce(
-      (sum, l) => sum + l.outstanding_balance,
-      0,
-    )
-    if (liabilitiesTotal > 0) {
-      segments.push({
-        label: 'liabilities',
-        value: liabilitiesTotal,
-        color: CATEGORY_COLORS.liabilities[0],
-      })
-    }
-    return segments
-  })
-
-  const totalNetWorth = $derived(
-    chartSegments.reduce(
-      (sum, s) => (s.label === 'liabilities' ? sum - s.value : sum + s.value),
-      0,
-    ),
-  )
+  const chartSegments = $derived(getOverviewSegments(appStore.profile))
+  const totalNetWorth = $derived(getNetWorth(appStore.profile))
 </script>
 
 {#if hasData}
@@ -101,7 +47,7 @@
             <SquarePen class="size-4" />
             {$_('page.dashboard.finances.update')}
           </Button>
-          <Button variant="ghost" size="icon" onclick={notImplemented}>
+          <Button variant="ghost" size="icon" href={resolve(routes.FINANCIAL_DATA)}>
             <ArrowRight class="size-4" />
           </Button>
         {:else}
@@ -140,7 +86,7 @@
             <Button variant="ghost" size="sm" href={resolve(routes.FINANCES_EDIT)}>
               {$_('page.dashboard.finances.update')}
             </Button>
-            <Button variant="secondary" size="sm" onclick={notImplemented}>
+            <Button variant="secondary" size="sm" href={resolve(routes.FINANCIAL_DATA)}>
               {$_('page.dashboard.finances.viewAll')}
             </Button>
           </div>
