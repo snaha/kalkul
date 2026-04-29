@@ -31,7 +31,7 @@
 </script>
 
 <div class="flex w-full flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-8">
-  <DonutChart {segments} centerLabel="" size={160} />
+  <DonutChart {segments} centerLabel="" size={160} variant="pie" />
   <div class="flex flex-1 flex-col items-start gap-2">
     <p class="text-lg leading-7 font-medium">{$_('page.financialData.liabilities.title')}</p>
     <p class="text-3xl leading-9 font-bold text-destructive">
