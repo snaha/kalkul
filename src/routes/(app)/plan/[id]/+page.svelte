@@ -32,6 +32,7 @@
   import { Input } from '$lib/components/ui/input'
   import { Separator } from '$lib/components/ui/separator'
   import { Slider } from '$lib/components/ui/slider'
+  import { getYearlyPlanProjection } from '$lib/plan-projection'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
   import { cn, notImplemented } from '$lib/utils'
@@ -105,21 +106,16 @@
   const tangibleAssetsCount = $derived((appStore.profile.tangible_assets ?? []).length)
   const liabilitiesCount = $derived((appStore.profile.liabilities ?? []).length)
 
-  // Breakdown values from profile data
-  const cashValue = $derived(appStore.profile.cash_amount ?? 0)
-  const investmentsValue = $derived(
-    (appStore.profile.investments ?? []).reduce((sum, inv) => sum + (inv.balance ?? 0), 0),
-  )
-  const tangibleAssetsValue = $derived(
-    (appStore.profile.tangible_assets ?? []).reduce((sum, asset) => sum + (asset.value ?? 0), 0),
-  )
-  const liabilitiesValue = $derived(
-    (appStore.profile.liabilities ?? []).reduce(
-      (sum, liability) => sum + (liability.outstanding_balance ?? 0),
-      0,
-    ),
-  )
-  const netWorth = $derived(cashValue + investmentsValue + tangibleAssetsValue - liabilitiesValue)
+  // Yearly projection (real / inflation-adjusted values)
+  const projection = $derived(plan ? getYearlyPlanProjection(plan, appStore.profile) : [])
+  const selectedYearProjection = $derived(projection.find((p) => p.year === selectedYear))
+
+  // Breakdown values for the selected year (real terms)
+  const cashValue = $derived(selectedYearProjection?.cash ?? 0)
+  const investmentsValue = $derived(selectedYearProjection?.investments ?? 0)
+  const tangibleAssetsValue = $derived(selectedYearProjection?.tangibleAssets ?? 0)
+  const liabilitiesValue = $derived(selectedYearProjection?.liabilities ?? 0)
+  const netWorth = $derived(selectedYearProjection?.netWorth ?? 0)
 
   // Category data for UI
   const cashFlowCategories = $derived([
@@ -249,21 +245,16 @@
     return { left, top, isRightSide }
   })
 
-  // Generate chart data for all years in the portfolio range
-  // Currently uses static values - future enhancement will integrate with getGraphDataForPortfolio()
-  const chartData = $derived.by((): BarData[] => {
-    const years: BarData[] = []
-    for (let year = startYear; year <= endYear; year++) {
-      years.push({
-        year,
-        cash: cashValue,
-        investments: investmentsValue,
-        tangibleAssets: tangibleAssetsValue,
-        liabilities: liabilitiesValue,
-      })
-    }
-    return years
-  })
+  // Chart data derived from the yearly projection (real / inflation-adjusted values)
+  const chartData = $derived<BarData[]>(
+    projection.map((p) => ({
+      year: p.year,
+      cash: p.cash,
+      investments: p.investments,
+      tangibleAssets: p.tangibleAssets,
+      liabilities: p.liabilities,
+    })),
+  )
 
   function handleYearClick(year: number) {
     selectedYear = year
@@ -361,7 +352,10 @@
             <PanelLeft class="size-4" />
           </Button>
           <Separator orientation="vertical" class="!h-8" />
-          <h2 class="text-xl font-bold">{$_('page.plan.stackedNetWorth')}</h2>
+          <div class="flex flex-col">
+            <h2 class="text-xl font-bold">{$_('page.plan.stackedNetWorth')}</h2>
+            <p class="text-xs text-muted-foreground">{$_('page.plan.realValuesNote')}</p>
+          </div>
         </div>
         <Button variant="ghost" size="icon" onclick={notImplemented}>
           <Settings2 class="size-4" />

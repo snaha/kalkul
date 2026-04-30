@@ -68,7 +68,8 @@
       "tangibleAssetsValue": "Tangible assets value",
       "liabilitiesBalance": "Liabilities balance",
       "addCashFlow": "Add cash flow",
-      "addAsset": "Add asset"
+      "addAsset": "Add asset",
+      "realValuesNote": "Values shown in today's purchasing power (inflation-adjusted)"
     },
     "home": {
       "heroTitle": "See where your money could take you",
