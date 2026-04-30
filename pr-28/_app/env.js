@@ -1,1 +1,0 @@
-export const env={"PUBLIC_DISCORD_LINK":"https://discord.gg/HKV8tkWrZV","PUBLIC_INSTAGRAM_LINK":"https://www.instagram.com/kalkul.app/","PUBLIC_ORIGIN":"http://localhost:5173"}
