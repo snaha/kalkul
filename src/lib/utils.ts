@@ -116,3 +116,12 @@ export function calculateAge(
   if (currentMonth < birthDate.getMonth()) age--
   return String(age)
 }
+
+/**
+ * Format a "last updated" timestamp as a locale-aware date string.
+ * Falls back to today's date when the timestamp is unset (0).
+ */
+export function formatLastUpdated(ms: number, locale: string | null | undefined): string {
+  const d = ms > 0 ? new Date(ms) : new Date()
+  return d.toLocaleDateString(locale ?? undefined)
+}

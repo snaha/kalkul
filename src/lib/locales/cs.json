@@ -104,6 +104,61 @@
         "noNotes": "Žádný popis"
       }
     },
+    "financialData": {
+      "title": "Finanční data",
+      "update": "Upravit",
+      "nav": {
+        "overview": "Přehled",
+        "cash": "Hotovost",
+        "investments": "Investice",
+        "tangibleAssets": "Hmotná aktiva",
+        "liabilities": "Závazky",
+        "incomes": "Příjmy",
+        "expenses": "Výdaje"
+      },
+      "overview": {
+        "netWorthLabel": "Aktuální čisté jmění",
+        "updateButton": "Upravit finanční data",
+        "lastUpdated": "Naposledy aktualizováno {date}",
+        "totalAssets": "Celková aktiva",
+        "netWorth": "Čisté jmění"
+      },
+      "cash": {
+        "title": "Hotovost"
+      },
+      "investments": {
+        "title": "Investice",
+        "description": "Investiční účty obsahující cenné papíry jako akcie, dluhopisy atd.",
+        "empty": "Žádné investice nebyly přidány."
+      },
+      "tangibleAssets": {
+        "title": "Hmotná aktiva",
+        "description": "Nemovitosti, vozidla a další reálná aktiva, která vlastníte.",
+        "empty": "Žádná hmotná aktiva nebyla přidána."
+      },
+      "liabilities": {
+        "title": "Závazky",
+        "description": "Finanční závazky, které nejsou vázány na konkrétní aktivum.",
+        "empty": "Žádné závazky nebyly přidány."
+      },
+      "incomes": {
+        "title": "Příjmy",
+        "description": "Mzda, příjmy z podnikání a další pravidelné výdělky.",
+        "empty": "Žádné příjmy nebyly přidány."
+      },
+      "expenses": {
+        "title": "Výdaje",
+        "description": "Životní náklady, opakující se účty a pravidelné finanční závazky.",
+        "empty": "Žádné výdaje nebyly přidány."
+      },
+      "frequency": {
+        "short": {
+          "monthly": "m",
+          "yearly": "r",
+          "weekly": "t"
+        }
+      }
+    },
     "setup": {
       "title": "Úvodní nastavení",
       "continue": "Pokračovat",
