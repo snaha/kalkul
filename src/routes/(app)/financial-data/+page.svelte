@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { _ } from 'svelte-i18n'
+  import { _, locale } from 'svelte-i18n'
 
   import { SquarePen } from '@lucide/svelte'
 
@@ -20,6 +20,7 @@
   } from '$lib/financial-totals'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
+  import { formatLastUpdated } from '$lib/utils'
 
   const segments = $derived(getOverviewSegments(appStore.profile))
   const cash = $derived(getCashTotal(appStore.profile))
@@ -29,18 +30,11 @@
   const totalAssets = $derived(getTotalAssets(appStore.profile))
   const netWorth = $derived(getNetWorth(appStore.profile))
 
-  const lastUpdatedDate = $derived.by(() => {
-    const ms = appStore.lastUpdated > 0 ? appStore.lastUpdated : Date.now()
-    const d = new Date(ms)
-    const yyyy = d.getFullYear()
-    const mm = String(d.getMonth() + 1).padStart(2, '0')
-    const dd = String(d.getDate()).padStart(2, '0')
-    return `${yyyy}-${mm}-${dd}`
-  })
+  const lastUpdatedDate = $derived(formatLastUpdated(appStore.lastUpdated, $locale))
 </script>
 
 <div class="flex w-full flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-8">
-  <DonutChart {segments} centerLabel="" size={160} variant="pie" />
+  <DonutChart {segments} size={160} variant="pie" />
   <div class="flex flex-1 flex-col items-start gap-2">
     <p class="text-lg leading-7 font-medium">
       {$_('page.financialData.overview.netWorthLabel')}
@@ -81,7 +75,7 @@
   />
   <BreakdownRow
     label={$_('page.financialData.nav.liabilities')}
-    amount={`-${appStore.formatCurrencyCode(liabilities)}`}
+    amount={appStore.formatCurrencyCode(-liabilities)}
     color={CATEGORY_COLORS.liabilities[0]}
     negative
   />

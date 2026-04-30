@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { _ } from 'svelte-i18n'
+  import { _, locale } from 'svelte-i18n'
 
   import { CATEGORY_COLORS } from '$lib/chart-colors'
   import DonutChart from '$lib/components/donut-chart.svelte'
@@ -7,6 +7,7 @@
   import { Label } from '$lib/components/ui/label'
   import { getCashTotal } from '$lib/financial-totals'
   import { appStore } from '$lib/stores/app.svelte'
+  import { formatLastUpdated } from '$lib/utils'
 
   const cash = $derived(getCashTotal(appStore.profile))
 
@@ -14,14 +15,7 @@
     cash > 0 ? [{ label: 'cash', value: cash, color: CATEGORY_COLORS.cash }] : [],
   )
 
-  const lastUpdatedDate = $derived.by(() => {
-    const ms = appStore.lastUpdated > 0 ? appStore.lastUpdated : Date.now()
-    const d = new Date(ms)
-    const yyyy = d.getFullYear()
-    const mm = String(d.getMonth() + 1).padStart(2, '0')
-    const dd = String(d.getDate()).padStart(2, '0')
-    return `${yyyy}-${mm}-${dd}`
-  })
+  const lastUpdatedDate = $derived(formatLastUpdated(appStore.lastUpdated, $locale))
 
   function handleCashChange(value: number | undefined) {
     appStore.updateProfile({ cash_amount: value })
@@ -29,7 +23,7 @@
 </script>
 
 <div class="flex w-full flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-8">
-  <DonutChart {segments} centerLabel="" size={160} variant="pie" />
+  <DonutChart {segments} size={160} variant="pie" />
   <div class="flex flex-1 flex-col items-start gap-2">
     <p class="text-lg leading-7 font-medium">{$_('page.financialData.cash.title')}</p>
     <p class="text-3xl leading-9 font-bold">{appStore.formatCurrencyCode(cash)}</p>

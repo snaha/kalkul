@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { _ } from 'svelte-i18n'
+  import { _, locale } from 'svelte-i18n'
 
   import { Plus } from '@lucide/svelte'
 
@@ -12,6 +12,7 @@
   import { getInvestmentsTotal } from '$lib/financial-totals'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
+  import { formatLastUpdated } from '$lib/utils'
 
   const investments = $derived(appStore.profile.investments ?? [])
   const total = $derived(getInvestmentsTotal(appStore.profile))
@@ -26,18 +27,11 @@
       })),
   )
 
-  const lastUpdatedDate = $derived.by(() => {
-    const ms = appStore.lastUpdated > 0 ? appStore.lastUpdated : Date.now()
-    const d = new Date(ms)
-    const yyyy = d.getFullYear()
-    const mm = String(d.getMonth() + 1).padStart(2, '0')
-    const dd = String(d.getDate()).padStart(2, '0')
-    return `${yyyy}-${mm}-${dd}`
-  })
+  const lastUpdatedDate = $derived(formatLastUpdated(appStore.lastUpdated, $locale))
 </script>
 
 <div class="flex w-full flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-8">
-  <DonutChart {segments} centerLabel="" size={160} variant="pie" />
+  <DonutChart {segments} size={160} variant="pie" />
   <div class="flex flex-1 flex-col items-start gap-2">
     <p class="text-lg leading-7 font-medium">{$_('page.financialData.investments.title')}</p>
     <p class="text-3xl leading-9 font-bold">{appStore.formatCurrencyCode(total)}</p>

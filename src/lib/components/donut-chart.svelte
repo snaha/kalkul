@@ -7,7 +7,7 @@
 
   type Props = {
     segments: Segment[]
-    centerLabel: string
+    centerLabel?: string
     centerSublabel?: string
     size?: number
     variant?: 'donut' | 'pie'

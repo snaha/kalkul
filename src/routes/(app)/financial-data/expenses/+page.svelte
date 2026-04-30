@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { _ } from 'svelte-i18n'
+  import { _, locale } from 'svelte-i18n'
 
   import { Plus } from '@lucide/svelte'
 
@@ -9,23 +9,11 @@
   import { Button } from '$lib/components/ui/button'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
+  import { formatLastUpdated } from '$lib/utils'
 
   const expenses = $derived(appStore.profile.expenses ?? [])
 
-  const lastUpdatedDate = $derived.by(() => {
-    const ms = appStore.lastUpdated > 0 ? appStore.lastUpdated : Date.now()
-    const d = new Date(ms)
-    const yyyy = d.getFullYear()
-    const mm = String(d.getMonth() + 1).padStart(2, '0')
-    const dd = String(d.getDate()).padStart(2, '0')
-    return `${yyyy}-${mm}-${dd}`
-  })
-
-  const frequencyShort = $derived({
-    monthly: $_('page.financialData.frequency.short.monthly'),
-    yearly: $_('page.financialData.frequency.short.yearly'),
-    weekly: $_('page.financialData.frequency.short.weekly'),
-  })
+  const lastUpdatedDate = $derived(formatLastUpdated(appStore.lastUpdated, $locale))
 </script>
 
 <div class="flex w-full flex-col items-start gap-2">
@@ -52,7 +40,6 @@
         frequency={expense.frequency}
         sentiment="negative"
         formatCurrency={appStore.formatCurrencyCode}
-        {frequencyShort}
       />
     {/each}
   </div>

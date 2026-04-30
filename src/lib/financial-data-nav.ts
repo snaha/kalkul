@@ -16,19 +16,19 @@ export type FinancialDataRoute =
 // overload so callers can work with a FinancialDataRoute union.
 export function resolveFinancialDataRoute(route: FinancialDataRoute): string {
   switch (route) {
-    case '/financial-data':
-      return resolve('/financial-data')
-    case '/financial-data/cash':
-      return resolve('/financial-data/cash')
-    case '/financial-data/investments':
-      return resolve('/financial-data/investments')
-    case '/financial-data/tangible-assets':
-      return resolve('/financial-data/tangible-assets')
-    case '/financial-data/liabilities':
-      return resolve('/financial-data/liabilities')
-    case '/financial-data/incomes':
-      return resolve('/financial-data/incomes')
-    case '/financial-data/expenses':
-      return resolve('/financial-data/expenses')
+    case routes.FINANCIAL_DATA:
+      return resolve(routes.FINANCIAL_DATA)
+    case routes.FINANCIAL_DATA_CASH:
+      return resolve(routes.FINANCIAL_DATA_CASH)
+    case routes.FINANCIAL_DATA_INVESTMENTS:
+      return resolve(routes.FINANCIAL_DATA_INVESTMENTS)
+    case routes.FINANCIAL_DATA_TANGIBLE_ASSETS:
+      return resolve(routes.FINANCIAL_DATA_TANGIBLE_ASSETS)
+    case routes.FINANCIAL_DATA_LIABILITIES:
+      return resolve(routes.FINANCIAL_DATA_LIABILITIES)
+    case routes.FINANCIAL_DATA_INCOMES:
+      return resolve(routes.FINANCIAL_DATA_INCOMES)
+    case routes.FINANCIAL_DATA_EXPENSES:
+      return resolve(routes.FINANCIAL_DATA_EXPENSES)
   }
 }
