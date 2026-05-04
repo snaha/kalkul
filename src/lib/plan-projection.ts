@@ -7,6 +7,7 @@ import type {
   Profile,
   ProfileInvestment,
   ProfileLiability,
+  ProfileTangibleAsset,
 } from '$lib/schemas'
 
 export interface YearlyProjection {
@@ -114,6 +115,27 @@ function simulateLiability(
   return { outstandingByYear, paidByYear }
 }
 
+function financingToLiability(asset: ProfileTangibleAsset): ProfileLiability | undefined {
+  if (
+    asset.status !== 'financed' ||
+    asset.outstanding_balance === undefined ||
+    asset.installment_frequency === undefined ||
+    asset.annual_rate === undefined ||
+    asset.installment_amount === undefined ||
+    asset.remaining_term === undefined
+  )
+    return undefined
+  return {
+    id: `tangible-asset-financing-${asset.id}`,
+    name: asset.name,
+    outstanding_balance: asset.outstanding_balance,
+    installment_frequency: asset.installment_frequency,
+    annual_rate: asset.annual_rate,
+    installment_amount: asset.installment_amount,
+    remaining_term: asset.remaining_term,
+  }
+}
+
 function filterById<T extends { id: string }>(
   items: T[] | undefined,
   includedIds: string[] | undefined,
@@ -151,7 +173,12 @@ export function getYearlyPlanProjection(
 
   const tangibleAssetsTotalNominal = tangibleAssets.reduce((sum, a) => sum + (a.value ?? 0), 0)
 
-  const liabilitySchedules = liabilities.map((l) => simulateLiability(l, startYear, endYear))
+  const tangibleAssetLiabilities = tangibleAssets
+    .map(financingToLiability)
+    .filter((l): l is ProfileLiability => l !== undefined)
+  const allLiabilities = [...liabilities, ...tangibleAssetLiabilities]
+
+  const liabilitySchedules = allLiabilities.map((l) => simulateLiability(l, startYear, endYear))
 
   const initialCashNominal = plan.include_cash === false ? 0 : (profile.cash_amount ?? 0)
 

@@ -359,6 +359,88 @@ describe('getYearlyPlanProjection', () => {
     }
   })
 
+  it('treats a financed tangible asset as a liability for net-worth purposes', () => {
+    const tangible_assets: ProfileTangibleAsset[] = [
+      {
+        id: 't1',
+        name: 'House',
+        value: 5_000_000,
+        status: 'financed',
+        outstanding_balance: 3_000_000,
+        installment_frequency: 'yearly',
+        annual_rate: 0,
+        installment_amount: 300_000,
+        remaining_term: 10,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ cash_amount: 300_000, tangible_assets }),
+    )
+    // Year 0: gross 5M asset, 300k installment paid → outstanding 2.7M, cash 0.
+    expect(result[0].tangibleAssets).toBe(5_000_000)
+    expect(result[0].liabilities).toBeCloseTo(2_700_000, 6)
+    expect(result[0].cash).toBeCloseTo(0, 6)
+    expect(result[0].netWorth).toBeCloseTo(5_000_000 - 2_700_000, 6)
+  })
+
+  it('amortizes a financed tangible asset year-by-year and draws payments from cash', () => {
+    const tangible_assets: ProfileTangibleAsset[] = [
+      {
+        id: 't1',
+        name: 'House',
+        value: 5_000_000,
+        status: 'financed',
+        outstanding_balance: 1_000,
+        installment_frequency: 'yearly',
+        annual_rate: 0,
+        installment_amount: 250,
+        remaining_term: 4,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ cash_amount: 1000, tangible_assets }),
+    )
+    expect(result[0].liabilities).toBeCloseTo(750, 6)
+    expect(result[1].liabilities).toBeCloseTo(500, 6)
+    expect(result[2].liabilities).toBeCloseTo(250, 6)
+    expect(result[3].liabilities).toBeCloseTo(0, 6)
+    expect(result[0].cash).toBeCloseTo(750, 6)
+    expect(result[3].cash).toBeCloseTo(0, 6)
+  })
+
+  it('drops a financed tangible asset (and its mortgage) when excluded via included_tangible_asset_ids', () => {
+    const tangible_assets: ProfileTangibleAsset[] = [
+      {
+        id: 't1',
+        name: 'House',
+        value: 5_000_000,
+        status: 'financed',
+        outstanding_balance: 3_000_000,
+        installment_frequency: 'yearly',
+        annual_rate: 0,
+        installment_amount: 300_000,
+        remaining_term: 10,
+      },
+    ]
+    const plan = makePlan({ included_tangible_asset_ids: [] })
+    const result = getYearlyPlanProjection(plan, makeProfile({ tangible_assets }))
+    expect(result[0].tangibleAssets).toBe(0)
+    expect(result[0].liabilities).toBe(0)
+  })
+
+  it('does not synthesize a liability for a fully-owned tangible asset', () => {
+    const tangible_assets: ProfileTangibleAsset[] = [
+      { id: 't1', name: 'House', value: 5_000_000, status: 'fully_owned' },
+    ]
+    const result = getYearlyPlanProjection(makePlan(), makeProfile({ tangible_assets }))
+    for (const entry of result) {
+      expect(entry.liabilities).toBe(0)
+      expect(entry.tangibleAssets).toBe(5_000_000)
+    }
+  })
+
   it('computes netWorth = cash + investments + tangibleAssets - liabilities', () => {
     const investments: ProfileInvestment[] = [{ id: 'i1', name: 'I', balance: 1000, apy: 0 }]
     const liabilities: ProfileLiability[] = [
