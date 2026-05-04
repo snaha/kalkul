@@ -53,6 +53,28 @@ function annualizedAmount(amount: number, frequency: Frequency): number {
   return amount * PERIODS_PER_YEAR[frequency]
 }
 
+function activeMonthFraction(
+  cashFlow: Income | Expense,
+  year: number,
+  startYear: number,
+  endYear: number,
+): number {
+  let startMonth = 1
+  let endMonth = 12
+  if (
+    year === startYear &&
+    cashFlow.start === 'at_specific_date' &&
+    cashFlow.start_month !== undefined
+  ) {
+    startMonth = cashFlow.start_month
+  }
+  if (year === endYear && cashFlow.end === 'at_specific_date' && cashFlow.end_month !== undefined) {
+    endMonth = cashFlow.end_month
+  }
+  const months = Math.max(0, endMonth - startMonth + 1)
+  return months / 12
+}
+
 function growthFactor(
   cashFlow: Income | Expense,
   yearsSinceStart: number,
@@ -208,10 +230,12 @@ export function getYearlyPlanProjection(
       const incomeStart = resolveStartYear(income, startYear, birthYear)
       const incomeEnd = resolveEndYear(income, birthYear)
       if (year < incomeStart || year > incomeEnd) continue
+      const fraction = activeMonthFraction(income, year, incomeStart, incomeEnd)
+      if (fraction === 0) continue
       const yearsSinceCashFlowStart = year - incomeStart
       const annual = annualizedAmount(netIncome(income), income.frequency)
       incomesThisYearNominal +=
-        annual * growthFactor(income, yearsSinceCashFlowStart, inflationRate)
+        annual * growthFactor(income, yearsSinceCashFlowStart, inflationRate) * fraction
     }
 
     let expensesThisYearNominal = 0
@@ -219,10 +243,12 @@ export function getYearlyPlanProjection(
       const expenseStart = resolveStartYear(expense, startYear, birthYear)
       const expenseEnd = resolveEndYear(expense, birthYear)
       if (year < expenseStart || year > expenseEnd) continue
+      const fraction = activeMonthFraction(expense, year, expenseStart, expenseEnd)
+      if (fraction === 0) continue
       const yearsSinceCashFlowStart = year - expenseStart
       const annual = annualizedAmount(expense.amount, expense.frequency)
       expensesThisYearNominal +=
-        annual * growthFactor(expense, yearsSinceCashFlowStart, inflationRate)
+        annual * growthFactor(expense, yearsSinceCashFlowStart, inflationRate) * fraction
     }
 
     cashNominal += incomesThisYearNominal - expensesThisYearNominal - liabilitiesPaidThisYearNominal
@@ -242,6 +268,9 @@ export function getYearlyPlanProjection(
       inflationRate,
     ).real
 
+    // Tangibles are assumed to passively track inflation (nominal value rises 1:1
+    // with inflation), so their real value is constant at the user-entered amount.
+    // Future per-asset appreciation_rate (default = inflation_rate) will refine this.
     const tangibleAssetsReal = tangibleAssetsTotalNominal
 
     projection.push({
