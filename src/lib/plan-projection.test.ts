@@ -207,6 +207,36 @@ describe('getYearlyPlanProjection', () => {
     expect(result[4].liabilities).toBeCloseTo(0, 6)
   })
 
+  it('clears an under-amortizing liability via a balloon on the final installment', () => {
+    // Installment of 200 leaves 200 unpaid after 4 yearly installments at 0%
+    // (1000 - 4*200 = 200). The final installment must balloon up to clear it.
+    const liabilities: ProfileLiability[] = [
+      {
+        id: 'l1',
+        name: 'Loan',
+        outstanding_balance: 1000,
+        installment_frequency: 'yearly',
+        annual_rate: 0,
+        installment_amount: 200,
+        remaining_term: 4,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ start_date: '2025-01-01', end_date: '2032-01-01' }),
+      makeProfile({ liabilities, cash_amount: 2000 }),
+    )
+    expect(result[0].liabilities).toBeCloseTo(800, 6)
+    expect(result[1].liabilities).toBeCloseTo(600, 6)
+    expect(result[2].liabilities).toBeCloseTo(400, 6)
+    // Year 3 is the final scheduled installment: balloon of 400 clears it.
+    expect(result[3].liabilities).toBeCloseTo(0, 6)
+    expect(result[4].liabilities).toBeCloseTo(0, 6)
+    expect(result[7].liabilities).toBeCloseTo(0, 6)
+    // Cash drained by 4*200 + balloon (no extra over the contractual schedule:
+    // year 3 pays 400 instead of 200), so total paid = 200+200+200+400 = 1000.
+    expect(result[3].cash).toBeCloseTo(2000 - 1000, 6)
+  })
+
   it('subtracts liability payments from cash each year', () => {
     const liabilities: ProfileLiability[] = [
       {

@@ -143,7 +143,11 @@ function simulateLiability(
       if (periodsRemaining <= 0 || balance.lessThanOrEqualTo(0)) break
       const interest = balance.mul(periodRate)
       const grossDue = balance.plus(interest)
-      const payment = Decimal.min(installmentAmount, grossDue)
+      // Final scheduled installment: pay whatever is owed so the loan reaches
+      // zero at the end of `remaining_term`. Without this balloon, slightly
+      // under-amortizing inputs leave a residual balance that lingers forever.
+      const isLastPeriod = periodsRemaining === 1
+      const payment = isLastPeriod ? grossDue : Decimal.min(installmentAmount, grossDue)
       balance = grossDue.minus(payment)
       if (balance.lessThan(0)) balance = DECIMAL_0
       paidThisYear = paidThisYear.plus(payment)

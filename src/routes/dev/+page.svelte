@@ -68,7 +68,7 @@
               outstanding_balance: 180000,
               installment_frequency: 'monthly',
               annual_rate: 3.2,
-              installment_amount: 850,
+              installment_amount: 875,
               remaining_term: 25,
             },
             { id: 'ta-2', name: 'Car', value: 15000, status: 'fully_owned' },
