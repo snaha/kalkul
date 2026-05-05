@@ -352,10 +352,15 @@
             <PanelLeft class="size-4" />
           </Button>
           <Separator orientation="vertical" class="!h-8" />
-          <div class="flex flex-col">
-            <h2 class="text-xl font-bold">{$_('page.plan.stackedNetWorth')}</h2>
-            <p class="text-xs text-muted-foreground">{$_('page.plan.realValuesNote')}</p>
-          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            href={resolve(routes.HOME)}
+            aria-label={$_('page.plan.backToHome')}
+          >
+            <ArrowLeft class="size-4" />
+          </Button>
+          <h2 class="text-xl font-bold">{plan?.name ?? ''}</h2>
         </div>
         <Button variant="ghost" size="icon" onclick={notImplemented}>
           <Settings2 class="size-4" />

@@ -52,7 +52,6 @@
       "transfers": "Transfers",
       "incomes": "Incomes",
       "expenses": "Expenses",
-      "stackedNetWorth": "Stacked net worth",
       "chartPlaceholder": "Chart will be displayed here",
       "chartAriaLabel": "Stacked bar chart showing net worth breakdown by year",
       "comparePlan": "Compare plan",
@@ -68,8 +67,7 @@
       "tangibleAssetsValue": "Tangible assets value",
       "liabilitiesBalance": "Liabilities balance",
       "addCashFlow": "Add cash flow",
-      "addAsset": "Add asset",
-      "realValuesNote": "Values shown in today's purchasing power (inflation-adjusted)"
+      "addAsset": "Add asset"
     },
     "home": {
       "heroTitle": "See where your money could take you",
