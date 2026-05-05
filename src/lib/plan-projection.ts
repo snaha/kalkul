@@ -1,4 +1,6 @@
-import { calculateBothTerms } from '$lib/@snaha/kalkul-maths'
+import Decimal from 'decimal.js'
+
+import { DECIMAL_0, DECIMAL_1, calculateBothTerms } from '$lib/@snaha/kalkul-maths'
 import type {
   Expense,
   Frequency,
@@ -49,8 +51,8 @@ function resolveEndYear(cashFlow: Income | Expense, birthYear: number | undefine
   return Number.POSITIVE_INFINITY
 }
 
-function annualizedAmount(amount: number, frequency: Frequency): number {
-  return amount * PERIODS_PER_YEAR[frequency]
+function annualizedAmount(amount: Decimal, frequency: Frequency): Decimal {
+  return amount.mul(PERIODS_PER_YEAR[frequency])
 }
 
 function activeMonthFraction(
@@ -58,7 +60,7 @@ function activeMonthFraction(
   year: number,
   startYear: number,
   endYear: number,
-): number {
+): Decimal {
   let startMonth = 1
   let endMonth = 12
   if (
@@ -72,37 +74,42 @@ function activeMonthFraction(
     endMonth = cashFlow.end_month
   }
   const months = Math.max(0, endMonth - startMonth + 1)
-  return months / 12
+  return new Decimal(months).div(12)
 }
 
 function growthFactor(
   cashFlow: Income | Expense,
   yearsSinceStart: number,
-  inflationRate: number,
-): number {
-  if (yearsSinceStart <= 0) return 1
+  inflationRate: Decimal,
+): Decimal {
+  if (yearsSinceStart <= 0) return DECIMAL_1
   switch (cashFlow.change_over_time) {
     case 'match_inflation':
-      return Math.pow(1 + inflationRate, yearsSinceStart)
+      return DECIMAL_1.plus(inflationRate).pow(yearsSinceStart)
     case 'increase_yearly':
-      return Math.pow(1 + (cashFlow.change_percentage ?? 0) / 100, yearsSinceStart)
+      return DECIMAL_1.plus(new Decimal(cashFlow.change_percentage ?? 0).div(100)).pow(
+        yearsSinceStart,
+      )
     case 'decrease_yearly':
-      return Math.pow(1 - (cashFlow.change_percentage ?? 0) / 100, yearsSinceStart)
+      return DECIMAL_1.minus(new Decimal(cashFlow.change_percentage ?? 0).div(100)).pow(
+        yearsSinceStart,
+      )
     case 'none':
     default:
-      return 1
+      return DECIMAL_1
   }
 }
 
-function netIncome(income: Income): number {
-  if (!income.withhold_taxes) return income.amount
-  const taxFraction = (income.tax_percentage ?? 0) / 100
-  return income.amount * (1 - taxFraction)
+function netIncome(income: Income): Decimal {
+  const amount = new Decimal(income.amount)
+  if (!income.withhold_taxes) return amount
+  const taxFraction = new Decimal(income.tax_percentage ?? 0).div(100)
+  return amount.mul(DECIMAL_1.minus(taxFraction))
 }
 
 interface LiabilitySchedule {
-  outstandingByYear: Map<number, number>
-  paidByYear: Map<number, number>
+  outstandingByYear: Map<number, Decimal>
+  paidByYear: Map<number, Decimal>
 }
 
 function simulateLiability(
@@ -111,23 +118,25 @@ function simulateLiability(
   endYear: number,
 ): LiabilitySchedule {
   const periodsPerYear = PERIODS_PER_YEAR[liability.installment_frequency]
-  const periodRate = liability.annual_rate / 100 / periodsPerYear
+  const periodRate = new Decimal(liability.annual_rate).div(100).div(periodsPerYear)
+  const installmentAmount = new Decimal(liability.installment_amount)
 
-  let balance = liability.outstanding_balance
+  let balance = new Decimal(liability.outstanding_balance)
   let periodsRemaining = liability.remaining_term * periodsPerYear
 
-  const outstandingByYear = new Map<number, number>()
-  const paidByYear = new Map<number, number>()
+  const outstandingByYear = new Map<number, Decimal>()
+  const paidByYear = new Map<number, Decimal>()
 
   for (let year = startYear; year <= endYear; year++) {
-    let paidThisYear = 0
+    let paidThisYear = DECIMAL_0
     for (let i = 0; i < periodsPerYear; i++) {
-      if (periodsRemaining <= 0 || balance <= 0) break
-      const interest = balance * periodRate
-      const payment = Math.min(liability.installment_amount, balance + interest)
-      balance = balance + interest - payment
-      if (balance < 0) balance = 0
-      paidThisYear += payment
+      if (periodsRemaining <= 0 || balance.lessThanOrEqualTo(0)) break
+      const interest = balance.mul(periodRate)
+      const grossDue = balance.plus(interest)
+      const payment = Decimal.min(installmentAmount, grossDue)
+      balance = grossDue.minus(payment)
+      if (balance.lessThan(0)) balance = DECIMAL_0
+      paidThisYear = paidThisYear.plus(payment)
       periodsRemaining -= 1
     }
     outstandingByYear.set(year, balance)
@@ -193,7 +202,10 @@ export function getYearlyPlanProjection(
   const incomes: Income[] = filterById(profile.incomes, plan.included_income_ids)
   const expenses: Expense[] = filterById(profile.expenses, plan.included_expense_ids)
 
-  const tangibleAssetsTotalNominal = tangibleAssets.reduce((sum, a) => sum + (a.value ?? 0), 0)
+  const tangibleAssetsTotalNominal = tangibleAssets.reduce<Decimal>(
+    (sum, a) => sum.plus(a.value ?? 0),
+    DECIMAL_0,
+  )
 
   const tangibleAssetLiabilities = tangibleAssets
     .map(financingToLiability)
@@ -204,8 +216,9 @@ export function getYearlyPlanProjection(
 
   const initialCashNominal = plan.include_cash === false ? 0 : (profile.cash_amount ?? 0)
 
-  let cashNominal = initialCashNominal
-  const inflationRate = plan.inflation_rate
+  let cashNominal = new Decimal(initialCashNominal)
+  const inflationRate = new Decimal(plan.inflation_rate)
+  const inflationRateNumber = plan.inflation_rate
   const baseDate = `${startYear}-01-01`
 
   const projection: YearlyProjection[] = []
@@ -213,73 +226,91 @@ export function getYearlyPlanProjection(
   for (let year = startYear; year <= endYear; year++) {
     const yearsSincePlanStart = year - startYear
 
-    const investmentsNominal = investments.reduce(
-      (sum, inv) => sum + inv.balance * Math.pow(1 + inv.apy / 100, yearsSincePlanStart),
-      0,
+    const investmentsNominal = investments.reduce<Decimal>(
+      (sum, inv) =>
+        sum.plus(
+          new Decimal(inv.balance).mul(
+            DECIMAL_1.plus(new Decimal(inv.apy).div(100)).pow(yearsSincePlanStart),
+          ),
+        ),
+      DECIMAL_0,
     )
 
-    let liabilitiesOutstandingNominal = 0
-    let liabilitiesPaidThisYearNominal = 0
+    let liabilitiesOutstandingNominal = DECIMAL_0
+    let liabilitiesPaidThisYearNominal = DECIMAL_0
     for (const schedule of liabilitySchedules) {
-      liabilitiesOutstandingNominal += schedule.outstandingByYear.get(year) ?? 0
-      liabilitiesPaidThisYearNominal += schedule.paidByYear.get(year) ?? 0
+      liabilitiesOutstandingNominal = liabilitiesOutstandingNominal.plus(
+        schedule.outstandingByYear.get(year) ?? DECIMAL_0,
+      )
+      liabilitiesPaidThisYearNominal = liabilitiesPaidThisYearNominal.plus(
+        schedule.paidByYear.get(year) ?? DECIMAL_0,
+      )
     }
 
-    let incomesThisYearNominal = 0
+    let incomesThisYearNominal = DECIMAL_0
     for (const income of incomes) {
       const incomeStart = resolveStartYear(income, startYear, birthYear)
       const incomeEnd = resolveEndYear(income, birthYear)
       if (year < incomeStart || year > incomeEnd) continue
       const fraction = activeMonthFraction(income, year, incomeStart, incomeEnd)
-      if (fraction === 0) continue
+      if (fraction.isZero()) continue
       const yearsSinceCashFlowStart = year - incomeStart
       const annual = annualizedAmount(netIncome(income), income.frequency)
-      incomesThisYearNominal +=
-        annual * growthFactor(income, yearsSinceCashFlowStart, inflationRate) * fraction
+      incomesThisYearNominal = incomesThisYearNominal.plus(
+        annual.mul(growthFactor(income, yearsSinceCashFlowStart, inflationRate)).mul(fraction),
+      )
     }
 
-    let expensesThisYearNominal = 0
+    let expensesThisYearNominal = DECIMAL_0
     for (const expense of expenses) {
       const expenseStart = resolveStartYear(expense, startYear, birthYear)
       const expenseEnd = resolveEndYear(expense, birthYear)
       if (year < expenseStart || year > expenseEnd) continue
       const fraction = activeMonthFraction(expense, year, expenseStart, expenseEnd)
-      if (fraction === 0) continue
+      if (fraction.isZero()) continue
       const yearsSinceCashFlowStart = year - expenseStart
-      const annual = annualizedAmount(expense.amount, expense.frequency)
-      expensesThisYearNominal +=
-        annual * growthFactor(expense, yearsSinceCashFlowStart, inflationRate) * fraction
+      const annual = annualizedAmount(new Decimal(expense.amount), expense.frequency)
+      expensesThisYearNominal = expensesThisYearNominal.plus(
+        annual.mul(growthFactor(expense, yearsSinceCashFlowStart, inflationRate)).mul(fraction),
+      )
     }
 
-    cashNominal += incomesThisYearNominal - expensesThisYearNominal - liabilitiesPaidThisYearNominal
+    cashNominal = cashNominal
+      .plus(incomesThisYearNominal)
+      .minus(expensesThisYearNominal)
+      .minus(liabilitiesPaidThisYearNominal)
 
     const targetDate = `${year}-01-01`
-    const cashReal = calculateBothTerms(cashNominal, targetDate, baseDate, inflationRate).real
-    const investmentsReal = calculateBothTerms(
-      investmentsNominal,
-      targetDate,
-      baseDate,
-      inflationRate,
-    ).real
-    const liabilitiesReal = calculateBothTerms(
-      liabilitiesOutstandingNominal,
-      targetDate,
-      baseDate,
-      inflationRate,
-    ).real
+    const cashReal = new Decimal(
+      calculateBothTerms(cashNominal.toNumber(), targetDate, baseDate, inflationRateNumber).real,
+    )
+    const investmentsReal = new Decimal(
+      calculateBothTerms(investmentsNominal.toNumber(), targetDate, baseDate, inflationRateNumber)
+        .real,
+    )
+    const liabilitiesReal = new Decimal(
+      calculateBothTerms(
+        liabilitiesOutstandingNominal.toNumber(),
+        targetDate,
+        baseDate,
+        inflationRateNumber,
+      ).real,
+    )
 
     // Tangibles are assumed to passively track inflation (nominal value rises 1:1
     // with inflation), so their real value is constant at the user-entered amount.
     // Future per-asset appreciation_rate (default = inflation_rate) will refine this.
     const tangibleAssetsReal = tangibleAssetsTotalNominal
 
+    const netWorth = cashReal.plus(investmentsReal).plus(tangibleAssetsReal).minus(liabilitiesReal)
+
     projection.push({
       year,
-      cash: cashReal,
-      investments: investmentsReal,
-      tangibleAssets: tangibleAssetsReal,
-      liabilities: liabilitiesReal,
-      netWorth: cashReal + investmentsReal + tangibleAssetsReal - liabilitiesReal,
+      cash: cashReal.toNumber(),
+      investments: investmentsReal.toNumber(),
+      tangibleAssets: tangibleAssetsReal.toNumber(),
+      liabilities: liabilitiesReal.toNumber(),
+      netWorth: netWorth.toNumber(),
     })
   }
 
