@@ -1,6 +1,6 @@
 import Decimal from 'decimal.js'
 
-import { DECIMAL_0, DECIMAL_1, calculateBothTerms } from '$lib/@snaha/kalkul-maths'
+import { DECIMAL_0, DECIMAL_1 } from '$lib/@snaha/kalkul-maths'
 import type {
   Expense,
   Frequency,
@@ -21,7 +21,15 @@ export interface YearlyProjection {
   netWorth: number
 }
 
-const PERIODS_PER_YEAR: Record<Frequency, number> = {
+// Annualized cash flows: a year is 365.25/7 ≈ 52.1775 weeks.
+const FLOW_PERIODS_PER_YEAR: Record<Frequency, number> = {
+  weekly: 365.25 / 7,
+  monthly: 12,
+  yearly: 1,
+}
+
+// Liability amortization needs an integer count of installments per year.
+const INSTALLMENT_PERIODS_PER_YEAR: Record<Frequency, number> = {
   weekly: 52,
   monthly: 12,
   yearly: 1,
@@ -52,7 +60,7 @@ function resolveEndYear(cashFlow: Income | Expense, birthYear: number | undefine
 }
 
 function annualizedAmount(amount: Decimal, frequency: Frequency): Decimal {
-  return amount.mul(PERIODS_PER_YEAR[frequency])
+  return amount.mul(FLOW_PERIODS_PER_YEAR[frequency])
 }
 
 function activeMonthFraction(
@@ -90,10 +98,12 @@ function growthFactor(
       return DECIMAL_1.plus(new Decimal(cashFlow.change_percentage ?? 0).div(100)).pow(
         yearsSinceStart,
       )
-    case 'decrease_yearly':
-      return DECIMAL_1.minus(new Decimal(cashFlow.change_percentage ?? 0).div(100)).pow(
-        yearsSinceStart,
-      )
+    case 'decrease_yearly': {
+      // Clamp to ≤100 % so a decrease can't take the factor negative
+      // (which would oscillate sign across integer year exponents).
+      const pct = Decimal.min(new Decimal(cashFlow.change_percentage ?? 0), 100)
+      return DECIMAL_1.minus(pct.div(100)).pow(yearsSinceStart)
+    }
     case 'none':
     default:
       return DECIMAL_1
@@ -117,7 +127,7 @@ function simulateLiability(
   startYear: number,
   endYear: number,
 ): LiabilitySchedule {
-  const periodsPerYear = PERIODS_PER_YEAR[liability.installment_frequency]
+  const periodsPerYear = INSTALLMENT_PERIODS_PER_YEAR[liability.installment_frequency]
   const periodRate = new Decimal(liability.annual_rate).div(100).div(periodsPerYear)
   const installmentAmount = new Decimal(liability.installment_amount)
 
@@ -181,14 +191,14 @@ export function getYearlyPlanProjection(
   plan: PortfolioNested,
   profile: Profile,
 ): YearlyProjection[] {
-  const startDate = new Date(plan.start_date)
-  const endDate = new Date(plan.end_date)
-  const startYear = startDate.getFullYear()
-  const endYear = endDate.getFullYear()
+  // Direct string parse: ISO date-only strings parse as UTC, so
+  // `new Date(...).getFullYear()` is timezone-dependent.
+  const startYear = Number(plan.start_date.slice(0, 4))
+  const endYear = Number(plan.end_date.slice(0, 4))
 
   if (endYear < startYear) return []
 
-  const birthYear = profile.birth_date ? new Date(profile.birth_date).getFullYear() : undefined
+  const birthYear = profile.birth_date ? Number(profile.birth_date.slice(0, 4)) : undefined
 
   const investments: ProfileInvestment[] = filterById(
     profile.investments,
@@ -218,8 +228,6 @@ export function getYearlyPlanProjection(
 
   let cashNominal = new Decimal(initialCashNominal)
   const inflationRate = new Decimal(plan.inflation_rate)
-  const inflationRateNumber = plan.inflation_rate
-  const baseDate = `${startYear}-01-01`
 
   const projection: YearlyProjection[] = []
 
@@ -275,31 +283,24 @@ export function getYearlyPlanProjection(
       )
     }
 
-    cashNominal = cashNominal
-      .plus(incomesThisYearNominal)
-      .minus(expensesThisYearNominal)
-      .minus(liabilitiesPaidThisYearNominal)
+    if (plan.include_cash !== false) {
+      cashNominal = cashNominal
+        .plus(incomesThisYearNominal)
+        .minus(expensesThisYearNominal)
+        .minus(liabilitiesPaidThisYearNominal)
+    }
 
-    const targetDate = `${year}-01-01`
-    const cashReal = new Decimal(
-      calculateBothTerms(cashNominal.toNumber(), targetDate, baseDate, inflationRateNumber).real,
-    )
-    const investmentsReal = new Decimal(
-      calculateBothTerms(investmentsNominal.toNumber(), targetDate, baseDate, inflationRateNumber)
-        .real,
-    )
-    const liabilitiesReal = new Decimal(
-      calculateBothTerms(
-        liabilitiesOutstandingNominal.toNumber(),
-        targetDate,
-        baseDate,
-        inflationRateNumber,
-      ).real,
-    )
+    // Integer-year deflation: the projection runs in annual buckets, so
+    // deflate by (1 + inflation)^yearsSincePlanStart directly. This is the
+    // exact inverse of integer-year compounding; using day-based deflation
+    // would drift across leap years.
+    const deflationFactor = DECIMAL_1.plus(inflationRate).pow(yearsSincePlanStart)
+    const cashReal = cashNominal.div(deflationFactor)
+    const investmentsReal = investmentsNominal.div(deflationFactor)
+    const liabilitiesReal = liabilitiesOutstandingNominal.div(deflationFactor)
 
-    // Tangibles are assumed to passively track inflation (nominal value rises 1:1
-    // with inflation), so their real value is constant at the user-entered amount.
-    // Future per-asset appreciation_rate (default = inflation_rate) will refine this.
+    // Tangibles are assumed to passively track inflation (nominal value rises
+    // 1:1 with inflation), so their real value is constant at the entered amount.
     const tangibleAssetsReal = tangibleAssetsTotalNominal
 
     const netWorth = cashReal.plus(investmentsReal).plus(tangibleAssetsReal).minus(liabilitiesReal)

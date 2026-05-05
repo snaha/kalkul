@@ -64,6 +64,69 @@ describe('getYearlyPlanProjection', () => {
     expect(result[0].cash).toBe(0)
   })
 
+  it('keeps cash at 0 over time when include_cash = false even with cash flows and liabilities', () => {
+    // Regression for the leak: previously, income/expense/liability payments
+    // accumulated into a zeroed cash balance, producing negative bars.
+    const incomes: Income[] = [
+      {
+        id: 'inc1',
+        name: 'Salary',
+        amount: 1000,
+        frequency: 'monthly',
+        withhold_taxes: false,
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const liabilities: ProfileLiability[] = [
+      {
+        id: 'l1',
+        name: 'Loan',
+        outstanding_balance: 1000,
+        installment_frequency: 'yearly',
+        annual_rate: 0,
+        installment_amount: 250,
+        remaining_term: 4,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ include_cash: false }),
+      makeProfile({ cash_amount: 1000, incomes, liabilities }),
+    )
+    for (const entry of result) {
+      expect(entry.cash).toBe(0)
+    }
+  })
+
+  it('keeps cash at 0 with a financed tangible asset when include_cash = false', () => {
+    // Same root cause: mortgage payment was draining a zeroed cash balance.
+    // Equity must still be correct (asset gross − mortgage outstanding).
+    const tangible_assets: ProfileTangibleAsset[] = [
+      {
+        id: 't1',
+        name: 'House',
+        value: 5_000_000,
+        status: 'financed',
+        outstanding_balance: 3_000_000,
+        installment_frequency: 'yearly',
+        annual_rate: 0,
+        installment_amount: 300_000,
+        remaining_term: 10,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ include_cash: false }),
+      makeProfile({ tangible_assets }),
+    )
+    for (const entry of result) {
+      expect(entry.cash).toBe(0)
+    }
+    // Mortgage still amortizes; tangible asset gross unchanged.
+    expect(result[0].tangibleAssets).toBe(5_000_000)
+    expect(result[0].liabilities).toBeCloseTo(2_700_000, 6)
+  })
+
   it('compounds investments at apy (stored as percent) each year', () => {
     const investments: ProfileInvestment[] = [{ id: 'i1', name: 'Stocks', balance: 1000, apy: 10 }]
     const result = getYearlyPlanProjection(makePlan(), makeProfile({ investments }))
@@ -80,7 +143,8 @@ describe('getYearlyPlanProjection', () => {
       makeProfile({ investments }),
     )
     for (const entry of result) {
-      expect(entry.investments).toBeCloseTo(1000, 0)
+      // Integer-year deflation makes this exact (no leap-year drift).
+      expect(entry.investments).toBeCloseTo(1000, 6)
     }
   })
 
@@ -616,5 +680,77 @@ describe('getYearlyPlanProjection', () => {
         6,
       )
     }
+  })
+
+  it('annualizes a weekly income at 365.25/7 weeks per year (not 52)', () => {
+    const incomes: Income[] = [
+      {
+        id: 'inc1',
+        name: 'Stipend',
+        amount: 100,
+        frequency: 'weekly',
+        withhold_taxes: false,
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const result = getYearlyPlanProjection(makePlan(), makeProfile({ incomes }))
+    const expectedYearly = 100 * (365.25 / 7) // ≈ 5217.857…
+    expect(result[0].cash).toBeCloseTo(expectedYearly, 6)
+    expect(result[1].cash).toBeCloseTo(2 * expectedYearly, 6)
+  })
+
+  it('clamps decrease_yearly change_percentage at 100 % (no negative growth factor)', () => {
+    // change_percentage > 100 with decrease_yearly used to make `1 - pct/100`
+    // negative, which oscillates sign across integer year exponents.
+    const expenses: Expense[] = [
+      {
+        id: 'exp1',
+        name: 'Subscription',
+        amount: 1200,
+        frequency: 'yearly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'decrease_yearly',
+        change_percentage: 150,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ cash_amount: 10000, expenses }),
+    )
+    // Year 0: full annual (yearsSinceStart=0 → growthFactor=1) → 10000 - 1200 = 8800.
+    expect(result[0].cash).toBeCloseTo(8800, 6)
+    // From year 1 onward growthFactor is clamped at (1 - 1)^t = 0, so no further drain.
+    for (let i = 1; i < result.length; i++) {
+      expect(result[i].cash).toBeCloseTo(8800, 6)
+    }
+  })
+
+  it('reflects the actual final-period draw (not full installment) in payoff-year cash', () => {
+    // Loan: 1000 outstanding, monthly installment 100, 0 % interest.
+    // Pays off in 10 months → final period draws exactly 100, but the year
+    // total is 10 * 100 = 1000 (not 12 * 100 = 1200).
+    const liabilities: ProfileLiability[] = [
+      {
+        id: 'l1',
+        name: 'Loan',
+        outstanding_balance: 1000,
+        installment_frequency: 'monthly',
+        annual_rate: 0,
+        installment_amount: 100,
+        remaining_term: 1,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ cash_amount: 1500, liabilities }),
+    )
+    expect(result[0].liabilities).toBeCloseTo(0, 6)
+    // Cash drained by exactly 1000 (not 1200).
+    expect(result[0].cash).toBeCloseTo(500, 6)
+    // No further drain in subsequent years.
+    expect(result[1].cash).toBeCloseTo(500, 6)
   })
 })
