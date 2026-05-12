@@ -34,11 +34,21 @@
   import { Slider } from '$lib/components/ui/slider'
   import { getYearlyPlanProjection } from '$lib/plan-projection'
   import routes from '$lib/routes'
-  import type { Expense, Frequency, Income } from '$lib/schemas'
+  import type {
+    Expense,
+    Frequency,
+    Income,
+    ProfileInvestment,
+    ProfileLiability,
+    ProfileTangibleAsset,
+  } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
   import { cn, notImplemented } from '$lib/utils'
 
+  import AddAssetDialog, { type AssetKind as AddAssetKind } from './AddAssetDialog.svelte'
   import AddCashFlowDialog from './AddCashFlowDialog.svelte'
+  import AssetEditDialog, { type AssetKind } from './AssetEditDialog.svelte'
+  import CashEditDialog from './CashEditDialog.svelte'
   import CashFlowEditDialog from './CashFlowEditDialog.svelte'
   import PlanSidebarRow from './PlanSidebarRow.svelte'
 
@@ -68,6 +78,15 @@
   let editDialogInitial = $state<Income | Expense | undefined>(undefined)
   let addCashFlowDialogOpen = $state(false)
 
+  // Asset edit dialog state
+  let assetDialogOpen = $state(false)
+  let assetDialogKind = $state<AssetKind>('investment')
+  let assetDialogInitial = $state<
+    ProfileInvestment | ProfileTangibleAsset | ProfileLiability | undefined
+  >(undefined)
+  let cashDialogOpen = $state(false)
+  let addAssetDialogOpen = $state(false)
+
   function openEditDialog(kind: 'income' | 'expense', item: Income | Expense) {
     editDialogKind = kind
     editDialogInitial = item
@@ -78,6 +97,29 @@
     editDialogKind = kind
     editDialogInitial = undefined
     editDialogOpen = true
+  }
+
+  function openAssetEditDialog(
+    kind: AssetKind,
+    item: ProfileInvestment | ProfileTangibleAsset | ProfileLiability,
+  ) {
+    assetDialogKind = kind
+    assetDialogInitial = item
+    assetDialogOpen = true
+  }
+
+  function openAssetCreateDialog(kind: AssetKind) {
+    assetDialogKind = kind
+    assetDialogInitial = undefined
+    assetDialogOpen = true
+  }
+
+  function handleAddAssetContinue(kind: AddAssetKind) {
+    if (kind === 'cash') {
+      cashDialogOpen = true
+    } else {
+      openAssetCreateDialog(kind)
+    }
   }
   let hoveredYear = $state<number | undefined>(undefined)
   let hoverPosition = $state<HoverPosition | undefined>(undefined)
@@ -222,7 +264,7 @@
                 id: 'cash',
                 name: $_('page.plan.cashItem'),
                 value: appStore.formatCurrencyCode(appStore.profile.cash_amount),
-                onClick: notImplemented,
+                onClick: () => (cashDialogOpen = true),
               },
             ]
           : [],
@@ -237,7 +279,7 @@
           id: inv.id,
           name: inv.name,
           value: appStore.formatCurrencyCode(inv.balance),
-          onClick: notImplemented,
+          onClick: () => openAssetEditDialog('investment', inv),
         })),
     },
     {
@@ -250,7 +292,7 @@
           id: a.id,
           name: a.name,
           value: appStore.formatCurrencyCode(a.value),
-          onClick: notImplemented,
+          onClick: () => openAssetEditDialog('tangibleAsset', a),
         })),
     },
     {
@@ -264,7 +306,7 @@
           name: l.name,
           value: `-${appStore.formatCurrencyCode(l.outstanding_balance)}`,
           valueClass: 'text-destructive',
-          onClick: notImplemented,
+          onClick: () => openAssetEditDialog('liability', l),
         })),
     },
   ])
@@ -513,7 +555,7 @@
               {$_('page.plan.addCashFlow')}
             </Button>
           {:else}
-            <Button class="w-full" onclick={notImplemented}>
+            <Button class="w-full" onclick={() => (addAssetDialogOpen = true)}>
               <Plus class="size-4" />
               {$_('page.plan.addAsset')}
             </Button>
@@ -794,6 +836,25 @@
       initial={editDialogInitial}
       {plan}
     />
+
+    <!-- Add asset type picker -->
+    <AddAssetDialog
+      bind:open={addAssetDialogOpen}
+      onOpenChange={(v) => (addAssetDialogOpen = v)}
+      onContinue={handleAddAssetContinue}
+    />
+
+    <!-- Asset edit dialog -->
+    <AssetEditDialog
+      bind:open={assetDialogOpen}
+      onOpenChange={(v) => (assetDialogOpen = v)}
+      kind={assetDialogKind}
+      initial={assetDialogInitial}
+      {plan}
+    />
+
+    <!-- Cash edit dialog -->
+    <CashEditDialog bind:open={cashDialogOpen} onOpenChange={(v) => (cashDialogOpen = v)} {plan} />
 
     <!-- Hover tooltip - at page level to allow overlaying sidebars -->
     {#if hoveredData && tooltipPosition}
