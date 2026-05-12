@@ -72,7 +72,17 @@
       "totalIncome": "Total income",
       "totalExpenses": "Total expenses",
       "noItems": "No items",
-      "cashItem": "Cash"
+      "cashItem": "Cash",
+      "saveChanges": "Save changes",
+      "cancel": "Cancel",
+      "renameItem": "Rename",
+      "duplicateItem": "Duplicate",
+      "deleteItem": "Delete",
+      "closeDialog": "Close",
+      "excludeFromPlan": "Exclude from this plan",
+      "includeInPlan": "Include in this plan",
+      "deleteIncomeConfirm": "Delete this income? This cannot be undone.",
+      "deleteExpenseConfirm": "Delete this expense? This cannot be undone."
     },
     "home": {
       "heroTitle": "See where your money could take you",

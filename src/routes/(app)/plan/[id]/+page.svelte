@@ -29,15 +29,17 @@
     CollapsibleContent,
     CollapsibleTrigger,
   } from '$lib/components/ui/collapsible'
+  import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
   import { Input } from '$lib/components/ui/input'
   import { Separator } from '$lib/components/ui/separator'
   import { Slider } from '$lib/components/ui/slider'
   import { getYearlyPlanProjection } from '$lib/plan-projection'
   import routes from '$lib/routes'
-  import type { Frequency } from '$lib/schemas'
+  import type { Expense, Frequency, Income } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
   import { cn, notImplemented } from '$lib/utils'
 
+  import CashFlowEditDialog from './CashFlowEditDialog.svelte'
   import PlanSidebarRow from './PlanSidebarRow.svelte'
 
   const planId = $derived(page.params.id)
@@ -59,6 +61,23 @@
   // Cash flows / Assets tab switches because the component tree is recreated
   // when `categories` changes but this state lives on the page.
   let openSections = $state<Record<string, boolean>>({})
+
+  // Cash-flow edit dialog state
+  let editDialogOpen = $state(false)
+  let editDialogKind = $state<'income' | 'expense'>('income')
+  let editDialogInitial = $state<Income | Expense | undefined>(undefined)
+
+  function openEditDialog(kind: 'income' | 'expense', item: Income | Expense) {
+    editDialogKind = kind
+    editDialogInitial = item
+    editDialogOpen = true
+  }
+
+  function openCreateDialog(kind: 'income' | 'expense') {
+    editDialogKind = kind
+    editDialogInitial = undefined
+    editDialogOpen = true
+  }
   let hoveredYear = $state<number | undefined>(undefined)
   let hoverPosition = $state<HoverPosition | undefined>(undefined)
   let chartContainerRef: HTMLDivElement | undefined = $state()
@@ -136,6 +155,7 @@
     name: string
     value: string
     valueClass?: string
+    onClick: () => void
   }
 
   interface SidebarCategory {
@@ -169,6 +189,7 @@
           name: i.name,
           value: `+${appStore.formatCurrencyCode(i.amount)} / ${frequencySuffix(i.frequency)}`,
           valueClass: 'text-success',
+          onClick: () => openEditDialog('income', i),
         })),
     },
     {
@@ -182,6 +203,7 @@
           name: e.name,
           value: `-${appStore.formatCurrencyCode(e.amount)} / ${frequencySuffix(e.frequency)}`,
           valueClass: 'text-destructive',
+          onClick: () => openEditDialog('expense', e),
         })),
     },
   ])
@@ -199,6 +221,7 @@
                 id: 'cash',
                 name: $_('page.plan.cashItem'),
                 value: appStore.formatCurrencyCode(appStore.profile.cash_amount),
+                onClick: notImplemented,
               },
             ]
           : [],
@@ -213,6 +236,7 @@
           id: inv.id,
           name: inv.name,
           value: appStore.formatCurrencyCode(inv.balance),
+          onClick: notImplemented,
         })),
     },
     {
@@ -225,6 +249,7 @@
           id: a.id,
           name: a.name,
           value: appStore.formatCurrencyCode(a.value),
+          onClick: notImplemented,
         })),
     },
     {
@@ -238,6 +263,7 @@
           name: l.name,
           value: `-${appStore.formatCurrencyCode(l.outstanding_balance)}`,
           valueClass: 'text-destructive',
+          onClick: notImplemented,
         })),
     },
   ])
@@ -469,7 +495,7 @@
                       name={item.name}
                       value={item.value}
                       valueClass={item.valueClass}
-                      onclick={notImplemented}
+                      onclick={item.onClick}
                     />
                   {/each}
                 </div>
@@ -480,10 +506,31 @@
 
         <!-- Add button footer -->
         <div class="shrink-0 p-4">
-          <Button class="w-full" onclick={notImplemented}>
-            <Plus class="size-4" />
-            {activeTab === 'cashflows' ? $_('page.plan.addCashFlow') : $_('page.plan.addAsset')}
-          </Button>
+          {#if activeTab === 'cashflows'}
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger>
+                {#snippet child({ props })}
+                  <Button class="w-full" {...props}>
+                    <Plus class="size-4" />
+                    {$_('page.plan.addCashFlow')}
+                  </Button>
+                {/snippet}
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Content align="start" class="w-[224px]">
+                <DropdownMenu.Item onclick={() => openCreateDialog('income')}>
+                  {$_('page.plan.incomes')}
+                </DropdownMenu.Item>
+                <DropdownMenu.Item onclick={() => openCreateDialog('expense')}>
+                  {$_('page.plan.expenses')}
+                </DropdownMenu.Item>
+              </DropdownMenu.Content>
+            </DropdownMenu.Root>
+          {:else}
+            <Button class="w-full" onclick={notImplemented}>
+              <Plus class="size-4" />
+              {$_('page.plan.addAsset')}
+            </Button>
+          {/if}
         </div>
       </div>
     {/if}
@@ -744,6 +791,15 @@
         </div>
       </div>
     {/if}
+
+    <!-- Cash-flow edit dialog -->
+    <CashFlowEditDialog
+      bind:open={editDialogOpen}
+      onOpenChange={(v) => (editDialogOpen = v)}
+      kind={editDialogKind}
+      initial={editDialogInitial}
+      {plan}
+    />
 
     <!-- Hover tooltip - at page level to allow overlaying sidebars -->
     {#if hoveredData && tooltipPosition}

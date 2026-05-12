@@ -72,7 +72,17 @@
       "totalIncome": "Celkové příjmy",
       "totalExpenses": "Celkové výdaje",
       "noItems": "Žádné položky",
-      "cashItem": "Hotovost"
+      "cashItem": "Hotovost",
+      "saveChanges": "Uložit změny",
+      "cancel": "Zrušit",
+      "renameItem": "Přejmenovat",
+      "duplicateItem": "Duplikovat",
+      "deleteItem": "Smazat",
+      "closeDialog": "Zavřít",
+      "excludeFromPlan": "Vyloučit z tohoto plánu",
+      "includeInPlan": "Zahrnout do tohoto plánu",
+      "deleteIncomeConfirm": "Smazat tento příjem? Akci nelze vrátit zpět.",
+      "deleteExpenseConfirm": "Smazat tento výdaj? Akci nelze vrátit zpět."
     },
     "home": {
       "heroTitle": "Podívejte se, kam vás vaše peníze mohou dovést",

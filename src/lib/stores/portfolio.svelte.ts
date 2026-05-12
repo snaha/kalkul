@@ -35,6 +35,8 @@ export function withPortfolioStore(portfolio: PortfolioNested, app: AppParent): 
   let start_date = $state(portfolio.start_date)
   let end_date = $state(portfolio.end_date)
   let inflation_rate = $state(portfolio.inflation_rate)
+  let included_income_ids = $state<string[] | undefined>(portfolio.included_income_ids)
+  let included_expense_ids = $state<string[] | undefined>(portfolio.included_expense_ids)
   let investments = $state<InvestmentStore[]>([])
   let goals = $state<InvestmentStore[]>([])
 
@@ -74,6 +76,18 @@ export function withPortfolioStore(portfolio: PortfolioNested, app: AppParent): 
     },
     set inflation_rate(v) {
       inflation_rate = v
+    },
+    get included_income_ids() {
+      return included_income_ids
+    },
+    set included_income_ids(v) {
+      included_income_ids = v
+    },
+    get included_expense_ids() {
+      return included_expense_ids
+    },
+    set included_expense_ids(v) {
+      included_expense_ids = v
     },
     get investments() {
       return investments
@@ -191,6 +205,8 @@ export function withPortfolioStore(portfolio: PortfolioNested, app: AppParent): 
         start_date,
         end_date,
         inflation_rate,
+        ...(included_income_ids !== undefined ? { included_income_ids } : {}),
+        ...(included_expense_ids !== undefined ? { included_expense_ids } : {}),
         investments: investments.map((i) => i.toJSON()),
         goals: goals.map((g) => g.toJSON()),
       }
