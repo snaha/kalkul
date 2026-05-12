@@ -287,9 +287,9 @@
           bind:ref={nameInputRef}
           value={form.name}
           oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
-          onblur={stopRenaming}
+          onblur={isNew ? undefined : stopRenaming}
           onkeydown={(e) => {
-            if (e.key === 'Enter' || e.key === 'Escape') stopRenaming()
+            if (!isNew && (e.key === 'Enter' || e.key === 'Escape')) stopRenaming()
           }}
           class="flex-1 text-lg font-semibold"
         />

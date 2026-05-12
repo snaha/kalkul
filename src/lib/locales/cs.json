@@ -75,6 +75,7 @@
       "cashItem": "Hotovost",
       "saveChanges": "Uložit změny",
       "cancel": "Zrušit",
+      "continue": "Pokračovat",
       "renameItem": "Přejmenovat",
       "duplicateItem": "Duplikovat",
       "deleteItem": "Smazat",
@@ -82,7 +83,14 @@
       "excludeFromPlan": "Vyloučit z tohoto plánu",
       "includeInPlan": "Zahrnout do tohoto plánu",
       "deleteIncomeConfirm": "Smazat tento příjem? Akci nelze vrátit zpět.",
-      "deleteExpenseConfirm": "Smazat tento výdaj? Akci nelze vrátit zpět."
+      "deleteExpenseConfirm": "Smazat tento výdaj? Akci nelze vrátit zpět.",
+      "addCashFlowQuestion": "Jaký typ peněžního toku chcete přidat?",
+      "transfer": "Převod",
+      "income": "Příjem",
+      "expense": "Výdaj",
+      "transferDescription": "Peníze přesouvané mezi aktivy v rámci vašeho plánu",
+      "incomeDescription": "Příliv peněz na váš zůstatek hotovosti",
+      "expenseDescription": "Odliv peněz z vašeho zůstatku hotovosti"
     },
     "home": {
       "heroTitle": "Podívejte se, kam vás vaše peníze mohou dovést",

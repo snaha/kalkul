@@ -75,6 +75,7 @@
       "cashItem": "Cash",
       "saveChanges": "Save changes",
       "cancel": "Cancel",
+      "continue": "Continue",
       "renameItem": "Rename",
       "duplicateItem": "Duplicate",
       "deleteItem": "Delete",
@@ -82,7 +83,14 @@
       "excludeFromPlan": "Exclude from this plan",
       "includeInPlan": "Include in this plan",
       "deleteIncomeConfirm": "Delete this income? This cannot be undone.",
-      "deleteExpenseConfirm": "Delete this expense? This cannot be undone."
+      "deleteExpenseConfirm": "Delete this expense? This cannot be undone.",
+      "addCashFlowQuestion": "What type of cash flow do you want to add?",
+      "transfer": "Transfer",
+      "income": "Income",
+      "expense": "Expense",
+      "transferDescription": "Cash moving between assets within your plan",
+      "incomeDescription": "Cash inflow into your cash balance",
+      "expenseDescription": "Cash outflow from your cash balance"
     },
     "home": {
       "heroTitle": "See where your money could take you",

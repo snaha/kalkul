@@ -29,7 +29,6 @@
     CollapsibleContent,
     CollapsibleTrigger,
   } from '$lib/components/ui/collapsible'
-  import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
   import { Input } from '$lib/components/ui/input'
   import { Separator } from '$lib/components/ui/separator'
   import { Slider } from '$lib/components/ui/slider'
@@ -39,6 +38,7 @@
   import { appStore } from '$lib/stores/app.svelte'
   import { cn, notImplemented } from '$lib/utils'
 
+  import AddCashFlowDialog from './AddCashFlowDialog.svelte'
   import CashFlowEditDialog from './CashFlowEditDialog.svelte'
   import PlanSidebarRow from './PlanSidebarRow.svelte'
 
@@ -66,6 +66,7 @@
   let editDialogOpen = $state(false)
   let editDialogKind = $state<'income' | 'expense'>('income')
   let editDialogInitial = $state<Income | Expense | undefined>(undefined)
+  let addCashFlowDialogOpen = $state(false)
 
   function openEditDialog(kind: 'income' | 'expense', item: Income | Expense) {
     editDialogKind = kind
@@ -507,24 +508,10 @@
         <!-- Add button footer -->
         <div class="shrink-0 p-4">
           {#if activeTab === 'cashflows'}
-            <DropdownMenu.Root>
-              <DropdownMenu.Trigger>
-                {#snippet child({ props })}
-                  <Button class="w-full" {...props}>
-                    <Plus class="size-4" />
-                    {$_('page.plan.addCashFlow')}
-                  </Button>
-                {/snippet}
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Content align="start" class="w-[224px]">
-                <DropdownMenu.Item onclick={() => openCreateDialog('income')}>
-                  {$_('page.plan.incomes')}
-                </DropdownMenu.Item>
-                <DropdownMenu.Item onclick={() => openCreateDialog('expense')}>
-                  {$_('page.plan.expenses')}
-                </DropdownMenu.Item>
-              </DropdownMenu.Content>
-            </DropdownMenu.Root>
+            <Button class="w-full" onclick={() => (addCashFlowDialogOpen = true)}>
+              <Plus class="size-4" />
+              {$_('page.plan.addCashFlow')}
+            </Button>
           {:else}
             <Button class="w-full" onclick={notImplemented}>
               <Plus class="size-4" />
@@ -791,6 +778,13 @@
         </div>
       </div>
     {/if}
+
+    <!-- Add cash flow type picker -->
+    <AddCashFlowDialog
+      bind:open={addCashFlowDialogOpen}
+      onOpenChange={(v) => (addCashFlowDialogOpen = v)}
+      onContinue={(kind) => openCreateDialog(kind)}
+    />
 
     <!-- Cash-flow edit dialog -->
     <CashFlowEditDialog
