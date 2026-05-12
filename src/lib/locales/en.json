@@ -61,13 +61,18 @@
       "investments": "Investments",
       "tangibleAssets": "Tangible assets",
       "liabilities": "Liabilities",
-      "noData": "No data",
       "keyFigures": "Key figures",
       "investmentsValue": "Investments value",
       "tangibleAssetsValue": "Tangible assets value",
       "liabilitiesBalance": "Liabilities balance",
       "addCashFlow": "Add cash flow",
-      "addAsset": "Add asset"
+      "addAsset": "Add asset",
+      "yearOnYear": "Year-on-year",
+      "liquidNetWorth": "Liquid net worth",
+      "totalIncome": "Total income",
+      "totalExpenses": "Total expenses",
+      "noItems": "No items",
+      "cashItem": "Cash"
     },
     "home": {
       "heroTitle": "See where your money could take you",

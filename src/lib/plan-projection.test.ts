@@ -758,6 +758,128 @@ describe('getYearlyPlanProjection', () => {
     }
   })
 
+  it('exposes per-item investment values that compound at apy and deflate by inflation', () => {
+    const investments: ProfileInvestment[] = [
+      { id: 'a', name: 'Stocks', balance: 1000, apy: 10 },
+      { id: 'b', name: 'Bonds', balance: 500, apy: 0 },
+    ]
+    const result = getYearlyPlanProjection(makePlan(), makeProfile({ investments }))
+    expect(result[0].investmentsByItem).toHaveLength(2)
+    expect(result[0].investmentsByItem[0]).toMatchObject({ id: 'a', name: 'Stocks' })
+    expect(result[0].investmentsByItem[0].value).toBeCloseTo(1000, 6)
+    expect(result[2].investmentsByItem[0].value).toBeCloseTo(1210, 6)
+    expect(result[2].investmentsByItem[1].value).toBeCloseTo(500, 6)
+    // Aggregate matches the sum of per-item values.
+    expect(result[2].investments).toBeCloseTo(
+      result[2].investmentsByItem.reduce((s, i) => s + i.value, 0),
+      6,
+    )
+  })
+
+  it('exposes per-item tangible assets at their entered value', () => {
+    const tangible_assets: ProfileTangibleAsset[] = [
+      { id: 't1', name: 'House', value: 5_000_000, status: 'fully_owned' },
+      { id: 't2', name: 'Car', value: 500_000, status: 'fully_owned' },
+    ]
+    const result = getYearlyPlanProjection(makePlan(), makeProfile({ tangible_assets }))
+    expect(result[0].tangibleAssetsByItem).toEqual([
+      { id: 't1', name: 'House', value: 5_000_000 },
+      { id: 't2', name: 'Car', value: 500_000 },
+    ])
+  })
+
+  it('exposes per-item liability outstanding balances that amortize year over year', () => {
+    const liabilities: ProfileLiability[] = [
+      {
+        id: 'l1',
+        name: 'Loan',
+        outstanding_balance: 1000,
+        installment_frequency: 'yearly',
+        annual_rate: 0,
+        installment_amount: 250,
+        remaining_term: 4,
+      },
+    ]
+    const result = getYearlyPlanProjection(makePlan(), makeProfile({ liabilities }))
+    expect(result[0].liabilitiesByItem).toEqual([{ id: 'l1', name: 'Loan', value: 750 }])
+    expect(result[1].liabilitiesByItem[0].value).toBeCloseTo(500, 6)
+    expect(result[3].liabilitiesByItem[0].value).toBeCloseTo(0, 6)
+  })
+
+  it('excludes tangible-asset financings from liabilitiesByItem', () => {
+    const tangible_assets: ProfileTangibleAsset[] = [
+      {
+        id: 't1',
+        name: 'House',
+        value: 5_000_000,
+        status: 'financed',
+        outstanding_balance: 3_000_000,
+        installment_frequency: 'yearly',
+        annual_rate: 0,
+        installment_amount: 300_000,
+        remaining_term: 10,
+      },
+    ]
+    const result = getYearlyPlanProjection(makePlan(), makeProfile({ tangible_assets }))
+    // No standalone liabilities entered → none listed, even though the asset
+    // contributes to the aggregate liabilities figure.
+    expect(result[0].liabilitiesByItem).toEqual([])
+    expect(result[0].liabilities).toBeGreaterThan(0)
+  })
+
+  it('exposes totalIncome and totalExpenses per year in real terms', () => {
+    const incomes: Income[] = [
+      {
+        id: 'inc1',
+        name: 'Salary',
+        amount: 1000,
+        frequency: 'monthly',
+        withhold_taxes: false,
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const expenses: Expense[] = [
+      {
+        id: 'exp1',
+        name: 'Rent',
+        amount: 500,
+        frequency: 'monthly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const result = getYearlyPlanProjection(makePlan(), makeProfile({ incomes, expenses }))
+    expect(result[0].totalIncome).toBeCloseTo(12000, 6)
+    expect(result[0].totalExpenses).toBeCloseTo(6000, 6)
+  })
+
+  it('prorates totalIncome by start_month when the flow begins mid-year', () => {
+    // Salary starts June 2025: 7 months active → 7/12 of annual.
+    const incomes: Income[] = [
+      {
+        id: 'inc1',
+        name: 'Salary',
+        amount: 1200,
+        frequency: 'yearly',
+        withhold_taxes: false,
+        start: 'at_specific_date',
+        start_year: 2025,
+        start_month: 6,
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ start_date: '2025-01-01', end_date: '2027-01-01' }),
+      makeProfile({ incomes }),
+    )
+    expect(result[0].totalIncome).toBeCloseTo(1200 * (7 / 12), 6)
+    expect(result[1].totalIncome).toBeCloseTo(1200, 6)
+  })
+
   it('reflects the actual final-period draw (not full installment) in payoff-year cash', () => {
     // Loan: 1000 outstanding, monthly installment 100, 0 % interest.
     // Pays off in 10 months → final period draws exactly 100, but the year

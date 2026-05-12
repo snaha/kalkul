@@ -61,13 +61,18 @@
       "investments": "Investice",
       "tangibleAssets": "Hmotná aktiva",
       "liabilities": "Závazky",
-      "noData": "Žádná data",
       "keyFigures": "Klíčové údaje",
       "investmentsValue": "Hodnota investic",
       "tangibleAssetsValue": "Hodnota hmotných aktiv",
       "liabilitiesBalance": "Zůstatek závazků",
       "addCashFlow": "Přidat peněžní tok",
-      "addAsset": "Přidat aktivum"
+      "addAsset": "Přidat aktivum",
+      "yearOnYear": "Meziročně",
+      "liquidNetWorth": "Likvidní čisté jmění",
+      "totalIncome": "Celkové příjmy",
+      "totalExpenses": "Celkové výdaje",
+      "noItems": "Žádné položky",
+      "cashItem": "Hotovost"
     },
     "home": {
       "heroTitle": "Podívejte se, kam vás vaše peníze mohou dovést",
