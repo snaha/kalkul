@@ -12,6 +12,12 @@ import type {
   ProfileTangibleAsset,
 } from '$lib/schemas'
 
+export interface YearlyProjectionItem {
+  id: string
+  name: string
+  value: number
+}
+
 export interface YearlyProjection {
   year: number
   cash: number
@@ -19,6 +25,11 @@ export interface YearlyProjection {
   tangibleAssets: number
   liabilities: number
   netWorth: number
+  investmentsByItem: YearlyProjectionItem[]
+  tangibleAssetsByItem: YearlyProjectionItem[]
+  liabilitiesByItem: YearlyProjectionItem[]
+  totalIncome: number
+  totalExpenses: number
 }
 
 // Annualized cash flows: a year is 365.25/7 ≈ 52.1775 weeks.
@@ -238,13 +249,15 @@ export function getYearlyPlanProjection(
   for (let year = startYear; year <= endYear; year++) {
     const yearsSincePlanStart = year - startYear
 
-    const investmentsNominal = investments.reduce<Decimal>(
-      (sum, inv) =>
-        sum.plus(
-          new Decimal(inv.balance).mul(
-            DECIMAL_1.plus(new Decimal(inv.apy).div(100)).pow(yearsSincePlanStart),
-          ),
+    const investmentsByItemNominal: { investment: ProfileInvestment; value: Decimal }[] =
+      investments.map((inv) => ({
+        investment: inv,
+        value: new Decimal(inv.balance).mul(
+          DECIMAL_1.plus(new Decimal(inv.apy).div(100)).pow(yearsSincePlanStart),
         ),
+      }))
+    const investmentsNominal = investmentsByItemNominal.reduce<Decimal>(
+      (sum, item) => sum.plus(item.value),
       DECIMAL_0,
     )
 
@@ -302,12 +315,39 @@ export function getYearlyPlanProjection(
     const cashReal = cashNominal.div(deflationFactor)
     const investmentsReal = investmentsNominal.div(deflationFactor)
     const liabilitiesReal = liabilitiesOutstandingNominal.div(deflationFactor)
+    const incomesThisYearReal = incomesThisYearNominal.div(deflationFactor)
+    const expensesThisYearReal = expensesThisYearNominal.div(deflationFactor)
 
     // Tangibles are assumed to passively track inflation (nominal value rises
     // 1:1 with inflation), so their real value is constant at the entered amount.
     const tangibleAssetsReal = tangibleAssetsTotalNominal
 
     const netWorth = cashReal.plus(investmentsReal).plus(tangibleAssetsReal).minus(liabilitiesReal)
+
+    const investmentsByItem: YearlyProjectionItem[] = investmentsByItemNominal.map(
+      ({ investment, value }) => ({
+        id: investment.id,
+        name: investment.name,
+        value: value.div(deflationFactor).toNumber(),
+      }),
+    )
+
+    const tangibleAssetsByItem: YearlyProjectionItem[] = tangibleAssets.map((asset) => ({
+      id: asset.id,
+      name: asset.name,
+      value: asset.value ?? 0,
+    }))
+
+    // Only user-defined liabilities (the first `liabilities.length` schedules);
+    // tangible-asset financings are tracked as part of the asset, not as
+    // standalone items in the sidebar list.
+    const liabilitiesByItem: YearlyProjectionItem[] = liabilities.map((liability, i) => ({
+      id: liability.id,
+      name: liability.name,
+      value: (liabilitySchedules[i].outstandingByYear.get(year) ?? DECIMAL_0)
+        .div(deflationFactor)
+        .toNumber(),
+    }))
 
     projection.push({
       year,
@@ -316,6 +356,11 @@ export function getYearlyPlanProjection(
       tangibleAssets: tangibleAssetsReal.toNumber(),
       liabilities: liabilitiesReal.toNumber(),
       netWorth: netWorth.toNumber(),
+      investmentsByItem,
+      tangibleAssetsByItem,
+      liabilitiesByItem,
+      totalIncome: incomesThisYearReal.toNumber(),
+      totalExpenses: expensesThisYearReal.toNumber(),
     })
   }
 

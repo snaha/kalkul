@@ -34,8 +34,23 @@
   import { Slider } from '$lib/components/ui/slider'
   import { getYearlyPlanProjection } from '$lib/plan-projection'
   import routes from '$lib/routes'
+  import type {
+    Expense,
+    Frequency,
+    Income,
+    ProfileInvestment,
+    ProfileLiability,
+    ProfileTangibleAsset,
+  } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
   import { cn, notImplemented } from '$lib/utils'
+
+  import AddAssetDialog, { type AssetKind as AddAssetKind } from './AddAssetDialog.svelte'
+  import AddCashFlowDialog from './AddCashFlowDialog.svelte'
+  import AssetEditDialog, { type AssetKind } from './AssetEditDialog.svelte'
+  import CashEditDialog from './CashEditDialog.svelte'
+  import CashFlowEditDialog from './CashFlowEditDialog.svelte'
+  import PlanSidebarRow from './PlanSidebarRow.svelte'
 
   const planId = $derived(page.params.id)
   const plan = $derived(appStore.portfolios.find((p) => p.id === planId))
@@ -52,6 +67,60 @@
   let selectedYear = $state(new Date().getFullYear())
   let isPanelOpen = $state(true)
   let isLeftPanelOpen = $state(true)
+  // Left sidebar collapsible open state, keyed by category id. Persists across
+  // Cash flows / Assets tab switches because the component tree is recreated
+  // when `categories` changes but this state lives on the page.
+  let openSections = $state<Record<string, boolean>>({})
+
+  // Cash-flow edit dialog state
+  let editDialogOpen = $state(false)
+  let editDialogKind = $state<'income' | 'expense'>('income')
+  let editDialogInitial = $state<Income | Expense | undefined>(undefined)
+  let addCashFlowDialogOpen = $state(false)
+
+  // Asset edit dialog state
+  let assetDialogOpen = $state(false)
+  let assetDialogKind = $state<AssetKind>('investment')
+  let assetDialogInitial = $state<
+    ProfileInvestment | ProfileTangibleAsset | ProfileLiability | undefined
+  >(undefined)
+  let cashDialogOpen = $state(false)
+  let addAssetDialogOpen = $state(false)
+
+  function openEditDialog(kind: 'income' | 'expense', item: Income | Expense) {
+    editDialogKind = kind
+    editDialogInitial = item
+    editDialogOpen = true
+  }
+
+  function openCreateDialog(kind: 'income' | 'expense') {
+    editDialogKind = kind
+    editDialogInitial = undefined
+    editDialogOpen = true
+  }
+
+  function openAssetEditDialog(
+    kind: AssetKind,
+    item: ProfileInvestment | ProfileTangibleAsset | ProfileLiability,
+  ) {
+    assetDialogKind = kind
+    assetDialogInitial = item
+    assetDialogOpen = true
+  }
+
+  function openAssetCreateDialog(kind: AssetKind) {
+    assetDialogKind = kind
+    assetDialogInitial = undefined
+    assetDialogOpen = true
+  }
+
+  function handleAddAssetContinue(kind: AddAssetKind) {
+    if (kind === 'cash') {
+      cashDialogOpen = true
+    } else {
+      openAssetCreateDialog(kind)
+    }
+  }
   let hoveredYear = $state<number | undefined>(undefined)
   let hoverPosition = $state<HoverPosition | undefined>(undefined)
   let chartContainerRef: HTMLDivElement | undefined = $state()
@@ -117,32 +186,128 @@
   const liabilitiesValue = $derived(selectedYearProjection?.liabilities ?? 0)
   const netWorth = $derived(selectedYearProjection?.netWorth ?? 0)
 
-  // Category data for UI
-  const cashFlowCategories = $derived([
-    { id: 'transfers', label: $_('page.plan.transfers'), count: transfersCount },
-    { id: 'incomes', label: $_('page.plan.incomes'), count: incomesCount },
-    { id: 'expenses', label: $_('page.plan.expenses'), count: expensesCount },
+  // Per-frequency short suffix for cash-flow rows (matches read-only-cash-flow-row.svelte)
+  function frequencySuffix(frequency: Frequency): string {
+    if (frequency === 'monthly') return $_('page.financialData.frequency.short.monthly')
+    if (frequency === 'weekly') return $_('page.financialData.frequency.short.weekly')
+    return $_('page.financialData.frequency.short.yearly')
+  }
+
+  interface SidebarItem {
+    id: string
+    name: string
+    value: string
+    valueClass?: string
+    onClick: () => void
+  }
+
+  interface SidebarCategory {
+    id: string
+    label: string
+    count: number
+    items: SidebarItem[]
+  }
+
+  function matchesSearch(name: string, query: string): boolean {
+    if (query.trim() === '') return true
+    return name.toLowerCase().includes(query.trim().toLowerCase())
+  }
+
+  // Cash-flow categories with their items
+  const cashFlowCategories = $derived<SidebarCategory[]>([
+    {
+      id: 'transfers',
+      label: $_('page.plan.transfers'),
+      count: transfersCount,
+      items: [],
+    },
+    {
+      id: 'incomes',
+      label: $_('page.plan.incomes'),
+      count: incomesCount,
+      items: (appStore.profile.incomes ?? [])
+        .filter((i) => matchesSearch(i.name, searchQuery))
+        .map((i) => ({
+          id: i.id,
+          name: i.name,
+          value: `+${appStore.formatCurrencyCode(i.amount)} / ${frequencySuffix(i.frequency)}`,
+          valueClass: 'text-success',
+          onClick: () => openEditDialog('income', i),
+        })),
+    },
+    {
+      id: 'expenses',
+      label: $_('page.plan.expenses'),
+      count: expensesCount,
+      items: (appStore.profile.expenses ?? [])
+        .filter((e) => matchesSearch(e.name, searchQuery))
+        .map((e) => ({
+          id: e.id,
+          name: e.name,
+          value: `-${appStore.formatCurrencyCode(e.amount)} / ${frequencySuffix(e.frequency)}`,
+          valueClass: 'text-destructive',
+          onClick: () => openEditDialog('expense', e),
+        })),
+    },
   ])
 
-  const assetCategories = $derived([
-    { id: 'cash', label: $_('page.plan.cash'), count: cashCount, color: CATEGORY_COLORS.cash },
+  // Asset categories with their items
+  const assetCategories = $derived<SidebarCategory[]>([
+    {
+      id: 'cash',
+      label: $_('page.plan.cash'),
+      count: cashCount,
+      items:
+        appStore.profile.cash_amount && matchesSearch($_('page.plan.cashItem'), searchQuery)
+          ? [
+              {
+                id: 'cash',
+                name: $_('page.plan.cashItem'),
+                value: appStore.formatCurrencyCode(appStore.profile.cash_amount),
+                onClick: () => (cashDialogOpen = true),
+              },
+            ]
+          : [],
+    },
     {
       id: 'investments',
       label: $_('page.plan.investments'),
       count: investmentsCount,
-      color: CATEGORY_COLORS.investments[0],
+      items: (appStore.profile.investments ?? [])
+        .filter((inv) => matchesSearch(inv.name, searchQuery))
+        .map((inv) => ({
+          id: inv.id,
+          name: inv.name,
+          value: appStore.formatCurrencyCode(inv.balance),
+          onClick: () => openAssetEditDialog('investment', inv),
+        })),
     },
     {
       id: 'tangibleAssets',
       label: $_('page.plan.tangibleAssets'),
       count: tangibleAssetsCount,
-      color: CATEGORY_COLORS.tangibleAssets[0],
+      items: (appStore.profile.tangible_assets ?? [])
+        .filter((a) => matchesSearch(a.name, searchQuery))
+        .map((a) => ({
+          id: a.id,
+          name: a.name,
+          value: appStore.formatCurrencyCode(a.value),
+          onClick: () => openAssetEditDialog('tangibleAsset', a),
+        })),
     },
     {
       id: 'liabilities',
       label: $_('page.plan.liabilities'),
       count: liabilitiesCount,
-      color: CATEGORY_COLORS.liabilities[0],
+      items: (appStore.profile.liabilities ?? [])
+        .filter((l) => matchesSearch(l.name, searchQuery))
+        .map((l) => ({
+          id: l.id,
+          name: l.name,
+          value: `-${appStore.formatCurrencyCode(l.outstanding_balance)}`,
+          valueClass: 'text-destructive',
+          onClick: () => openAssetEditDialog('liability', l),
+        })),
     },
   ])
 
@@ -207,13 +372,45 @@
     },
   ])
 
-  // Detail sections for the right panel
-  const detailSections = $derived([
-    { id: 'keyFigures', label: $_('page.plan.keyFigures') },
-    { id: 'investments', label: $_('page.plan.investmentsValue') },
-    { id: 'tangibleAssets', label: $_('page.plan.tangibleAssetsValue') },
-    { id: 'liabilities', label: $_('page.plan.liabilitiesBalance') },
-  ])
+  // Previous-year projection for year-on-year delta
+  const previousYearProjection = $derived(projection.find((p) => p.year === selectedYear - 1))
+
+  // Liquid net worth: cash + investments − liabilities (excludes tangibles, which are less liquid)
+  const liquidNetWorth = $derived(cashValue + investmentsValue - liabilitiesValue)
+
+  const yearOnYearDelta = $derived(
+    previousYearProjection ? netWorth - previousYearProjection.netWorth : undefined,
+  )
+  const yearOnYearPercent = $derived.by(() => {
+    if (previousYearProjection === undefined) return undefined
+    const prev = previousYearProjection.netWorth
+    if (prev === 0) return undefined
+    return ((netWorth - prev) / Math.abs(prev)) * 100
+  })
+
+  function signed(value: number, formatted: string): string {
+    if (value > 0) return `+${formatted}`
+    if (value < 0) return formatted.startsWith('-') ? formatted : `-${formatted}`
+    return formatted
+  }
+
+  const yearOnYearLabel = $derived.by(() => {
+    if (yearOnYearDelta === undefined) return '—'
+    const amount = signed(yearOnYearDelta, appStore.formatCurrencyCode(Math.abs(yearOnYearDelta)))
+    if (yearOnYearPercent === undefined) return amount
+    const pctSign = yearOnYearPercent > 0 ? '+' : ''
+    return `${amount} (${pctSign}${yearOnYearPercent.toFixed(1)}%)`
+  })
+  const yearOnYearClass = $derived.by(() => {
+    if (yearOnYearDelta === undefined || yearOnYearDelta === 0) return undefined
+    return yearOnYearDelta > 0 ? 'text-success' : 'text-destructive'
+  })
+
+  const totalIncomeValue = $derived(selectedYearProjection?.totalIncome ?? 0)
+  const totalExpensesValue = $derived(selectedYearProjection?.totalExpenses ?? 0)
+  const investmentsByItem = $derived(selectedYearProjection?.investmentsByItem ?? [])
+  const tangibleAssetsByItem = $derived(selectedYearProjection?.tangibleAssetsByItem ?? [])
+  const liabilitiesByItem = $derived(selectedYearProjection?.liabilitiesByItem ?? [])
 
   // Calculate age from birth date for the selected year
   const currentAge = $derived.by(() => {
@@ -318,27 +515,51 @@
 
         <!-- Category rows -->
         <div class="flex flex-1 flex-col overflow-y-auto">
-          {#each categories as category (category.id)}
-            <button
-              class="flex h-8 w-full items-center justify-between rounded-md px-2 hover:bg-accent"
+          {#each categories.filter((c) => c.items.length > 0) as category (category.id)}
+            <Collapsible
+              open={openSections[category.id] ?? false}
+              onOpenChange={(v) => (openSections[category.id] = v)}
             >
-              <div class="flex items-center gap-1">
-                <span class="text-sm font-medium">{category.label}</span>
-                {#if category.count > 0}
+              <CollapsibleTrigger
+                class="flex h-8 w-full items-center justify-between rounded-md px-2 hover:bg-accent"
+              >
+                <div class="flex items-center gap-1">
+                  <span class="text-sm font-medium">{category.label}</span>
                   <Badge variant="outline">{category.count}</Badge>
-                {/if}
-              </div>
-              <ChevronRight class="size-4 text-muted-foreground" />
-            </button>
+                </div>
+                <ChevronRight
+                  class="size-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90"
+                />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div class="flex flex-col">
+                  {#each category.items as item (item.id)}
+                    <PlanSidebarRow
+                      name={item.name}
+                      value={item.value}
+                      valueClass={item.valueClass}
+                      onclick={item.onClick}
+                    />
+                  {/each}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           {/each}
         </div>
 
         <!-- Add button footer -->
         <div class="shrink-0 p-4">
-          <Button class="w-full" onclick={notImplemented}>
-            <Plus class="size-4" />
-            {activeTab === 'cashflows' ? $_('page.plan.addCashFlow') : $_('page.plan.addAsset')}
-          </Button>
+          {#if activeTab === 'cashflows'}
+            <Button class="w-full" onclick={() => (addCashFlowDialogOpen = true)}>
+              <Plus class="size-4" />
+              {$_('page.plan.addCashFlow')}
+            </Button>
+          {:else}
+            <Button class="w-full" onclick={() => (addAssetDialogOpen = true)}>
+              <Plus class="size-4" />
+              {$_('page.plan.addAsset')}
+            </Button>
+          {/if}
         </div>
       </div>
     {/if}
@@ -440,7 +661,7 @@
         </div>
 
         <!-- Content section -->
-        <div class="flex flex-1 flex-col overflow-y-auto px-2 gap-4">
+        <div class="flex flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto px-2 pb-4">
           <!-- Net worth -->
           <div class="px-2 py-2">
             <p class="text-sm font-medium">{$_('page.plan.netWorth')}</p>
@@ -464,29 +685,176 @@
 
           <Separator class="mx-2" />
 
-          <!-- Expandable detail sections (32px height each) -->
+          <!-- Expandable detail sections -->
           <div class="flex flex-col gap-4">
-            {#each detailSections as section (section.id)}
-              <Collapsible>
-                <CollapsibleTrigger
-                  class="flex h-8 w-full items-center justify-between px-2 hover:bg-accent"
-                >
-                  <span class="text-sm font-medium">{section.label}</span>
-                  <ChevronRight
-                    class="size-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90"
+            <!-- Key figures -->
+            <Collapsible>
+              <CollapsibleTrigger
+                class="flex h-8 w-full items-center justify-between px-2 hover:bg-accent"
+              >
+                <span class="text-sm font-medium">{$_('page.plan.keyFigures')}</span>
+                <ChevronRight
+                  class="size-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90"
+                />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div class="flex flex-col">
+                  <PlanSidebarRow
+                    dense
+                    name={$_('page.plan.yearOnYear')}
+                    value={yearOnYearLabel}
+                    valueClass={yearOnYearClass}
                   />
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div class="px-2 pb-2 text-sm text-muted-foreground">
-                    {$_('page.plan.noData')}
+                  <PlanSidebarRow
+                    dense
+                    name={$_('page.plan.liquidNetWorth')}
+                    value={appStore.formatCurrencyCode(liquidNetWorth)}
+                  />
+                  <PlanSidebarRow
+                    dense
+                    name={$_('page.plan.totalIncome')}
+                    value={`+${appStore.formatCurrencyCode(totalIncomeValue)}`}
+                    valueClass="text-success"
+                  />
+                  <PlanSidebarRow
+                    dense
+                    name={$_('page.plan.totalExpenses')}
+                    value={`-${appStore.formatCurrencyCode(totalExpensesValue)}`}
+                    valueClass="text-destructive"
+                  />
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+
+            <!-- Investments value -->
+            <Collapsible>
+              <CollapsibleTrigger
+                class="flex h-8 w-full items-center justify-between px-2 hover:bg-accent"
+              >
+                <span class="text-sm font-medium">{$_('page.plan.investmentsValue')}</span>
+                <ChevronRight
+                  class="size-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90"
+                />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                {#if investmentsByItem.length > 0}
+                  <div class="flex flex-col">
+                    {#each investmentsByItem as item (item.id)}
+                      <PlanSidebarRow
+                        dense
+                        name={item.name}
+                        value={appStore.formatCurrencyCode(item.value)}
+                        onclick={notImplemented}
+                      />
+                    {/each}
                   </div>
-                </CollapsibleContent>
-              </Collapsible>
-            {/each}
+                {:else}
+                  <p class="px-2 py-1 text-xs text-muted-foreground">
+                    {$_('page.plan.noItems')}
+                  </p>
+                {/if}
+              </CollapsibleContent>
+            </Collapsible>
+
+            <!-- Tangible assets value -->
+            <Collapsible>
+              <CollapsibleTrigger
+                class="flex h-8 w-full items-center justify-between px-2 hover:bg-accent"
+              >
+                <span class="text-sm font-medium">{$_('page.plan.tangibleAssetsValue')}</span>
+                <ChevronRight
+                  class="size-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90"
+                />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                {#if tangibleAssetsByItem.length > 0}
+                  <div class="flex flex-col">
+                    {#each tangibleAssetsByItem as item (item.id)}
+                      <PlanSidebarRow
+                        dense
+                        name={item.name}
+                        value={appStore.formatCurrencyCode(item.value)}
+                        onclick={notImplemented}
+                      />
+                    {/each}
+                  </div>
+                {:else}
+                  <p class="px-2 py-1 text-xs text-muted-foreground">
+                    {$_('page.plan.noItems')}
+                  </p>
+                {/if}
+              </CollapsibleContent>
+            </Collapsible>
+
+            <!-- Liabilities balance -->
+            <Collapsible>
+              <CollapsibleTrigger
+                class="flex h-8 w-full items-center justify-between px-2 hover:bg-accent"
+              >
+                <span class="text-sm font-medium">{$_('page.plan.liabilitiesBalance')}</span>
+                <ChevronRight
+                  class="size-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90"
+                />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                {#if liabilitiesByItem.length > 0}
+                  <div class="flex flex-col">
+                    {#each liabilitiesByItem as item (item.id)}
+                      <PlanSidebarRow
+                        dense
+                        name={item.name}
+                        value={`-${appStore.formatCurrencyCode(item.value)}`}
+                        valueClass="text-destructive"
+                        onclick={notImplemented}
+                      />
+                    {/each}
+                  </div>
+                {:else}
+                  <p class="px-2 py-1 text-xs text-muted-foreground">
+                    {$_('page.plan.noItems')}
+                  </p>
+                {/if}
+              </CollapsibleContent>
+            </Collapsible>
           </div>
         </div>
       </div>
     {/if}
+
+    <!-- Add cash flow type picker -->
+    <AddCashFlowDialog
+      bind:open={addCashFlowDialogOpen}
+      onOpenChange={(v) => (addCashFlowDialogOpen = v)}
+      onContinue={(kind) => openCreateDialog(kind)}
+    />
+
+    <!-- Cash-flow edit dialog -->
+    <CashFlowEditDialog
+      bind:open={editDialogOpen}
+      onOpenChange={(v) => (editDialogOpen = v)}
+      kind={editDialogKind}
+      initial={editDialogInitial}
+      {plan}
+    />
+
+    <!-- Add asset type picker -->
+    <AddAssetDialog
+      bind:open={addAssetDialogOpen}
+      onOpenChange={(v) => (addAssetDialogOpen = v)}
+      onContinue={handleAddAssetContinue}
+    />
+
+    <!-- Asset edit dialog -->
+    <AssetEditDialog
+      bind:open={assetDialogOpen}
+      onOpenChange={(v) => (assetDialogOpen = v)}
+      kind={assetDialogKind}
+      initial={assetDialogInitial}
+      {plan}
+    />
+
+    <!-- Cash edit dialog -->
+    <CashEditDialog bind:open={cashDialogOpen} onOpenChange={(v) => (cashDialogOpen = v)} {plan} />
 
     <!-- Hover tooltip - at page level to allow overlaying sidebars -->
     {#if hoveredData && tooltipPosition}

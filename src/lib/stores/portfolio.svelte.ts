@@ -35,6 +35,14 @@ export function withPortfolioStore(portfolio: PortfolioNested, app: AppParent): 
   let start_date = $state(portfolio.start_date)
   let end_date = $state(portfolio.end_date)
   let inflation_rate = $state(portfolio.inflation_rate)
+  let include_cash = $state<boolean | undefined>(portfolio.include_cash)
+  let included_investment_ids = $state<string[] | undefined>(portfolio.included_investment_ids)
+  let included_tangible_asset_ids = $state<string[] | undefined>(
+    portfolio.included_tangible_asset_ids,
+  )
+  let included_liability_ids = $state<string[] | undefined>(portfolio.included_liability_ids)
+  let included_income_ids = $state<string[] | undefined>(portfolio.included_income_ids)
+  let included_expense_ids = $state<string[] | undefined>(portfolio.included_expense_ids)
   let investments = $state<InvestmentStore[]>([])
   let goals = $state<InvestmentStore[]>([])
 
@@ -74,6 +82,42 @@ export function withPortfolioStore(portfolio: PortfolioNested, app: AppParent): 
     },
     set inflation_rate(v) {
       inflation_rate = v
+    },
+    get include_cash() {
+      return include_cash
+    },
+    set include_cash(v) {
+      include_cash = v
+    },
+    get included_investment_ids() {
+      return included_investment_ids
+    },
+    set included_investment_ids(v) {
+      included_investment_ids = v
+    },
+    get included_tangible_asset_ids() {
+      return included_tangible_asset_ids
+    },
+    set included_tangible_asset_ids(v) {
+      included_tangible_asset_ids = v
+    },
+    get included_liability_ids() {
+      return included_liability_ids
+    },
+    set included_liability_ids(v) {
+      included_liability_ids = v
+    },
+    get included_income_ids() {
+      return included_income_ids
+    },
+    set included_income_ids(v) {
+      included_income_ids = v
+    },
+    get included_expense_ids() {
+      return included_expense_ids
+    },
+    set included_expense_ids(v) {
+      included_expense_ids = v
     },
     get investments() {
       return investments
@@ -191,6 +235,12 @@ export function withPortfolioStore(portfolio: PortfolioNested, app: AppParent): 
         start_date,
         end_date,
         inflation_rate,
+        ...(include_cash !== undefined ? { include_cash } : {}),
+        ...(included_investment_ids !== undefined ? { included_investment_ids } : {}),
+        ...(included_tangible_asset_ids !== undefined ? { included_tangible_asset_ids } : {}),
+        ...(included_liability_ids !== undefined ? { included_liability_ids } : {}),
+        ...(included_income_ids !== undefined ? { included_income_ids } : {}),
+        ...(included_expense_ids !== undefined ? { included_expense_ids } : {}),
         investments: investments.map((i) => i.toJSON()),
         goals: goals.map((g) => g.toJSON()),
       }
