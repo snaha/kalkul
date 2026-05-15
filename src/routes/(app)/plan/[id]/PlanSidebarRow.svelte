@@ -16,8 +16,8 @@
   type="button"
   {onclick}
   class={cn(
-    'flex w-full items-center justify-between gap-2 rounded-md px-2 text-left text-sm hover:bg-accent',
-    dense ? 'h-7' : 'h-8',
+    'flex w-full items-center justify-between gap-2 rounded-md px-2 text-left text-sm',
+    dense ? 'h-7' : 'h-8 hover:bg-accent',
   )}
 >
   <span class="min-w-0 flex-1 truncate">{name}</span>

@@ -7,7 +7,7 @@
   import * as Dialog from '$lib/components/ui/dialog'
   import { cn } from '$lib/utils'
 
-  type CashFlowKind = 'income' | 'expense'
+  type CashFlowKind = 'transfer' | 'income' | 'expense'
 
   interface Props {
     open: boolean
@@ -33,9 +33,7 @@
       id: 'transfer' as const,
       label: $_('page.plan.transfer'),
       description: $_('page.plan.transferDescription'),
-      // Transfers are not implemented yet — show the option but keep it
-      // disabled so users learn about the feature without breaking flows.
-      disabled: true,
+      disabled: false,
     },
     {
       id: 'income' as const,
@@ -81,7 +79,7 @@
             type="button"
             disabled={option.disabled}
             onclick={() => {
-              if (option.id !== 'transfer') selectedKind = option.id
+              if (!option.disabled) selectedKind = option.id
             }}
             class={cn(
               'flex items-start gap-3 rounded-lg border p-3 text-left transition-colors',

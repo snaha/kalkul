@@ -41,6 +41,7 @@
     ProfileInvestment,
     ProfileLiability,
     ProfileTangibleAsset,
+    Transfer,
   } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
   import { cn, notImplemented } from '$lib/utils'
@@ -51,6 +52,7 @@
   import CashEditDialog from './CashEditDialog.svelte'
   import CashFlowEditDialog from './CashFlowEditDialog.svelte'
   import PlanSidebarRow from './PlanSidebarRow.svelte'
+  import TransferEditDialog from './TransferEditDialog.svelte'
 
   const planId = $derived(page.params.id)
   const plan = $derived(appStore.portfolios.find((p) => p.id === planId))
@@ -87,6 +89,10 @@
   let cashDialogOpen = $state(false)
   let addAssetDialogOpen = $state(false)
 
+  // Transfer edit dialog state
+  let transferDialogOpen = $state(false)
+  let transferDialogInitial = $state<Transfer | undefined>(undefined)
+
   function openEditDialog(kind: 'income' | 'expense', item: Income | Expense) {
     editDialogKind = kind
     editDialogInitial = item
@@ -119,6 +125,24 @@
       cashDialogOpen = true
     } else {
       openAssetCreateDialog(kind)
+    }
+  }
+
+  function openTransferDialog(item: Transfer) {
+    transferDialogInitial = item
+    transferDialogOpen = true
+  }
+
+  function openCreateTransferDialog() {
+    transferDialogInitial = undefined
+    transferDialogOpen = true
+  }
+
+  function handleAddCashFlowContinue(kind: 'transfer' | 'income' | 'expense') {
+    if (kind === 'transfer') {
+      openCreateTransferDialog()
+    } else {
+      openCreateDialog(kind)
     }
   }
   let hoveredYear = $state<number | undefined>(undefined)
@@ -167,7 +191,12 @@
   })
 
   // Category counts from profile data
-  const transfersCount = $derived(0) // Future: count transfers
+  const transfersCount = $derived((plan?.transfers ?? []).length)
+
+  function transferValueSuffix(t: Transfer): string {
+    if (t.schedule === 'one_time') return `(${$_('page.plan.scheduleOneTime').toLowerCase()})`
+    return `/ ${frequencySuffix(t.frequency ?? 'monthly')}`
+  }
   const incomesCount = $derived((appStore.profile.incomes ?? []).length)
   const expensesCount = $derived((appStore.profile.expenses ?? []).length)
   const cashCount = $derived(appStore.profile.cash_amount ? 1 : 0)
@@ -219,7 +248,14 @@
       id: 'transfers',
       label: $_('page.plan.transfers'),
       count: transfersCount,
-      items: [],
+      items: (plan?.transfers ?? [])
+        .filter((t) => matchesSearch(t.name, searchQuery))
+        .map((t) => ({
+          id: t.id,
+          name: t.name,
+          value: `${appStore.formatCurrencyCode(t.amount)} ${transferValueSuffix(t)}`,
+          onClick: () => openTransferDialog(t),
+        })),
     },
     {
       id: 'incomes',
@@ -825,7 +861,15 @@
     <AddCashFlowDialog
       bind:open={addCashFlowDialogOpen}
       onOpenChange={(v) => (addCashFlowDialogOpen = v)}
-      onContinue={(kind) => openCreateDialog(kind)}
+      onContinue={handleAddCashFlowContinue}
+    />
+
+    <!-- Transfer edit dialog -->
+    <TransferEditDialog
+      bind:open={transferDialogOpen}
+      onOpenChange={(v) => (transferDialogOpen = v)}
+      initial={transferDialogInitial}
+      {plan}
     />
 
     <!-- Cash-flow edit dialog -->

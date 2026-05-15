@@ -9,6 +9,7 @@ import type {
   ProfileInvestment,
   ProfileLiability,
   ProfileTangibleAsset,
+  Transfer,
 } from './schemas'
 
 function makePlan(overrides: Partial<PortfolioNested> = {}): PortfolioNested {
@@ -904,5 +905,200 @@ describe('getYearlyPlanProjection', () => {
     expect(result[0].cash).toBeCloseTo(500, 6)
     // No further drain in subsequent years.
     expect(result[1].cash).toBeCloseTo(500, 6)
+  })
+
+  // --- Transfers ---
+
+  it('applies a one-time transfer cash -> investment in the chosen year', () => {
+    const investments: ProfileInvestment[] = [{ id: 'inv1', name: 'Stocks', balance: 0, apy: 0 }]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'Buy stocks',
+        from_asset_id: 'cash',
+        to_asset_id: 'inv1',
+        amount: 1000,
+        schedule: 'one_time',
+        transaction_year: 2027,
+        transaction_month: 6,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ transfers }),
+      makeProfile({ cash_amount: 5000, investments }),
+    )
+    // 2025, 2026 — no change
+    expect(result[0].cash).toBeCloseTo(5000, 6)
+    expect(result[0].investments).toBeCloseTo(0, 6)
+    expect(result[1].cash).toBeCloseTo(5000, 6)
+    expect(result[1].investments).toBeCloseTo(0, 6)
+    // 2027 — transfer happens
+    expect(result[2].cash).toBeCloseTo(4000, 6)
+    expect(result[2].investments).toBeCloseTo(1000, 6)
+    // 2028+ — balances persist
+    expect(result[3].cash).toBeCloseTo(4000, 6)
+    expect(result[3].investments).toBeCloseTo(1000, 6)
+  })
+
+  it('lets future compounding work off the post-transfer investment balance', () => {
+    const investments: ProfileInvestment[] = [
+      { id: 'inv1', name: 'Stocks', balance: 1000, apy: 10 },
+    ]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'Sell half',
+        from_asset_id: 'inv1',
+        to_asset_id: 'cash',
+        amount: 500,
+        schedule: 'one_time',
+        transaction_year: 2025, // year 0
+        transaction_month: 1,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ transfers }),
+      makeProfile({ cash_amount: 0, investments }),
+    )
+    // Year 0: starts at 1000, transfer at end of year leaves 500.
+    expect(result[0].investments).toBeCloseTo(500, 6)
+    expect(result[0].cash).toBeCloseTo(500, 6)
+    // Year 1: 500 * 1.1 = 550
+    expect(result[1].investments).toBeCloseTo(550, 6)
+    // Year 2: 605
+    expect(result[2].investments).toBeCloseTo(605, 6)
+  })
+
+  it('honors a recurring monthly transfer cash -> investment', () => {
+    const investments: ProfileInvestment[] = [{ id: 'inv1', name: 'Stocks', balance: 0, apy: 0 }]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'DCA',
+        from_asset_id: 'cash',
+        to_asset_id: 'inv1',
+        amount: 100,
+        schedule: 'recurring',
+        frequency: 'monthly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ transfers }),
+      makeProfile({ cash_amount: 100_000, investments }),
+    )
+    // 100/mo * 12 = 1200/year
+    expect(result[0].investments).toBeCloseTo(1200, 6)
+    expect(result[0].cash).toBeCloseTo(100_000 - 1200, 6)
+    expect(result[1].investments).toBeCloseTo(2400, 6)
+    expect(result[5].investments).toBeCloseTo(7200, 6) // 6 years inclusive
+  })
+
+  it('compounds recurring contributions at apy from the year they arrive', () => {
+    // 1000 / year into an account at 10% APY, starting at plan-start.
+    // Year 0: deposit 1000 -> balance 1000
+    // Year 1: compound -> 1100, then deposit 1000 -> 2100
+    // Year 2: compound -> 2310, then deposit 1000 -> 3310
+    const investments: ProfileInvestment[] = [{ id: 'inv1', name: 'Stocks', balance: 0, apy: 10 }]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'Yearly contribution',
+        from_asset_id: 'cash',
+        to_asset_id: 'inv1',
+        amount: 1000,
+        schedule: 'recurring',
+        frequency: 'yearly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ transfers }),
+      makeProfile({ cash_amount: 100_000, investments }),
+    )
+    expect(result[0].investments).toBeCloseTo(1000, 6)
+    expect(result[1].investments).toBeCloseTo(2100, 6)
+    expect(result[2].investments).toBeCloseTo(3310, 6)
+  })
+
+  it('reduces a tangible-asset value when transferred out', () => {
+    const tangible_assets: ProfileTangibleAsset[] = [
+      { id: 'house', name: 'House', value: 5_000_000, status: 'fully_owned' },
+    ]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'Partial sale',
+        from_asset_id: 'house',
+        to_asset_id: 'cash',
+        amount: 1_000_000,
+        schedule: 'one_time',
+        transaction_year: 2026,
+        transaction_month: 1,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ transfers }),
+      makeProfile({ cash_amount: 0, tangible_assets }),
+    )
+    // Year 0: untouched
+    expect(result[0].tangibleAssets).toBeCloseTo(5_000_000, 6)
+    expect(result[0].cash).toBeCloseTo(0, 6)
+    // Year 1 (2026): tangible drops, cash rises
+    expect(result[1].tangibleAssets).toBeCloseTo(4_000_000, 6)
+    expect(result[1].cash).toBeCloseTo(1_000_000, 6)
+  })
+
+  it('clamps a from-balance at zero when the transfer would over-draw', () => {
+    const investments: ProfileInvestment[] = [{ id: 'inv1', name: 'Stocks', balance: 100, apy: 0 }]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'Sell more than I have',
+        from_asset_id: 'inv1',
+        to_asset_id: 'cash',
+        amount: 500,
+        schedule: 'one_time',
+        transaction_year: 2025,
+        transaction_month: 1,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ transfers }),
+      makeProfile({ cash_amount: 0, investments }),
+    )
+    expect(result[0].investments).toBeCloseTo(0, 6)
+    // Cash gets the full 500 (deposit isn't clamped — represents an
+    // intentional infusion the user described).
+    expect(result[0].cash).toBeCloseTo(500, 6)
+  })
+
+  it('ignores transfers whose endpoints are excluded from the plan', () => {
+    const investments: ProfileInvestment[] = [
+      { id: 'inv1', name: 'Included', balance: 1000, apy: 0 },
+      { id: 'inv2', name: 'Excluded', balance: 1000, apy: 0 },
+    ]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'Move',
+        from_asset_id: 'inv2', // excluded below
+        to_asset_id: 'inv1',
+        amount: 500,
+        schedule: 'one_time',
+        transaction_year: 2025,
+        transaction_month: 1,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ included_investment_ids: ['inv1'], transfers }),
+      makeProfile({ investments }),
+    )
+    // inv1 unchanged (transfer ignored)
+    expect(result[0].investments).toBeCloseTo(1000, 6)
   })
 })
