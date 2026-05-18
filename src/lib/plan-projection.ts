@@ -378,43 +378,38 @@ export function getYearlyPlanProjection(
     }
 
     if (plan.include_cash !== false) {
-      cashNominal = cashNominal
-        .plus(incomesThisYearNominal)
-        .minus(expensesThisYearNominal)
-        .minus(liabilitiesPaidThisYearNominal)
+      // Clamp at zero — a real cash balance can't go below 0. Excess expenses
+      // / liability payments past the available balance are silently absorbed
+      // (we don't model overdraft or surfaced shortfalls yet).
+      cashNominal = Decimal.max(
+        cashNominal
+          .plus(incomesThisYearNominal)
+          .minus(expensesThisYearNominal)
+          .minus(liabilitiesPaidThisYearNominal),
+        DECIMAL_0,
+      )
     }
 
-    // 4. Transfer flows for this year. Treat as end-of-year events so the
-    //    "from" balance shown for year Y already reflects the withdrawal and
-    //    future years compound from the post-transfer balance.
-    const transfersOut = new Map<string, Decimal>()
-    const transfersIn = new Map<string, Decimal>()
-    for (const transfer of planTransfers) {
-      const amount = transferAmountForYear(transfer, year, startYear, birthYear, inflationRate)
-      if (amount.isZero()) continue
-      transfersOut.set(
-        transfer.from_asset_id,
-        (transfersOut.get(transfer.from_asset_id) ?? DECIMAL_0).plus(amount),
-      )
-      transfersIn.set(
-        transfer.to_asset_id,
-        (transfersIn.get(transfer.to_asset_id) ?? DECIMAL_0).plus(amount),
-      )
+    // 4. Transfer flows for this year. Each transfer is applied atomically:
+    //    if the source balance is less than the requested amount, the entire
+    //    transfer is skipped (no partial move, no overdraft). Treated as
+    //    end-of-year events so the "from" balance shown for year Y already
+    //    reflects the withdrawal and future years compound from the
+    //    post-transfer balance.
+    function getBalance(id: string): Decimal {
+      if (id === 'cash') return cashNominal
+      if (invBalancesNominal.has(id)) return invBalancesNominal.get(id) ?? DECIMAL_0
+      if (tangValuesNominal.has(id)) return tangValuesNominal.get(id) ?? DECIMAL_0
+      return DECIMAL_0
     }
 
     function withdraw(id: string, amount: Decimal): void {
       if (id === 'cash') {
-        cashNominal = Decimal.max(cashNominal.minus(amount), DECIMAL_0)
+        cashNominal = cashNominal.minus(amount)
       } else if (invBalancesNominal.has(id)) {
-        invBalancesNominal.set(
-          id,
-          Decimal.max((invBalancesNominal.get(id) ?? DECIMAL_0).minus(amount), DECIMAL_0),
-        )
+        invBalancesNominal.set(id, (invBalancesNominal.get(id) ?? DECIMAL_0).minus(amount))
       } else if (tangValuesNominal.has(id)) {
-        tangValuesNominal.set(
-          id,
-          Decimal.max((tangValuesNominal.get(id) ?? DECIMAL_0).minus(amount), DECIMAL_0),
-        )
+        tangValuesNominal.set(id, (tangValuesNominal.get(id) ?? DECIMAL_0).minus(amount))
       }
     }
 
@@ -428,8 +423,13 @@ export function getYearlyPlanProjection(
       }
     }
 
-    for (const [id, amount] of transfersOut) withdraw(id, amount)
-    for (const [id, amount] of transfersIn) deposit(id, amount)
+    for (const transfer of planTransfers) {
+      const amount = transferAmountForYear(transfer, year, startYear, birthYear, inflationRate)
+      if (amount.isZero()) continue
+      if (getBalance(transfer.from_asset_id).lessThan(amount)) continue
+      withdraw(transfer.from_asset_id, amount)
+      deposit(transfer.to_asset_id, amount)
+    }
 
     // 5. Aggregate + deflate.
     const investmentsNominal = Array.from(invBalancesNominal.values()).reduce<Decimal>(
@@ -458,16 +458,21 @@ export function getYearlyPlanProjection(
 
     const netWorth = cashReal.plus(investmentsReal).plus(tangibleAssetsReal).minus(liabilitiesReal)
 
+    // Defensive output clamp: balances are conceptually >= 0; any tiny
+    // negative residual from Decimal arithmetic or `-0` from
+    // `Decimal.minus` would otherwise display as "-EUR 0" via Intl.
+    const clampNonNeg = (d: Decimal): number => Math.max(0, d.toNumber())
+
     const investmentsByItem: YearlyProjectionItem[] = investments.map((inv) => ({
       id: inv.id,
       name: inv.name,
-      value: (invBalancesNominal.get(inv.id) ?? DECIMAL_0).div(deflationFactor).toNumber(),
+      value: clampNonNeg((invBalancesNominal.get(inv.id) ?? DECIMAL_0).div(deflationFactor)),
     }))
 
     const tangibleAssetsByItem: YearlyProjectionItem[] = tangibleAssets.map((asset) => ({
       id: asset.id,
       name: asset.name,
-      value: (tangValuesNominal.get(asset.id) ?? DECIMAL_0).toNumber(),
+      value: clampNonNeg(tangValuesNominal.get(asset.id) ?? DECIMAL_0),
     }))
 
     // Only user-defined liabilities (the first `liabilities.length` schedules);
@@ -476,17 +481,17 @@ export function getYearlyPlanProjection(
     const liabilitiesByItem: YearlyProjectionItem[] = liabilities.map((liability, i) => ({
       id: liability.id,
       name: liability.name,
-      value: (liabilitySchedules[i].outstandingByYear.get(year) ?? DECIMAL_0)
-        .div(deflationFactor)
-        .toNumber(),
+      value: clampNonNeg(
+        (liabilitySchedules[i].outstandingByYear.get(year) ?? DECIMAL_0).div(deflationFactor),
+      ),
     }))
 
     projection.push({
       year,
-      cash: cashReal.toNumber(),
-      investments: investmentsReal.toNumber(),
-      tangibleAssets: tangibleAssetsReal.toNumber(),
-      liabilities: liabilitiesReal.toNumber(),
+      cash: clampNonNeg(cashReal),
+      investments: clampNonNeg(investmentsReal),
+      tangibleAssets: clampNonNeg(tangibleAssetsReal),
+      liabilities: clampNonNeg(liabilitiesReal),
       netWorth: netWorth.toNumber(),
       investmentsByItem,
       tangibleAssetsByItem,

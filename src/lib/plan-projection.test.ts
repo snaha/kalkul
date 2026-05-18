@@ -907,6 +907,29 @@ describe('getYearlyPlanProjection', () => {
     expect(result[1].cash).toBeCloseTo(500, 6)
   })
 
+  it('never lets cash go below zero when expenses exceed income + starting balance', () => {
+    const expenses: Expense[] = [
+      {
+        id: 'exp1',
+        name: 'Big spend',
+        amount: 1000,
+        frequency: 'yearly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const result = getYearlyPlanProjection(makePlan(), makeProfile({ cash_amount: 2500, expenses }))
+    // 2500 - 1000 = 1500
+    expect(result[0].cash).toBeCloseTo(1500, 6)
+    // 1500 - 1000 = 500
+    expect(result[1].cash).toBeCloseTo(500, 6)
+    // would be -500; clamped to 0
+    expect(result[2].cash).toBeCloseTo(0, 6)
+    expect(result[3].cash).toBeCloseTo(0, 6)
+    expect(result[4].cash).toBeCloseTo(0, 6)
+  })
+
   // --- Transfers ---
 
   it('applies a one-time transfer cash -> investment in the chosen year', () => {
@@ -1053,7 +1076,7 @@ describe('getYearlyPlanProjection', () => {
     expect(result[1].cash).toBeCloseTo(1_000_000, 6)
   })
 
-  it('clamps a from-balance at zero when the transfer would over-draw', () => {
+  it('skips a transfer entirely when the source has insufficient funds', () => {
     const investments: ProfileInvestment[] = [{ id: 'inv1', name: 'Stocks', balance: 100, apy: 0 }]
     const transfers: Transfer[] = [
       {
@@ -1071,10 +1094,42 @@ describe('getYearlyPlanProjection', () => {
       makePlan({ transfers }),
       makeProfile({ cash_amount: 0, investments }),
     )
-    expect(result[0].investments).toBeCloseTo(0, 6)
-    // Cash gets the full 500 (deposit isn't clamped — represents an
-    // intentional infusion the user described).
-    expect(result[0].cash).toBeCloseTo(500, 6)
+    // Source untouched, destination not credited.
+    expect(result[0].investments).toBeCloseTo(100, 6)
+    expect(result[0].cash).toBeCloseTo(0, 6)
+  })
+
+  it('processes transfers in order; later ones fail when an earlier one drained the source', () => {
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'First',
+        from_asset_id: 'cash',
+        to_asset_id: 'inv1',
+        amount: 600,
+        schedule: 'one_time',
+        transaction_year: 2025,
+        transaction_month: 1,
+      },
+      {
+        id: 't2',
+        name: 'Second (insufficient)',
+        from_asset_id: 'cash',
+        to_asset_id: 'inv1',
+        amount: 600,
+        schedule: 'one_time',
+        transaction_year: 2025,
+        transaction_month: 1,
+      },
+    ]
+    const investments: ProfileInvestment[] = [{ id: 'inv1', name: 'Stocks', balance: 0, apy: 0 }]
+    const result = getYearlyPlanProjection(
+      makePlan({ transfers }),
+      makeProfile({ cash_amount: 1000, investments }),
+    )
+    // Only the first transfer applies: cash 1000 -> 400, inv 0 -> 600.
+    expect(result[0].cash).toBeCloseTo(400, 6)
+    expect(result[0].investments).toBeCloseTo(600, 6)
   })
 
   it('ignores transfers whose endpoints are excluded from the plan', () => {
