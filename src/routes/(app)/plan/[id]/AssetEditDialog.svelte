@@ -189,20 +189,47 @@
       const existing = appStore.profile.investments ?? []
       const projected = projectInvestment(form)
       const idx = existing.findIndex((i) => i.id === form.id)
-      const next = idx === -1 ? [...existing, projected] : existing.with(idx, projected)
+      const next =
+        idx === -1
+          ? [...existing, projected]
+          : existing.map((it, i) => (i === idx ? projected : it))
       appStore.updateProfile({ investments: next, has_investments: next.length > 0 })
+      // If the plan has an explicit include list, append the new id so the
+      // item is visible in this plan by default. Undefined include list means
+      // "all included" already.
+      if (idx === -1 && plan.included_investment_ids !== undefined) {
+        plan.update({
+          included_investment_ids: [...plan.included_investment_ids, form.id],
+        })
+      }
     } else if (kind === 'tangibleAsset') {
       const existing = appStore.profile.tangible_assets ?? []
       const projected = projectTangibleAsset(form)
       const idx = existing.findIndex((a) => a.id === form.id)
-      const next = idx === -1 ? [...existing, projected] : existing.with(idx, projected)
+      const next =
+        idx === -1
+          ? [...existing, projected]
+          : existing.map((it, i) => (i === idx ? projected : it))
       appStore.updateProfile({ tangible_assets: next, has_tangible_assets: next.length > 0 })
+      if (idx === -1 && plan.included_tangible_asset_ids !== undefined) {
+        plan.update({
+          included_tangible_asset_ids: [...plan.included_tangible_asset_ids, form.id],
+        })
+      }
     } else {
       const existing = appStore.profile.liabilities ?? []
       const projected = projectLiability(form)
       const idx = existing.findIndex((l) => l.id === form.id)
-      const next = idx === -1 ? [...existing, projected] : existing.with(idx, projected)
+      const next =
+        idx === -1
+          ? [...existing, projected]
+          : existing.map((it, i) => (i === idx ? projected : it))
       appStore.updateProfile({ liabilities: next, has_liabilities: next.length > 0 })
+      if (idx === -1 && plan.included_liability_ids !== undefined) {
+        plan.update({
+          included_liability_ids: [...plan.included_liability_ids, form.id],
+        })
+      }
     }
     close()
   }

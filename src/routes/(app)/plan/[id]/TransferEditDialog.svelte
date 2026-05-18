@@ -212,7 +212,8 @@
     const existing = plan.transfers ?? []
     const projected = projectTransfer(form)
     const idx = existing.findIndex((t) => t.id === form.id)
-    const next = idx === -1 ? [...existing, projected] : existing.with(idx, projected)
+    const next =
+      idx === -1 ? [...existing, projected] : existing.map((it, i) => (i === idx ? projected : it))
     plan.update({ transfers: next })
     close()
   }
