@@ -81,6 +81,9 @@
     return items.filter((i) => set.has(i.id))
   }
 
+  // Transfers can only move between cash and investments. Tangible assets and
+  // liabilities are intentionally excluded — selling/buying a house is more
+  // naturally modelled as a one-off expense/income.
   const assetOptions = $derived<{ id: string; name: string }[]>([
     ...(plan.include_cash !== false && appStore.profile.cash_amount
       ? [{ id: 'cash', name: $_('page.plan.cashItem') }]
@@ -88,10 +91,6 @@
     ...included(appStore.profile.investments, plan.included_investment_ids).map((inv) => ({
       id: inv.id,
       name: inv.name,
-    })),
-    ...included(appStore.profile.tangible_assets, plan.included_tangible_asset_ids).map((a) => ({
-      id: a.id,
-      name: a.name,
     })),
   ])
 
@@ -435,13 +434,7 @@
             </div>
           </div>
         {:else}
-          <div class="flex-1"></div>
-        {/if}
-      </div>
-
-      {#if form.schedule === 'recurring'}
-        <!-- Recurring: frequency + start/end/change-over-time -->
-        <div class="flex items-end gap-2">
+          <!-- Recurring: Frequency sits in the right column of the Schedule row. -->
           <div class="flex flex-1 flex-col gap-2">
             <Label>{$_('page.plan.transferFrequencyLabel')}</Label>
             <Select.Root
@@ -461,51 +454,8 @@
               </Select.Content>
             </Select.Root>
           </div>
-          <div class="flex-1"></div>
-        </div>
-
-        <DateAgeSelector
-          mode="start"
-          value={form.start}
-          year={form.start_year}
-          month={form.start_month}
-          age={form.start_age}
-          {years}
-          {months}
-          description={$_('page.setup.income.startDescription')}
-          formatNumber={appStore.formatNumber}
-          onValueChange={(v) => (form.start = v as CashFlowStart)}
-          onYearChange={(v) => (form.start_year = v)}
-          onMonthChange={(v) => (form.start_month = v)}
-          onAgeChange={(v) => (form.start_age = v)}
-        />
-
-        <DateAgeSelector
-          mode="end"
-          value={form.end}
-          year={form.end_year}
-          month={form.end_month}
-          age={form.end_age}
-          {years}
-          {months}
-          description={$_('page.setup.income.endDescription')}
-          formatNumber={appStore.formatNumber}
-          onValueChange={(v) => (form.end = v as CashFlowEnd)}
-          onYearChange={(v) => (form.end_year = v)}
-          onMonthChange={(v) => (form.end_month = v)}
-          onAgeChange={(v) => (form.end_age = v)}
-        />
-
-        <ChangeOverTimeSelector
-          value={form.change_over_time}
-          percentage={form.change_percentage}
-          matchInflationDescription={$_('page.setup.income.matchInflationDescription')}
-          changeDescription={$_('page.setup.income.changeDescription')}
-          formatNumber={appStore.formatNumber}
-          onValueChange={(v) => (form.change_over_time = v as ChangeOverTime)}
-          onPercentageChange={(v) => (form.change_percentage = v)}
-        />
-      {/if}
+        {/if}
+      </div>
 
       <!-- Amount (+ Max toggle for one-time only) + Label -->
       <div class="flex items-end gap-2">
@@ -558,6 +508,50 @@
           />
         </div>
       </div>
+
+      {#if form.schedule === 'recurring'}
+        <DateAgeSelector
+          mode="start"
+          value={form.start}
+          year={form.start_year}
+          month={form.start_month}
+          age={form.start_age}
+          {years}
+          {months}
+          description={$_('page.setup.income.startDescription')}
+          formatNumber={appStore.formatNumber}
+          onValueChange={(v) => (form.start = v as CashFlowStart)}
+          onYearChange={(v) => (form.start_year = v)}
+          onMonthChange={(v) => (form.start_month = v)}
+          onAgeChange={(v) => (form.start_age = v)}
+        />
+
+        <DateAgeSelector
+          mode="end"
+          value={form.end}
+          year={form.end_year}
+          month={form.end_month}
+          age={form.end_age}
+          {years}
+          {months}
+          description={$_('page.setup.income.endDescription')}
+          formatNumber={appStore.formatNumber}
+          onValueChange={(v) => (form.end = v as CashFlowEnd)}
+          onYearChange={(v) => (form.end_year = v)}
+          onMonthChange={(v) => (form.end_month = v)}
+          onAgeChange={(v) => (form.end_age = v)}
+        />
+
+        <ChangeOverTimeSelector
+          value={form.change_over_time}
+          percentage={form.change_percentage}
+          matchInflationDescription={$_('page.setup.income.matchInflationDescription')}
+          changeDescription={$_('page.setup.income.changeDescription')}
+          formatNumber={appStore.formatNumber}
+          onValueChange={(v) => (form.change_over_time = v as ChangeOverTime)}
+          onPercentageChange={(v) => (form.change_percentage = v)}
+        />
+      {/if}
     </div>
 
     <Dialog.Footer class="flex flex-row justify-end gap-2 border-t p-4">
