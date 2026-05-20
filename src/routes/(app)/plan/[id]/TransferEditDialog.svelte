@@ -525,7 +525,6 @@
           age={form.start_age}
           {years}
           {months}
-          description={$_('page.setup.income.startDescription')}
           formatNumber={appStore.formatNumber}
           onValueChange={(v) => (form.start = v as CashFlowStart)}
           onYearChange={(v) => (form.start_year = v)}
@@ -541,7 +540,6 @@
           age={form.end_age}
           {years}
           {months}
-          description={$_('page.setup.income.endDescription')}
           formatNumber={appStore.formatNumber}
           onValueChange={(v) => (form.end = v as CashFlowEnd)}
           onYearChange={(v) => (form.end_year = v)}
@@ -552,8 +550,6 @@
         <ChangeOverTimeSelector
           value={form.change_over_time}
           percentage={form.change_percentage}
-          matchInflationDescription={$_('page.setup.income.matchInflationDescription')}
-          changeDescription={$_('page.setup.income.changeDescription')}
           formatNumber={appStore.formatNumber}
           onValueChange={(v) => (form.change_over_time = v as ChangeOverTime)}
           onPercentageChange={(v) => (form.change_percentage = v)}
