@@ -1099,6 +1099,97 @@ describe('getYearlyPlanProjection', () => {
     expect(result[0].cash).toBeCloseTo(0, 6)
   })
 
+  it('drains the source on a one-time transfer_all (ignores amount)', () => {
+    const investments: ProfileInvestment[] = [{ id: 'inv1', name: 'Stocks', balance: 0, apy: 0 }]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'Sweep to investment',
+        from_asset_id: 'cash',
+        to_asset_id: 'inv1',
+        amount: 0,
+        transfer_all: true,
+        schedule: 'one_time',
+        transaction_year: 2026,
+        transaction_month: 1,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ transfers }),
+      makeProfile({ cash_amount: 7500, investments }),
+    )
+    // 2025 (year 0): untouched
+    expect(result[0].cash).toBeCloseTo(7500, 6)
+    expect(result[0].investments).toBeCloseTo(0, 6)
+    // 2026: sweep entire cash balance
+    expect(result[1].cash).toBeCloseTo(0, 6)
+    expect(result[1].investments).toBeCloseTo(7500, 6)
+  })
+
+  it('skips a transfer_all when the source is empty', () => {
+    const investments: ProfileInvestment[] = [{ id: 'inv1', name: 'Stocks', balance: 0, apy: 0 }]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'Try to sweep nothing',
+        from_asset_id: 'cash',
+        to_asset_id: 'inv1',
+        amount: 0,
+        transfer_all: true,
+        schedule: 'one_time',
+        transaction_year: 2025,
+        transaction_month: 1,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ transfers }),
+      makeProfile({ cash_amount: 0, investments }),
+    )
+    expect(result[0].cash).toBeCloseTo(0, 6)
+    expect(result[0].investments).toBeCloseTo(0, 6)
+  })
+
+  it('sweeps each year for recurring transfer_all', () => {
+    // Income deposits 1000/yr into cash; the sweep moves it to investments.
+    const incomes: Income[] = [
+      {
+        id: 'inc1',
+        name: 'Salary',
+        amount: 1000,
+        frequency: 'yearly',
+        withhold_taxes: false,
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const investments: ProfileInvestment[] = [{ id: 'inv1', name: 'Stocks', balance: 0, apy: 0 }]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'Sweep monthly',
+        from_asset_id: 'cash',
+        to_asset_id: 'inv1',
+        amount: 0,
+        transfer_all: true,
+        schedule: 'recurring',
+        frequency: 'monthly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ transfers }),
+      makeProfile({ cash_amount: 0, incomes, investments }),
+    )
+    // Each year: 1000 lands in cash, sweep drains it. Investments accumulate.
+    expect(result[0].cash).toBeCloseTo(0, 6)
+    expect(result[0].investments).toBeCloseTo(1000, 6)
+    expect(result[2].cash).toBeCloseTo(0, 6)
+    expect(result[2].investments).toBeCloseTo(3000, 6)
+  })
+
   it('processes transfers in order; later ones fail when an earlier one drained the source', () => {
     const transfers: Transfer[] = [
       {

@@ -110,12 +110,13 @@
       "scheduleLabel": "Schedule",
       "scheduleOneTime": "One-time",
       "scheduleRecurring": "Recurring",
-      "scheduleDescription": "Choose whether this is a one-time event or repeats regularly",
       "transactionDateLabel": "Transaction date",
       "defaultTransferName": "Transfer {index}",
       "pickAsset": "Please select",
       "deleteTransferConfirm": "Delete this transfer? This cannot be undone.",
-      "transferFrequencyLabel": "Frequency"
+      "transferFrequencyLabel": "Frequency",
+      "transferMax": "Max",
+      "transferMaxDescription": "Transfers all available funds at the time of execution"
     },
     "home": {
       "heroTitle": "See where your money could take you",

@@ -228,8 +228,24 @@ function transferToTemporal(transfer: Transfer): CashFlowTemporal {
   }
 }
 
-// Nominal transfer amount that should be applied in the given year. Returns
-// zero when the transfer doesn't fire in this year.
+// Whether the transfer should fire in the given year (independent of amount).
+function isTransferActiveThisYear(
+  transfer: Transfer,
+  year: number,
+  planStartYear: number,
+  birthYear: number | undefined,
+): boolean {
+  if (transfer.schedule === 'one_time') return year === transfer.transaction_year
+  const temporal = transferToTemporal(transfer)
+  const tStart = resolveStartYear(temporal, planStartYear, birthYear)
+  const tEnd = resolveEndYear(temporal, birthYear)
+  if (year < tStart || year > tEnd) return false
+  return !activeMonthFraction(temporal, year, tStart, tEnd).isZero()
+}
+
+// Nominal transfer amount that should be applied in the given year (for
+// fixed-amount transfers only — caller should use the live source balance
+// instead when `transfer.transfer_all` is true).
 function transferAmountForYear(
   transfer: Transfer,
   year: number,
@@ -424,9 +440,17 @@ export function getYearlyPlanProjection(
     }
 
     for (const transfer of planTransfers) {
-      const amount = transferAmountForYear(transfer, year, startYear, birthYear, inflationRate)
-      if (amount.isZero()) continue
-      if (getBalance(transfer.from_asset_id).lessThan(amount)) continue
+      if (!isTransferActiveThisYear(transfer, year, startYear, birthYear)) continue
+      let amount: Decimal
+      if (transfer.transfer_all) {
+        // "Max" mode: take whatever the source has at execution time.
+        amount = getBalance(transfer.from_asset_id)
+        if (amount.lessThanOrEqualTo(0)) continue
+      } else {
+        amount = transferAmountForYear(transfer, year, startYear, birthYear, inflationRate)
+        if (amount.isZero()) continue
+        if (getBalance(transfer.from_asset_id).lessThan(amount)) continue
+      }
       withdraw(transfer.from_asset_id, amount)
       deposit(transfer.to_asset_id, amount)
     }

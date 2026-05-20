@@ -253,7 +253,7 @@
         .map((t) => ({
           id: t.id,
           name: t.name,
-          value: `${appStore.formatCurrencyCode(t.amount)} ${transferValueSuffix(t)}`,
+          value: `${t.transfer_all ? $_('page.plan.transferMax') : appStore.formatCurrencyCode(t.amount)} ${transferValueSuffix(t)}`,
           onClick: () => openTransferDialog(t),
         })),
     },

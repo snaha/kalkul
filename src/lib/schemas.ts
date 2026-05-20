@@ -228,6 +228,9 @@ export const transferSchema = z
     from_asset_id: z.string(),
     to_asset_id: z.string(),
     amount: z.number(),
+    // When true, ignore `amount` and transfer the source's full available
+    // balance at the time of execution.
+    transfer_all: z.boolean().optional(),
     schedule: transferScheduleSchema,
     // one-time fields
     transaction_year: z.number().optional(),

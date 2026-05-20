@@ -110,12 +110,13 @@
       "scheduleLabel": "Rozvrh",
       "scheduleOneTime": "Jednorázově",
       "scheduleRecurring": "Opakovaně",
-      "scheduleDescription": "Zvolte, zda se jedná o jednorázovou událost nebo opakovanou akci",
       "transactionDateLabel": "Datum transakce",
       "defaultTransferName": "Převod {index}",
       "pickAsset": "Vyberte",
       "deleteTransferConfirm": "Smazat tento převod? Akci nelze vrátit zpět.",
-      "transferFrequencyLabel": "Frekvence"
+      "transferFrequencyLabel": "Frekvence",
+      "transferMax": "Max",
+      "transferMaxDescription": "Převede všechny dostupné prostředky v okamžiku provedení"
     },
     "home": {
       "heroTitle": "Podívejte se, kam vás vaše peníze mohou dovést",

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { _, locale } from 'svelte-i18n'
 
-  import { Copy, SquarePen, Trash2, X } from '@lucide/svelte'
+  import { CircleHelp, Copy, SquarePen, Trash2, X } from '@lucide/svelte'
 
   import ChangeOverTimeSelector from '$lib/components/change-over-time-selector.svelte'
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
@@ -11,6 +11,8 @@
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import * as Select from '$lib/components/ui/select'
+  import { Switch } from '$lib/components/ui/switch'
+  import * as Tooltip from '$lib/components/ui/tooltip'
   import type {
     CashFlowEnd,
     CashFlowStart,
@@ -38,6 +40,7 @@
     from_asset_id: string
     to_asset_id: string
     amount: number | undefined
+    transfer_all: boolean
     schedule: TransferSchedule
     // one-time
     transaction_year: number | undefined
@@ -100,6 +103,7 @@
       from_asset_id: '',
       to_asset_id: '',
       amount: undefined,
+      transfer_all: false,
       schedule: 'one_time',
       transaction_year: currentYear,
       transaction_month: currentMonth + 1,
@@ -125,6 +129,7 @@
     f.from_asset_id = src.from_asset_id
     f.to_asset_id = src.to_asset_id
     f.amount = src.amount > 0 ? src.amount : undefined
+    f.transfer_all = src.transfer_all ?? false
     f.schedule = src.schedule
     f.transaction_year = src.transaction_year ?? currentYear
     f.transaction_month = src.transaction_month ?? currentMonth + 1
@@ -145,12 +150,17 @@
   let form = $state<FormState>(blankForm())
   let editingName = $state(false)
   let nameInputRef: HTMLInputElement | undefined = $state()
+  // Controlled state for the Max-helper tooltip. Hover/focus events still
+  // open/close it via bits-ui's onOpenChange. Click toggles it manually so
+  // touch devices (no hover) can show *and* dismiss it.
+  let maxTooltipOpen = $state(false)
 
   let wasOpen = false
   $effect(() => {
     if (open && !wasOpen) {
       form = seedForm(initial)
       editingName = initial === undefined
+      maxTooltipOpen = false
     }
     wasOpen = open
   })
@@ -174,7 +184,8 @@
         name: f.name,
         from_asset_id: f.from_asset_id,
         to_asset_id: f.to_asset_id,
-        amount: f.amount ?? 0,
+        amount: f.transfer_all ? 0 : (f.amount ?? 0),
+        ...(f.transfer_all ? { transfer_all: true } : {}),
         schedule: 'one_time',
         transaction_year: f.transaction_year,
         transaction_month: f.transaction_month,
@@ -185,7 +196,8 @@
       name: f.name,
       from_asset_id: f.from_asset_id,
       to_asset_id: f.to_asset_id,
-      amount: f.amount ?? 0,
+      amount: f.transfer_all ? 0 : (f.amount ?? 0),
+      ...(f.transfer_all ? { transfer_all: true } : {}),
       schedule: 'recurring',
       frequency: f.frequency,
       start: f.start,
@@ -255,7 +267,7 @@
     form.from_asset_id !== '' &&
       form.to_asset_id !== '' &&
       form.from_asset_id !== form.to_asset_id &&
-      (form.amount ?? 0) > 0,
+      (form.transfer_all || (form.amount ?? 0) > 0),
   )
 </script>
 
@@ -356,27 +368,7 @@
         </div>
       </div>
 
-      <!-- Amount + Label -->
-      <div class="flex items-end gap-2">
-        <div class="flex flex-1 flex-col gap-2">
-          <Label>{$_('page.setup.common.amount')}</Label>
-          <SuffixedInput
-            value={form.amount}
-            suffix={currencyLabel}
-            formatNumber={appStore.formatNumber}
-            onValueChange={(v) => (form.amount = v)}
-          />
-        </div>
-        <div class="flex flex-1 flex-col gap-2">
-          <Label>{$_('page.plan.transferLabelLabel')}</Label>
-          <Input
-            value={form.name}
-            oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
-          />
-        </div>
-      </div>
-
-      <!-- Schedule -->
+      <!-- Schedule + (one-time) Date  /  (recurring) Schedule alone -->
       <div class="flex items-end gap-2">
         <div class="flex flex-1 flex-col gap-2">
           <Label>{$_('page.plan.scheduleLabel')}</Label>
@@ -384,7 +376,11 @@
             type="single"
             value={form.schedule}
             onValueChange={(v) => {
-              if (v) form.schedule = v as TransferSchedule
+              if (v) {
+                form.schedule = v as TransferSchedule
+                // `transfer_all` (Max) only applies to one-time transfers.
+                if (form.schedule !== 'one_time') form.transfer_all = false
+              }
             }}
           >
             <Select.Trigger class="w-full">
@@ -398,14 +394,7 @@
             </Select.Content>
           </Select.Root>
         </div>
-        <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">
-          {$_('page.plan.scheduleDescription')}
-        </p>
-      </div>
-
-      {#if form.schedule === 'one_time'}
-        <!-- Transaction date -->
-        <div class="flex items-end gap-2">
+        {#if form.schedule === 'one_time'}
           <div class="flex flex-1 flex-col gap-2">
             <Label>{$_('page.plan.transactionDateLabel')}</Label>
             <div class="flex items-center gap-2">
@@ -445,9 +434,12 @@
               </Select.Root>
             </div>
           </div>
+        {:else}
           <div class="flex-1"></div>
-        </div>
-      {:else}
+        {/if}
+      </div>
+
+      {#if form.schedule === 'recurring'}
         <!-- Recurring: frequency + start/end/change-over-time -->
         <div class="flex items-end gap-2">
           <div class="flex flex-1 flex-col gap-2">
@@ -514,6 +506,58 @@
           onPercentageChange={(v) => (form.change_percentage = v)}
         />
       {/if}
+
+      <!-- Amount (+ Max toggle for one-time only) + Label -->
+      <div class="flex items-end gap-2">
+        <div class="flex flex-1 flex-col gap-2">
+          <Label>{$_('page.setup.common.amount')}</Label>
+          <div class="flex items-center gap-2">
+            <div class="flex-1">
+              {#if form.transfer_all}
+                <Input value={$_('page.plan.transferMax')} readonly class="text-muted-foreground" />
+              {:else}
+                <SuffixedInput
+                  value={form.amount}
+                  suffix={currencyLabel}
+                  formatNumber={appStore.formatNumber}
+                  onValueChange={(v) => (form.amount = v)}
+                />
+              {/if}
+            </div>
+            {#if form.schedule === 'one_time'}
+              <label class="flex shrink-0 cursor-pointer items-center gap-2">
+                <Switch
+                  checked={form.transfer_all}
+                  onCheckedChange={(v) => (form.transfer_all = v === true)}
+                />
+                <span class="text-sm font-medium">{$_('page.plan.transferMax')}</span>
+              </label>
+              <Tooltip.Provider delayDuration={150}>
+                <Tooltip.Root bind:open={maxTooltipOpen} disableCloseOnTriggerClick>
+                  <Tooltip.Trigger
+                    type="button"
+                    aria-label={$_('page.plan.transferMaxDescription')}
+                    onclick={() => (maxTooltipOpen = !maxTooltipOpen)}
+                    class="text-muted-foreground hover:text-foreground shrink-0"
+                  >
+                    <CircleHelp class="size-4" />
+                  </Tooltip.Trigger>
+                  <Tooltip.Content>
+                    {$_('page.plan.transferMaxDescription')}
+                  </Tooltip.Content>
+                </Tooltip.Root>
+              </Tooltip.Provider>
+            {/if}
+          </div>
+        </div>
+        <div class="flex flex-1 flex-col gap-2">
+          <Label>{$_('page.plan.transferLabelLabel')}</Label>
+          <Input
+            value={form.name}
+            oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
+          />
+        </div>
+      </div>
     </div>
 
     <Dialog.Footer class="flex flex-row justify-end gap-2 border-t p-4">
