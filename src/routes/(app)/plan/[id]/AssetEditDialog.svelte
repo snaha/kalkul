@@ -296,6 +296,7 @@
     } else {
       plan.update({ included_liability_ids: nextIds })
     }
+    close()
   }
 
   function remove() {

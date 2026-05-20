@@ -328,12 +328,13 @@ export function getYearlyPlanProjection(
 
   // Only honor transfers whose endpoints are part of this plan; anything else
   // is ignored (e.g. a transfer referencing an investment that was excluded).
+  // Also honor the plan's `included_transfer_ids` whitelist when set.
   const knownAssetIds = new Set<string>([
     'cash',
     ...investments.map((i) => i.id),
     ...tangibleAssets.map((a) => a.id),
   ])
-  const planTransfers = (plan.transfers ?? []).filter(
+  const planTransfers = filterById(plan.transfers, plan.included_transfer_ids).filter(
     (t) => knownAssetIds.has(t.from_asset_id) && knownAssetIds.has(t.to_asset_id),
   )
 

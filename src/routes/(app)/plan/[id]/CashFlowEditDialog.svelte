@@ -264,6 +264,7 @@
     } else {
       plan.update({ included_expense_ids: nextIds })
     }
+    close()
   }
 
   function remove() {

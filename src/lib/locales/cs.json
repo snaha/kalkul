@@ -111,6 +111,7 @@
       "scheduleOneTime": "Jednorázově",
       "scheduleRecurring": "Opakovaně",
       "transactionDateLabel": "Datum transakce",
+      "newTransfer": "Nový převod",
       "defaultTransferName": "Převod {index}",
       "pickAsset": "Vyberte",
       "deleteTransferConfirm": "Smazat tento převod? Akci nelze vrátit zpět.",

@@ -327,6 +327,7 @@ export const portfolioSchema = z.object({
   included_income_ids: z.array(z.string()).optional(),
   included_expense_ids: z.array(z.string()).optional(),
   transfers: z.array(transferSchema).optional(),
+  included_transfer_ids: z.array(z.string()).optional(),
 })
 
 export const transactionTypeSchema = z.enum(['deposit', 'withdrawal'])

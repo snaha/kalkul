@@ -38,6 +38,7 @@
 
   function toggleExclude() {
     plan.update({ include_cash: isIncluded ? false : true })
+    onClose()
   }
 
   function remove() {

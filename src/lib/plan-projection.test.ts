@@ -1223,6 +1223,39 @@ describe('getYearlyPlanProjection', () => {
     expect(result[0].investments).toBeCloseTo(600, 6)
   })
 
+  it('ignores transfers excluded via included_transfer_ids', () => {
+    const investments: ProfileInvestment[] = [{ id: 'inv1', name: 'Stocks', balance: 0, apy: 0 }]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'Included',
+        from_asset_id: 'cash',
+        to_asset_id: 'inv1',
+        amount: 100,
+        schedule: 'one_time',
+        transaction_year: 2025,
+        transaction_month: 1,
+      },
+      {
+        id: 't2',
+        name: 'Excluded',
+        from_asset_id: 'cash',
+        to_asset_id: 'inv1',
+        amount: 200,
+        schedule: 'one_time',
+        transaction_year: 2025,
+        transaction_month: 1,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ transfers, included_transfer_ids: ['t1'] }),
+      makeProfile({ cash_amount: 1000, investments }),
+    )
+    // Only t1 applies: 100 from cash to inv1; t2 is excluded.
+    expect(result[0].cash).toBeCloseTo(900, 6)
+    expect(result[0].investments).toBeCloseTo(100, 6)
+  })
+
   it('ignores transfers whose endpoints are excluded from the plan', () => {
     const investments: ProfileInvestment[] = [
       { id: 'inv1', name: 'Included', balance: 1000, apy: 0 },
