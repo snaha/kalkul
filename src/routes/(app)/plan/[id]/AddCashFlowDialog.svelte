@@ -17,13 +17,13 @@
 
   let { open = $bindable(), onOpenChange, onContinue }: Props = $props()
 
-  let selectedKind = $state<CashFlowKind>('income')
+  let selectedKind = $state<CashFlowKind>('transfer')
 
   // Re-seed default selection whenever the dialog opens.
   let wasOpen = false
   $effect(() => {
     if (open && !wasOpen) {
-      selectedKind = 'income'
+      selectedKind = 'transfer'
     }
     wasOpen = open
   })
