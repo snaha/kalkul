@@ -70,6 +70,8 @@ function resolveStartYear(
   birthYear: number | undefined,
 ): number {
   if (cashFlow.start === 'immediately') return planStartYear
+  // 'now' anchors to the real-world current month at projection time.
+  if (cashFlow.start === 'now') return new Date().getFullYear()
   if (cashFlow.start === 'at_specific_date') return cashFlow.start_year ?? planStartYear
   if (
     cashFlow.start === 'when_age_is' &&
@@ -106,6 +108,10 @@ function activeMonthFraction(
     cashFlow.start_month !== undefined
   ) {
     startMonth = cashFlow.start_month
+  }
+  // 'now' starts at the real-world current month within the start year.
+  if (year === startYear && cashFlow.start === 'now') {
+    startMonth = new Date().getMonth() + 1
   }
   if (year === endYear && cashFlow.end === 'at_specific_date' && cashFlow.end_month !== undefined) {
     endMonth = cashFlow.end_month

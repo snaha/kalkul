@@ -13,7 +13,12 @@
     age: number | undefined
     years: string[]
     months: { value: string; label: string }[]
-    description: string
+    /**
+     * Overrides the option-aware description. When omitted, the description
+     * derives from the selected option using shared i18n keys (matches the
+     * Figma spec at node 233:6637).
+     */
+    description?: string
     onValueChange: (v: string) => void
     onYearChange: (v: number | undefined) => void
     onMonthChange: (v: number | undefined) => void
@@ -44,6 +49,7 @@
   let displayValue = $derived.by(() => {
     if (mode === 'start') {
       if (value === 'immediately') return $_('page.setup.common.immediately')
+      if (value === 'now') return $_('page.setup.common.now')
       if (value === 'at_specific_date') return $_('page.setup.common.atSpecificDate')
       if (value === 'when_age_is') return $_('page.setup.common.whenAgeIs')
       return $_('page.setup.common.immediately')
@@ -58,6 +64,17 @@
   let defaultLabel = $derived(
     mode === 'start' ? $_('page.setup.common.immediately') : $_('page.setup.common.never'),
   )
+
+  // Option-aware description: shown next to the dropdown when the selected
+  // option doesn't have its own input (i.e. not 'at_specific_date' or
+  // 'when_age_is'). Callers can override via the `description` prop.
+  let computedDescription = $derived.by(() => {
+    if (value === 'immediately') return $_('page.setup.common.immediatelyDescription')
+    if (value === 'now') return $_('page.setup.common.nowDescription')
+    if (value === 'never') return $_('page.setup.common.neverDescription')
+    return ''
+  })
+  let effectiveDescription = $derived(description ?? computedDescription)
 
   let yearString = $derived(year !== undefined ? String(year) : '')
   let monthString = $derived(month !== undefined ? String(month) : '')
@@ -78,6 +95,9 @@
       </Select.Trigger>
       <Select.Content>
         <Select.Item value={defaultOption}>{defaultLabel}</Select.Item>
+        {#if mode === 'start'}
+          <Select.Item value="now">{$_('page.setup.common.now')}</Select.Item>
+        {/if}
         <Select.Item value="at_specific_date">
           {$_('page.setup.common.atSpecificDate')}
         </Select.Item>
@@ -131,7 +151,7 @@
     </div>
   {:else}
     <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">
-      {description}
+      {effectiveDescription}
     </p>
   {/if}
 </div>

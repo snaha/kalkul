@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { getYearlyPlanProjection } from './plan-projection'
 import type {
@@ -352,6 +352,39 @@ describe('getYearlyPlanProjection', () => {
     // so matched < baseline in real terms, but still grows.
     expect(matched[5].cash).toBeLessThan(baseline[5].cash)
     expect(matched[5].cash).toBeGreaterThan(matched[0].cash)
+  })
+
+  it("anchors start='now' to the real-world current month at projection time", () => {
+    // Freeze current time so the test is deterministic. Project a yearly
+    // income starting "now" → activeMonthFraction uses the current month.
+    vi.setSystemTime(new Date('2027-04-15'))
+    try {
+      const incomes: Income[] = [
+        {
+          id: 'inc1',
+          name: 'Salary',
+          amount: 1200,
+          frequency: 'yearly',
+          withhold_taxes: false,
+          start: 'now',
+          end: 'never',
+          change_over_time: 'none',
+        },
+      ]
+      const result = getYearlyPlanProjection(
+        makePlan({ start_date: '2025-01-01', end_date: '2030-01-01' }),
+        makeProfile({ incomes }),
+      )
+      // Pre-"now" years are inactive; cash stays 0.
+      expect(result[0].cash).toBeCloseTo(0, 6) // 2025
+      expect(result[1].cash).toBeCloseTo(0, 6) // 2026
+      // 2027: 9 months active (Apr..Dec) → 9/12 * 1200 = 900.
+      expect(result[2].cash).toBeCloseTo(900, 6)
+      // 2028: full year, accumulates.
+      expect(result[3].cash).toBeCloseTo(900 + 1200, 6)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('honors when_age_is start with birth_date', () => {

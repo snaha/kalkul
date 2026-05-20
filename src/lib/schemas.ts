@@ -7,7 +7,7 @@ import { z } from 'zod'
 
 export const frequencySchema = z.enum(['monthly', 'yearly', 'weekly'])
 
-export const cashFlowStartSchema = z.enum(['immediately', 'at_specific_date', 'when_age_is'])
+export const cashFlowStartSchema = z.enum(['immediately', 'now', 'at_specific_date', 'when_age_is'])
 
 export const cashFlowEndSchema = z.enum(['never', 'at_specific_date', 'when_age_is'])
 
