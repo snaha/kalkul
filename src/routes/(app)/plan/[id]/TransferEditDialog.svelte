@@ -1,7 +1,7 @@
 <script lang="ts">
   import { _, locale } from 'svelte-i18n'
 
-  import { CircleHelp, Copy, SquarePen, Trash2, X } from '@lucide/svelte'
+  import { CircleHelp, CopyPlus, Eye, EyeOff, Trash2, X } from '@lucide/svelte'
 
   import ChangeOverTimeSelector from '$lib/components/change-over-time-selector.svelte'
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
@@ -147,8 +147,6 @@
   }
 
   let form = $state<FormState>(blankForm())
-  let editingName = $state(false)
-  let nameInputRef: HTMLInputElement | undefined = $state()
   // Controlled state for the Max-helper tooltip. Hover/focus events still
   // open/close it via bits-ui's onOpenChange. Click toggles it manually so
   // touch devices (no hover) can show *and* dismiss it.
@@ -158,13 +156,21 @@
   $effect(() => {
     if (open && !wasOpen) {
       form = seedForm(initial)
-      editingName = initial === undefined
       maxTooltipOpen = false
     }
     wasOpen = open
   })
 
   const isNew = $derived(initial === undefined)
+
+  // Plan-level inclusion of this transfer. `undefined` (default) means all
+  // transfers are included; once the user toggles exclusion the array
+  // materializes and tracks which transfers stay active.
+  const isIncluded = $derived.by(() => {
+    if (isNew) return true
+    if (plan.included_transfer_ids === undefined) return true
+    return plan.included_transfer_ids.includes(form.id)
+  })
 
   function assetName(id: string): string {
     return assetOptions.find((a) => a.id === id)?.name ?? ''
@@ -225,7 +231,13 @@
     const idx = existing.findIndex((t) => t.id === form.id)
     const next =
       idx === -1 ? [...existing, projected] : existing.map((it, i) => (i === idx ? projected : it))
-    plan.update({ transfers: next })
+    // If the plan has an explicit transfer include list, append the new id so
+    // the new transfer is visible by default (mirrors income/expense flow).
+    const updates: Parameters<typeof plan.update>[0] = { transfers: next }
+    if (idx === -1 && plan.included_transfer_ids !== undefined) {
+      updates.included_transfer_ids = [...plan.included_transfer_ids, form.id]
+    }
+    plan.update(updates)
     close()
   }
 
@@ -239,7 +251,21 @@
       name: $_('page.setup.common.copySuffix', { values: { name: existing[idx].name } }),
     }
     const next = [...existing.slice(0, idx + 1), copy, ...existing.slice(idx + 1)]
-    plan.update({ transfers: next })
+    const updates: Parameters<typeof plan.update>[0] = { transfers: next }
+    if (plan.included_transfer_ids !== undefined) {
+      updates.included_transfer_ids = [...plan.included_transfer_ids, copy.id]
+    }
+    plan.update(updates)
+    close()
+  }
+
+  function toggleExclude() {
+    const allIds = (plan.transfers ?? []).map((t) => t.id)
+    const seeded = plan.included_transfer_ids ?? allIds
+    const nextIds = seeded.includes(form.id)
+      ? seeded.filter((id) => id !== form.id)
+      : [...seeded, form.id]
+    plan.update({ included_transfer_ids: nextIds })
     close()
   }
 
@@ -248,18 +274,6 @@
     const next = (plan.transfers ?? []).filter((t) => t.id !== form.id)
     plan.update({ transfers: next })
     close()
-  }
-
-  function startRenaming() {
-    editingName = true
-    queueMicrotask(() => {
-      nameInputRef?.focus()
-      nameInputRef?.select()
-    })
-  }
-
-  function stopRenaming() {
-    editingName = false
   }
 
   const canSave = $derived(
@@ -273,37 +287,30 @@
 <Dialog.Root bind:open {onOpenChange}>
   <Dialog.Content showCloseButton={false} class="gap-0 p-0 sm:max-w-xl">
     <Dialog.Header class="flex flex-row items-center gap-1 border-b p-4 pe-3">
-      {#if editingName}
-        <Input
-          bind:ref={nameInputRef}
-          value={form.name}
-          oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
-          onblur={isNew ? undefined : stopRenaming}
-          onkeydown={(e) => {
-            if (!isNew && (e.key === 'Enter' || e.key === 'Escape')) stopRenaming()
-          }}
-          class="flex-1 text-lg font-semibold"
-        />
-      {:else}
-        <Dialog.Title class="flex-1 truncate text-lg font-semibold">{form.name}</Dialog.Title>
-      {/if}
+      <Dialog.Title class="flex-1 truncate text-lg font-semibold">
+        {isNew ? $_('page.plan.newTransfer') : form.name}
+      </Dialog.Title>
 
       {#if !isNew}
-        <Button
-          variant="ghost"
-          size="icon"
-          onclick={startRenaming}
-          aria-label={$_('page.plan.renameItem')}
-        >
-          <SquarePen class="size-4" />
-        </Button>
         <Button
           variant="ghost"
           size="icon"
           onclick={duplicate}
           aria-label={$_('page.plan.duplicateItem')}
         >
-          <Copy class="size-4" />
+          <CopyPlus class="size-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onclick={toggleExclude}
+          aria-label={isIncluded ? $_('page.plan.excludeFromPlan') : $_('page.plan.includeInPlan')}
+        >
+          {#if isIncluded}
+            <Eye class="size-4" />
+          {:else}
+            <EyeOff class="size-4 text-destructive" />
+          {/if}
         </Button>
         <Button
           variant="ghost"
