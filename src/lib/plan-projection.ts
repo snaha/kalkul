@@ -180,13 +180,42 @@ interface LiabilitySchedule {
   paidByYear: Map<number, Decimal>
 }
 
+// Number of times per year interest is added to the balance when the user
+// has opted into a specific compounding cadence. 365 chosen for daily so we
+// match the convention most banks quote (actual/365).
+const COMPOUNDING_PERIODS_PER_YEAR: Record<'daily' | 'monthly' | 'yearly', number> = {
+  daily: 365,
+  monthly: 12,
+  yearly: 1,
+}
+
 function simulateLiability(
   liability: ProfileLiability,
   startYear: number,
   endYear: number,
 ): LiabilitySchedule {
   const periodsPerYear = INSTALLMENT_PERIODS_PER_YEAR[liability.installment_frequency]
-  const periodRate = new Decimal(liability.annual_rate).div(100).div(periodsPerYear)
+  // Per-installment rate. Two paths:
+  //  - 'simple' (or missing interest_type but compounding_frequency unset →
+  //    keep legacy behaviour): nominal rate divided across installments.
+  //  - 'compound': convert the nominal annual rate to an effective annual
+  //    rate using the chosen compounding frequency, then back out the
+  //    equivalent per-installment rate. Defaults to compounding at the
+  //    installment frequency so unconfigured liabilities behave identically
+  //    to the pre-advanced-options engine.
+  const annualRate = new Decimal(liability.annual_rate).div(100)
+  let periodRate: Decimal
+  if (liability.interest_type === 'simple') {
+    periodRate = annualRate.div(periodsPerYear)
+  } else {
+    const compFreqKey = liability.compounding_frequency
+    const compoundingPeriodsPerYear =
+      compFreqKey !== undefined ? COMPOUNDING_PERIODS_PER_YEAR[compFreqKey] : periodsPerYear
+    // EAR = (1 + r/n)^n − 1; installment rate = (1 + EAR)^(1/p) − 1
+    const periodicCompoundRate = annualRate.div(compoundingPeriodsPerYear)
+    const ear = DECIMAL_1.plus(periodicCompoundRate).pow(compoundingPeriodsPerYear).minus(DECIMAL_1)
+    periodRate = DECIMAL_1.plus(ear).pow(new Decimal(1).div(periodsPerYear)).minus(DECIMAL_1)
+  }
   const installmentAmount = new Decimal(liability.installment_amount)
 
   let balance = new Decimal(liability.outstanding_balance)
@@ -366,7 +395,25 @@ export function getYearlyPlanProjection(
   const tangValuesNominal = new Map<string, Decimal>(
     tangibleAssets.map((a) => [a.id, new Decimal(a.value)]),
   )
-  const investmentApy = new Map<string, Decimal>(investments.map((i) => [i.id, new Decimal(i.apy)]))
+  // Per-investment lookup so the transfer loop can apply entry/exit fees by
+  // asset id without re-scanning the array.
+  const investmentsById = new Map<string, ProfileInvestment>(investments.map((i) => [i.id, i]))
+  // Effective APY = APY − TER − ongoing portion of the entry fee. The ongoing
+  // entry-fee component models the year-after-year drag (whole fee for
+  // 'ongoing', 60% for 'forty-sixty', 0 for 'upfront'). Capped at zero so a
+  // misconfigured fee can't flip compounding into negative growth via the
+  // multiplier (>100% loss/yr).
+  const investmentApy = new Map<string, Decimal>(
+    investments.map((i) => {
+      const apy = new Decimal(i.apy)
+      const ter = new Decimal(i.ter ?? 0)
+      const entryFee = new Decimal(i.entry_fee ?? 0)
+      let ongoingDrag = DECIMAL_0
+      if (i.entry_fee_type === 'ongoing') ongoingDrag = entryFee
+      else if (i.entry_fee_type === 'forty-sixty') ongoingDrag = entryFee.mul(0.6)
+      return [i.id, apy.minus(ter).minus(ongoingDrag)]
+    }),
+  )
 
   // Only honor transfers whose endpoints are part of this plan; anything else
   // is ignored (e.g. a transfer referencing an investment that was excluded).
@@ -488,6 +535,34 @@ export function getYearlyPlanProjection(
       }
     }
 
+    // Exit fee bites the withdrawal before it lands at the destination —
+    // sells/redemptions usually take the fee out of proceeds, so the source
+    // loses `amount` but the destination receives less.
+    function applyExitFee(fromId: string, amount: Decimal): Decimal {
+      const inv = investmentsById.get(fromId)
+      if (!inv || !inv.exit_fee) return amount
+      const exitFee = new Decimal(inv.exit_fee)
+      if (inv.exit_fee_type === 'fixed') {
+        return Decimal.max(amount.minus(exitFee), DECIMAL_0)
+      }
+      // Default to percentage (matches the schema default and Figma).
+      return Decimal.max(amount.mul(DECIMAL_1.minus(exitFee.div(100))), DECIMAL_0)
+    }
+
+    // Entry fee bites the deposit — for 'upfront' the whole fee comes out of
+    // the inflow; 'forty-sixty' takes 40 % upfront and amortizes the rest via
+    // the APY drag set up above; 'ongoing' takes none here (all drag).
+    function applyEntryFee(toId: string, amount: Decimal): Decimal {
+      const inv = investmentsById.get(toId)
+      if (!inv || !inv.entry_fee) return amount
+      const entryFee = new Decimal(inv.entry_fee)
+      let upfrontPct = DECIMAL_0
+      if (inv.entry_fee_type === 'upfront') upfrontPct = entryFee
+      else if (inv.entry_fee_type === 'forty-sixty') upfrontPct = entryFee.mul(0.4)
+      if (upfrontPct.isZero()) return amount
+      return Decimal.max(amount.mul(DECIMAL_1.minus(upfrontPct.div(100))), DECIMAL_0)
+    }
+
     const insufficientFundTransferIdsThisYear: string[] = []
     for (const transfer of planTransfers) {
       if (!isTransferActiveThisYear(transfer, year, startYear, birthYear)) continue
@@ -509,8 +584,15 @@ export function getYearlyPlanProjection(
           continue
         }
       }
+      // Source loses the full `amount`. Destination receives what's left
+      // after the exit fee on the way out and the upfront entry fee on the
+      // way in. Difference is lost to the broker.
       withdraw(transfer.from_asset_id, amount)
-      deposit(transfer.to_asset_id, amount)
+      const netToDestination = applyEntryFee(
+        transfer.to_asset_id,
+        applyExitFee(transfer.from_asset_id, amount),
+      )
+      deposit(transfer.to_asset_id, netToDestination)
     }
 
     // 6. Settle expenses + liability payments against post-transfer cash.
