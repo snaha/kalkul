@@ -1318,6 +1318,149 @@ describe('getYearlyPlanProjection', () => {
     expect(result[0].investments).toBeCloseTo(1000, 6)
   })
 
+  // --- Inflation-adjusted toggle ---
+
+  it('grows an inflation-adjusted income at the plan inflation rate (toggle)', () => {
+    const incomes: Income[] = [
+      {
+        id: 'inc1',
+        name: 'Salary',
+        amount: 1000,
+        frequency: 'yearly',
+        withhold_taxes: false,
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+        inflation_adjusted: true,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ inflation_rate: 0.05 }),
+      makeProfile({ incomes }),
+    )
+    // Real income per year stays flat at 1000 (toggle cancels inflation in
+    // real terms). Cumulative cash compounds and the deflation lags, so we
+    // assert the cleaner totalIncome invariant rather than cash sums.
+    for (const entry of result) {
+      expect(entry.totalIncome).toBeCloseTo(1000, 4)
+    }
+  })
+
+  it('treats legacy change_over_time=match_inflation as inflation_adjusted (no double counting)', () => {
+    // Old data shape stays correct: same behaviour as setting the toggle.
+    const legacy: Income[] = [
+      {
+        id: 'a',
+        name: 'A',
+        amount: 1000,
+        frequency: 'yearly',
+        withhold_taxes: false,
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'match_inflation',
+      },
+    ]
+    const toggled: Income[] = [
+      {
+        id: 'b',
+        name: 'B',
+        amount: 1000,
+        frequency: 'yearly',
+        withhold_taxes: false,
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+        inflation_adjusted: true,
+      },
+    ]
+    const a = getYearlyPlanProjection(
+      makePlan({ inflation_rate: 0.05 }),
+      makeProfile({ incomes: legacy }),
+    )
+    const b = getYearlyPlanProjection(
+      makePlan({ inflation_rate: 0.05 }),
+      makeProfile({ incomes: toggled }),
+    )
+    for (let i = 0; i < a.length; i++) {
+      expect(a[i].cash).toBeCloseTo(b[i].cash, 6)
+    }
+  })
+
+  it('compounds inflation toggle with change_over_time=increase_yearly', () => {
+    // Salary that grows 2% real on top of inflation.
+    const incomes: Income[] = [
+      {
+        id: 'inc1',
+        name: 'Salary',
+        amount: 1000,
+        frequency: 'yearly',
+        withhold_taxes: false,
+        start: 'immediately',
+        end: 'never',
+        inflation_adjusted: true,
+        change_over_time: 'increase_yearly',
+        change_percentage: 2,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ inflation_rate: 0.05 }),
+      makeProfile({ incomes }),
+    )
+    // Real income each year = base * (1+real_raise)^years (inflation cancels).
+    // Year 0: 1000, Year 1: 1020, Year 2: 1040.4, ...
+    expect(result[0].totalIncome).toBeCloseTo(1000, 4)
+    expect(result[1].totalIncome).toBeCloseTo(1020, 4)
+    expect(result[2].totalIncome).toBeCloseTo(1020 * 1.02, 4)
+  })
+
+  it('scales a one-time transfer forward to the transaction year when inflation_adjusted=true', () => {
+    const investments: ProfileInvestment[] = [{ id: 'inv1', name: 'Stocks', balance: 0, apy: 0 }]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'Future purchase',
+        from_asset_id: 'cash',
+        to_asset_id: 'inv1',
+        amount: 1000,
+        inflation_adjusted: true,
+        schedule: 'one_time',
+        transaction_year: 2028, // plan starts 2025 → 3 years forward
+        transaction_month: 1,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ inflation_rate: 0.05, transfers }),
+      makeProfile({ cash_amount: 10_000, investments }),
+    )
+    // Nominal transfer in 2028 = 1000 * 1.05^3 ≈ 1157.625, then deflated by
+    // 1.05^3 back to the plan-start (real) units used by the projection.
+    expect(result[3].investments).toBeCloseTo(1000, 4)
+  })
+
+  it('leaves a one-time transfer unscaled when inflation_adjusted is omitted', () => {
+    // Confirms default behaviour is unchanged for existing data.
+    const investments: ProfileInvestment[] = [{ id: 'inv1', name: 'Stocks', balance: 0, apy: 0 }]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'Future purchase',
+        from_asset_id: 'cash',
+        to_asset_id: 'inv1',
+        amount: 1000,
+        schedule: 'one_time',
+        transaction_year: 2028,
+        transaction_month: 1,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ inflation_rate: 0.05, transfers }),
+      makeProfile({ cash_amount: 10_000, investments }),
+    )
+    // Without the toggle the nominal 1000 stays at 1000; in real terms after
+    // 3 years of 5% inflation that's 1000 / 1.05^3 ≈ 863.84.
+    expect(result[3].investments).toBeCloseTo(1000 / Math.pow(1.05, 3), 4)
+  })
+
   // --- Insufficient-funds warnings ---
 
   it('reports no insufficient-funds warnings for a healthy plan', () => {
@@ -1434,6 +1577,115 @@ describe('getYearlyPlanProjection', () => {
     expect(result[0].insufficientFundTransferIds).toEqual([])
     // Year 1: second can't fund from drained inv1.
     expect(result[1].insufficientFundTransferIds).toEqual(['second'])
+  })
+
+  it('keeps inflation-adjusted amounts in today’s money regardless of cash-flow start year', () => {
+    // Regression: previously the inflation factor was anchored to each cash
+    // flow's OWN start year. A transfer starting 10 years from now would
+    // grow from year 10 onward (so year-10 nominal = base), while an expense
+    // starting at plan start had already been compounding for 10 years
+    // (year-10 nominal = base * 1.05^10). The transfer never caught up and
+    // expenses got flagged a few years in.
+    //
+    // The fix anchors the inflation factor to PLAN start: both amounts grow
+    // by the same (1+inflation)^yearsSincePlanStart, so the today's-money
+    // ratio is preserved and a 3000/m transfer covers a 2700/m expense in
+    // every year of the plan — even when the transfer starts 10 years late.
+    const investments: ProfileInvestment[] = [
+      { id: 'inv1', name: 'Brokerage', balance: 10_000_000, apy: 0 },
+    ]
+    const expenses: Expense[] = [
+      {
+        id: 'exp1',
+        name: 'Living costs',
+        amount: 2700,
+        frequency: 'monthly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+        inflation_adjusted: true,
+      },
+    ]
+    const transfers: Transfer[] = [
+      {
+        id: 'tr1',
+        name: 'Drawdown',
+        from_asset_id: 'inv1',
+        to_asset_id: 'cash',
+        amount: 3000,
+        schedule: 'recurring',
+        frequency: 'monthly',
+        // Transfer starts mid-plan.
+        start: 'at_specific_date',
+        start_year: 2035,
+        start_month: 1,
+        end: 'never',
+        change_over_time: 'none',
+        inflation_adjusted: true,
+      },
+    ]
+    // Plan spans 20 years so we cover both pre- and post-transfer-start years.
+    // Cash starts large enough to fund expenses during the pre-transfer phase.
+    const result = getYearlyPlanProjection(
+      makePlan({
+        start_date: '2026-01-01',
+        end_date: '2046-01-01',
+        inflation_rate: 0.05,
+        transfers,
+      }),
+      makeProfile({ cash_amount: 1_000_000, expenses, investments }),
+    )
+    // From 2035 (year 9) onward the transfer covers the expense in real
+    // terms — no expense should ever be flagged.
+    for (const entry of result) {
+      expect(entry.insufficientFundExpenseIds).toEqual([])
+    }
+  })
+
+  it('does not flag an expense covered by a transfer-into-cash from another asset', () => {
+    // Regression: previously the expense overflow check ran before transfers
+    // were applied, so a 3000/m transfer that funded a 2700/m expense never
+    // got the chance to cover it and the expense was wrongly flagged in
+    // year 0 (where starting cash is too small to cover the expense alone).
+    const investments: ProfileInvestment[] = [
+      { id: 'inv1', name: 'Brokerage', balance: 1_000_000, apy: 0 },
+    ]
+    const expenses: Expense[] = [
+      {
+        id: 'exp1',
+        name: 'Living costs',
+        amount: 2700,
+        frequency: 'monthly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const transfers: Transfer[] = [
+      {
+        id: 'tr1',
+        name: 'Drawdown',
+        from_asset_id: 'inv1',
+        to_asset_id: 'cash',
+        amount: 3000,
+        schedule: 'recurring',
+        frequency: 'monthly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ transfers }),
+      makeProfile({ cash_amount: 0, expenses, investments }),
+    )
+    for (const entry of result) {
+      expect(entry.insufficientFundExpenseIds).toEqual([])
+      expect(entry.insufficientFundTransferIds).toEqual([])
+    }
+    // Net cash gain each year = (3000 - 2700) * 12 = 3600.
+    expect(result[0].cash).toBeCloseTo(3600, 6)
+    expect(result[1].cash).toBeCloseTo(7200, 6)
   })
 
   it('flags expenses in any year where cash + income cannot cover them', () => {

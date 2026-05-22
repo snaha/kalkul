@@ -5,6 +5,7 @@
 
   import ChangeOverTimeSelector from '$lib/components/change-over-time-selector.svelte'
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
+  import InflationAdjustToggle from '$lib/components/inflation-adjust-toggle.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Checkbox } from '$lib/components/ui/checkbox'
@@ -44,6 +45,7 @@
     frequency: Frequency
     withhold_taxes: boolean
     tax_percentage: number | undefined
+    inflation_adjusted: boolean
     start: CashFlowStart
     start_year: number | undefined
     start_month: number | undefined
@@ -80,6 +82,9 @@
       frequency: 'monthly',
       withhold_taxes: false,
       tax_percentage: undefined,
+      // Default ON — most income/expense streams track inflation in real
+      // terms, so this matches user intent for the common case.
+      inflation_adjusted: true,
       start: 'immediately',
       start_year: currentYear,
       start_month: currentMonth,
@@ -96,6 +101,12 @@
   function seedForm(src: CashFlow | undefined): FormState {
     if (!src) return blankForm()
     const isIncome = (s: CashFlow): s is Income => 'withhold_taxes' in s
+    // Legacy migration: the old 'match_inflation' dropdown value maps onto
+    // the new toggle so old data keeps behaving the same and saves into the
+    // new shape on the next edit.
+    const legacyInflation = src.change_over_time === 'match_inflation'
+    const inflationAdjusted = src.inflation_adjusted === true || legacyInflation
+    const changeOverTime: ChangeOverTime = legacyInflation ? 'none' : src.change_over_time
     return {
       id: src.id,
       name: src.name,
@@ -103,6 +114,7 @@
       frequency: src.frequency,
       withhold_taxes: isIncome(src) ? src.withhold_taxes : false,
       tax_percentage: isIncome(src) ? src.tax_percentage : undefined,
+      inflation_adjusted: inflationAdjusted,
       start: src.start,
       start_year: src.start_year ?? currentYear,
       start_month: src.start_month ?? currentMonth,
@@ -111,7 +123,7 @@
       end_year: src.end_year ?? currentYear,
       end_month: src.end_month ?? currentMonth,
       end_age: src.end_age ?? currentAge,
-      change_over_time: src.change_over_time,
+      change_over_time: changeOverTime,
       change_percentage: src.change_percentage,
     }
   }
@@ -149,6 +161,7 @@
       frequency: f.frequency,
       withhold_taxes: f.withhold_taxes,
       tax_percentage: f.withhold_taxes ? f.tax_percentage : undefined,
+      inflation_adjusted: f.inflation_adjusted ? true : undefined,
       start: f.start,
       start_year: f.start === 'at_specific_date' ? f.start_year : undefined,
       start_month: f.start === 'at_specific_date' ? f.start_month : undefined,
@@ -171,6 +184,7 @@
       name: f.name,
       amount: f.amount ?? 0,
       frequency: f.frequency,
+      inflation_adjusted: f.inflation_adjusted ? true : undefined,
       start: f.start,
       start_year: f.start === 'at_specific_date' ? f.start_year : undefined,
       start_month: f.start === 'at_specific_date' ? f.start_month : undefined,
@@ -392,6 +406,11 @@
           </Select.Root>
         </div>
       </div>
+
+      <InflationAdjustToggle
+        checked={form.inflation_adjusted}
+        onCheckedChange={(v) => (form.inflation_adjusted = v)}
+      />
 
       {#if kind === 'income'}
         <!-- Withhold taxes -->

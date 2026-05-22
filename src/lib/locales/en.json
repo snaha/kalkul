@@ -118,7 +118,10 @@
       "transferFrequencyLabel": "Frequency",
       "transferMax": "Max",
       "transferMaxDescription": "Transfers all available funds at the time of execution",
-      "insufficientFundsTooltip": "Source has insufficient funds in one or more years of this plan."
+      "adjustForInflation": "Adjust for inflation",
+      "adjustForInflationDescription": "Grows the amount each year by the plan's inflation rate, so it keeps its real value over time.",
+      "insufficientFundsTooltip": "Source has insufficient funds in one or more years of this plan.",
+      "firstErrorTooltip": "First insufficient-funds warning occurs in {year}."
     },
     "home": {
       "heroTitle": "See where your money could take you",
@@ -252,7 +255,6 @@
         "yearsOld": "Years old",
         "never": "When plan ends",
         "none": "None",
-        "matchInflation": "Match inflation",
         "increaseYearlyBy": "Increase yearly by\u2026",
         "decreaseYearlyBy": "Decrease yearly by\u2026",
         "monthly": "Monthly",
@@ -264,8 +266,7 @@
         "immediatelyDescription": "Starts from the beginning of the plan",
         "nowDescription": "Starts from the current month",
         "neverDescription": "Runs for the entire plan duration",
-        "noneDescription": "Amount remains the same for the entire plan duration",
-        "matchInflationDescription": "Amount is automatically adjusted to match the inflation rate set in your plan"
+        "noneDescription": "Amount remains the same for the entire plan duration"
       },
       "tangibleAssets": {
         "title": "Tangible assets",
@@ -311,7 +312,6 @@
         "percentageToWithhold": "Percentage to withhold",
         "startDescription": "Income will automatically start from the beginning of your plan",
         "endDescription": "Income will automatically last for the entire period of your plan",
-        "matchInflationDescription": "Income amount will be automatically adjusted to match the inflation set in your plan",
         "changeDescription": "Income amount will remain the same for the entire period of your plan",
         "defaultName": "Income {index}"
       },
@@ -321,7 +321,6 @@
         "addExpense": "Add expense",
         "startDescription": "Expense will automatically start from the beginning of your plan",
         "endDescription": "Expense will automatically last for the entire period of your plan",
-        "matchInflationDescription": "Expense amount will be automatically adjusted to match the inflation set in your plan",
         "changeDescription": "Expense amount will remain the same for the entire period of your plan",
         "defaultName": "Expense {index}"
       }

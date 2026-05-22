@@ -118,7 +118,10 @@
       "transferFrequencyLabel": "Frekvence",
       "transferMax": "Max",
       "transferMaxDescription": "Převede všechny dostupné prostředky v okamžiku provedení",
-      "insufficientFundsTooltip": "Zdroj nemá v některém roce tohoto plánu dostatek prostředků."
+      "adjustForInflation": "Upravit podle inflace",
+      "adjustForInflationDescription": "Každý rok zvýší částku o inflační míru plánu, aby si zachovala reálnou hodnotu v čase.",
+      "insufficientFundsTooltip": "Zdroj nemá v některém roce tohoto plánu dostatek prostředků.",
+      "firstErrorTooltip": "První upozornění na nedostatek prostředků se objevuje v roce {year}."
     },
     "home": {
       "heroTitle": "Podívejte se, kam vás vaše peníze mohou dovést",
@@ -248,13 +251,12 @@
         "immediately": "Když plán začíná",
         "now": "Nyní",
         "atSpecificDate": "K určitému datu",
-        "whenAgeIs": "Když vám bude\u2026",
+        "whenAgeIs": "Když vám bude…",
         "yearsOld": "Let",
         "never": "Když plán končí",
         "none": "Žádná",
-        "matchInflation": "Kopírovat inflaci",
-        "increaseYearlyBy": "Ročně zvýšit o\u2026",
-        "decreaseYearlyBy": "Ročně snížit o\u2026",
+        "increaseYearlyBy": "Ročně zvýšit o…",
+        "decreaseYearlyBy": "Ročně snížit o…",
         "monthly": "Měsíčně",
         "yearly": "Ročně",
         "weekly": "Týdně",
@@ -264,8 +266,7 @@
         "immediatelyDescription": "Začíná od začátku plánu",
         "nowDescription": "Začíná od aktuálního měsíce",
         "neverDescription": "Trvá po celou dobu plánu",
-        "noneDescription": "Částka zůstává po celou dobu plánu stejná",
-        "matchInflationDescription": "Částka se automaticky upravuje podle inflace nastavené ve vašem plánu"
+        "noneDescription": "Částka zůstává po celou dobu plánu stejná"
       },
       "tangibleAssets": {
         "title": "Hmotný majetek",
@@ -311,7 +312,6 @@
         "percentageToWithhold": "Procento ke srážce",
         "startDescription": "Příjem automaticky začne od začátku vašeho plánu",
         "endDescription": "Příjem bude automaticky trvat po celou dobu vašeho plánu",
-        "matchInflationDescription": "Výše příjmu bude automaticky upravena podle inflace nastavené ve vašem plánu",
         "changeDescription": "Výše příjmu zůstane stejná po celou dobu vašeho plánu",
         "defaultName": "Příjem {index}"
       },
@@ -321,7 +321,6 @@
         "addExpense": "Přidat výdaj",
         "startDescription": "Výdaj automaticky začne od začátku vašeho plánu",
         "endDescription": "Výdaj bude automaticky trvat po celou dobu vašeho plánu",
-        "matchInflationDescription": "Výše výdaje bude automaticky upravena podle inflace nastavené ve vašem plánu",
         "changeDescription": "Výše výdaje zůstane stejná po celou dobu vašeho plánu",
         "defaultName": "Výdaj {index}"
       }

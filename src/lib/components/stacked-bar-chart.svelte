@@ -64,6 +64,8 @@
 </script>
 
 <script lang="ts">
+  import { TriangleAlert } from '@lucide/svelte'
+
   import { CATEGORY_COLORS } from '$lib/chart-colors'
 
   type Props = {
@@ -74,6 +76,11 @@
     width?: number
     ariaLabel?: string
     showSelectedIndicator?: boolean
+    // First year in the projection where the calculation surfaced an
+    // insufficient-funds warning. Marked with a destructive triangle below the
+    // corresponding bar so the user can spot when things start going wrong.
+    firstErrorYear?: number
+    firstErrorTooltip?: string
     onYearClick?: (year: number) => void
     onYearHover?: (year: number | undefined, position?: HoverPosition) => void
   }
@@ -86,6 +93,8 @@
     width,
     ariaLabel,
     showSelectedIndicator = true,
+    firstErrorYear,
+    firstErrorTooltip,
     onYearClick,
     onYearHover,
   }: Props = $props()
@@ -233,6 +242,9 @@
 
   // Find the bar data for the selected year to draw the solid indicator line
   const selectedBar = $derived(bars.find((b) => b.year === selectedYear))
+
+  // Bar to anchor the error triangle to.
+  const firstErrorBar = $derived(bars.find((b) => b.year === firstErrorYear))
 
   function handleBarClick(year: number) {
     onYearClick?.(year)
@@ -383,5 +395,24 @@
       class="text-muted-foreground pointer-events-none"
       stroke-width="1"
     />
+  {/if}
+
+  <!-- First-error marker: a destructive triangle in the bottom padding strip,
+       centred on the bar of the first year that surfaced a warning. -->
+  {#if firstErrorBar}
+    <foreignObject
+      x={firstErrorBar.x + barWidth / 2 - 8}
+      y={height - PADDING_BOTTOM + 2}
+      width="16"
+      height="16"
+      class="pointer-events-auto"
+    >
+      <div
+        title={firstErrorTooltip}
+        class="flex size-4 items-center justify-center text-destructive"
+      >
+        <TriangleAlert class="size-4" />
+      </div>
+    </foreignObject>
   {/if}
 </svg>

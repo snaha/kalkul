@@ -9,10 +9,9 @@
     value: string
     percentage: number | undefined
     /**
-     * Overrides for the option-aware description. When omitted, descriptions
-     * derive from shared i18n keys (matches Figma 233:6637).
+     * Override for the description shown when the dropdown is 'none'.
+     * Defaults to a shared i18n key.
      */
-    matchInflationDescription?: string
     changeDescription?: string
     formatNumber?: (n: number) => string
     onValueChange: (v: string) => void
@@ -22,26 +21,24 @@
   let {
     value,
     percentage,
-    matchInflationDescription,
     changeDescription,
     formatNumber,
     onValueChange,
     onPercentageChange,
   }: Props = $props()
 
+  // 'match_inflation' is no longer offered as a dropdown choice (the
+  // Adjust-for-inflation toggle covers that case); we keep it out of both the
+  // displayed value and the option list. Legacy data carrying the old value
+  // still renders as 'None' here, while the calculation honors it via the
+  // legacy fallback in growthFactor.
   let displayValue = $derived.by(() => {
-    if (value === 'none') return $_('page.setup.common.none')
-    if (value === 'match_inflation') return $_('page.setup.common.matchInflation')
     if (value === 'increase_yearly') return $_('page.setup.common.increaseYearlyBy')
     if (value === 'decrease_yearly') return $_('page.setup.common.decreaseYearlyBy')
     return $_('page.setup.common.none')
   })
 
-  let descriptionText = $derived(
-    value === 'match_inflation'
-      ? (matchInflationDescription ?? $_('page.setup.common.matchInflationDescription'))
-      : (changeDescription ?? $_('page.setup.common.noneDescription')),
-  )
+  let descriptionText = $derived(changeDescription ?? $_('page.setup.common.noneDescription'))
 </script>
 
 <div class="flex items-end gap-2">
@@ -59,9 +56,6 @@
       </Select.Trigger>
       <Select.Content>
         <Select.Item value="none">{$_('page.setup.common.none')}</Select.Item>
-        <Select.Item value="match_inflation">
-          {$_('page.setup.common.matchInflation')}
-        </Select.Item>
         <Select.Item value="increase_yearly">
           {$_('page.setup.common.increaseYearlyBy')}
         </Select.Item>

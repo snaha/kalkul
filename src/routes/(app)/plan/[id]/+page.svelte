@@ -217,6 +217,15 @@
     new Set(projection.flatMap((p) => p.insufficientFundExpenseIds)),
   )
 
+  // First year with any insufficient-funds warning. The chart marks this year
+  // with a destructive triangle so the user can jump to the source of the
+  // problem instead of scrubbing year-by-year.
+  const firstErrorYear = $derived(
+    projection.find(
+      (p) => p.insufficientFundTransferIds.length > 0 || p.insufficientFundExpenseIds.length > 0,
+    )?.year,
+  )
+
   // Breakdown values for the selected year (real terms)
   const cashValue = $derived(selectedYearProjection?.cash ?? 0)
   const investmentsValue = $derived(selectedYearProjection?.investments ?? 0)
@@ -650,6 +659,10 @@
             height={chartContainerHeight}
             width={chartContainerWidth}
             ariaLabel={$_('page.plan.chartAriaLabel')}
+            {firstErrorYear}
+            firstErrorTooltip={firstErrorYear !== undefined
+              ? $_('page.plan.firstErrorTooltip', { values: { year: firstErrorYear } })
+              : undefined}
             onYearClick={handleYearClick}
             onYearHover={handleYearHover}
             showSelectedIndicator={isPanelOpen}

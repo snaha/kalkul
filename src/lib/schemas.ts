@@ -113,6 +113,10 @@ export const incomeSchema = z
     end_year: z.number().optional(),
     end_month: z.number().optional(),
     end_age: z.number().optional(),
+    // Independent toggle: grows the nominal amount with the plan's inflation
+    // rate each year. Compounds with change_over_time (e.g. a salary that's
+    // both inflation-adjusted and gets a 2% real raise).
+    inflation_adjusted: z.boolean().optional(),
     change_over_time: changeOverTimeSchema,
     change_percentage: z.number().optional(),
   })
@@ -132,6 +136,7 @@ export const expenseSchema = z
     end_year: z.number().optional(),
     end_month: z.number().optional(),
     end_age: z.number().optional(),
+    inflation_adjusted: z.boolean().optional(),
     change_over_time: changeOverTimeSchema,
     change_percentage: z.number().optional(),
   })
@@ -231,6 +236,10 @@ export const transferSchema = z
     // When true, ignore `amount` and transfer the source's full available
     // balance at the time of execution.
     transfer_all: z.boolean().optional(),
+    // Independent toggle: grows the nominal amount with the plan's inflation
+    // rate. For one-time transfers, scales from plan start to the transaction
+    // year. For recurring transfers, compounds yearly alongside change_over_time.
+    inflation_adjusted: z.boolean().optional(),
     schedule: transferScheduleSchema,
     // one-time fields
     transaction_year: z.number().optional(),
