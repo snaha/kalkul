@@ -117,7 +117,8 @@
       "deleteTransferConfirm": "Smazat tento převod? Akci nelze vrátit zpět.",
       "transferFrequencyLabel": "Frekvence",
       "transferMax": "Max",
-      "transferMaxDescription": "Převede všechny dostupné prostředky v okamžiku provedení"
+      "transferMaxDescription": "Převede všechny dostupné prostředky v okamžiku provedení",
+      "insufficientFundsTooltip": "Zdroj nemá v některém roce tohoto plánu dostatek prostředků."
     },
     "home": {
       "heroTitle": "Podívejte se, kam vás vaše peníze mohou dovést",

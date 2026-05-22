@@ -208,6 +208,15 @@
   const projection = $derived(plan ? getYearlyPlanProjection(plan, appStore.profile) : [])
   const selectedYearProjection = $derived(projection.find((p) => p.year === selectedYear))
 
+  // Union of per-year warning IDs — a transfer or expense that fails in any
+  // year of the plan is surfaced in the sidebar with a destructive badge.
+  const failingTransferIds = $derived(
+    new Set(projection.flatMap((p) => p.insufficientFundTransferIds)),
+  )
+  const failingExpenseIds = $derived(
+    new Set(projection.flatMap((p) => p.insufficientFundExpenseIds)),
+  )
+
   // Breakdown values for the selected year (real terms)
   const cashValue = $derived(selectedYearProjection?.cash ?? 0)
   const investmentsValue = $derived(selectedYearProjection?.investments ?? 0)
@@ -227,6 +236,7 @@
     name: string
     value: string
     valueClass?: string
+    hasInsufficientFunds?: boolean
     onClick: () => void
   }
 
@@ -254,6 +264,7 @@
           id: t.id,
           name: t.name,
           value: `${t.transfer_all ? $_('page.plan.transferMax') : appStore.formatCurrencyCode(t.amount)} ${transferValueSuffix(t)}`,
+          hasInsufficientFunds: failingTransferIds.has(t.id),
           onClick: () => openTransferDialog(t),
         })),
     },
@@ -266,8 +277,9 @@
         .map((i) => ({
           id: i.id,
           name: i.name,
+          // Figma shows the same neutral foreground color for incomes and
+          // expenses; the leading sign carries the direction.
           value: `+${appStore.formatCurrencyCode(i.amount)} / ${frequencySuffix(i.frequency)}`,
-          valueClass: 'text-success',
           onClick: () => openEditDialog('income', i),
         })),
     },
@@ -281,7 +293,7 @@
           id: e.id,
           name: e.name,
           value: `-${appStore.formatCurrencyCode(e.amount)} / ${frequencySuffix(e.frequency)}`,
-          valueClass: 'text-destructive',
+          hasInsufficientFunds: failingExpenseIds.has(e.id),
           onClick: () => openEditDialog('expense', e),
         })),
     },
@@ -574,6 +586,7 @@
                       name={item.name}
                       value={item.value}
                       valueClass={item.valueClass}
+                      hasInsufficientFunds={item.hasInsufficientFunds}
                       onclick={item.onClick}
                     />
                   {/each}

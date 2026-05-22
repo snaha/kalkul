@@ -1130,6 +1130,8 @@ describe('getYearlyPlanProjection', () => {
     // Source untouched, destination not credited.
     expect(result[0].investments).toBeCloseTo(100, 6)
     expect(result[0].cash).toBeCloseTo(0, 6)
+    // Sidebar warning surfaced for the failed transfer.
+    expect(result[0].insufficientFundTransferIds).toEqual(['t1'])
   })
 
   it('drains the source on a one-time transfer_all (ignores amount)', () => {
@@ -1180,6 +1182,8 @@ describe('getYearlyPlanProjection', () => {
     )
     expect(result[0].cash).toBeCloseTo(0, 6)
     expect(result[0].investments).toBeCloseTo(0, 6)
+    // An empty-source sweep is still a failed transfer for sidebar purposes.
+    expect(result[0].insufficientFundTransferIds).toEqual(['t1'])
   })
 
   it('sweeps each year for recurring transfer_all', () => {
@@ -1312,5 +1316,205 @@ describe('getYearlyPlanProjection', () => {
     )
     // inv1 unchanged (transfer ignored)
     expect(result[0].investments).toBeCloseTo(1000, 6)
+  })
+
+  // --- Insufficient-funds warnings ---
+
+  it('reports no insufficient-funds warnings for a healthy plan', () => {
+    const incomes: Income[] = [
+      {
+        id: 'inc1',
+        name: 'Salary',
+        amount: 1000,
+        frequency: 'monthly',
+        withhold_taxes: false,
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const expenses: Expense[] = [
+      {
+        id: 'exp1',
+        name: 'Rent',
+        amount: 500,
+        frequency: 'monthly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ cash_amount: 10_000, incomes, expenses }),
+    )
+    for (const entry of result) {
+      expect(entry.insufficientFundTransferIds).toEqual([])
+      expect(entry.insufficientFundExpenseIds).toEqual([])
+    }
+  })
+
+  it('flags a recurring transfer that becomes insufficient mid-plan', () => {
+    // Income covers the transfer for the first two years, then stops; the
+    // transfer can no longer be funded and should be flagged from year 2.
+    const incomes: Income[] = [
+      {
+        id: 'inc1',
+        name: 'Short-term gig',
+        amount: 1200,
+        frequency: 'yearly',
+        withhold_taxes: false,
+        start: 'immediately',
+        end: 'at_specific_date',
+        end_year: 2026,
+        end_month: 12,
+        change_over_time: 'none',
+      },
+    ]
+    const investments: ProfileInvestment[] = [{ id: 'inv1', name: 'Stocks', balance: 0, apy: 0 }]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'DCA',
+        from_asset_id: 'cash',
+        to_asset_id: 'inv1',
+        amount: 1200,
+        schedule: 'recurring',
+        frequency: 'yearly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ transfers }),
+      makeProfile({ cash_amount: 0, incomes, investments }),
+    )
+    // 2025, 2026: income covers transfer → no warning.
+    expect(result[0].insufficientFundTransferIds).toEqual([])
+    expect(result[1].insufficientFundTransferIds).toEqual([])
+    // 2027+: income gone, cash empty, recurring transfer cannot fund.
+    expect(result[2].insufficientFundTransferIds).toEqual(['t1'])
+    expect(result[3].insufficientFundTransferIds).toEqual(['t1'])
+  })
+
+  it('flags a transfer whose non-cash source has been drained by an earlier transfer', () => {
+    // Drain inv1 in year 0, then try to take more from it in year 1.
+    const investments: ProfileInvestment[] = [
+      { id: 'inv1', name: 'Source', balance: 1000, apy: 0 },
+      { id: 'inv2', name: 'Dest', balance: 0, apy: 0 },
+    ]
+    const transfers: Transfer[] = [
+      {
+        id: 'drain',
+        name: 'Drain source',
+        from_asset_id: 'inv1',
+        to_asset_id: 'inv2',
+        amount: 1000,
+        schedule: 'one_time',
+        transaction_year: 2025,
+        transaction_month: 1,
+      },
+      {
+        id: 'second',
+        name: 'Second try',
+        from_asset_id: 'inv1',
+        to_asset_id: 'inv2',
+        amount: 100,
+        schedule: 'one_time',
+        transaction_year: 2026,
+        transaction_month: 1,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ transfers }),
+      makeProfile({ cash_amount: 0, investments }),
+    )
+    // Year 0: drain succeeds, second hasn't fired yet.
+    expect(result[0].insufficientFundTransferIds).toEqual([])
+    // Year 1: second can't fund from drained inv1.
+    expect(result[1].insufficientFundTransferIds).toEqual(['second'])
+  })
+
+  it('flags expenses in any year where cash + income cannot cover them', () => {
+    const expenses: Expense[] = [
+      {
+        id: 'exp1',
+        name: 'Big spend',
+        amount: 5000,
+        frequency: 'yearly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const result = getYearlyPlanProjection(makePlan(), makeProfile({ cash_amount: 7000, expenses }))
+    // 2025: 7000 - 5000 = 2000 → ok
+    expect(result[0].insufficientFundExpenseIds).toEqual([])
+    // 2026: 2000 - 5000 = -3000 → flagged
+    expect(result[1].insufficientFundExpenseIds).toEqual(['exp1'])
+    expect(result[2].insufficientFundExpenseIds).toEqual(['exp1'])
+  })
+
+  it('flags every active expense in a year of cash shortfall', () => {
+    // Two co-active expenses jointly exceed cash; both get flagged because
+    // there is no honest way to attribute the shortfall to one over the other.
+    const expenses: Expense[] = [
+      {
+        id: 'rent',
+        name: 'Rent',
+        amount: 800,
+        frequency: 'monthly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+      {
+        id: 'food',
+        name: 'Food',
+        amount: 400,
+        frequency: 'monthly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const result = getYearlyPlanProjection(makePlan(), makeProfile({ cash_amount: 5000, expenses }))
+    // (800+400)*12 = 14400/year vs 5000 cash → shortfall in year 0 already.
+    expect(result[0].insufficientFundExpenseIds.sort()).toEqual(['food', 'rent'])
+  })
+
+  it('flags active expenses when liability payments push cash below zero too', () => {
+    // Cash + income covers the expense alone, but a liability payment in the
+    // same year takes cash negative overall. We flag the expense because the
+    // user-visible signal is "cash ran out while this expense was active";
+    // we don't try to apportion blame between expenses and liabilities.
+    const expenses: Expense[] = [
+      {
+        id: 'exp1',
+        name: 'Small spend',
+        amount: 100,
+        frequency: 'yearly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const liabilities: ProfileLiability[] = [
+      {
+        id: 'l1',
+        name: 'Big loan',
+        outstanding_balance: 10_000,
+        installment_frequency: 'yearly',
+        annual_rate: 0,
+        installment_amount: 5_000,
+        remaining_term: 2,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ cash_amount: 200, expenses, liabilities }),
+    )
+    expect(result[0].insufficientFundExpenseIds).toEqual(['exp1'])
   })
 })

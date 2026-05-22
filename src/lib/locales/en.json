@@ -117,7 +117,8 @@
       "deleteTransferConfirm": "Delete this transfer? This cannot be undone.",
       "transferFrequencyLabel": "Frequency",
       "transferMax": "Max",
-      "transferMaxDescription": "Transfers all available funds at the time of execution"
+      "transferMaxDescription": "Transfers all available funds at the time of execution",
+      "insufficientFundsTooltip": "Source has insufficient funds in one or more years of this plan."
     },
     "home": {
       "heroTitle": "See where your money could take you",

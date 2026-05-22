@@ -48,6 +48,15 @@ export interface YearlyProjection {
   liabilitiesByItem: YearlyProjectionItem[]
   totalIncome: number
   totalExpenses: number
+  // IDs of transfers that were skipped this year because the source did not
+  // hold enough balance to cover the move. Used by the sidebar to surface
+  // unmet cash flows. Empty in healthy years.
+  insufficientFundTransferIds: string[]
+  // IDs of expenses that were active in a year where cash would have gone
+  // negative (i.e. income did not cover expenses + liability payments). We
+  // attribute the shortfall to all expenses active that year rather than
+  // trying to pick one — order would be arbitrary.
+  insufficientFundExpenseIds: string[]
 }
 
 // Annualized cash flows: a year is 365.25/7 ≈ 52.1775 weeks.
@@ -387,6 +396,7 @@ export function getYearlyPlanProjection(
     }
 
     let expensesThisYearNominal = DECIMAL_0
+    const activeExpenseIdsThisYear: string[] = []
     for (const expense of expenses) {
       const expenseStart = resolveStartYear(expense, startYear, birthYear)
       const expenseEnd = resolveEndYear(expense, birthYear)
@@ -398,19 +408,26 @@ export function getYearlyPlanProjection(
       expensesThisYearNominal = expensesThisYearNominal.plus(
         annual.mul(growthFactor(expense, yearsSinceCashFlowStart, inflationRate)).mul(fraction),
       )
+      activeExpenseIdsThisYear.push(expense.id)
     }
 
+    const insufficientFundExpenseIdsThisYear: string[] = []
     if (plan.include_cash !== false) {
-      // Clamp at zero — a real cash balance can't go below 0. Excess expenses
-      // / liability payments past the available balance are silently absorbed
-      // (we don't model overdraft or surfaced shortfalls yet).
-      cashNominal = Decimal.max(
-        cashNominal
-          .plus(incomesThisYearNominal)
-          .minus(expensesThisYearNominal)
-          .minus(liabilitiesPaidThisYearNominal),
-        DECIMAL_0,
-      )
+      // Shortfall is detected before the clamp: if cash + income can't cover
+      // expenses + liability payments, every expense active this year is
+      // surfaced as insufficient-funds in the sidebar. Liabilities are part
+      // of the overflow check (they also drain cash) but aren't blamed
+      // themselves — the sidebar doesn't show them today.
+      const attemptedCashNominal = cashNominal
+        .plus(incomesThisYearNominal)
+        .minus(expensesThisYearNominal)
+        .minus(liabilitiesPaidThisYearNominal)
+      if (attemptedCashNominal.lessThan(0)) {
+        insufficientFundExpenseIdsThisYear.push(...activeExpenseIdsThisYear)
+      }
+      // Clamp at zero — a real cash balance can't go below 0. Any excess
+      // beyond the surfaced warning is silently absorbed.
+      cashNominal = Decimal.max(attemptedCashNominal, DECIMAL_0)
     }
 
     // 4. Transfer flows for this year. Each transfer is applied atomically:
@@ -446,17 +463,26 @@ export function getYearlyPlanProjection(
       }
     }
 
+    const insufficientFundTransferIdsThisYear: string[] = []
     for (const transfer of planTransfers) {
       if (!isTransferActiveThisYear(transfer, year, startYear, birthYear)) continue
       let amount: Decimal
       if (transfer.transfer_all) {
-        // "Max" mode: take whatever the source has at execution time.
+        // "Max" mode: take whatever the source has at execution time. If the
+        // source is empty when the transfer fires we flag it — the user
+        // intended a sweep that produced nothing.
         amount = getBalance(transfer.from_asset_id)
-        if (amount.lessThanOrEqualTo(0)) continue
+        if (amount.lessThanOrEqualTo(0)) {
+          insufficientFundTransferIdsThisYear.push(transfer.id)
+          continue
+        }
       } else {
         amount = transferAmountForYear(transfer, year, startYear, birthYear, inflationRate)
         if (amount.isZero()) continue
-        if (getBalance(transfer.from_asset_id).lessThan(amount)) continue
+        if (getBalance(transfer.from_asset_id).lessThan(amount)) {
+          insufficientFundTransferIdsThisYear.push(transfer.id)
+          continue
+        }
       }
       withdraw(transfer.from_asset_id, amount)
       deposit(transfer.to_asset_id, amount)
@@ -529,6 +555,8 @@ export function getYearlyPlanProjection(
       liabilitiesByItem,
       totalIncome: incomesThisYearReal.toNumber(),
       totalExpenses: expensesThisYearReal.toNumber(),
+      insufficientFundTransferIds: insufficientFundTransferIdsThisYear,
+      insufficientFundExpenseIds: insufficientFundExpenseIdsThisYear,
     })
   }
 
