@@ -158,7 +158,6 @@
         sentiment="negative"
         startDescription={$_('page.setup.expenses.startDescription')}
         endDescription={$_('page.setup.expenses.endDescription')}
-        matchInflationDescription={$_('page.setup.expenses.matchInflationDescription')}
         changeDescription={$_('page.setup.expenses.changeDescription')}
         {years}
         {months}

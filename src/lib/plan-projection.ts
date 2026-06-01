@@ -26,6 +26,9 @@ interface CashFlowTemporal {
   end_year?: number
   end_month?: number
   end_age?: number
+  // Independent toggle that compounds with change_over_time. Legacy data may
+  // instead use change_over_time === 'match_inflation' to mean the same thing.
+  inflation_adjusted?: boolean
   change_over_time: ChangeOverTime
   change_percentage?: number
 }
@@ -48,6 +51,15 @@ export interface YearlyProjection {
   liabilitiesByItem: YearlyProjectionItem[]
   totalIncome: number
   totalExpenses: number
+  // IDs of transfers that were skipped this year because the source did not
+  // hold enough balance to cover the move. Used by the sidebar to surface
+  // unmet cash flows. Empty in healthy years.
+  insufficientFundTransferIds: string[]
+  // IDs of expenses that were active in a year where cash would have gone
+  // negative (i.e. income did not cover expenses + liability payments). We
+  // attribute the shortfall to all expenses active that year rather than
+  // trying to pick one — order would be arbitrary.
+  insufficientFundExpenseIds: string[]
 }
 
 // Annualized cash flows: a year is 365.25/7 ≈ 52.1775 weeks.
@@ -123,26 +135,37 @@ function activeMonthFraction(
 function growthFactor(
   cashFlow: CashFlowTemporal,
   yearsSinceStart: number,
+  yearsSincePlanStart: number,
   inflationRate: Decimal,
 ): Decimal {
-  if (yearsSinceStart <= 0) return DECIMAL_1
-  switch (cashFlow.change_over_time) {
-    case 'match_inflation':
-      return DECIMAL_1.plus(inflationRate).pow(yearsSinceStart)
-    case 'increase_yearly':
-      return DECIMAL_1.plus(new Decimal(cashFlow.change_percentage ?? 0).div(100)).pow(
+  // Inflation factor: applied if the explicit toggle is on OR (legacy) the
+  // dropdown still says 'match_inflation'. Anchored to PLAN start, not the
+  // cash flow's own start, so the entered amount is interpreted as
+  // today's-money and scales forward to the year of execution regardless of
+  // when the cash flow itself begins.
+  const inflationOn =
+    cashFlow.inflation_adjusted === true || cashFlow.change_over_time === 'match_inflation'
+  const inflationFactor =
+    inflationOn && yearsSincePlanStart > 0
+      ? DECIMAL_1.plus(inflationRate).pow(yearsSincePlanStart)
+      : DECIMAL_1
+  // Change-over-time factor: real-terms growth that starts from the cash
+  // flow's own start year and compounds with inflation. A salary can both
+  // track inflation AND get a 2% real raise each year.
+  let changeFactor = DECIMAL_1
+  if (yearsSinceStart > 0) {
+    if (cashFlow.change_over_time === 'increase_yearly') {
+      changeFactor = DECIMAL_1.plus(new Decimal(cashFlow.change_percentage ?? 0).div(100)).pow(
         yearsSinceStart,
       )
-    case 'decrease_yearly': {
+    } else if (cashFlow.change_over_time === 'decrease_yearly') {
       // Clamp to ≤100 % so a decrease can't take the factor negative
       // (which would oscillate sign across integer year exponents).
       const pct = Decimal.min(new Decimal(cashFlow.change_percentage ?? 0), 100)
-      return DECIMAL_1.minus(pct.div(100)).pow(yearsSinceStart)
+      changeFactor = DECIMAL_1.minus(pct.div(100)).pow(yearsSinceStart)
     }
-    case 'none':
-    default:
-      return DECIMAL_1
   }
+  return inflationFactor.mul(changeFactor)
 }
 
 function netIncome(income: Income): Decimal {
@@ -229,6 +252,7 @@ function transferToTemporal(transfer: Transfer): CashFlowTemporal {
     end_year: transfer.end_year,
     end_month: transfer.end_month,
     end_age: transfer.end_age,
+    inflation_adjusted: transfer.inflation_adjusted,
     change_over_time: transfer.change_over_time ?? 'none',
     change_percentage: transfer.change_percentage,
   }
@@ -260,7 +284,16 @@ function transferAmountForYear(
   inflationRate: Decimal,
 ): Decimal {
   if (transfer.schedule === 'one_time') {
-    return year === transfer.transaction_year ? new Decimal(transfer.amount) : DECIMAL_0
+    if (year !== transfer.transaction_year) return DECIMAL_0
+    // For one-time transfers the amount is interpreted as today's-money when
+    // inflation_adjusted is on, so we scale it forward to the transaction
+    // year. yearsSinceStart can't go negative — a transfer before plan start
+    // is already filtered by the year === transaction_year check above only
+    // when the plan contains that year.
+    const base = new Decimal(transfer.amount)
+    if (!transfer.inflation_adjusted) return base
+    const yearsForward = Math.max(0, year - planStartYear)
+    return base.mul(DECIMAL_1.plus(inflationRate).pow(yearsForward))
   }
   const temporal = transferToTemporal(transfer)
   const tStart = resolveStartYear(temporal, planStartYear, birthYear)
@@ -269,8 +302,11 @@ function transferAmountForYear(
   const fraction = activeMonthFraction(temporal, year, tStart, tEnd)
   if (fraction.isZero()) return DECIMAL_0
   const yearsSinceStart = year - tStart
+  const yearsSincePlanStart = year - planStartYear
   const annual = annualizedAmount(new Decimal(transfer.amount), transfer.frequency ?? 'monthly')
-  return annual.mul(growthFactor(temporal, yearsSinceStart, inflationRate)).mul(fraction)
+  return annual
+    .mul(growthFactor(temporal, yearsSinceStart, yearsSincePlanStart, inflationRate))
+    .mul(fraction)
 }
 
 function filterById<T extends { id: string }>(
@@ -371,7 +407,11 @@ export function getYearlyPlanProjection(
       )
     }
 
-    // 3. Income / expense accumulation (unchanged).
+    // 3. Income / expense accumulation. `growthFactor` takes both the
+    //    years-since-the-cash-flow-started (for change_over_time growth) and
+    //    the years-since-plan-start (for the inflation factor, which is
+    //    always anchored to plan start so the entered amount is consistently
+    //    interpreted as today's-money).
     let incomesThisYearNominal = DECIMAL_0
     for (const income of incomes) {
       const incomeStart = resolveStartYear(income, startYear, birthYear)
@@ -382,11 +422,14 @@ export function getYearlyPlanProjection(
       const yearsSinceCashFlowStart = year - incomeStart
       const annual = annualizedAmount(netIncome(income), income.frequency)
       incomesThisYearNominal = incomesThisYearNominal.plus(
-        annual.mul(growthFactor(income, yearsSinceCashFlowStart, inflationRate)).mul(fraction),
+        annual
+          .mul(growthFactor(income, yearsSinceCashFlowStart, yearsSincePlanStart, inflationRate))
+          .mul(fraction),
       )
     }
 
     let expensesThisYearNominal = DECIMAL_0
+    const activeExpenseIdsThisYear: string[] = []
     for (const expense of expenses) {
       const expenseStart = resolveStartYear(expense, startYear, birthYear)
       const expenseEnd = resolveEndYear(expense, birthYear)
@@ -396,29 +439,28 @@ export function getYearlyPlanProjection(
       const yearsSinceCashFlowStart = year - expenseStart
       const annual = annualizedAmount(new Decimal(expense.amount), expense.frequency)
       expensesThisYearNominal = expensesThisYearNominal.plus(
-        annual.mul(growthFactor(expense, yearsSinceCashFlowStart, inflationRate)).mul(fraction),
+        annual
+          .mul(growthFactor(expense, yearsSinceCashFlowStart, yearsSincePlanStart, inflationRate))
+          .mul(fraction),
       )
+      activeExpenseIdsThisYear.push(expense.id)
     }
 
+    // 4. Apply income to cash up front, then run transfers, then settle
+    //    expenses + liability payments. Doing transfers before the cash check
+    //    is what lets a transfer-into-cash (e.g. drawing from an investment
+    //    to fund a monthly expense) actually cover that expense instead of
+    //    being booked too late and tripping a spurious insufficient-funds
+    //    warning.
     if (plan.include_cash !== false) {
-      // Clamp at zero — a real cash balance can't go below 0. Excess expenses
-      // / liability payments past the available balance are silently absorbed
-      // (we don't model overdraft or surfaced shortfalls yet).
-      cashNominal = Decimal.max(
-        cashNominal
-          .plus(incomesThisYearNominal)
-          .minus(expensesThisYearNominal)
-          .minus(liabilitiesPaidThisYearNominal),
-        DECIMAL_0,
-      )
+      cashNominal = cashNominal.plus(incomesThisYearNominal)
     }
 
-    // 4. Transfer flows for this year. Each transfer is applied atomically:
+    // 5. Transfer flows for this year. Each transfer is applied atomically:
     //    if the source balance is less than the requested amount, the entire
-    //    transfer is skipped (no partial move, no overdraft). Treated as
-    //    end-of-year events so the "from" balance shown for year Y already
-    //    reflects the withdrawal and future years compound from the
-    //    post-transfer balance.
+    //    transfer is skipped (no partial move, no overdraft). Balances after
+    //    transfers are what's shown for year Y and what next year's
+    //    compounding works from.
     function getBalance(id: string): Decimal {
       if (id === 'cash') return cashNominal
       if (invBalancesNominal.has(id)) return invBalancesNominal.get(id) ?? DECIMAL_0
@@ -446,23 +488,47 @@ export function getYearlyPlanProjection(
       }
     }
 
+    const insufficientFundTransferIdsThisYear: string[] = []
     for (const transfer of planTransfers) {
       if (!isTransferActiveThisYear(transfer, year, startYear, birthYear)) continue
       let amount: Decimal
       if (transfer.transfer_all) {
-        // "Max" mode: take whatever the source has at execution time.
+        // "Max" mode: take whatever the source has at execution time. If the
+        // source is empty when the transfer fires we flag it — the user
+        // intended a sweep that produced nothing.
         amount = getBalance(transfer.from_asset_id)
-        if (amount.lessThanOrEqualTo(0)) continue
+        if (amount.lessThanOrEqualTo(0)) {
+          insufficientFundTransferIdsThisYear.push(transfer.id)
+          continue
+        }
       } else {
         amount = transferAmountForYear(transfer, year, startYear, birthYear, inflationRate)
         if (amount.isZero()) continue
-        if (getBalance(transfer.from_asset_id).lessThan(amount)) continue
+        if (getBalance(transfer.from_asset_id).lessThan(amount)) {
+          insufficientFundTransferIdsThisYear.push(transfer.id)
+          continue
+        }
       }
       withdraw(transfer.from_asset_id, amount)
       deposit(transfer.to_asset_id, amount)
     }
 
-    // 5. Aggregate + deflate.
+    // 6. Settle expenses + liability payments against post-transfer cash.
+    //    If the result would go negative, flag every expense active this
+    //    year. Liabilities are part of the overflow math (they also drain
+    //    cash) but aren't blamed in the sidebar today.
+    const insufficientFundExpenseIdsThisYear: string[] = []
+    if (plan.include_cash !== false) {
+      const attemptedCashNominal = cashNominal
+        .minus(expensesThisYearNominal)
+        .minus(liabilitiesPaidThisYearNominal)
+      if (attemptedCashNominal.lessThan(0)) {
+        insufficientFundExpenseIdsThisYear.push(...activeExpenseIdsThisYear)
+      }
+      cashNominal = Decimal.max(attemptedCashNominal, DECIMAL_0)
+    }
+
+    // 7. Aggregate + deflate.
     const investmentsNominal = Array.from(invBalancesNominal.values()).reduce<Decimal>(
       (sum, v) => sum.plus(v),
       DECIMAL_0,
@@ -529,6 +595,8 @@ export function getYearlyPlanProjection(
       liabilitiesByItem,
       totalIncome: incomesThisYearReal.toNumber(),
       totalExpenses: expensesThisYearReal.toNumber(),
+      insufficientFundTransferIds: insufficientFundTransferIdsThisYear,
+      insufficientFundExpenseIds: insufficientFundExpenseIdsThisYear,
     })
   }
 

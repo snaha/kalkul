@@ -38,7 +38,6 @@
     sentiment: 'positive' | 'negative'
     startDescription: string
     endDescription: string
-    matchInflationDescription: string
     changeDescription: string
     years: string[]
     months: { value: string; label: string }[]
@@ -58,7 +57,6 @@
     sentiment,
     startDescription,
     endDescription,
-    matchInflationDescription,
     changeDescription,
     years,
     months,
@@ -203,7 +201,6 @@
       <ChangeOverTimeSelector
         value={item.change_over_time}
         percentage={item.change_percentage}
-        {matchInflationDescription}
         {changeDescription}
         {formatNumber}
         onValueChange={(v) => {

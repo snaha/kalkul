@@ -5,6 +5,7 @@
 
   import ChangeOverTimeSelector from '$lib/components/change-over-time-selector.svelte'
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
+  import InflationAdjustToggle from '$lib/components/inflation-adjust-toggle.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import * as Dialog from '$lib/components/ui/dialog'
@@ -41,6 +42,7 @@
     to_asset_id: string
     amount: number | undefined
     transfer_all: boolean
+    inflation_adjusted: boolean
     schedule: TransferSchedule
     // one-time
     transaction_year: number | undefined
@@ -103,6 +105,9 @@
       to_asset_id: '',
       amount: undefined,
       transfer_all: false,
+      // Default ON — mirrors the income/expense default so new transfers
+      // keep their real value over time without the user having to flip it.
+      inflation_adjusted: true,
       schedule: 'one_time',
       transaction_year: currentYear,
       transaction_month: currentMonth + 1,
@@ -141,7 +146,11 @@
     f.end_year = src.end_year ?? currentYear
     f.end_month = src.end_month ?? currentMonth + 1
     f.end_age = src.end_age ?? currentAge
-    f.change_over_time = src.change_over_time ?? 'none'
+    // Legacy migration: old change_over_time='match_inflation' folds into the
+    // new toggle and the dropdown collapses to 'none'.
+    const legacyInflation = src.change_over_time === 'match_inflation'
+    f.inflation_adjusted = src.inflation_adjusted === true || legacyInflation
+    f.change_over_time = legacyInflation ? 'none' : (src.change_over_time ?? 'none')
     f.change_percentage = src.change_percentage
     return f
   }
@@ -191,6 +200,7 @@
         to_asset_id: f.to_asset_id,
         amount: f.transfer_all ? 0 : (f.amount ?? 0),
         ...(f.transfer_all ? { transfer_all: true } : {}),
+        inflation_adjusted: f.inflation_adjusted ? true : undefined,
         schedule: 'one_time',
         transaction_year: f.transaction_year,
         transaction_month: f.transaction_month,
@@ -203,6 +213,7 @@
       to_asset_id: f.to_asset_id,
       amount: f.transfer_all ? 0 : (f.amount ?? 0),
       ...(f.transfer_all ? { transfer_all: true } : {}),
+      inflation_adjusted: f.inflation_adjusted ? true : undefined,
       schedule: 'recurring',
       frequency: f.frequency,
       start: f.start,
@@ -555,6 +566,11 @@
           onPercentageChange={(v) => (form.change_percentage = v)}
         />
       {/if}
+
+      <InflationAdjustToggle
+        checked={form.inflation_adjusted}
+        onCheckedChange={(v) => (form.inflation_adjusted = v)}
+      />
     </div>
 
     <Dialog.Footer class="flex flex-row justify-end gap-2 border-t p-4">

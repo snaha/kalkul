@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { _ } from 'svelte-i18n'
+
+  import { TriangleAlert } from '@lucide/svelte'
+
   import { cn } from '$lib/utils'
 
   interface Props {
@@ -6,10 +10,18 @@
     value: string
     valueClass?: string
     dense?: boolean
+    hasInsufficientFunds?: boolean
     onclick?: () => void
   }
 
-  let { name, value, valueClass, dense = false, onclick }: Props = $props()
+  let {
+    name,
+    value,
+    valueClass,
+    dense = false,
+    hasInsufficientFunds = false,
+    onclick,
+  }: Props = $props()
 </script>
 
 <button
@@ -20,8 +32,30 @@
     dense ? 'h-7' : 'h-8 hover:bg-accent',
   )}
 >
-  <span class="min-w-0 flex-1 truncate">{name}</span>
-  <span class={cn('shrink-0 tabular-nums', valueClass ?? 'text-muted-foreground')}>
-    {value}
+  <span class={cn('min-w-0 flex-1 truncate', hasInsufficientFunds && 'text-destructive')}>
+    {name}
   </span>
+  {#if hasInsufficientFunds}
+    <span
+      title={$_('page.plan.insufficientFundsTooltip')}
+      class="inline-flex shrink-0 items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive tabular-nums"
+    >
+      <TriangleAlert class="size-3" />
+      {value}
+    </span>
+  {:else}
+    <span
+      class={cn(
+        'shrink-0 tabular-nums',
+        // Non-dense rows live in the cash-flow / asset sidebar and follow the
+        // Figma spec: 12px medium-weight in the default foreground colour.
+        // Dense rows live in the right inspector panel and keep the existing
+        // sm sizing until that panel gets its own design pass.
+        dense ? 'text-sm' : 'text-xs font-medium',
+        valueClass ?? (dense ? 'text-muted-foreground' : 'text-foreground'),
+      )}
+    >
+      {value}
+    </span>
+  {/if}
 </button>
