@@ -1,7 +1,18 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import { Copy, Eye, EyeOff, SquarePen, Trash2, X } from '@lucide/svelte'
+  import {
+    CircleHelp,
+    Copy,
+    Eye,
+    EyeOff,
+    Percent,
+    Receipt,
+    Settings2,
+    SquarePen,
+    Trash2,
+    X,
+  } from '@lucide/svelte'
 
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
@@ -9,8 +20,14 @@
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import * as Select from '$lib/components/ui/select'
+  import { Separator } from '$lib/components/ui/separator'
+  import * as Tooltip from '$lib/components/ui/tooltip'
   import type {
+    CompoundingFrequency,
+    EntryFeeType,
+    ExitFeeType,
     Frequency,
+    InterestType,
     ProfileInvestment,
     ProfileLiability,
     ProfileTangibleAsset,
@@ -39,6 +56,11 @@
     // Investment
     balance: number | undefined
     apy: number | undefined
+    ter: number | undefined
+    entry_fee: number | undefined
+    entry_fee_type: EntryFeeType
+    exit_fee: number | undefined
+    exit_fee_type: ExitFeeType
     // Tangible asset
     value: number | undefined
     status: TangibleAssetStatus
@@ -48,6 +70,9 @@
     annual_rate: number | undefined
     installment_amount: number | undefined
     remaining_term: number | undefined
+    // Liability advanced
+    interest_type: InterestType
+    compounding_frequency: CompoundingFrequency
   }
 
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
@@ -70,6 +95,11 @@
       name: defaultName,
       balance: undefined,
       apy: undefined,
+      ter: undefined,
+      entry_fee: undefined,
+      entry_fee_type: 'ongoing',
+      exit_fee: undefined,
+      exit_fee_type: 'percentage',
       value: undefined,
       status: 'fully_owned',
       outstanding_balance: undefined,
@@ -77,6 +107,8 @@
       annual_rate: undefined,
       installment_amount: undefined,
       remaining_term: undefined,
+      interest_type: 'compound',
+      compounding_frequency: 'daily',
     }
   }
 
@@ -89,6 +121,11 @@
       const inv = src as ProfileInvestment
       f.balance = inv.balance > 0 ? inv.balance : undefined
       f.apy = inv.apy > 0 ? inv.apy : undefined
+      f.ter = inv.ter !== undefined && inv.ter > 0 ? inv.ter : undefined
+      f.entry_fee = inv.entry_fee !== undefined && inv.entry_fee > 0 ? inv.entry_fee : undefined
+      f.entry_fee_type = inv.entry_fee_type ?? 'ongoing'
+      f.exit_fee = inv.exit_fee !== undefined && inv.exit_fee > 0 ? inv.exit_fee : undefined
+      f.exit_fee_type = inv.exit_fee_type ?? 'percentage'
     } else if (kind === 'tangibleAsset') {
       const a = src as ProfileTangibleAsset
       f.value = a.value > 0 ? a.value : undefined
@@ -112,6 +149,8 @@
       f.annual_rate = l.annual_rate > 0 ? l.annual_rate : undefined
       f.installment_amount = l.installment_amount > 0 ? l.installment_amount : undefined
       f.remaining_term = l.remaining_term > 0 ? l.remaining_term : undefined
+      f.interest_type = l.interest_type ?? 'compound'
+      f.compounding_frequency = l.compounding_frequency ?? 'daily'
     }
     return f
   }
@@ -119,6 +158,10 @@
   let form = $state<FormState>(blankForm())
   let editingName = $state(false)
   let nameInputRef: HTMLInputElement | undefined = $state()
+  // Liability "Show advanced options" disclosure. Auto-expands when the
+  // liability already carries non-default interest settings so the user can
+  // see what's driving the math.
+  let showLiabilityAdvanced = $state(false)
 
   // Re-seed form whenever the dialog opens.
   let wasOpen = false
@@ -126,6 +169,13 @@
     if (open && !wasOpen) {
       form = seedForm(initial)
       editingName = initial === undefined
+      if (kind === 'liability') {
+        const l = initial as ProfileLiability | undefined
+        showLiabilityAdvanced =
+          l?.interest_type !== undefined || l?.compounding_frequency !== undefined
+      } else {
+        showLiabilityAdvanced = false
+      }
     }
     wasOpen = open
   })
@@ -151,7 +201,26 @@
   }
 
   function projectInvestment(f: FormState): ProfileInvestment {
-    return { id: f.id, name: f.name, balance: f.balance ?? 0, apy: f.apy ?? 0 }
+    // Persist only the fee fields that the user actually touched; default
+    // values (0 / ongoing / percentage) collapse back to undefined so the
+    // stored shape stays minimal and migrations are easier later.
+    return {
+      id: f.id,
+      name: f.name,
+      balance: f.balance ?? 0,
+      apy: f.apy ?? 0,
+      ter: f.ter && f.ter > 0 ? f.ter : undefined,
+      entry_fee: f.entry_fee && f.entry_fee > 0 ? f.entry_fee : undefined,
+      entry_fee_type:
+        f.entry_fee && f.entry_fee > 0 && f.entry_fee_type !== 'ongoing'
+          ? f.entry_fee_type
+          : undefined,
+      exit_fee: f.exit_fee && f.exit_fee > 0 ? f.exit_fee : undefined,
+      exit_fee_type:
+        f.exit_fee && f.exit_fee > 0 && f.exit_fee_type !== 'percentage'
+          ? f.exit_fee_type
+          : undefined,
+    }
   }
 
   function projectTangibleAsset(f: FormState): ProfileTangibleAsset {
@@ -169,6 +238,10 @@
   }
 
   function projectLiability(f: FormState): ProfileLiability {
+    // interest_type collapses to undefined when 'compound' (matches the
+    // calculation default). compounding_frequency is always persisted —
+    // 'daily' in the UI must produce daily compounding in the math, not
+    // silently fall back to the installment-frequency legacy default.
     return {
       id: f.id,
       name: f.name,
@@ -177,6 +250,8 @@
       annual_rate: f.annual_rate ?? 0,
       installment_amount: f.installment_amount ?? 0,
       remaining_term: f.remaining_term ?? 0,
+      interest_type: f.interest_type !== 'compound' ? f.interest_type : undefined,
+      compounding_frequency: f.compounding_frequency,
     }
   }
 
@@ -417,6 +492,140 @@
             />
           </div>
         </div>
+
+        <Separator />
+
+        <div class="flex items-center gap-2 text-sm text-muted-foreground">
+          <Receipt class="size-4" />
+          <span class="text-xs font-medium uppercase tracking-wide">
+            {$_('page.plan.expensesSection')}
+          </span>
+        </div>
+
+        <!-- Total expense ratio -->
+        <div class="flex items-end gap-2">
+          <div class="flex flex-1 flex-col gap-2">
+            <Label>{$_('page.plan.totalExpenseRatio')}</Label>
+            <SuffixedInput
+              value={form.ter}
+              suffix="%"
+              formatNumber={appStore.formatNumber}
+              onValueChange={(v) => (form.ter = v)}
+            />
+          </div>
+          <Tooltip.Provider delayDuration={150}>
+            <Tooltip.Root>
+              <Tooltip.Trigger
+                type="button"
+                aria-label={$_('page.plan.totalExpenseRatioDescription')}
+                class="mb-2 shrink-0 text-muted-foreground hover:text-foreground"
+              >
+                <CircleHelp class="size-4" />
+              </Tooltip.Trigger>
+              <Tooltip.Content>
+                {$_('page.plan.totalExpenseRatioDescription')}
+              </Tooltip.Content>
+            </Tooltip.Root>
+          </Tooltip.Provider>
+        </div>
+
+        <!-- Entry fee + payment type -->
+        <div class="flex items-end gap-2">
+          <div class="flex flex-1 flex-col gap-2">
+            <Label>{$_('page.plan.entryFee')}</Label>
+            <SuffixedInput
+              value={form.entry_fee}
+              suffix="%"
+              formatNumber={appStore.formatNumber}
+              onValueChange={(v) => (form.entry_fee = v)}
+            />
+          </div>
+          <div class="flex flex-1 flex-col gap-2">
+            <Label>{$_('page.plan.entryFeePaymentType')}</Label>
+            <Select.Root
+              type="single"
+              value={form.entry_fee_type}
+              onValueChange={(v) => {
+                if (v) form.entry_fee_type = v as EntryFeeType
+              }}
+            >
+              <Select.Trigger class="w-full">
+                {form.entry_fee_type === 'upfront'
+                  ? $_('page.plan.entryFeeUpfront')
+                  : form.entry_fee_type === 'forty-sixty'
+                    ? $_('page.plan.entryFeeFortySixty')
+                    : $_('page.plan.entryFeeOngoing')}
+              </Select.Trigger>
+              <Select.Content>
+                <Select.Item value="ongoing">{$_('page.plan.entryFeeOngoing')}</Select.Item>
+                <Select.Item value="upfront">{$_('page.plan.entryFeeUpfront')}</Select.Item>
+                <Select.Item value="forty-sixty">
+                  {$_('page.plan.entryFeeFortySixty')}
+                </Select.Item>
+              </Select.Content>
+            </Select.Root>
+          </div>
+          <Tooltip.Provider delayDuration={150}>
+            <Tooltip.Root>
+              <Tooltip.Trigger
+                type="button"
+                aria-label={$_('page.plan.entryFeeDescription')}
+                class="mb-2 shrink-0 text-muted-foreground hover:text-foreground"
+              >
+                <CircleHelp class="size-4" />
+              </Tooltip.Trigger>
+              <Tooltip.Content>
+                {$_('page.plan.entryFeeDescription')}
+              </Tooltip.Content>
+            </Tooltip.Root>
+          </Tooltip.Provider>
+        </div>
+
+        <!-- Exit fee type + value -->
+        <div class="flex items-end gap-2">
+          <div class="flex flex-1 flex-col gap-2">
+            <Label>{$_('page.plan.exitFee')}</Label>
+            <Select.Root
+              type="single"
+              value={form.exit_fee_type}
+              onValueChange={(v) => {
+                if (v) form.exit_fee_type = v as ExitFeeType
+              }}
+            >
+              <Select.Trigger class="w-full">
+                {form.exit_fee_type === 'fixed'
+                  ? $_('page.plan.exitFeeFixed')
+                  : $_('page.plan.exitFeePercentage')}
+              </Select.Trigger>
+              <Select.Content>
+                <Select.Item value="percentage">{$_('page.plan.exitFeePercentage')}</Select.Item>
+                <Select.Item value="fixed">{$_('page.plan.exitFeeFixed')}</Select.Item>
+              </Select.Content>
+            </Select.Root>
+          </div>
+          <div class="flex flex-1 flex-col gap-2">
+            <SuffixedInput
+              value={form.exit_fee}
+              suffix={form.exit_fee_type === 'fixed' ? currencyLabel : '%'}
+              formatNumber={appStore.formatNumber}
+              onValueChange={(v) => (form.exit_fee = v)}
+            />
+          </div>
+          <Tooltip.Provider delayDuration={150}>
+            <Tooltip.Root>
+              <Tooltip.Trigger
+                type="button"
+                aria-label={$_('page.plan.exitFeeDescription')}
+                class="mb-2 shrink-0 text-muted-foreground hover:text-foreground"
+              >
+                <CircleHelp class="size-4" />
+              </Tooltip.Trigger>
+              <Tooltip.Content>
+                {$_('page.plan.exitFeeDescription')}
+              </Tooltip.Content>
+            </Tooltip.Root>
+          </Tooltip.Provider>
+        </div>
       {:else if kind === 'tangibleAsset'}
         <div class="flex items-end gap-2">
           <div class="flex flex-1 flex-col gap-2">
@@ -576,6 +785,95 @@
             />
           </div>
         </div>
+
+        <!-- Show / Hide advanced options -->
+        <button
+          type="button"
+          onclick={() => (showLiabilityAdvanced = !showLiabilityAdvanced)}
+          class="flex items-center gap-2 self-start text-sm text-muted-foreground hover:text-foreground"
+        >
+          <Settings2 class="size-4" />
+          <span>
+            {showLiabilityAdvanced
+              ? $_('page.plan.hideAdvancedOptions')
+              : $_('page.plan.showAdvancedOptions')}
+          </span>
+        </button>
+
+        {#if showLiabilityAdvanced}
+          <Separator />
+
+          <div class="flex items-center gap-2 text-sm text-muted-foreground">
+            <Percent class="size-4" />
+            <span class="text-xs font-medium uppercase tracking-wide">
+              {$_('page.plan.interestSection')}
+            </span>
+          </div>
+
+          <div class="flex items-end gap-2">
+            <div class="flex flex-1 flex-col gap-2">
+              <Label>{$_('page.plan.interestType')}</Label>
+              <Select.Root
+                type="single"
+                value={form.interest_type}
+                onValueChange={(v) => {
+                  if (v) form.interest_type = v as InterestType
+                }}
+              >
+                <Select.Trigger class="w-full">
+                  {form.interest_type === 'simple'
+                    ? $_('page.plan.interestSimple')
+                    : $_('page.plan.interestCompound')}
+                </Select.Trigger>
+                <Select.Content>
+                  <Select.Item value="compound">{$_('page.plan.interestCompound')}</Select.Item>
+                  <Select.Item value="simple">{$_('page.plan.interestSimple')}</Select.Item>
+                </Select.Content>
+              </Select.Root>
+            </div>
+            {#if form.interest_type === 'compound'}
+              <div class="flex flex-1 flex-col gap-2">
+                <Label>{$_('page.plan.compoundingFrequency')}</Label>
+                <Select.Root
+                  type="single"
+                  value={form.compounding_frequency}
+                  onValueChange={(v) => {
+                    if (v) form.compounding_frequency = v as CompoundingFrequency
+                  }}
+                >
+                  <Select.Trigger class="w-full">
+                    {form.compounding_frequency === 'monthly'
+                      ? $_('page.setup.common.monthly')
+                      : form.compounding_frequency === 'yearly'
+                        ? $_('page.setup.common.yearly')
+                        : $_('page.plan.compoundingDaily')}
+                  </Select.Trigger>
+                  <Select.Content>
+                    <Select.Item value="daily">{$_('page.plan.compoundingDaily')}</Select.Item>
+                    <Select.Item value="monthly">{$_('page.setup.common.monthly')}</Select.Item>
+                    <Select.Item value="yearly">{$_('page.setup.common.yearly')}</Select.Item>
+                  </Select.Content>
+                </Select.Root>
+              </div>
+            {:else}
+              <div class="flex-1"></div>
+            {/if}
+            <Tooltip.Provider delayDuration={150}>
+              <Tooltip.Root>
+                <Tooltip.Trigger
+                  type="button"
+                  aria-label={$_('page.plan.interestDescription')}
+                  class="mb-2 shrink-0 text-muted-foreground hover:text-foreground"
+                >
+                  <CircleHelp class="size-4" />
+                </Tooltip.Trigger>
+                <Tooltip.Content>
+                  {$_('page.plan.interestDescription')}
+                </Tooltip.Content>
+              </Tooltip.Root>
+            </Tooltip.Provider>
+          </div>
+        {/if}
       {/if}
     </div>
 

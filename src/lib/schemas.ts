@@ -142,11 +142,25 @@ export const expenseSchema = z
   })
   .superRefine(cashFlowTemporalRefinement)
 
+export const entryFeeTypeSchema = z.enum(['ongoing', 'upfront', 'forty-sixty'])
+export const exitFeeTypeSchema = z.enum(['percentage', 'fixed'])
+
 export const profileInvestmentSchema = z.object({
   id: z.string(),
   name: z.string(),
   balance: z.number(),
   apy: z.number(),
+  // Total expense ratio (annual %): drag on compounding APY.
+  ter: z.number().optional(),
+  // Entry fee charged when money is transferred INTO this investment. The
+  // payment type controls whether the fee is deducted up front from the
+  // deposit, spread out over the holding period (ongoing), or split 40/60.
+  entry_fee: z.number().optional(),
+  entry_fee_type: entryFeeTypeSchema.optional(),
+  // Exit fee charged when money is transferred OUT of this investment. Can
+  // be a percentage of the withdrawal or a fixed currency amount.
+  exit_fee: z.number().optional(),
+  exit_fee_type: exitFeeTypeSchema.optional(),
 })
 
 export const profileTangibleAssetSchema = z
@@ -196,6 +210,9 @@ export const profileTangibleAssetSchema = z
     }
   })
 
+export const interestTypeSchema = z.enum(['compound', 'simple'])
+export const compoundingFrequencySchema = z.enum(['daily', 'monthly', 'yearly'])
+
 export const profileLiabilitySchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -204,6 +221,10 @@ export const profileLiabilitySchema = z.object({
   annual_rate: z.number(),
   installment_amount: z.number(),
   remaining_term: z.number(),
+  // Advanced options. Defaults preserve the existing behaviour when omitted:
+  // compound interest at the installment frequency.
+  interest_type: interestTypeSchema.optional(),
+  compounding_frequency: compoundingFrequencySchema.optional(),
 })
 
 export const profileSchema = z.object({
@@ -406,6 +427,10 @@ export const retirementGoalDataSchema = periodicWithdrawalGoalDataSchema.extend(
 
 // --- Derived types ---
 
+export type EntryFeeType = z.infer<typeof entryFeeTypeSchema>
+export type ExitFeeType = z.infer<typeof exitFeeTypeSchema>
+export type InterestType = z.infer<typeof interestTypeSchema>
+export type CompoundingFrequency = z.infer<typeof compoundingFrequencySchema>
 export type ProfileInvestment = z.infer<typeof profileInvestmentSchema>
 export type ProfileTangibleAsset = z.infer<typeof profileTangibleAssetSchema>
 export type ProfileLiability = z.infer<typeof profileLiabilitySchema>

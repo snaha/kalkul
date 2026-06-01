@@ -1461,6 +1461,254 @@ describe('getYearlyPlanProjection', () => {
     expect(result[3].investments).toBeCloseTo(1000 / Math.pow(1.05, 3), 4)
   })
 
+  // --- Liability interest options ---
+
+  it('preserves legacy behaviour when interest_type and compounding_frequency are omitted', () => {
+    // Identical inputs to "treats annual_rate as a percentage" further up,
+    // re-asserting that fully-amortizing loan still hits zero with the new
+    // code path enabled (defaults fall back to compounding at the installment
+    // frequency, which is what the old engine did unconditionally).
+    const principal = 12000
+    const monthlyRate = 0.005
+    const n = 12
+    const payment = (principal * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -n))
+    const liabilities: ProfileLiability[] = [
+      {
+        id: 'l1',
+        name: 'Loan',
+        outstanding_balance: principal,
+        installment_frequency: 'monthly',
+        annual_rate: 6,
+        installment_amount: payment,
+        remaining_term: 1,
+      },
+    ]
+    const result = getYearlyPlanProjection(makePlan(), makeProfile({ liabilities }))
+    expect(result[0].liabilities).toBeCloseTo(0, 4)
+  })
+
+  it('charges more interest with daily compounding than yearly compounding', () => {
+    // Same loan, same payment, only the compounding frequency differs.
+    // Daily compounding lifts the effective annual rate above the nominal
+    // rate, so a fixed installment amount leaves a larger residual balance
+    // after one year.
+    const liability: Omit<ProfileLiability, 'compounding_frequency'> = {
+      id: 'l1',
+      name: 'Loan',
+      outstanding_balance: 10_000,
+      installment_frequency: 'monthly',
+      annual_rate: 12,
+      installment_amount: 200,
+      remaining_term: 10,
+    }
+    const yearly = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ liabilities: [{ ...liability, compounding_frequency: 'yearly' }] }),
+    )
+    const daily = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ liabilities: [{ ...liability, compounding_frequency: 'daily' }] }),
+    )
+    expect(daily[0].liabilities).toBeGreaterThan(yearly[0].liabilities)
+  })
+
+  it('uses straight nominal rate per installment for simple interest', () => {
+    // 'simple' bypasses the EAR conversion: per-installment rate is just
+    // annualRate / installmentsPerYear regardless of compounding_frequency.
+    const simple = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({
+        liabilities: [
+          {
+            id: 'l1',
+            name: 'Loan',
+            outstanding_balance: 10_000,
+            installment_frequency: 'monthly',
+            annual_rate: 12,
+            installment_amount: 200,
+            remaining_term: 10,
+            interest_type: 'simple',
+            compounding_frequency: 'daily',
+          },
+        ],
+      }),
+    )
+    const compoundMonthly = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({
+        liabilities: [
+          {
+            id: 'l1',
+            name: 'Loan',
+            outstanding_balance: 10_000,
+            installment_frequency: 'monthly',
+            annual_rate: 12,
+            installment_amount: 200,
+            remaining_term: 10,
+            interest_type: 'compound',
+            compounding_frequency: 'monthly',
+          },
+        ],
+      }),
+    )
+    // Simple at 12 % nominal monthly == compound with monthly compounding
+    // (both produce 1 %/month). The daily compounding_frequency on the
+    // simple loan must be ignored.
+    expect(simple[0].liabilities).toBeCloseTo(compoundMonthly[0].liabilities, 6)
+  })
+
+  // --- Investment fees (TER, entry, exit) ---
+
+  it('subtracts TER from APY when compounding investments', () => {
+    const investments: ProfileInvestment[] = [
+      { id: 'i1', name: 'Fund', balance: 1000, apy: 7, ter: 1 },
+    ]
+    const result = getYearlyPlanProjection(makePlan(), makeProfile({ investments }))
+    // Effective APY = 7 − 1 = 6 %. Year 1 balance = 1000 * 1.06 = 1060.
+    expect(result[0].investments).toBeCloseTo(1000, 6)
+    expect(result[1].investments).toBeCloseTo(1060, 6)
+    expect(result[2].investments).toBeCloseTo(1060 * 1.06, 6)
+  })
+
+  it('treats an ongoing entry fee as additional APY drag', () => {
+    const investments: ProfileInvestment[] = [
+      { id: 'i1', name: 'Fund', balance: 1000, apy: 7, entry_fee: 1, entry_fee_type: 'ongoing' },
+    ]
+    const result = getYearlyPlanProjection(makePlan(), makeProfile({ investments }))
+    // Effective APY = 7 − 1 = 6 % (whole entry_fee as drag, no upfront cut).
+    expect(result[1].investments).toBeCloseTo(1060, 6)
+  })
+
+  it('splits a forty-sixty entry fee 40% upfront + 60% ongoing drag', () => {
+    const investments: ProfileInvestment[] = [
+      {
+        id: 'i1',
+        name: 'Fund',
+        balance: 0,
+        apy: 0,
+        entry_fee: 5,
+        entry_fee_type: 'forty-sixty',
+      },
+    ]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'Deposit',
+        from_asset_id: 'cash',
+        to_asset_id: 'i1',
+        amount: 1000,
+        schedule: 'one_time',
+        transaction_year: 2025,
+        transaction_month: 1,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ transfers }),
+      makeProfile({ cash_amount: 1000, investments }),
+    )
+    // 40 % of 5 % = 2 % upfront cut → 1000 → 980 lands in the investment.
+    // Source loses the full 1000; the broker pockets the missing 20.
+    expect(result[0].investments).toBeCloseTo(980, 6)
+    expect(result[0].cash).toBeCloseTo(0, 6)
+  })
+
+  it('takes the full entry fee upfront when payment type is upfront', () => {
+    const investments: ProfileInvestment[] = [
+      { id: 'i1', name: 'Fund', balance: 0, apy: 0, entry_fee: 2, entry_fee_type: 'upfront' },
+    ]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'Deposit',
+        from_asset_id: 'cash',
+        to_asset_id: 'i1',
+        amount: 1000,
+        schedule: 'one_time',
+        transaction_year: 2025,
+        transaction_month: 1,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ transfers }),
+      makeProfile({ cash_amount: 1000, investments }),
+    )
+    // 2 % of 1000 = 20 deducted → 980 invested.
+    expect(result[0].investments).toBeCloseTo(980, 6)
+    expect(result[0].cash).toBeCloseTo(0, 6)
+  })
+
+  it('takes a percentage exit fee from withdrawal proceeds', () => {
+    const investments: ProfileInvestment[] = [
+      { id: 'i1', name: 'Fund', balance: 1000, apy: 0, exit_fee: 1, exit_fee_type: 'percentage' },
+    ]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'Sell',
+        from_asset_id: 'i1',
+        to_asset_id: 'cash',
+        amount: 500,
+        schedule: 'one_time',
+        transaction_year: 2025,
+        transaction_month: 1,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ transfers }),
+      makeProfile({ cash_amount: 0, investments }),
+    )
+    // Source loses 500. 1 % of 500 = 5 fee → 495 lands in cash.
+    expect(result[0].investments).toBeCloseTo(500, 6)
+    expect(result[0].cash).toBeCloseTo(495, 6)
+  })
+
+  it('takes a fixed exit fee from withdrawal proceeds', () => {
+    const investments: ProfileInvestment[] = [
+      { id: 'i1', name: 'Fund', balance: 1000, apy: 0, exit_fee: 10, exit_fee_type: 'fixed' },
+    ]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'Sell',
+        from_asset_id: 'i1',
+        to_asset_id: 'cash',
+        amount: 500,
+        schedule: 'one_time',
+        transaction_year: 2025,
+        transaction_month: 1,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ transfers }),
+      makeProfile({ cash_amount: 0, investments }),
+    )
+    expect(result[0].investments).toBeCloseTo(500, 6)
+    expect(result[0].cash).toBeCloseTo(490, 6)
+  })
+
+  it('clamps a fixed exit fee at the transfer amount (no negative inflow)', () => {
+    const investments: ProfileInvestment[] = [
+      { id: 'i1', name: 'Fund', balance: 1000, apy: 0, exit_fee: 1000, exit_fee_type: 'fixed' },
+    ]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'Sell',
+        from_asset_id: 'i1',
+        to_asset_id: 'cash',
+        amount: 500,
+        schedule: 'one_time',
+        transaction_year: 2025,
+        transaction_month: 1,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ transfers }),
+      makeProfile({ cash_amount: 0, investments }),
+    )
+    expect(result[0].cash).toBeCloseTo(0, 6)
+  })
+
   // --- Insufficient-funds warnings ---
 
   it('reports no insufficient-funds warnings for a healthy plan', () => {
