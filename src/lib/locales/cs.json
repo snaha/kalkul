@@ -103,7 +103,21 @@
       "deleteInvestmentConfirm": "Smazat tuto investici? Akci nelze vrátit zpět.",
       "deleteTangibleAssetConfirm": "Smazat toto hmotné aktivum? Akci nelze vrátit zpět.",
       "deleteLiabilityConfirm": "Smazat tento závazek? Akci nelze vrátit zpět.",
-      "clearCashConfirm": "Vymazat hotovostní zůstatek? Akci nelze vrátit zpět."
+      "clearCashConfirm": "Vymazat hotovostní zůstatek? Akci nelze vrátit zpět.",
+      "transferFromLabel": "Odkud",
+      "transferToLabel": "Kam",
+      "transferLabelLabel": "Popisek",
+      "scheduleLabel": "Rozvrh",
+      "scheduleOneTime": "Jednorázově",
+      "scheduleRecurring": "Opakovaně",
+      "transactionDateLabel": "Datum transakce",
+      "newTransfer": "Nový převod",
+      "defaultTransferName": "Převod {index}",
+      "pickAsset": "Vyberte",
+      "deleteTransferConfirm": "Smazat tento převod? Akci nelze vrátit zpět.",
+      "transferFrequencyLabel": "Frekvence",
+      "transferMax": "Max",
+      "transferMaxDescription": "Převede všechny dostupné prostředky v okamžiku provedení"
     },
     "home": {
       "heroTitle": "Podívejte se, kam vás vaše peníze mohou dovést",
@@ -230,11 +244,12 @@
         "start": "Začátek",
         "end": "Konec",
         "changeOverTime": "Změna v čase",
-        "immediately": "Okamžitě",
-        "atSpecificDate": "K určitému datu\u2026",
+        "immediately": "Když plán začíná",
+        "now": "Nyní",
+        "atSpecificDate": "K určitému datu",
         "whenAgeIs": "Když vám bude\u2026",
         "yearsOld": "Let",
-        "never": "Nikdy",
+        "never": "Když plán končí",
         "none": "Žádná",
         "matchInflation": "Kopírovat inflaci",
         "increaseYearlyBy": "Ročně zvýšit o\u2026",
@@ -244,7 +259,12 @@
         "weekly": "Týdně",
         "duplicate": "Duplikovat",
         "delete": "Smazat",
-        "copySuffix": "{name} (kopie)"
+        "copySuffix": "{name} (kopie)",
+        "immediatelyDescription": "Začíná od začátku plánu",
+        "nowDescription": "Začíná od aktuálního měsíce",
+        "neverDescription": "Trvá po celou dobu plánu",
+        "noneDescription": "Částka zůstává po celou dobu plánu stejná",
+        "matchInflationDescription": "Částka se automaticky upravuje podle inflace nastavené ve vašem plánu"
       },
       "tangibleAssets": {
         "title": "Hmotný majetek",
@@ -361,6 +381,9 @@
     "required_when_start_when_age_is": "Povinné, když začátek je při dosažení věku",
     "required_when_end_at_specific_date": "Povinné, když konec je v konkrétní datum",
     "required_when_end_when_age_is": "Povinné, když konec je při dosažení věku",
-    "required_when_financed": "Povinné při financování"
+    "required_when_financed": "Povinné při financování",
+    "required_for_one_time_transfer": "Povinné pro jednorázový převod",
+    "required_for_recurring_transfer": "Povinné pro opakovaný převod",
+    "transfer_same_endpoints": "Odkud a Kam musí být různá aktiva"
   }
 }

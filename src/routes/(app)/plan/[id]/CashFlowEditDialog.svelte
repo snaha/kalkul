@@ -196,14 +196,28 @@
       const existing = appStore.profile.incomes ?? []
       const projected = projectIncome(form)
       const idx = existing.findIndex((i) => i.id === form.id)
-      const next = idx === -1 ? [...existing, projected] : existing.with(idx, projected)
+      const next =
+        idx === -1
+          ? [...existing, projected]
+          : existing.map((it, i) => (i === idx ? projected : it))
       appStore.updateProfile({ incomes: next })
+      // If the plan has an explicit include list, append the new id so the
+      // item is visible in this plan by default.
+      if (idx === -1 && plan.included_income_ids !== undefined) {
+        plan.update({ included_income_ids: [...plan.included_income_ids, form.id] })
+      }
     } else {
       const existing = appStore.profile.expenses ?? []
       const projected = projectExpense(form)
       const idx = existing.findIndex((e) => e.id === form.id)
-      const next = idx === -1 ? [...existing, projected] : existing.with(idx, projected)
+      const next =
+        idx === -1
+          ? [...existing, projected]
+          : existing.map((it, i) => (i === idx ? projected : it))
       appStore.updateProfile({ expenses: next })
+      if (idx === -1 && plan.included_expense_ids !== undefined) {
+        plan.update({ included_expense_ids: [...plan.included_expense_ids, form.id] })
+      }
     }
     close()
   }
@@ -250,6 +264,7 @@
     } else {
       plan.update({ included_expense_ids: nextIds })
     }
+    close()
   }
 
   function remove() {
@@ -418,9 +433,6 @@
         age={form.start_age}
         {years}
         {months}
-        description={kind === 'income'
-          ? $_('page.setup.income.startDescription')
-          : $_('page.setup.expenses.startDescription')}
         formatNumber={appStore.formatNumber}
         onValueChange={(v) => (form.start = v as CashFlowStart)}
         onYearChange={(v) => (form.start_year = v)}
@@ -436,9 +448,6 @@
         age={form.end_age}
         {years}
         {months}
-        description={kind === 'income'
-          ? $_('page.setup.income.endDescription')
-          : $_('page.setup.expenses.endDescription')}
         formatNumber={appStore.formatNumber}
         onValueChange={(v) => (form.end = v as CashFlowEnd)}
         onYearChange={(v) => (form.end_year = v)}
@@ -449,12 +458,6 @@
       <ChangeOverTimeSelector
         value={form.change_over_time}
         percentage={form.change_percentage}
-        matchInflationDescription={kind === 'income'
-          ? $_('page.setup.income.matchInflationDescription')
-          : $_('page.setup.expenses.matchInflationDescription')}
-        changeDescription={kind === 'income'
-          ? $_('page.setup.income.changeDescription')
-          : $_('page.setup.expenses.changeDescription')}
         formatNumber={appStore.formatNumber}
         onValueChange={(v) => (form.change_over_time = v as ChangeOverTime)}
         onPercentageChange={(v) => (form.change_percentage = v)}

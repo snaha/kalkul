@@ -2,6 +2,9 @@ import Decimal from 'decimal.js'
 
 import { DECIMAL_0, DECIMAL_1 } from '$lib/@snaha/kalkul-maths'
 import type {
+  CashFlowEnd,
+  CashFlowStart,
+  ChangeOverTime,
   Expense,
   Frequency,
   Income,
@@ -10,7 +13,22 @@ import type {
   ProfileInvestment,
   ProfileLiability,
   ProfileTangibleAsset,
+  Transfer,
 } from '$lib/schemas'
+
+// Common temporal shape shared by Income, Expense, and recurring Transfer.
+interface CashFlowTemporal {
+  start: CashFlowStart
+  start_year?: number
+  start_month?: number
+  start_age?: number
+  end: CashFlowEnd
+  end_year?: number
+  end_month?: number
+  end_age?: number
+  change_over_time: ChangeOverTime
+  change_percentage?: number
+}
 
 export interface YearlyProjectionItem {
   id: string
@@ -47,11 +65,13 @@ const INSTALLMENT_PERIODS_PER_YEAR: Record<Frequency, number> = {
 }
 
 function resolveStartYear(
-  cashFlow: Income | Expense,
+  cashFlow: CashFlowTemporal,
   planStartYear: number,
   birthYear: number | undefined,
 ): number {
   if (cashFlow.start === 'immediately') return planStartYear
+  // 'now' anchors to the real-world current month at projection time.
+  if (cashFlow.start === 'now') return new Date().getFullYear()
   if (cashFlow.start === 'at_specific_date') return cashFlow.start_year ?? planStartYear
   if (
     cashFlow.start === 'when_age_is' &&
@@ -62,7 +82,7 @@ function resolveStartYear(
   return planStartYear
 }
 
-function resolveEndYear(cashFlow: Income | Expense, birthYear: number | undefined): number {
+function resolveEndYear(cashFlow: CashFlowTemporal, birthYear: number | undefined): number {
   if (cashFlow.end === 'never') return Number.POSITIVE_INFINITY
   if (cashFlow.end === 'at_specific_date') return cashFlow.end_year ?? Number.POSITIVE_INFINITY
   if (cashFlow.end === 'when_age_is' && birthYear !== undefined && cashFlow.end_age !== undefined)
@@ -75,7 +95,7 @@ function annualizedAmount(amount: Decimal, frequency: Frequency): Decimal {
 }
 
 function activeMonthFraction(
-  cashFlow: Income | Expense,
+  cashFlow: CashFlowTemporal,
   year: number,
   startYear: number,
   endYear: number,
@@ -89,6 +109,10 @@ function activeMonthFraction(
   ) {
     startMonth = cashFlow.start_month
   }
+  // 'now' starts at the real-world current month within the start year.
+  if (year === startYear && cashFlow.start === 'now') {
+    startMonth = new Date().getMonth() + 1
+  }
   if (year === endYear && cashFlow.end === 'at_specific_date' && cashFlow.end_month !== undefined) {
     endMonth = cashFlow.end_month
   }
@@ -97,7 +121,7 @@ function activeMonthFraction(
 }
 
 function growthFactor(
-  cashFlow: Income | Expense,
+  cashFlow: CashFlowTemporal,
   yearsSinceStart: number,
   inflationRate: Decimal,
 ): Decimal {
@@ -192,6 +216,63 @@ function financingToLiability(asset: ProfileTangibleAsset): ProfileLiability | u
   }
 }
 
+function transferToTemporal(transfer: Transfer): CashFlowTemporal {
+  // Recurring transfers reuse the same temporal shape as income/expense.
+  // Defaults are defensive — schema validation should already guarantee these
+  // are set when schedule === 'recurring'.
+  return {
+    start: transfer.start ?? 'immediately',
+    start_year: transfer.start_year,
+    start_month: transfer.start_month,
+    start_age: transfer.start_age,
+    end: transfer.end ?? 'never',
+    end_year: transfer.end_year,
+    end_month: transfer.end_month,
+    end_age: transfer.end_age,
+    change_over_time: transfer.change_over_time ?? 'none',
+    change_percentage: transfer.change_percentage,
+  }
+}
+
+// Whether the transfer should fire in the given year (independent of amount).
+function isTransferActiveThisYear(
+  transfer: Transfer,
+  year: number,
+  planStartYear: number,
+  birthYear: number | undefined,
+): boolean {
+  if (transfer.schedule === 'one_time') return year === transfer.transaction_year
+  const temporal = transferToTemporal(transfer)
+  const tStart = resolveStartYear(temporal, planStartYear, birthYear)
+  const tEnd = resolveEndYear(temporal, birthYear)
+  if (year < tStart || year > tEnd) return false
+  return !activeMonthFraction(temporal, year, tStart, tEnd).isZero()
+}
+
+// Nominal transfer amount that should be applied in the given year (for
+// fixed-amount transfers only — caller should use the live source balance
+// instead when `transfer.transfer_all` is true).
+function transferAmountForYear(
+  transfer: Transfer,
+  year: number,
+  planStartYear: number,
+  birthYear: number | undefined,
+  inflationRate: Decimal,
+): Decimal {
+  if (transfer.schedule === 'one_time') {
+    return year === transfer.transaction_year ? new Decimal(transfer.amount) : DECIMAL_0
+  }
+  const temporal = transferToTemporal(transfer)
+  const tStart = resolveStartYear(temporal, planStartYear, birthYear)
+  const tEnd = resolveEndYear(temporal, birthYear)
+  if (year < tStart || year > tEnd) return DECIMAL_0
+  const fraction = activeMonthFraction(temporal, year, tStart, tEnd)
+  if (fraction.isZero()) return DECIMAL_0
+  const yearsSinceStart = year - tStart
+  const annual = annualizedAmount(new Decimal(transfer.amount), transfer.frequency ?? 'monthly')
+  return annual.mul(growthFactor(temporal, yearsSinceStart, inflationRate)).mul(fraction)
+}
+
 function filterById<T extends { id: string }>(
   items: T[] | undefined,
   includedIds: string[] | undefined,
@@ -227,11 +308,6 @@ export function getYearlyPlanProjection(
   const incomes: Income[] = filterById(profile.incomes, plan.included_income_ids)
   const expenses: Expense[] = filterById(profile.expenses, plan.included_expense_ids)
 
-  const tangibleAssetsTotalNominal = tangibleAssets.reduce<Decimal>(
-    (sum, a) => sum.plus(a.value ?? 0),
-    DECIMAL_0,
-  )
-
   const tangibleAssetLiabilities = tangibleAssets
     .map(financingToLiability)
     .filter((l): l is ProfileLiability => l !== undefined)
@@ -244,23 +320,46 @@ export function getYearlyPlanProjection(
   let cashNominal = new Decimal(initialCashNominal)
   const inflationRate = new Decimal(plan.inflation_rate)
 
+  // State-based per-asset balance tracking. Each year we (a) compound
+  // investments by APY, (b) apply cash flows to cash, (c) apply transfers
+  // between balances. This carries the running balance forward so a transfer
+  // in year N affects compounding from year N+1 onward.
+  const invBalancesNominal = new Map<string, Decimal>(
+    investments.map((i) => [i.id, new Decimal(i.balance)]),
+  )
+  const tangValuesNominal = new Map<string, Decimal>(
+    tangibleAssets.map((a) => [a.id, new Decimal(a.value)]),
+  )
+  const investmentApy = new Map<string, Decimal>(investments.map((i) => [i.id, new Decimal(i.apy)]))
+
+  // Only honor transfers whose endpoints are part of this plan; anything else
+  // is ignored (e.g. a transfer referencing an investment that was excluded).
+  // Also honor the plan's `included_transfer_ids` whitelist when set.
+  const knownAssetIds = new Set<string>([
+    'cash',
+    ...investments.map((i) => i.id),
+    ...tangibleAssets.map((a) => a.id),
+  ])
+  const planTransfers = filterById(plan.transfers, plan.included_transfer_ids).filter(
+    (t) => knownAssetIds.has(t.from_asset_id) && knownAssetIds.has(t.to_asset_id),
+  )
+
   const projection: YearlyProjection[] = []
 
   for (let year = startYear; year <= endYear; year++) {
     const yearsSincePlanStart = year - startYear
 
-    const investmentsByItemNominal: { investment: ProfileInvestment; value: Decimal }[] =
-      investments.map((inv) => ({
-        investment: inv,
-        value: new Decimal(inv.balance).mul(
-          DECIMAL_1.plus(new Decimal(inv.apy).div(100)).pow(yearsSincePlanStart),
-        ),
-      }))
-    const investmentsNominal = investmentsByItemNominal.reduce<Decimal>(
-      (sum, item) => sum.plus(item.value),
-      DECIMAL_0,
-    )
+    // 1. Compound investments for this year (skip the first year — initial
+    //    balance is the year-0 nominal value).
+    if (yearsSincePlanStart > 0) {
+      for (const [id, balance] of invBalancesNominal) {
+        const apy = investmentApy.get(id) ?? DECIMAL_0
+        invBalancesNominal.set(id, balance.mul(DECIMAL_1.plus(apy.div(100))))
+      }
+    }
 
+    // 2. Liability schedule lookup (no state change here; the schedule is
+    //    pre-computed for the full range).
     let liabilitiesOutstandingNominal = DECIMAL_0
     let liabilitiesPaidThisYearNominal = DECIMAL_0
     for (const schedule of liabilitySchedules) {
@@ -272,6 +371,7 @@ export function getYearlyPlanProjection(
       )
     }
 
+    // 3. Income / expense accumulation (unchanged).
     let incomesThisYearNominal = DECIMAL_0
     for (const income of incomes) {
       const incomeStart = resolveStartYear(income, startYear, birthYear)
@@ -301,11 +401,76 @@ export function getYearlyPlanProjection(
     }
 
     if (plan.include_cash !== false) {
-      cashNominal = cashNominal
-        .plus(incomesThisYearNominal)
-        .minus(expensesThisYearNominal)
-        .minus(liabilitiesPaidThisYearNominal)
+      // Clamp at zero — a real cash balance can't go below 0. Excess expenses
+      // / liability payments past the available balance are silently absorbed
+      // (we don't model overdraft or surfaced shortfalls yet).
+      cashNominal = Decimal.max(
+        cashNominal
+          .plus(incomesThisYearNominal)
+          .minus(expensesThisYearNominal)
+          .minus(liabilitiesPaidThisYearNominal),
+        DECIMAL_0,
+      )
     }
+
+    // 4. Transfer flows for this year. Each transfer is applied atomically:
+    //    if the source balance is less than the requested amount, the entire
+    //    transfer is skipped (no partial move, no overdraft). Treated as
+    //    end-of-year events so the "from" balance shown for year Y already
+    //    reflects the withdrawal and future years compound from the
+    //    post-transfer balance.
+    function getBalance(id: string): Decimal {
+      if (id === 'cash') return cashNominal
+      if (invBalancesNominal.has(id)) return invBalancesNominal.get(id) ?? DECIMAL_0
+      if (tangValuesNominal.has(id)) return tangValuesNominal.get(id) ?? DECIMAL_0
+      return DECIMAL_0
+    }
+
+    function withdraw(id: string, amount: Decimal): void {
+      if (id === 'cash') {
+        cashNominal = cashNominal.minus(amount)
+      } else if (invBalancesNominal.has(id)) {
+        invBalancesNominal.set(id, (invBalancesNominal.get(id) ?? DECIMAL_0).minus(amount))
+      } else if (tangValuesNominal.has(id)) {
+        tangValuesNominal.set(id, (tangValuesNominal.get(id) ?? DECIMAL_0).minus(amount))
+      }
+    }
+
+    function deposit(id: string, amount: Decimal): void {
+      if (id === 'cash') {
+        cashNominal = cashNominal.plus(amount)
+      } else if (invBalancesNominal.has(id)) {
+        invBalancesNominal.set(id, (invBalancesNominal.get(id) ?? DECIMAL_0).plus(amount))
+      } else if (tangValuesNominal.has(id)) {
+        tangValuesNominal.set(id, (tangValuesNominal.get(id) ?? DECIMAL_0).plus(amount))
+      }
+    }
+
+    for (const transfer of planTransfers) {
+      if (!isTransferActiveThisYear(transfer, year, startYear, birthYear)) continue
+      let amount: Decimal
+      if (transfer.transfer_all) {
+        // "Max" mode: take whatever the source has at execution time.
+        amount = getBalance(transfer.from_asset_id)
+        if (amount.lessThanOrEqualTo(0)) continue
+      } else {
+        amount = transferAmountForYear(transfer, year, startYear, birthYear, inflationRate)
+        if (amount.isZero()) continue
+        if (getBalance(transfer.from_asset_id).lessThan(amount)) continue
+      }
+      withdraw(transfer.from_asset_id, amount)
+      deposit(transfer.to_asset_id, amount)
+    }
+
+    // 5. Aggregate + deflate.
+    const investmentsNominal = Array.from(invBalancesNominal.values()).reduce<Decimal>(
+      (sum, v) => sum.plus(v),
+      DECIMAL_0,
+    )
+    const tangibleAssetsTotalNominal = Array.from(tangValuesNominal.values()).reduce<Decimal>(
+      (sum, v) => sum.plus(v),
+      DECIMAL_0,
+    )
 
     // Integer-year deflation: the projection runs in annual buckets, so
     // deflate by (1 + inflation)^yearsSincePlanStart directly. This is the
@@ -318,24 +483,27 @@ export function getYearlyPlanProjection(
     const incomesThisYearReal = incomesThisYearNominal.div(deflationFactor)
     const expensesThisYearReal = expensesThisYearNominal.div(deflationFactor)
 
-    // Tangibles are assumed to passively track inflation (nominal value rises
-    // 1:1 with inflation), so their real value is constant at the entered amount.
+    // Tangibles passively track inflation, so their real value equals the
+    // current nominal value (after any transfers).
     const tangibleAssetsReal = tangibleAssetsTotalNominal
 
     const netWorth = cashReal.plus(investmentsReal).plus(tangibleAssetsReal).minus(liabilitiesReal)
 
-    const investmentsByItem: YearlyProjectionItem[] = investmentsByItemNominal.map(
-      ({ investment, value }) => ({
-        id: investment.id,
-        name: investment.name,
-        value: value.div(deflationFactor).toNumber(),
-      }),
-    )
+    // Defensive output clamp: balances are conceptually >= 0; any tiny
+    // negative residual from Decimal arithmetic or `-0` from
+    // `Decimal.minus` would otherwise display as "-EUR 0" via Intl.
+    const clampNonNeg = (d: Decimal): number => Math.max(0, d.toNumber())
+
+    const investmentsByItem: YearlyProjectionItem[] = investments.map((inv) => ({
+      id: inv.id,
+      name: inv.name,
+      value: clampNonNeg((invBalancesNominal.get(inv.id) ?? DECIMAL_0).div(deflationFactor)),
+    }))
 
     const tangibleAssetsByItem: YearlyProjectionItem[] = tangibleAssets.map((asset) => ({
       id: asset.id,
       name: asset.name,
-      value: asset.value ?? 0,
+      value: clampNonNeg(tangValuesNominal.get(asset.id) ?? DECIMAL_0),
     }))
 
     // Only user-defined liabilities (the first `liabilities.length` schedules);
@@ -344,17 +512,17 @@ export function getYearlyPlanProjection(
     const liabilitiesByItem: YearlyProjectionItem[] = liabilities.map((liability, i) => ({
       id: liability.id,
       name: liability.name,
-      value: (liabilitySchedules[i].outstandingByYear.get(year) ?? DECIMAL_0)
-        .div(deflationFactor)
-        .toNumber(),
+      value: clampNonNeg(
+        (liabilitySchedules[i].outstandingByYear.get(year) ?? DECIMAL_0).div(deflationFactor),
+      ),
     }))
 
     projection.push({
       year,
-      cash: cashReal.toNumber(),
-      investments: investmentsReal.toNumber(),
-      tangibleAssets: tangibleAssetsReal.toNumber(),
-      liabilities: liabilitiesReal.toNumber(),
+      cash: clampNonNeg(cashReal),
+      investments: clampNonNeg(investmentsReal),
+      tangibleAssets: clampNonNeg(tangibleAssetsReal),
+      liabilities: clampNonNeg(liabilitiesReal),
       netWorth: netWorth.toNumber(),
       investmentsByItem,
       tangibleAssetsByItem,

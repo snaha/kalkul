@@ -1,5 +1,6 @@
 import type { SvelteSet } from 'svelte/reactivity'
 
+import type { Transfer } from '$lib/schemas'
 import type { Investment, InvestmentNested, Portfolio, PortfolioNested } from '$lib/types'
 
 import type { InvestmentStore } from './investment.svelte'
@@ -43,6 +44,8 @@ export function withPortfolioStore(portfolio: PortfolioNested, app: AppParent): 
   let included_liability_ids = $state<string[] | undefined>(portfolio.included_liability_ids)
   let included_income_ids = $state<string[] | undefined>(portfolio.included_income_ids)
   let included_expense_ids = $state<string[] | undefined>(portfolio.included_expense_ids)
+  let transfers = $state<Transfer[]>(portfolio.transfers ?? [])
+  let included_transfer_ids = $state<string[] | undefined>(portfolio.included_transfer_ids)
   let investments = $state<InvestmentStore[]>([])
   let goals = $state<InvestmentStore[]>([])
 
@@ -118,6 +121,18 @@ export function withPortfolioStore(portfolio: PortfolioNested, app: AppParent): 
     },
     set included_expense_ids(v) {
       included_expense_ids = v
+    },
+    get transfers() {
+      return transfers
+    },
+    set transfers(v) {
+      transfers = v
+    },
+    get included_transfer_ids() {
+      return included_transfer_ids
+    },
+    set included_transfer_ids(v) {
+      included_transfer_ids = v
     },
     get investments() {
       return investments
@@ -241,6 +256,8 @@ export function withPortfolioStore(portfolio: PortfolioNested, app: AppParent): 
         ...(included_liability_ids !== undefined ? { included_liability_ids } : {}),
         ...(included_income_ids !== undefined ? { included_income_ids } : {}),
         ...(included_expense_ids !== undefined ? { included_expense_ids } : {}),
+        ...(transfers.length > 0 ? { transfers } : {}),
+        ...(included_transfer_ids !== undefined ? { included_transfer_ids } : {}),
         investments: investments.map((i) => i.toJSON()),
         goals: goals.map((g) => g.toJSON()),
       }

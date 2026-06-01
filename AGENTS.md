@@ -130,7 +130,12 @@ When linking from a bare `<a>` tag (not the `Button` component), the `svelte/no-
    - Use Tailwind CSS utility classes for styling and layout
    - Use `cn()` utility from `$lib/utils` for conditional class merging
 
-5. **Assets (images, SVGs)**
+5. **Design Fidelity**
+   - When there is a Figma specification, the code has to look exactly like that — same field order, same row groupings, same labels, and same conditional visibility rules.
+   - Don't reorder rows, merge/split rows, or add/remove fields unless the spec says so.
+   - If implementation requires a deviation (e.g. a needed control isn't drawn in the spec), surface the deviation before shipping rather than papering over it.
+
+6. **Assets (images, SVGs)**
    - Component-used assets live in `src/lib/assets/` and are imported as Vite modules
    - This gives content-hashed filenames, build-time missing-file errors, and knip can detect unused assets
    - ✅ `import logo from '$lib/assets/logo.svg'` then `<img src={logo} />`

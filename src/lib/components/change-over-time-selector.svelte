@@ -8,8 +8,12 @@
   interface Props {
     value: string
     percentage: number | undefined
-    matchInflationDescription: string
-    changeDescription: string
+    /**
+     * Overrides for the option-aware description. When omitted, descriptions
+     * derive from shared i18n keys (matches Figma 233:6637).
+     */
+    matchInflationDescription?: string
+    changeDescription?: string
     formatNumber?: (n: number) => string
     onValueChange: (v: string) => void
     onPercentageChange: (v: number | undefined) => void
@@ -34,7 +38,9 @@
   })
 
   let descriptionText = $derived(
-    value === 'match_inflation' ? matchInflationDescription : changeDescription,
+    value === 'match_inflation'
+      ? (matchInflationDescription ?? $_('page.setup.common.matchInflationDescription'))
+      : (changeDescription ?? $_('page.setup.common.noneDescription')),
   )
 </script>
 

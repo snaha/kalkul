@@ -7,7 +7,7 @@ import { z } from 'zod'
 
 export const frequencySchema = z.enum(['monthly', 'yearly', 'weekly'])
 
-export const cashFlowStartSchema = z.enum(['immediately', 'at_specific_date', 'when_age_is'])
+export const cashFlowStartSchema = z.enum(['immediately', 'now', 'at_specific_date', 'when_age_is'])
 
 export const cashFlowEndSchema = z.enum(['never', 'at_specific_date', 'when_age_is'])
 
@@ -219,6 +219,99 @@ export const profileSchema = z.object({
   hide_plan_intro: z.boolean().optional(),
 })
 
+export const transferScheduleSchema = z.enum(['one_time', 'recurring'])
+
+export const transferSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    from_asset_id: z.string(),
+    to_asset_id: z.string(),
+    amount: z.number(),
+    // When true, ignore `amount` and transfer the source's full available
+    // balance at the time of execution.
+    transfer_all: z.boolean().optional(),
+    schedule: transferScheduleSchema,
+    // one-time fields
+    transaction_year: z.number().optional(),
+    transaction_month: z.number().optional(),
+    // recurring fields (mirror income/expense temporal shape)
+    frequency: frequencySchema.optional(),
+    start: cashFlowStartSchema.optional(),
+    start_year: z.number().optional(),
+    start_month: z.number().optional(),
+    start_age: z.number().optional(),
+    end: cashFlowEndSchema.optional(),
+    end_year: z.number().optional(),
+    end_month: z.number().optional(),
+    end_age: z.number().optional(),
+    change_over_time: changeOverTimeSchema.optional(),
+    change_percentage: z.number().optional(),
+  })
+  .superRefine((obj, ctx) => {
+    if (obj.from_asset_id === obj.to_asset_id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['to_asset_id'],
+        message: get(_)('validation.transfer_same_endpoints'),
+      })
+    }
+    if (obj.schedule === 'one_time') {
+      if (obj.transaction_year === undefined)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['transaction_year'],
+          message: get(_)('validation.required_for_one_time_transfer'),
+        })
+      if (obj.transaction_month === undefined)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['transaction_month'],
+          message: get(_)('validation.required_for_one_time_transfer'),
+        })
+    } else {
+      if (obj.frequency === undefined)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['frequency'],
+          message: get(_)('validation.required_for_recurring_transfer'),
+        })
+      if (obj.start === undefined)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['start'],
+          message: get(_)('validation.required_for_recurring_transfer'),
+        })
+      if (obj.end === undefined)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['end'],
+          message: get(_)('validation.required_for_recurring_transfer'),
+        })
+      if (obj.change_over_time === undefined)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['change_over_time'],
+          message: get(_)('validation.required_for_recurring_transfer'),
+        })
+      if (obj.start !== undefined && obj.end !== undefined) {
+        cashFlowTemporalRefinement(
+          {
+            start: obj.start,
+            start_year: obj.start_year,
+            start_month: obj.start_month,
+            start_age: obj.start_age,
+            end: obj.end,
+            end_year: obj.end_year,
+            end_month: obj.end_month,
+            end_age: obj.end_age,
+          },
+          ctx,
+        )
+      }
+    }
+  })
+
 export const portfolioSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -233,6 +326,8 @@ export const portfolioSchema = z.object({
   included_liability_ids: z.array(z.string()).optional(),
   included_income_ids: z.array(z.string()).optional(),
   included_expense_ids: z.array(z.string()).optional(),
+  transfers: z.array(transferSchema).optional(),
+  included_transfer_ids: z.array(z.string()).optional(),
 })
 
 export const transactionTypeSchema = z.enum(['deposit', 'withdrawal'])
@@ -309,6 +404,8 @@ export type Income = z.infer<typeof incomeSchema>
 export type Expense = z.infer<typeof expenseSchema>
 export type Profile = z.infer<typeof profileSchema>
 export type Portfolio = z.infer<typeof portfolioSchema>
+export type Transfer = z.infer<typeof transferSchema>
+export type TransferSchedule = z.infer<typeof transferScheduleSchema>
 export type Investment = z.infer<typeof investmentSchema>
 export type Transaction = z.infer<typeof transactionSchema>
 export type InvestmentNested = z.infer<typeof investmentNestedSchema>

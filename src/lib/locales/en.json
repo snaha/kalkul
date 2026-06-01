@@ -103,7 +103,21 @@
       "deleteInvestmentConfirm": "Delete this investment? This cannot be undone.",
       "deleteTangibleAssetConfirm": "Delete this tangible asset? This cannot be undone.",
       "deleteLiabilityConfirm": "Delete this liability? This cannot be undone.",
-      "clearCashConfirm": "Clear your cash balance? This cannot be undone."
+      "clearCashConfirm": "Clear your cash balance? This cannot be undone.",
+      "transferFromLabel": "From",
+      "transferToLabel": "To",
+      "transferLabelLabel": "Label",
+      "scheduleLabel": "Schedule",
+      "scheduleOneTime": "One-time",
+      "scheduleRecurring": "Recurring",
+      "transactionDateLabel": "Transaction date",
+      "newTransfer": "New transfer",
+      "defaultTransferName": "Transfer {index}",
+      "pickAsset": "Please select",
+      "deleteTransferConfirm": "Delete this transfer? This cannot be undone.",
+      "transferFrequencyLabel": "Frequency",
+      "transferMax": "Max",
+      "transferMaxDescription": "Transfers all available funds at the time of execution"
     },
     "home": {
       "heroTitle": "See where your money could take you",
@@ -230,11 +244,12 @@
         "start": "Start",
         "end": "End",
         "changeOverTime": "Change over time",
-        "immediately": "Immediately",
-        "atSpecificDate": "At specific date\u2026",
+        "immediately": "When plan starts",
+        "now": "Now",
+        "atSpecificDate": "On specific time",
         "whenAgeIs": "When your age is\u2026",
         "yearsOld": "Years old",
-        "never": "Never",
+        "never": "When plan ends",
         "none": "None",
         "matchInflation": "Match inflation",
         "increaseYearlyBy": "Increase yearly by\u2026",
@@ -244,7 +259,12 @@
         "weekly": "Weekly",
         "duplicate": "Duplicate",
         "delete": "Delete",
-        "copySuffix": "{name} (copy)"
+        "copySuffix": "{name} (copy)",
+        "immediatelyDescription": "Starts from the beginning of the plan",
+        "nowDescription": "Starts from the current month",
+        "neverDescription": "Runs for the entire plan duration",
+        "noneDescription": "Amount remains the same for the entire plan duration",
+        "matchInflationDescription": "Amount is automatically adjusted to match the inflation rate set in your plan"
       },
       "tangibleAssets": {
         "title": "Tangible assets",
@@ -361,6 +381,9 @@
     "required_when_start_when_age_is": "Required when start is at a specific age",
     "required_when_end_at_specific_date": "Required when end is at a specific date",
     "required_when_end_when_age_is": "Required when end is at a specific age",
-    "required_when_financed": "Required when asset is financed"
+    "required_when_financed": "Required when asset is financed",
+    "required_for_one_time_transfer": "Required for a one-time transfer",
+    "required_for_recurring_transfer": "Required for a recurring transfer",
+    "transfer_same_endpoints": "From and To must be different assets"
   }
 }
