@@ -356,7 +356,8 @@
       "france": "Francie",
       "other": "Jiné"
     },
-    "currency": "Měna"
+    "currency": "Měna",
+    "noResults": "Žádné výsledky"
   },
   "theme": {
     "light": "Světlý",

@@ -4,6 +4,7 @@
   import { Copy, Eye, EyeOff, SquarePen, Trash2, X } from '@lucide/svelte'
 
   import ChangeOverTimeSelector from '$lib/components/change-over-time-selector.svelte'
+  import Combobox from '$lib/components/combobox.svelte'
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
   import InflationAdjustToggle from '$lib/components/inflation-adjust-toggle.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
@@ -12,7 +13,6 @@
   import * as Dialog from '$lib/components/ui/dialog'
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
-  import * as Select from '$lib/components/ui/select'
   import { Separator } from '$lib/components/ui/separator'
   import type {
     CashFlowEnd,
@@ -66,6 +66,12 @@
     Number(calculateAge(appStore.profile.birthDate, currentYear, currentMonth)) || undefined,
   )
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
+
+  let frequencyItems = $derived([
+    { value: 'monthly', label: $_('page.setup.common.monthly') },
+    { value: 'yearly', label: $_('page.setup.common.yearly') },
+    { value: 'weekly', label: $_('page.setup.common.weekly') },
+  ])
 
   function blankForm(): FormState {
     const counter =
@@ -384,26 +390,13 @@
         </div>
         <div class="flex flex-1 flex-col gap-2">
           <Label>{$_('page.setup.common.frequency')}</Label>
-          <Select.Root
-            type="single"
+          <Combobox
             value={form.frequency}
+            items={frequencyItems}
             onValueChange={(v) => {
               if (v) form.frequency = v as Frequency
             }}
-          >
-            <Select.Trigger class="w-full">
-              {form.frequency === 'monthly'
-                ? $_('page.setup.common.monthly')
-                : form.frequency === 'yearly'
-                  ? $_('page.setup.common.yearly')
-                  : $_('page.setup.common.weekly')}
-            </Select.Trigger>
-            <Select.Content>
-              <Select.Item value="monthly">{$_('page.setup.common.monthly')}</Select.Item>
-              <Select.Item value="yearly">{$_('page.setup.common.yearly')}</Select.Item>
-              <Select.Item value="weekly">{$_('page.setup.common.weekly')}</Select.Item>
-            </Select.Content>
-          </Select.Root>
+          />
         </div>
       </div>
 

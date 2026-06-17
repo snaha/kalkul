@@ -6,10 +6,10 @@
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
 
+  import Combobox from '$lib/components/combobox.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
-  import * as Select from '$lib/components/ui/select'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
   import {
@@ -40,7 +40,7 @@
     hydrated = true
   })
 
-  const years = getBirthYearOptions()
+  const years = getBirthYearOptions().map((year) => ({ value: year, label: year }))
   const months = getMonthOptions()
 
   const countryCurrencyMap: Record<string, string> = {
@@ -110,77 +110,38 @@
     <div class="flex w-full items-end gap-2">
       <div class="flex flex-1 flex-col gap-2">
         <Label>{$_('page.setup.aboutYou.birthdate')}</Label>
-        <Select.Root type="single" bind:value={birthYear}>
-          <Select.Trigger class="w-full">
-            {#if birthYear}
-              {birthYear}
-            {:else}
-              <span class="text-muted-foreground">{$_('page.setup.aboutYou.selectYear')}</span>
-            {/if}
-          </Select.Trigger>
-          <Select.Content>
-            {#each years as year (year)}
-              <Select.Item value={year} label={year} />
-            {/each}
-          </Select.Content>
-        </Select.Root>
+        <Combobox
+          bind:value={birthYear}
+          items={years}
+          placeholder={$_('page.setup.aboutYou.selectYear')}
+        />
       </div>
       <div class="flex flex-1 flex-col gap-2">
-        <Select.Root type="single" bind:value={birthMonth}>
-          <Select.Trigger class="w-full">
-            {#if birthMonth !== ''}
-              {months[Number(birthMonth)]?.label}
-            {:else}
-              <span class="text-muted-foreground">{$_('page.setup.aboutYou.selectMonth')}</span>
-            {/if}
-          </Select.Trigger>
-          <Select.Content>
-            {#each months as month (month.value)}
-              <Select.Item value={month.value} label={month.label} />
-            {/each}
-          </Select.Content>
-        </Select.Root>
+        <Combobox
+          bind:value={birthMonth}
+          items={months}
+          placeholder={$_('page.setup.aboutYou.selectMonth')}
+        />
       </div>
     </div>
 
     <div class="flex w-full items-end gap-2">
       <div class="flex flex-1 flex-col gap-2">
         <Label>{$_('page.setup.aboutYou.location')}</Label>
-        <Select.Root type="single" bind:value={location}>
-          <Select.Trigger class="w-full">
-            {#if location}
-              {countries.find((c) => c.value === location)?.label}
-            {:else}
-              <span class="text-muted-foreground">{$_('page.setup.aboutYou.selectCountry')}</span>
-            {/if}
-          </Select.Trigger>
-          <Select.Content>
-            {#each countries as country (country.value)}
-              <Select.Item value={country.value} label={country.label} />
-            {/each}
-          </Select.Content>
-        </Select.Root>
+        <Combobox
+          bind:value={location}
+          items={countries}
+          placeholder={$_('page.setup.aboutYou.selectCountry')}
+        />
       </div>
       <div class="flex w-32 flex-col gap-2">
         <Label>{$_('common.currency')}</Label>
-        <Select.Root
-          type="single"
+        <Combobox
           bind:value={currency}
+          items={CURRENCY_OPTIONS.map((c) => ({ value: c.value, label: c.label }))}
+          placeholder={DEFAULT_CURRENCY}
           onValueChange={() => (userChangedCurrency = true)}
-        >
-          <Select.Trigger class="w-full">
-            {#if currency}
-              {CURRENCY_OPTIONS.find((c) => c.value === currency)?.label}
-            {:else}
-              <span class="text-muted-foreground">{DEFAULT_CURRENCY}</span>
-            {/if}
-          </Select.Trigger>
-          <Select.Content>
-            {#each CURRENCY_OPTIONS as cur (cur.value)}
-              <Select.Item value={cur.value} label={cur.label} />
-            {/each}
-          </Select.Content>
-        </Select.Root>
+        />
       </div>
     </div>
   </div>

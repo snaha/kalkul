@@ -1,9 +1,9 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
+  import Combobox from '$lib/components/combobox.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Label } from '$lib/components/ui/label'
-  import * as Select from '$lib/components/ui/select'
 
   interface Props {
     mode: 'start' | 'end'
@@ -46,25 +46,6 @@
     mode === 'start' ? $_('page.setup.common.start') : $_('page.setup.common.end'),
   )
 
-  let displayValue = $derived.by(() => {
-    if (mode === 'start') {
-      if (value === 'immediately') return $_('page.setup.common.immediately')
-      if (value === 'now') return $_('page.setup.common.now')
-      if (value === 'at_specific_date') return $_('page.setup.common.atSpecificDate')
-      if (value === 'when_age_is') return $_('page.setup.common.whenAgeIs')
-      return $_('page.setup.common.immediately')
-    }
-    if (value === 'never') return $_('page.setup.common.never')
-    if (value === 'at_specific_date') return $_('page.setup.common.atSpecificDate')
-    if (value === 'when_age_is') return $_('page.setup.common.whenAgeIs')
-    return $_('page.setup.common.never')
-  })
-
-  let defaultOption = $derived(mode === 'start' ? 'immediately' : 'never')
-  let defaultLabel = $derived(
-    mode === 'start' ? $_('page.setup.common.immediately') : $_('page.setup.common.never'),
-  )
-
   // Option-aware description: shown next to the dropdown when the selected
   // option doesn't have its own input (i.e. not 'at_specific_date' or
   // 'when_age_is'). Callers can override via the `description` prop.
@@ -78,67 +59,52 @@
 
   let yearString = $derived(year !== undefined ? String(year) : '')
   let monthString = $derived(month !== undefined ? String(month) : '')
+
+  let modeItems = $derived(
+    mode === 'start'
+      ? [
+          { value: 'immediately', label: $_('page.setup.common.immediately') },
+          { value: 'now', label: $_('page.setup.common.now') },
+          { value: 'at_specific_date', label: $_('page.setup.common.atSpecificDate') },
+          { value: 'when_age_is', label: $_('page.setup.common.whenAgeIs') },
+        ]
+      : [
+          { value: 'never', label: $_('page.setup.common.never') },
+          { value: 'at_specific_date', label: $_('page.setup.common.atSpecificDate') },
+          { value: 'when_age_is', label: $_('page.setup.common.whenAgeIs') },
+        ],
+  )
+  let yearItems = $derived(years.map((y) => ({ value: y, label: y })))
 </script>
 
 <div class="flex items-end gap-2">
   <div class="flex flex-1 flex-col gap-2">
     <Label>{label}</Label>
-    <Select.Root
-      type="single"
+    <Combobox
       {value}
+      items={modeItems}
       onValueChange={(v) => {
         if (v) onValueChange(v)
       }}
-    >
-      <Select.Trigger class="w-full">
-        {displayValue}
-      </Select.Trigger>
-      <Select.Content>
-        <Select.Item value={defaultOption}>{defaultLabel}</Select.Item>
-        {#if mode === 'start'}
-          <Select.Item value="now">{$_('page.setup.common.now')}</Select.Item>
-        {/if}
-        <Select.Item value="at_specific_date">
-          {$_('page.setup.common.atSpecificDate')}
-        </Select.Item>
-        <Select.Item value="when_age_is">
-          {$_('page.setup.common.whenAgeIs')}
-        </Select.Item>
-      </Select.Content>
-    </Select.Root>
+    />
   </div>
   {#if value === 'at_specific_date'}
     <div class="flex flex-1 items-center gap-2">
-      <Select.Root
-        type="single"
+      <Combobox
+        class="max-w-24"
         value={yearString}
+        items={yearItems}
         onValueChange={(v) => {
           if (v) onYearChange(Number(v))
         }}
-      >
-        <Select.Trigger class="w-full max-w-24">{yearString}</Select.Trigger>
-        <Select.Content>
-          {#each years as y (y)}
-            <Select.Item value={y}>{y}</Select.Item>
-          {/each}
-        </Select.Content>
-      </Select.Root>
-      <Select.Root
-        type="single"
+      />
+      <Combobox
         value={monthString}
+        items={months}
         onValueChange={(v) => {
           if (v) onMonthChange(Number(v))
         }}
-      >
-        <Select.Trigger class="w-full">
-          {month !== undefined ? months[month]?.label : ''}
-        </Select.Trigger>
-        <Select.Content>
-          {#each months as m (m.value)}
-            <Select.Item value={m.value}>{m.label}</Select.Item>
-          {/each}
-        </Select.Content>
-      </Select.Root>
+      />
     </div>
   {:else if value === 'when_age_is'}
     <div class="flex flex-1 flex-col gap-2">

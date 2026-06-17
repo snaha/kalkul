@@ -356,7 +356,8 @@
       "france": "France",
       "other": "Other"
     },
-    "currency": "Currency"
+    "currency": "Currency",
+    "noResults": "No results"
   },
   "theme": {
     "light": "Light",

@@ -6,12 +6,12 @@
   import { goto } from '$app/navigation'
 
   import { CATEGORY_COLORS } from '$lib/chart-colors'
+  import Combobox from '$lib/components/combobox.svelte'
   import EditableItemCard from '$lib/components/editable-item-card.svelte'
   import OnboardingNav from '$lib/components/onboarding-nav.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Label } from '$lib/components/ui/label'
-  import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select'
   import { Switch } from '$lib/components/ui/switch'
   import { getNextStepUrl, getPrevStepUrl } from '$lib/onboarding-steps'
   import routes from '$lib/routes'
@@ -74,6 +74,17 @@
 
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
+  let statusItems = $derived([
+    { value: 'fully_owned', label: $_('page.setup.tangibleAssets.fullyOwned') },
+    { value: 'financed', label: $_('page.setup.tangibleAssets.financed') },
+  ])
+
+  let frequencyItems = $derived([
+    { value: 'monthly', label: $_('page.setup.common.monthly') },
+    { value: 'yearly', label: $_('page.setup.common.yearly') },
+    { value: 'weekly', label: $_('page.setup.common.weekly') },
+  ])
+
   function addAsset() {
     assetCounter++
     for (const a of assets) a.editing = false
@@ -112,12 +123,6 @@
   function formatValue(val: number | undefined): string {
     if (val === undefined || val === 0) return ''
     return appStore.formatCurrency(val)
-  }
-
-  function frequencyLabel(f: Frequency): string {
-    if (f === 'yearly') return $_('page.setup.common.yearly')
-    if (f === 'weekly') return $_('page.setup.common.weekly')
-    return $_('page.setup.common.monthly')
   }
 
   function saveAssets() {
@@ -200,27 +205,13 @@
             </div>
             <div class="flex flex-1 flex-col gap-2">
               <Label>{$_('page.setup.tangibleAssets.status')}</Label>
-              <Select
-                type="single"
+              <Combobox
                 value={asset.status}
+                items={statusItems}
                 onValueChange={(v) => {
                   asset.status = v as TangibleAssetStatus
                 }}
-              >
-                <SelectTrigger class="h-8">
-                  {asset.status === 'financed'
-                    ? $_('page.setup.tangibleAssets.financed')
-                    : $_('page.setup.tangibleAssets.fullyOwned')}
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="fully_owned">
-                    {$_('page.setup.tangibleAssets.fullyOwned')}
-                  </SelectItem>
-                  <SelectItem value="financed">
-                    {$_('page.setup.tangibleAssets.financed')}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+              />
             </div>
           </div>
 
@@ -239,22 +230,13 @@
             <div class="flex items-center gap-2">
               <div class="flex flex-1 flex-col gap-2">
                 <Label>{$_('page.setup.tangibleAssets.installmentFrequency')}</Label>
-                <Select
-                  type="single"
+                <Combobox
                   value={asset.installment_frequency}
+                  items={frequencyItems}
                   onValueChange={(v) => {
                     asset.installment_frequency = v as Frequency
                   }}
-                >
-                  <SelectTrigger class="h-8">
-                    {frequencyLabel(asset.installment_frequency)}
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="monthly">{$_('page.setup.common.monthly')}</SelectItem>
-                    <SelectItem value="yearly">{$_('page.setup.common.yearly')}</SelectItem>
-                    <SelectItem value="weekly">{$_('page.setup.common.weekly')}</SelectItem>
-                  </SelectContent>
-                </Select>
+                />
               </div>
               <div class="flex flex-1 flex-col gap-2">
                 <Label>{$_('page.setup.tangibleAssets.annualRate')}</Label>
