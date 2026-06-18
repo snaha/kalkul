@@ -5,7 +5,6 @@
 
   import { goto } from '$app/navigation'
 
-  import { formatDate } from '$lib/@snaha/kalkul-maths'
   import { getNextAddPlanStepUrl, getPrevAddPlanStepUrl } from '$lib/add-plan-steps'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
@@ -13,6 +12,7 @@
   import { Label } from '$lib/components/ui/label'
   import * as Select from '$lib/components/ui/select'
   import { Textarea } from '$lib/components/ui/textarea'
+  import { loadPlanDraft, savePlanDraft } from '$lib/plan-draft'
   import routes from '$lib/routes'
   import type { PlanEndType, PlanStartType } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
@@ -35,36 +35,51 @@
   let endMonth = $state('')
   let currency = $state(appStore.profile.currency ?? DEFAULT_CURRENCY)
   let inflation = $state<number | undefined>(2)
+  let hydrated = $state(false)
+
+  // Re-hydrate the form from a previously saved draft exactly once, on first
+  // load, so navigating back to this step preserves the user's entries.
+  $effect(() => {
+    if (hydrated) return
+    const details = loadPlanDraft().details
+    if (details) {
+      name = details.name
+      notes = details.notes
+      startType = details.startType
+      startYear = details.startYear
+      startMonth = details.startMonth
+      endType = details.endType
+      endAge = details.endAge
+      endYear = details.endYear
+      endMonth = details.endMonth
+      currency = details.currency
+      inflation = details.inflation
+    }
+    hydrated = true
+  })
+
+  // Persist the form to the draft whenever it changes (preserving the Data
+  // step's selections), so nothing is lost on back navigation.
+  $effect(() => {
+    if (!hydrated) return
+    const details = {
+      name,
+      notes,
+      startType,
+      startYear,
+      startMonth,
+      endType,
+      endAge,
+      endYear,
+      endMonth,
+      currency,
+      inflation,
+    }
+    savePlanDraft({ ...loadPlanDraft(), details })
+  })
 
   const years = getYearOptions()
   const months = $derived(getMonthOptions($locale ?? undefined))
-
-  // Calculate date from start of current month
-  function getStartDate(): string {
-    if (startType === 'now') {
-      const now = new Date()
-      return formatDate(new Date(now.getFullYear(), now.getMonth(), 1))
-    }
-    return formatDate(new Date(Number(startYear), Number(startMonth), 1))
-  }
-
-  // Calculate end date based on age or specific date
-  function getEndDate(): string {
-    if (endType === 'when_age_is' && endAge !== undefined) {
-      const birthDate = appStore.profile.birthDate
-      if (birthDate) {
-        return formatDate(new Date(birthDate.getFullYear() + endAge, birthDate.getMonth(), 1))
-      }
-      // Fallback: use start year + age
-      const startYearNum = startType === 'now' ? new Date().getFullYear() : Number(startYear)
-      return formatDate(new Date(startYearNum + endAge, 0, 1))
-    }
-    if (endYear && endMonth !== '') {
-      return formatDate(new Date(Number(endYear), Number(endMonth), 1))
-    }
-    // Fallback (unreachable due to canContinue validation)
-    return formatDate(new Date(new Date().getFullYear() + 30, 0, 1))
-  }
 
   let canContinue = $derived(
     name.trim().length > 0 &&
@@ -79,16 +94,6 @@
   }
 
   function handleContinue() {
-    // Store plan details in sessionStorage for step 3
-    const planDetails = {
-      name: name.trim(),
-      notes: notes.trim() || undefined,
-      currency,
-      start_date: getStartDate(),
-      end_date: getEndDate(),
-      inflation_rate: (inflation ?? 2) / 100,
-    }
-    sessionStorage.setItem('kalkul-plan-draft', JSON.stringify(planDetails))
     // URL is already resolved by getNextAddPlanStepUrl
     // eslint-disable-next-line svelte/no-navigation-without-resolve
     goto(getNextAddPlanStepUrl(routes.PLAN_ADD_DETAILS, appStore.profile))

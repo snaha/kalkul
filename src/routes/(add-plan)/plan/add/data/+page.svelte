@@ -12,6 +12,12 @@
   import { Checkbox } from '$lib/components/ui/checkbox'
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
+  import {
+    buildPlanCreationFields,
+    clearPlanDraft,
+    loadPlanDraft,
+    savePlanDraft,
+  } from '$lib/plan-draft'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
 
@@ -31,6 +37,55 @@
   let selectedLiabilityIds = new SvelteSet((appStore.profile.liabilities ?? []).map((l) => l.id))
   let selectedIncomeIds = new SvelteSet((appStore.profile.incomes ?? []).map((i) => i.id))
   let selectedExpenseIds = new SvelteSet((appStore.profile.expenses ?? []).map((e) => e.id))
+
+  let hydrated = $state(false)
+
+  // Re-seed a SvelteSet in place from an array of ids.
+  function reseed(set: SvelteSet<string>, ids: string[]): void {
+    set.clear()
+    for (const id of ids) set.add(id)
+  }
+
+  // Re-hydrate selections from a previously saved draft exactly once, on first
+  // load, so navigating back to this step preserves the user's choices.
+  $effect(() => {
+    if (hydrated) return
+    const data = loadPlanDraft().data
+    if (data) {
+      includeCash = data.includeCash
+      includeInvestments = data.includeInvestments
+      includeTangibleAssets = data.includeTangibleAssets
+      includeLiabilities = data.includeLiabilities
+      includeIncomes = data.includeIncomes
+      includeExpenses = data.includeExpenses
+      reseed(selectedInvestmentIds, data.selectedInvestmentIds)
+      reseed(selectedTangibleAssetIds, data.selectedTangibleAssetIds)
+      reseed(selectedLiabilityIds, data.selectedLiabilityIds)
+      reseed(selectedIncomeIds, data.selectedIncomeIds)
+      reseed(selectedExpenseIds, data.selectedExpenseIds)
+    }
+    hydrated = true
+  })
+
+  // Persist selections to the draft whenever they change (preserving the
+  // Details step's data), so nothing is lost on back navigation.
+  $effect(() => {
+    if (!hydrated) return
+    const data = {
+      includeCash,
+      includeInvestments,
+      includeTangibleAssets,
+      includeLiabilities,
+      includeIncomes,
+      includeExpenses,
+      selectedInvestmentIds: Array.from(selectedInvestmentIds),
+      selectedTangibleAssetIds: Array.from(selectedTangibleAssetIds),
+      selectedLiabilityIds: Array.from(selectedLiabilityIds),
+      selectedIncomeIds: Array.from(selectedIncomeIds),
+      selectedExpenseIds: Array.from(selectedExpenseIds),
+    }
+    savePlanDraft({ ...loadPlanDraft(), data })
+  })
 
   // Helper to toggle individual item (mutates the set directly since SvelteSet is reactive)
   function toggleItem(set: SvelteSet<string>, id: string): void {
@@ -67,16 +122,26 @@
     includeIncomes = true
     includeExpenses = true
     // Clear and refill SvelteSet (mutate in place)
-    selectedInvestmentIds.clear()
-    for (const i of appStore.profile.investments ?? []) selectedInvestmentIds.add(i.id)
-    selectedTangibleAssetIds.clear()
-    for (const a of appStore.profile.tangible_assets ?? []) selectedTangibleAssetIds.add(a.id)
-    selectedLiabilityIds.clear()
-    for (const l of appStore.profile.liabilities ?? []) selectedLiabilityIds.add(l.id)
-    selectedIncomeIds.clear()
-    for (const i of appStore.profile.incomes ?? []) selectedIncomeIds.add(i.id)
-    selectedExpenseIds.clear()
-    for (const e of appStore.profile.expenses ?? []) selectedExpenseIds.add(e.id)
+    reseed(
+      selectedInvestmentIds,
+      (appStore.profile.investments ?? []).map((i) => i.id),
+    )
+    reseed(
+      selectedTangibleAssetIds,
+      (appStore.profile.tangible_assets ?? []).map((a) => a.id),
+    )
+    reseed(
+      selectedLiabilityIds,
+      (appStore.profile.liabilities ?? []).map((l) => l.id),
+    )
+    reseed(
+      selectedIncomeIds,
+      (appStore.profile.incomes ?? []).map((i) => i.id),
+    )
+    reseed(
+      selectedExpenseIds,
+      (appStore.profile.expenses ?? []).map((e) => e.id),
+    )
   }
 
   function deselectAll() {
@@ -101,32 +166,18 @@
   }
 
   function handleCreatePlan() {
-    // Load plan details from sessionStorage
-    const draftStr = sessionStorage.getItem('kalkul-plan-draft')
-    if (!draftStr) {
+    // Load plan details from the draft
+    const details = loadPlanDraft().details
+    if (!details) {
       // Fallback if no draft
       goto(resolve(routes.HOME))
       return
     }
 
-    const draft = JSON.parse(draftStr) as {
-      name: string
-      notes?: string
-      currency: string
-      start_date: string
-      end_date: string
-      inflation_rate: number
-    }
-
     // Create the portfolio with included references
     // When category is checked: include all items; when unchecked: include only selected items
     const portfolioId = appStore.addPortfolio({
-      name: draft.name,
-      notes: draft.notes,
-      currency: draft.currency,
-      start_date: draft.start_date,
-      end_date: draft.end_date,
-      inflation_rate: draft.inflation_rate,
+      ...buildPlanCreationFields(details, appStore.profile.birthDate),
       include_cash: includeCash,
       included_investment_ids: includeInvestments
         ? (appStore.profile.investments ?? []).map((i) => i.id)
@@ -146,7 +197,7 @@
     })
 
     // Clean up
-    sessionStorage.removeItem('kalkul-plan-draft')
+    clearPlanDraft()
 
     // Navigate to the new plan page
     goto(resolve(`${routes.PLAN_VIEW}/${portfolioId}`))
