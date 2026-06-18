@@ -7,7 +7,7 @@
 
   import { formatDate } from '$lib/@snaha/kalkul-maths'
   import { getNextAddPlanStepUrl, getPrevAddPlanStepUrl } from '$lib/add-plan-steps'
-  import Combobox from '$lib/components/combobox.svelte'
+  import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Input } from '$lib/components/ui/input'
@@ -40,7 +40,6 @@
   const months = $derived(getMonthOptions($locale ?? undefined))
 
   const yearItems = $derived(years.map((y) => ({ value: y, label: y })))
-  const currencyItems = $derived(CURRENCY_OPTIONS.map((c) => ({ value: c.value, label: c.label })))
   const startTypeItems = $derived([
     { value: 'now', label: $_('page.addPlan.details.startNow') },
     { value: 'at_specific_date', label: $_('page.addPlan.details.startAtDate') },
@@ -131,7 +130,7 @@
     <div class="flex items-end gap-2">
       <div class="flex flex-1 flex-col gap-2">
         <Label>{$_('page.addPlan.details.start')}</Label>
-        <Combobox
+        <SelectField
           value={startType}
           items={startTypeItems}
           onValueChange={(v) => (startType = v as PlanStartType)}
@@ -139,8 +138,8 @@
       </div>
       {#if startType === 'at_specific_date'}
         <div class="flex flex-1 items-end gap-2">
-          <Combobox bind:value={startYear} items={yearItems} class="w-24" />
-          <Combobox bind:value={startMonth} items={months} class="flex-1" />
+          <SelectField bind:value={startYear} items={yearItems} class="w-24" />
+          <SelectField bind:value={startMonth} items={months} class="flex-1" />
         </div>
       {/if}
     </div>
@@ -148,7 +147,7 @@
     <div class="flex items-end gap-2">
       <div class="flex flex-1 flex-col gap-2">
         <Label>{$_('page.addPlan.details.end')}</Label>
-        <Combobox
+        <SelectField
           value={endType}
           items={endTypeItems}
           onValueChange={(v) => (endType = v as PlanEndType)}
@@ -165,13 +164,13 @@
         </div>
       {:else}
         <div class="flex flex-1 items-end gap-2">
-          <Combobox
+          <SelectField
             bind:value={endYear}
             items={yearItems}
             placeholder={$_('page.setup.aboutYou.selectYear')}
             class="w-24"
           />
-          <Combobox
+          <SelectField
             bind:value={endMonth}
             items={months}
             placeholder={$_('page.setup.aboutYou.selectMonth')}
@@ -184,7 +183,7 @@
     <div class="flex items-end gap-2">
       <div class="flex flex-1 flex-col gap-2">
         <Label>{$_('page.addPlan.details.currency')}</Label>
-        <Combobox bind:value={currency} items={currencyItems} />
+        <SelectField bind:value={currency} items={CURRENCY_OPTIONS} />
       </div>
       <div class="flex flex-1 flex-col gap-2">
         <Label>{$_('page.addPlan.details.inflation')}</Label>

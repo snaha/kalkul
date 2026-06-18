@@ -3,9 +3,9 @@
   import { _ } from 'svelte-i18n'
 
   import ChangeOverTimeSelector from '$lib/components/change-over-time-selector.svelte'
-  import Combobox from '$lib/components/combobox.svelte'
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
   import EditableItemCard from '$lib/components/editable-item-card.svelte'
+  import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
@@ -110,7 +110,7 @@
       </div>
       <div class="flex flex-1 flex-col gap-2">
         <Label>{$_('page.setup.common.frequency')}</Label>
-        <Combobox
+        <SelectField
           value={item.frequency}
           items={frequencyItems}
           onValueChange={(v) => {

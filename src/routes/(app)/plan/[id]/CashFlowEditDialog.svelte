@@ -4,9 +4,9 @@
   import { Copy, Eye, EyeOff, SquarePen, Trash2, X } from '@lucide/svelte'
 
   import ChangeOverTimeSelector from '$lib/components/change-over-time-selector.svelte'
-  import Combobox from '$lib/components/combobox.svelte'
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
   import InflationAdjustToggle from '$lib/components/inflation-adjust-toggle.svelte'
+  import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Checkbox } from '$lib/components/ui/checkbox'
@@ -390,7 +390,7 @@
         </div>
         <div class="flex flex-1 flex-col gap-2">
           <Label>{$_('page.setup.common.frequency')}</Label>
-          <Combobox
+          <SelectField
             value={form.frequency}
             items={frequencyItems}
             onValueChange={(v) => {

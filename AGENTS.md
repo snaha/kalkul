@@ -129,6 +129,9 @@ When linking from a bare `<a>` tag (not the `Button` component), the `svelte/no-
    - Always prefer shadcn-svelte components over custom HTML elements for consistency
    - Use Tailwind CSS utility classes for styling and layout
    - Use `cn()` utility from `$lib/utils` for conditional class merging
+   - **Dropdowns / selects**: for the common single-choice, items-array case use the shared `SelectField` wrapper (`src/lib/components/select-field.svelte`). It is a thin wrapper over the stock shadcn `Select` (`$lib/components/ui/select`): the full list is always shown and typing jumps to the matching item like a native `<select>` (not type-to-filter). Never use a native `<select>`, a raw `bits-ui` `Select`/`Combobox`, or roll a custom menu. For richer layouts (groups, custom item markup) compose the stock `Select.*` parts directly.
+     - Pass options as `items: SelectFieldItem[]` (`{ value, label, disabled? }`) and `bind:value`. Use `disabled` on individual items for mutually-exclusive pickers (e.g. transfer From/To). Use `onValueChange` for side effects (e.g. country → currency).
+     - Never pass locale strings in; formatting/labels are the caller's responsibility (build `items` with already-formatted labels).
 
 5. **Design Fidelity**
    - When there is a Figma specification, the code has to look exactly like that — same field order, same row groupings, same labels, and same conditional visibility rules.

@@ -4,9 +4,9 @@
   import { CircleHelp, CopyPlus, Eye, EyeOff, Trash2, X } from '@lucide/svelte'
 
   import ChangeOverTimeSelector from '$lib/components/change-over-time-selector.svelte'
-  import Combobox from '$lib/components/combobox.svelte'
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
   import InflationAdjustToggle from '$lib/components/inflation-adjust-toggle.svelte'
+  import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import * as Dialog from '$lib/components/ui/dialog'
@@ -358,7 +358,7 @@
       <div class="flex items-end gap-2">
         <div class="flex flex-1 flex-col gap-2">
           <Label>{$_('page.plan.transferFromLabel')}</Label>
-          <Combobox
+          <SelectField
             value={form.from_asset_id}
             items={fromAssetItems}
             placeholder={$_('page.plan.pickAsset')}
@@ -369,7 +369,7 @@
         </div>
         <div class="flex flex-1 flex-col gap-2">
           <Label>{$_('page.plan.transferToLabel')}</Label>
-          <Combobox
+          <SelectField
             value={form.to_asset_id}
             items={toAssetItems}
             placeholder={$_('page.plan.pickAsset')}
@@ -384,7 +384,7 @@
       <div class="flex items-end gap-2">
         <div class="flex flex-1 flex-col gap-2">
           <Label>{$_('page.plan.scheduleLabel')}</Label>
-          <Combobox
+          <SelectField
             value={form.schedule}
             items={scheduleItems}
             onValueChange={(v) => {
@@ -400,7 +400,7 @@
           <div class="flex flex-1 flex-col gap-2">
             <Label>{$_('page.plan.transactionDateLabel')}</Label>
             <div class="flex items-center gap-2">
-              <Combobox
+              <SelectField
                 class="max-w-24"
                 value={form.transaction_year !== undefined ? String(form.transaction_year) : ''}
                 items={yearItems}
@@ -408,7 +408,7 @@
                   if (v) form.transaction_year = Number(v)
                 }}
               />
-              <Combobox
+              <SelectField
                 value={form.transaction_month !== undefined
                   ? String(form.transaction_month - 1)
                   : ''}
@@ -423,7 +423,7 @@
           <!-- Recurring: Frequency sits in the right column of the Schedule row. -->
           <div class="flex flex-1 flex-col gap-2">
             <Label>{$_('page.plan.transferFrequencyLabel')}</Label>
-            <Combobox
+            <SelectField
               value={form.frequency}
               items={frequencyItems}
               onValueChange={(v) => {

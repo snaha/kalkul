@@ -6,7 +6,7 @@
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
 
-  import Combobox from '$lib/components/combobox.svelte'
+  import SelectField from '$lib/components/select-field.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
@@ -110,14 +110,14 @@
     <div class="flex w-full items-end gap-2">
       <div class="flex flex-1 flex-col gap-2">
         <Label>{$_('page.setup.aboutYou.birthdate')}</Label>
-        <Combobox
+        <SelectField
           bind:value={birthYear}
           items={years}
           placeholder={$_('page.setup.aboutYou.selectYear')}
         />
       </div>
       <div class="flex flex-1 flex-col gap-2">
-        <Combobox
+        <SelectField
           bind:value={birthMonth}
           items={months}
           placeholder={$_('page.setup.aboutYou.selectMonth')}
@@ -128,7 +128,7 @@
     <div class="flex w-full items-end gap-2">
       <div class="flex flex-1 flex-col gap-2">
         <Label>{$_('page.setup.aboutYou.location')}</Label>
-        <Combobox
+        <SelectField
           bind:value={location}
           items={countries}
           placeholder={$_('page.setup.aboutYou.selectCountry')}
@@ -136,9 +136,9 @@
       </div>
       <div class="flex w-32 flex-col gap-2">
         <Label>{$_('common.currency')}</Label>
-        <Combobox
+        <SelectField
           bind:value={currency}
-          items={CURRENCY_OPTIONS.map((c) => ({ value: c.value, label: c.label }))}
+          items={CURRENCY_OPTIONS}
           placeholder={DEFAULT_CURRENCY}
           onValueChange={() => (userChangedCurrency = true)}
         />

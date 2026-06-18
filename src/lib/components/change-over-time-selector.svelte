@@ -1,7 +1,7 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import Combobox from '$lib/components/combobox.svelte'
+  import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Label } from '$lib/components/ui/label'
 
@@ -43,7 +43,7 @@
 <div class="flex items-end gap-2">
   <div class="flex flex-1 flex-col gap-2">
     <Label>{$_('page.setup.common.changeOverTime')}</Label>
-    <Combobox
+    <SelectField
       value={changeItems.some((i) => i.value === value) ? value : 'none'}
       items={changeItems}
       onValueChange={(v) => {

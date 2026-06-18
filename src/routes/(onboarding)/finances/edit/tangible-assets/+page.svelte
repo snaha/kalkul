@@ -6,9 +6,9 @@
   import { goto } from '$app/navigation'
 
   import { CATEGORY_COLORS } from '$lib/chart-colors'
-  import Combobox from '$lib/components/combobox.svelte'
   import EditableItemCard from '$lib/components/editable-item-card.svelte'
   import OnboardingNav from '$lib/components/onboarding-nav.svelte'
+  import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Label } from '$lib/components/ui/label'
@@ -205,7 +205,7 @@
             </div>
             <div class="flex flex-1 flex-col gap-2">
               <Label>{$_('page.setup.tangibleAssets.status')}</Label>
-              <Combobox
+              <SelectField
                 value={asset.status}
                 items={statusItems}
                 onValueChange={(v) => {
@@ -230,7 +230,7 @@
             <div class="flex items-center gap-2">
               <div class="flex flex-1 flex-col gap-2">
                 <Label>{$_('page.setup.tangibleAssets.installmentFrequency')}</Label>
-                <Combobox
+                <SelectField
                   value={asset.installment_frequency}
                   items={frequencyItems}
                   onValueChange={(v) => {

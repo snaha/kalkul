@@ -1,7 +1,7 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import Combobox from '$lib/components/combobox.svelte'
+  import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Label } from '$lib/components/ui/label'
 
@@ -80,7 +80,7 @@
 <div class="flex items-end gap-2">
   <div class="flex flex-1 flex-col gap-2">
     <Label>{label}</Label>
-    <Combobox
+    <SelectField
       {value}
       items={modeItems}
       onValueChange={(v) => {
@@ -90,7 +90,7 @@
   </div>
   {#if value === 'at_specific_date'}
     <div class="flex flex-1 items-center gap-2">
-      <Combobox
+      <SelectField
         class="max-w-24"
         value={yearString}
         items={yearItems}
@@ -98,7 +98,7 @@
           if (v) onYearChange(Number(v))
         }}
       />
-      <Combobox
+      <SelectField
         value={monthString}
         items={months}
         onValueChange={(v) => {

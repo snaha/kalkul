@@ -14,7 +14,7 @@
     X,
   } from '@lucide/svelte'
 
-  import Combobox from '$lib/components/combobox.svelte'
+  import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import * as Dialog from '$lib/components/ui/dialog'
@@ -569,7 +569,7 @@
           </div>
           <div class="flex flex-1 flex-col gap-2">
             <Label>{$_('page.plan.entryFeePaymentType')}</Label>
-            <Combobox
+            <SelectField
               value={form.entry_fee_type}
               items={entryFeeTypeItems}
               onValueChange={(v) => {
@@ -597,7 +597,7 @@
         <div class="flex items-end gap-2">
           <div class="flex flex-1 flex-col gap-2">
             <Label>{$_('page.plan.exitFee')}</Label>
-            <Combobox
+            <SelectField
               value={form.exit_fee_type}
               items={exitFeeTypeItems}
               onValueChange={(v) => {
@@ -641,7 +641,7 @@
           </div>
           <div class="flex flex-1 flex-col gap-2">
             <Label>{$_('page.setup.tangibleAssets.status')}</Label>
-            <Combobox
+            <SelectField
               value={form.status}
               items={tangibleAssetStatusItems}
               onValueChange={(v) => {
@@ -664,7 +664,7 @@
           <div class="flex items-end gap-2">
             <div class="flex flex-1 flex-col gap-2">
               <Label>{$_('page.setup.tangibleAssets.installmentFrequency')}</Label>
-              <Combobox
+              <SelectField
                 value={form.installment_frequency}
                 items={frequencyItems}
                 onValueChange={(v) => {
@@ -717,7 +717,7 @@
         <div class="flex items-end gap-2">
           <div class="flex flex-1 flex-col gap-2">
             <Label>{$_('page.setup.liabilities.installmentFrequency')}</Label>
-            <Combobox
+            <SelectField
               value={form.installment_frequency}
               items={frequencyItems}
               onValueChange={(v) => {
@@ -783,7 +783,7 @@
           <div class="flex items-end gap-2">
             <div class="flex flex-1 flex-col gap-2">
               <Label>{$_('page.plan.interestType')}</Label>
-              <Combobox
+              <SelectField
                 value={form.interest_type}
                 items={interestTypeItems}
                 onValueChange={(v) => {
@@ -794,7 +794,7 @@
             {#if form.interest_type === 'compound'}
               <div class="flex flex-1 flex-col gap-2">
                 <Label>{$_('page.plan.compoundingFrequency')}</Label>
-                <Combobox
+                <SelectField
                   value={form.compounding_frequency}
                   items={compoundingFrequencyItems}
                   onValueChange={(v) => {
