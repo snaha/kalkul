@@ -67,8 +67,11 @@
       currency: currency || undefined,
     }
     if (birthYear !== '' && birthMonth !== '') {
-      const date = new Date(Number(birthYear), Number(birthMonth), 1)
-      updates.birth_date = date.toISOString().split('T')[0]
+      // Build the date string from local components (day is always 1) to avoid the
+      // UTC shift that `toISOString()` introduces in positive-offset timezones, which
+      // would otherwise roll the date back a day and across the month boundary.
+      const month = String(Number(birthMonth) + 1).padStart(2, '0')
+      updates.birth_date = `${birthYear}-${month}-01`
     }
     appStore.updateProfile(updates)
     goto(resolve(routes.FINANCES_EDIT))
