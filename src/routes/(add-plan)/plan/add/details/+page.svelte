@@ -33,7 +33,10 @@
   let endAge = $state<number | undefined>(85)
   let endYear = $state('')
   let endMonth = $state('')
-  let currency = $state(appStore.profile.currency ?? DEFAULT_CURRENCY)
+  // Writable $derived: tracks the profile currency once the store finishes loading
+  // (avoids a stale EUR default on reload/deep-link), while bind:value still lets the
+  // user override it — nothing here mutates profile.currency, so the override sticks.
+  let currency = $derived(appStore.profile.currency ?? DEFAULT_CURRENCY)
   let inflation = $state<number | undefined>(2)
 
   const years = getYearOptions()
