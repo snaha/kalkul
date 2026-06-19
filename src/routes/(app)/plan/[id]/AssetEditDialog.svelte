@@ -2,7 +2,6 @@
   import { _ } from 'svelte-i18n'
 
   import {
-    CircleHelp,
     Copy,
     Eye,
     EyeOff,
@@ -14,6 +13,7 @@
     X,
   } from '@lucide/svelte'
 
+  import HelpTooltip from '$lib/components/help-tooltip.svelte'
   import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
@@ -21,7 +21,6 @@
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
-  import * as Tooltip from '$lib/components/ui/tooltip'
   import type {
     CompoundingFrequency,
     EntryFeeType,
@@ -540,20 +539,7 @@
               onValueChange={(v) => (form.ter = v)}
             />
           </div>
-          <Tooltip.Provider delayDuration={150}>
-            <Tooltip.Root>
-              <Tooltip.Trigger
-                type="button"
-                aria-label={$_('page.plan.totalExpenseRatioDescription')}
-                class="mb-2 shrink-0 text-muted-foreground hover:text-foreground"
-              >
-                <CircleHelp class="size-4" />
-              </Tooltip.Trigger>
-              <Tooltip.Content>
-                {$_('page.plan.totalExpenseRatioDescription')}
-              </Tooltip.Content>
-            </Tooltip.Root>
-          </Tooltip.Provider>
+          <HelpTooltip text={$_('page.plan.totalExpenseRatioDescription')} class="mb-2" />
         </div>
 
         <!-- Entry fee + payment type -->
@@ -577,20 +563,7 @@
               }}
             />
           </div>
-          <Tooltip.Provider delayDuration={150}>
-            <Tooltip.Root>
-              <Tooltip.Trigger
-                type="button"
-                aria-label={$_('page.plan.entryFeeDescription')}
-                class="mb-2 shrink-0 text-muted-foreground hover:text-foreground"
-              >
-                <CircleHelp class="size-4" />
-              </Tooltip.Trigger>
-              <Tooltip.Content>
-                {$_('page.plan.entryFeeDescription')}
-              </Tooltip.Content>
-            </Tooltip.Root>
-          </Tooltip.Provider>
+          <HelpTooltip text={$_('page.plan.entryFeeDescription')} class="mb-2" />
         </div>
 
         <!-- Exit fee type + value -->
@@ -613,20 +586,7 @@
               onValueChange={(v) => (form.exit_fee = v)}
             />
           </div>
-          <Tooltip.Provider delayDuration={150}>
-            <Tooltip.Root>
-              <Tooltip.Trigger
-                type="button"
-                aria-label={$_('page.plan.exitFeeDescription')}
-                class="mb-2 shrink-0 text-muted-foreground hover:text-foreground"
-              >
-                <CircleHelp class="size-4" />
-              </Tooltip.Trigger>
-              <Tooltip.Content>
-                {$_('page.plan.exitFeeDescription')}
-              </Tooltip.Content>
-            </Tooltip.Root>
-          </Tooltip.Provider>
+          <HelpTooltip text={$_('page.plan.exitFeeDescription')} class="mb-2" />
         </div>
       {:else if kind === 'tangibleAsset'}
         <div class="flex items-end gap-2">
@@ -805,20 +765,7 @@
             {:else}
               <div class="flex-1"></div>
             {/if}
-            <Tooltip.Provider delayDuration={150}>
-              <Tooltip.Root>
-                <Tooltip.Trigger
-                  type="button"
-                  aria-label={$_('page.plan.interestDescription')}
-                  class="mb-2 shrink-0 text-muted-foreground hover:text-foreground"
-                >
-                  <CircleHelp class="size-4" />
-                </Tooltip.Trigger>
-                <Tooltip.Content>
-                  {$_('page.plan.interestDescription')}
-                </Tooltip.Content>
-              </Tooltip.Root>
-            </Tooltip.Provider>
+            <HelpTooltip text={$_('page.plan.interestDescription')} class="mb-2" />
           </div>
         {/if}
       {/if}
