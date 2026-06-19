@@ -14,12 +14,12 @@
     X,
   } from '@lucide/svelte'
 
+  import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import * as Dialog from '$lib/components/ui/dialog'
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
-  import * as Select from '$lib/components/ui/select'
   import { Separator } from '$lib/components/ui/separator'
   import * as Tooltip from '$lib/components/ui/tooltip'
   import type {
@@ -194,11 +194,38 @@
     return ids.includes(form.id)
   })
 
-  function frequencyLabel(f: Frequency): string {
-    if (f === 'yearly') return $_('page.setup.common.yearly')
-    if (f === 'weekly') return $_('page.setup.common.weekly')
-    return $_('page.setup.common.monthly')
-  }
+  let entryFeeTypeItems = $derived([
+    { value: 'ongoing', label: $_('page.plan.entryFeeOngoing') },
+    { value: 'upfront', label: $_('page.plan.entryFeeUpfront') },
+    { value: 'forty-sixty', label: $_('page.plan.entryFeeFortySixty') },
+  ])
+
+  let exitFeeTypeItems = $derived([
+    { value: 'percentage', label: $_('page.plan.exitFeePercentage') },
+    { value: 'fixed', label: $_('page.plan.exitFeeFixed') },
+  ])
+
+  let tangibleAssetStatusItems = $derived([
+    { value: 'fully_owned', label: $_('page.setup.tangibleAssets.fullyOwned') },
+    { value: 'financed', label: $_('page.setup.tangibleAssets.financed') },
+  ])
+
+  let frequencyItems = $derived([
+    { value: 'monthly', label: $_('page.setup.common.monthly') },
+    { value: 'yearly', label: $_('page.setup.common.yearly') },
+    { value: 'weekly', label: $_('page.setup.common.weekly') },
+  ])
+
+  let interestTypeItems = $derived([
+    { value: 'compound', label: $_('page.plan.interestCompound') },
+    { value: 'simple', label: $_('page.plan.interestSimple') },
+  ])
+
+  let compoundingFrequencyItems = $derived([
+    { value: 'daily', label: $_('page.plan.compoundingDaily') },
+    { value: 'monthly', label: $_('page.setup.common.monthly') },
+    { value: 'yearly', label: $_('page.setup.common.yearly') },
+  ])
 
   function projectInvestment(f: FormState): ProfileInvestment {
     // Persist only the fee fields that the user actually touched; default
@@ -542,28 +569,13 @@
           </div>
           <div class="flex flex-1 flex-col gap-2">
             <Label>{$_('page.plan.entryFeePaymentType')}</Label>
-            <Select.Root
-              type="single"
+            <SelectField
               value={form.entry_fee_type}
+              items={entryFeeTypeItems}
               onValueChange={(v) => {
                 if (v) form.entry_fee_type = v as EntryFeeType
               }}
-            >
-              <Select.Trigger class="w-full">
-                {form.entry_fee_type === 'upfront'
-                  ? $_('page.plan.entryFeeUpfront')
-                  : form.entry_fee_type === 'forty-sixty'
-                    ? $_('page.plan.entryFeeFortySixty')
-                    : $_('page.plan.entryFeeOngoing')}
-              </Select.Trigger>
-              <Select.Content>
-                <Select.Item value="ongoing">{$_('page.plan.entryFeeOngoing')}</Select.Item>
-                <Select.Item value="upfront">{$_('page.plan.entryFeeUpfront')}</Select.Item>
-                <Select.Item value="forty-sixty">
-                  {$_('page.plan.entryFeeFortySixty')}
-                </Select.Item>
-              </Select.Content>
-            </Select.Root>
+            />
           </div>
           <Tooltip.Provider delayDuration={150}>
             <Tooltip.Root>
@@ -585,23 +597,13 @@
         <div class="flex items-end gap-2">
           <div class="flex flex-1 flex-col gap-2">
             <Label>{$_('page.plan.exitFee')}</Label>
-            <Select.Root
-              type="single"
+            <SelectField
               value={form.exit_fee_type}
+              items={exitFeeTypeItems}
               onValueChange={(v) => {
                 if (v) form.exit_fee_type = v as ExitFeeType
               }}
-            >
-              <Select.Trigger class="w-full">
-                {form.exit_fee_type === 'fixed'
-                  ? $_('page.plan.exitFeeFixed')
-                  : $_('page.plan.exitFeePercentage')}
-              </Select.Trigger>
-              <Select.Content>
-                <Select.Item value="percentage">{$_('page.plan.exitFeePercentage')}</Select.Item>
-                <Select.Item value="fixed">{$_('page.plan.exitFeeFixed')}</Select.Item>
-              </Select.Content>
-            </Select.Root>
+            />
           </div>
           <div class="flex flex-1 flex-col gap-2">
             <SuffixedInput
@@ -639,27 +641,13 @@
           </div>
           <div class="flex flex-1 flex-col gap-2">
             <Label>{$_('page.setup.tangibleAssets.status')}</Label>
-            <Select.Root
-              type="single"
+            <SelectField
               value={form.status}
+              items={tangibleAssetStatusItems}
               onValueChange={(v) => {
                 if (v) form.status = v as TangibleAssetStatus
               }}
-            >
-              <Select.Trigger class="w-full">
-                {form.status === 'financed'
-                  ? $_('page.setup.tangibleAssets.financed')
-                  : $_('page.setup.tangibleAssets.fullyOwned')}
-              </Select.Trigger>
-              <Select.Content>
-                <Select.Item value="fully_owned">
-                  {$_('page.setup.tangibleAssets.fullyOwned')}
-                </Select.Item>
-                <Select.Item value="financed">
-                  {$_('page.setup.tangibleAssets.financed')}
-                </Select.Item>
-              </Select.Content>
-            </Select.Root>
+            />
           </div>
         </div>
 
@@ -676,22 +664,13 @@
           <div class="flex items-end gap-2">
             <div class="flex flex-1 flex-col gap-2">
               <Label>{$_('page.setup.tangibleAssets.installmentFrequency')}</Label>
-              <Select.Root
-                type="single"
+              <SelectField
                 value={form.installment_frequency}
+                items={frequencyItems}
                 onValueChange={(v) => {
                   if (v) form.installment_frequency = v as Frequency
                 }}
-              >
-                <Select.Trigger class="w-full">
-                  {frequencyLabel(form.installment_frequency)}
-                </Select.Trigger>
-                <Select.Content>
-                  <Select.Item value="monthly">{$_('page.setup.common.monthly')}</Select.Item>
-                  <Select.Item value="yearly">{$_('page.setup.common.yearly')}</Select.Item>
-                  <Select.Item value="weekly">{$_('page.setup.common.weekly')}</Select.Item>
-                </Select.Content>
-              </Select.Root>
+              />
             </div>
             <div class="flex flex-1 flex-col gap-2">
               <Label>{$_('page.setup.tangibleAssets.annualRate')}</Label>
@@ -738,22 +717,13 @@
         <div class="flex items-end gap-2">
           <div class="flex flex-1 flex-col gap-2">
             <Label>{$_('page.setup.liabilities.installmentFrequency')}</Label>
-            <Select.Root
-              type="single"
+            <SelectField
               value={form.installment_frequency}
+              items={frequencyItems}
               onValueChange={(v) => {
                 if (v) form.installment_frequency = v as Frequency
               }}
-            >
-              <Select.Trigger class="w-full">
-                {frequencyLabel(form.installment_frequency)}
-              </Select.Trigger>
-              <Select.Content>
-                <Select.Item value="monthly">{$_('page.setup.common.monthly')}</Select.Item>
-                <Select.Item value="yearly">{$_('page.setup.common.yearly')}</Select.Item>
-                <Select.Item value="weekly">{$_('page.setup.common.weekly')}</Select.Item>
-              </Select.Content>
-            </Select.Root>
+            />
           </div>
           <div class="flex flex-1 flex-col gap-2">
             <Label>{$_('page.setup.liabilities.annualRate')}</Label>
@@ -813,47 +783,24 @@
           <div class="flex items-end gap-2">
             <div class="flex flex-1 flex-col gap-2">
               <Label>{$_('page.plan.interestType')}</Label>
-              <Select.Root
-                type="single"
+              <SelectField
                 value={form.interest_type}
+                items={interestTypeItems}
                 onValueChange={(v) => {
                   if (v) form.interest_type = v as InterestType
                 }}
-              >
-                <Select.Trigger class="w-full">
-                  {form.interest_type === 'simple'
-                    ? $_('page.plan.interestSimple')
-                    : $_('page.plan.interestCompound')}
-                </Select.Trigger>
-                <Select.Content>
-                  <Select.Item value="compound">{$_('page.plan.interestCompound')}</Select.Item>
-                  <Select.Item value="simple">{$_('page.plan.interestSimple')}</Select.Item>
-                </Select.Content>
-              </Select.Root>
+              />
             </div>
             {#if form.interest_type === 'compound'}
               <div class="flex flex-1 flex-col gap-2">
                 <Label>{$_('page.plan.compoundingFrequency')}</Label>
-                <Select.Root
-                  type="single"
+                <SelectField
                   value={form.compounding_frequency}
+                  items={compoundingFrequencyItems}
                   onValueChange={(v) => {
                     if (v) form.compounding_frequency = v as CompoundingFrequency
                   }}
-                >
-                  <Select.Trigger class="w-full">
-                    {form.compounding_frequency === 'monthly'
-                      ? $_('page.setup.common.monthly')
-                      : form.compounding_frequency === 'yearly'
-                        ? $_('page.setup.common.yearly')
-                        : $_('page.plan.compoundingDaily')}
-                  </Select.Trigger>
-                  <Select.Content>
-                    <Select.Item value="daily">{$_('page.plan.compoundingDaily')}</Select.Item>
-                    <Select.Item value="monthly">{$_('page.setup.common.monthly')}</Select.Item>
-                    <Select.Item value="yearly">{$_('page.setup.common.yearly')}</Select.Item>
-                  </Select.Content>
-                </Select.Root>
+                />
               </div>
             {:else}
               <div class="flex-1"></div>

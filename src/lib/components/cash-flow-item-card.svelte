@@ -5,9 +5,9 @@
   import ChangeOverTimeSelector from '$lib/components/change-over-time-selector.svelte'
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
   import EditableItemCard from '$lib/components/editable-item-card.svelte'
+  import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Label } from '$lib/components/ui/label'
-  import * as Select from '$lib/components/ui/select'
   import { Separator } from '$lib/components/ui/separator'
   import { Switch } from '$lib/components/ui/switch'
   import type { CashFlowEnd, CashFlowStart, ChangeOverTime, Frequency } from '$lib/schemas'
@@ -70,6 +70,12 @@
     extraAdvancedContent,
   }: Props = $props()
 
+  let frequencyItems = $derived([
+    { value: 'monthly', label: $_('page.setup.common.monthly') },
+    { value: 'yearly', label: $_('page.setup.common.yearly') },
+    { value: 'weekly', label: $_('page.setup.common.weekly') },
+  ])
+
   let sign = $derived(sentiment === 'positive' ? '+' : '-')
   let collapsedValueClass = $derived(sentiment === 'positive' ? 'text-success' : 'text-destructive')
   let formattedAmount = $derived.by(() => {
@@ -104,26 +110,13 @@
       </div>
       <div class="flex flex-1 flex-col gap-2">
         <Label>{$_('page.setup.common.frequency')}</Label>
-        <Select.Root
-          type="single"
+        <SelectField
           value={item.frequency}
+          items={frequencyItems}
           onValueChange={(v) => {
             if (v) item.frequency = v as Frequency
           }}
-        >
-          <Select.Trigger class="w-full">
-            {item.frequency === 'monthly'
-              ? $_('page.setup.common.monthly')
-              : item.frequency === 'yearly'
-                ? $_('page.setup.common.yearly')
-                : $_('page.setup.common.weekly')}
-          </Select.Trigger>
-          <Select.Content>
-            <Select.Item value="monthly">{$_('page.setup.common.monthly')}</Select.Item>
-            <Select.Item value="yearly">{$_('page.setup.common.yearly')}</Select.Item>
-            <Select.Item value="weekly">{$_('page.setup.common.weekly')}</Select.Item>
-          </Select.Content>
-        </Select.Root>
+        />
       </div>
     </div>
 

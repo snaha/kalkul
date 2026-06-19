@@ -6,12 +6,12 @@
   import ChangeOverTimeSelector from '$lib/components/change-over-time-selector.svelte'
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
   import InflationAdjustToggle from '$lib/components/inflation-adjust-toggle.svelte'
+  import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import * as Dialog from '$lib/components/ui/dialog'
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
-  import * as Select from '$lib/components/ui/select'
   import { Switch } from '$lib/components/ui/switch'
   import * as Tooltip from '$lib/components/ui/tooltip'
   import type {
@@ -181,15 +181,30 @@
     return plan.included_transfer_ids.includes(form.id)
   })
 
-  function assetName(id: string): string {
-    return assetOptions.find((a) => a.id === id)?.name ?? ''
-  }
-
-  function frequencyLabel(f: Frequency): string {
-    if (f === 'yearly') return $_('page.setup.common.yearly')
-    if (f === 'weekly') return $_('page.setup.common.weekly')
-    return $_('page.setup.common.monthly')
-  }
+  let fromAssetItems = $derived(
+    assetOptions.map((opt) => ({
+      value: opt.id,
+      label: opt.name,
+      disabled: opt.id === form.to_asset_id,
+    })),
+  )
+  let toAssetItems = $derived(
+    assetOptions.map((opt) => ({
+      value: opt.id,
+      label: opt.name,
+      disabled: opt.id === form.from_asset_id,
+    })),
+  )
+  let scheduleItems = $derived([
+    { value: 'one_time', label: $_('page.plan.scheduleOneTime') },
+    { value: 'recurring', label: $_('page.plan.scheduleRecurring') },
+  ])
+  let frequencyItems = $derived([
+    { value: 'monthly', label: $_('page.setup.common.monthly') },
+    { value: 'yearly', label: $_('page.setup.common.yearly') },
+    { value: 'weekly', label: $_('page.setup.common.weekly') },
+  ])
+  let yearItems = $derived(years.map((y) => ({ value: y, label: y })))
 
   function projectTransfer(f: FormState): Transfer {
     if (f.schedule === 'one_time') {
@@ -343,45 +358,25 @@
       <div class="flex items-end gap-2">
         <div class="flex flex-1 flex-col gap-2">
           <Label>{$_('page.plan.transferFromLabel')}</Label>
-          <Select.Root
-            type="single"
+          <SelectField
             value={form.from_asset_id}
+            items={fromAssetItems}
+            placeholder={$_('page.plan.pickAsset')}
             onValueChange={(v) => {
               if (v) form.from_asset_id = v
             }}
-          >
-            <Select.Trigger class="w-full">
-              {form.from_asset_id ? assetName(form.from_asset_id) : $_('page.plan.pickAsset')}
-            </Select.Trigger>
-            <Select.Content>
-              {#each assetOptions as opt (opt.id)}
-                <Select.Item value={opt.id} disabled={opt.id === form.to_asset_id}>
-                  {opt.name}
-                </Select.Item>
-              {/each}
-            </Select.Content>
-          </Select.Root>
+          />
         </div>
         <div class="flex flex-1 flex-col gap-2">
           <Label>{$_('page.plan.transferToLabel')}</Label>
-          <Select.Root
-            type="single"
+          <SelectField
             value={form.to_asset_id}
+            items={toAssetItems}
+            placeholder={$_('page.plan.pickAsset')}
             onValueChange={(v) => {
               if (v) form.to_asset_id = v
             }}
-          >
-            <Select.Trigger class="w-full">
-              {form.to_asset_id ? assetName(form.to_asset_id) : $_('page.plan.pickAsset')}
-            </Select.Trigger>
-            <Select.Content>
-              {#each assetOptions as opt (opt.id)}
-                <Select.Item value={opt.id} disabled={opt.id === form.from_asset_id}>
-                  {opt.name}
-                </Select.Item>
-              {/each}
-            </Select.Content>
-          </Select.Root>
+          />
         </div>
       </div>
 
@@ -389,9 +384,9 @@
       <div class="flex items-end gap-2">
         <div class="flex flex-1 flex-col gap-2">
           <Label>{$_('page.plan.scheduleLabel')}</Label>
-          <Select.Root
-            type="single"
+          <SelectField
             value={form.schedule}
+            items={scheduleItems}
             onValueChange={(v) => {
               if (v) {
                 form.schedule = v as TransferSchedule
@@ -399,78 +394,42 @@
                 if (form.schedule !== 'one_time') form.transfer_all = false
               }
             }}
-          >
-            <Select.Trigger class="w-full">
-              {form.schedule === 'recurring'
-                ? $_('page.plan.scheduleRecurring')
-                : $_('page.plan.scheduleOneTime')}
-            </Select.Trigger>
-            <Select.Content>
-              <Select.Item value="one_time">{$_('page.plan.scheduleOneTime')}</Select.Item>
-              <Select.Item value="recurring">{$_('page.plan.scheduleRecurring')}</Select.Item>
-            </Select.Content>
-          </Select.Root>
+          />
         </div>
         {#if form.schedule === 'one_time'}
           <div class="flex flex-1 flex-col gap-2">
             <Label>{$_('page.plan.transactionDateLabel')}</Label>
             <div class="flex items-center gap-2">
-              <Select.Root
-                type="single"
+              <SelectField
+                class="max-w-24"
                 value={form.transaction_year !== undefined ? String(form.transaction_year) : ''}
+                items={yearItems}
                 onValueChange={(v) => {
                   if (v) form.transaction_year = Number(v)
                 }}
-              >
-                <Select.Trigger class="w-full max-w-24">
-                  {form.transaction_year ?? ''}
-                </Select.Trigger>
-                <Select.Content>
-                  {#each years as y (y)}
-                    <Select.Item value={y}>{y}</Select.Item>
-                  {/each}
-                </Select.Content>
-              </Select.Root>
-              <Select.Root
-                type="single"
-                value={form.transaction_month !== undefined ? String(form.transaction_month) : ''}
+              />
+              <SelectField
+                value={form.transaction_month !== undefined
+                  ? String(form.transaction_month - 1)
+                  : ''}
+                items={months}
                 onValueChange={(v) => {
-                  if (v) form.transaction_month = Number(v)
+                  if (v) form.transaction_month = Number(v) + 1
                 }}
-              >
-                <Select.Trigger class="w-full">
-                  {form.transaction_month !== undefined
-                    ? (months[form.transaction_month - 1]?.label ?? '')
-                    : ''}
-                </Select.Trigger>
-                <Select.Content>
-                  {#each months as m (m.value)}
-                    <Select.Item value={m.value}>{m.label}</Select.Item>
-                  {/each}
-                </Select.Content>
-              </Select.Root>
+              />
             </div>
           </div>
         {:else}
           <!-- Recurring: Frequency sits in the right column of the Schedule row. -->
           <div class="flex flex-1 flex-col gap-2">
             <Label>{$_('page.plan.transferFrequencyLabel')}</Label>
-            <Select.Root
-              type="single"
+            <SelectField
               value={form.frequency}
+              items={frequencyItems}
               onValueChange={(v) => {
                 if (v) form.frequency = v as Frequency
               }}
-            >
-              <Select.Trigger class="w-full">
-                {frequencyLabel(form.frequency)}
-              </Select.Trigger>
-              <Select.Content>
-                <Select.Item value="monthly">{$_('page.setup.common.monthly')}</Select.Item>
-                <Select.Item value="yearly">{$_('page.setup.common.yearly')}</Select.Item>
-                <Select.Item value="weekly">{$_('page.setup.common.weekly')}</Select.Item>
-              </Select.Content>
-            </Select.Root>
+            />
           </div>
         {/if}
       </div>

@@ -8,10 +8,10 @@
   import { CATEGORY_COLORS } from '$lib/chart-colors'
   import EditableItemCard from '$lib/components/editable-item-card.svelte'
   import OnboardingNav from '$lib/components/onboarding-nav.svelte'
+  import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Label } from '$lib/components/ui/label'
-  import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select'
   import { Switch } from '$lib/components/ui/switch'
   import { getNextStepUrl, getPrevStepUrl } from '$lib/onboarding-steps'
   import routes from '$lib/routes'
@@ -63,6 +63,12 @@
 
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
+  let frequencyItems = $derived([
+    { value: 'monthly', label: $_('page.setup.common.monthly') },
+    { value: 'yearly', label: $_('page.setup.common.yearly') },
+    { value: 'weekly', label: $_('page.setup.common.weekly') },
+  ])
+
   function addLiability() {
     liabilityCounter++
     for (const l of liabilities) l.editing = false
@@ -99,12 +105,6 @@
   function formatBalance(val: number | undefined): string {
     if (val === undefined || val === 0) return ''
     return appStore.formatCurrency(val)
-  }
-
-  function frequencyLabel(f: Frequency): string {
-    if (f === 'yearly') return $_('page.setup.common.yearly')
-    if (f === 'weekly') return $_('page.setup.common.weekly')
-    return $_('page.setup.common.monthly')
   }
 
   function saveLiabilities() {
@@ -186,22 +186,13 @@
           <div class="flex items-center gap-2">
             <div class="flex flex-1 flex-col gap-2">
               <Label>{$_('page.setup.liabilities.installmentFrequency')}</Label>
-              <Select
-                type="single"
+              <SelectField
                 value={liability.installment_frequency}
+                items={frequencyItems}
                 onValueChange={(v) => {
                   liability.installment_frequency = v as Frequency
                 }}
-              >
-                <SelectTrigger class="h-8">
-                  {frequencyLabel(liability.installment_frequency)}
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="monthly">{$_('page.setup.common.monthly')}</SelectItem>
-                  <SelectItem value="yearly">{$_('page.setup.common.yearly')}</SelectItem>
-                  <SelectItem value="weekly">{$_('page.setup.common.weekly')}</SelectItem>
-                </SelectContent>
-              </Select>
+              />
             </div>
             <div class="flex flex-1 flex-col gap-2">
               <Label>{$_('page.setup.liabilities.annualRate')}</Label>

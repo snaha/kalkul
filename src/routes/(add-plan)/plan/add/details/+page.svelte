@@ -7,11 +7,11 @@
 
   import { formatDate } from '$lib/@snaha/kalkul-maths'
   import { getNextAddPlanStepUrl, getPrevAddPlanStepUrl } from '$lib/add-plan-steps'
+  import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
-  import * as Select from '$lib/components/ui/select'
   import { Textarea } from '$lib/components/ui/textarea'
   import routes from '$lib/routes'
   import type { PlanEndType, PlanStartType } from '$lib/schemas'
@@ -38,6 +38,16 @@
 
   const years = getYearOptions()
   const months = $derived(getMonthOptions($locale ?? undefined))
+
+  const yearItems = $derived(years.map((y) => ({ value: y, label: y })))
+  const startTypeItems = $derived([
+    { value: 'now', label: $_('page.addPlan.details.startNow') },
+    { value: 'at_specific_date', label: $_('page.addPlan.details.startAtDate') },
+  ])
+  const endTypeItems = $derived([
+    { value: 'when_age_is', label: $_('page.addPlan.details.endWhenAgeIs') },
+    { value: 'at_specific_date', label: $_('page.addPlan.details.endAtDate') },
+  ])
 
   // Calculate date from start of current month
   function getStartDate(): string {
@@ -120,40 +130,16 @@
     <div class="flex items-end gap-2">
       <div class="flex flex-1 flex-col gap-2">
         <Label>{$_('page.addPlan.details.start')}</Label>
-        <Select.Root type="single" bind:value={startType}>
-          <Select.Trigger class="w-full">
-            {startType === 'now'
-              ? $_('page.addPlan.details.startNow')
-              : $_('page.addPlan.details.startAtDate')}
-          </Select.Trigger>
-          <Select.Content>
-            <Select.Item value="now" label={$_('page.addPlan.details.startNow')} />
-            <Select.Item value="at_specific_date" label={$_('page.addPlan.details.startAtDate')} />
-          </Select.Content>
-        </Select.Root>
+        <SelectField
+          value={startType}
+          items={startTypeItems}
+          onValueChange={(v) => (startType = v as PlanStartType)}
+        />
       </div>
       {#if startType === 'at_specific_date'}
         <div class="flex flex-1 items-end gap-2">
-          <Select.Root type="single" bind:value={startYear}>
-            <Select.Trigger class="w-24">
-              {startYear}
-            </Select.Trigger>
-            <Select.Content>
-              {#each years as year (year)}
-                <Select.Item value={year} label={year} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
-          <Select.Root type="single" bind:value={startMonth}>
-            <Select.Trigger class="flex-1">
-              {months[Number(startMonth)]?.label ?? ''}
-            </Select.Trigger>
-            <Select.Content>
-              {#each months as month (month.value)}
-                <Select.Item value={month.value} label={month.label} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
+          <SelectField bind:value={startYear} items={yearItems} class="w-24" />
+          <SelectField bind:value={startMonth} items={months} class="flex-1" />
         </div>
       {/if}
     </div>
@@ -161,17 +147,11 @@
     <div class="flex items-end gap-2">
       <div class="flex flex-1 flex-col gap-2">
         <Label>{$_('page.addPlan.details.end')}</Label>
-        <Select.Root type="single" bind:value={endType}>
-          <Select.Trigger class="w-full">
-            {endType === 'when_age_is'
-              ? $_('page.addPlan.details.endWhenAgeIs')
-              : $_('page.addPlan.details.endAtDate')}
-          </Select.Trigger>
-          <Select.Content>
-            <Select.Item value="when_age_is" label={$_('page.addPlan.details.endWhenAgeIs')} />
-            <Select.Item value="at_specific_date" label={$_('page.addPlan.details.endAtDate')} />
-          </Select.Content>
-        </Select.Root>
+        <SelectField
+          value={endType}
+          items={endTypeItems}
+          onValueChange={(v) => (endType = v as PlanEndType)}
+        />
       </div>
       {#if endType === 'when_age_is'}
         <div class="flex flex-1">
@@ -184,34 +164,18 @@
         </div>
       {:else}
         <div class="flex flex-1 items-end gap-2">
-          <Select.Root type="single" bind:value={endYear}>
-            <Select.Trigger class="w-24">
-              {#if endYear}
-                {endYear}
-              {:else}
-                <span class="text-muted-foreground">{$_('page.setup.aboutYou.selectYear')}</span>
-              {/if}
-            </Select.Trigger>
-            <Select.Content>
-              {#each years as year (year)}
-                <Select.Item value={year} label={year} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
-          <Select.Root type="single" bind:value={endMonth}>
-            <Select.Trigger class="flex-1">
-              {#if endMonth !== ''}
-                {months[Number(endMonth)]?.label ?? ''}
-              {:else}
-                <span class="text-muted-foreground">{$_('page.setup.aboutYou.selectMonth')}</span>
-              {/if}
-            </Select.Trigger>
-            <Select.Content>
-              {#each months as month (month.value)}
-                <Select.Item value={month.value} label={month.label} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
+          <SelectField
+            bind:value={endYear}
+            items={yearItems}
+            placeholder={$_('page.setup.aboutYou.selectYear')}
+            class="w-24"
+          />
+          <SelectField
+            bind:value={endMonth}
+            items={months}
+            placeholder={$_('page.setup.aboutYou.selectMonth')}
+            class="flex-1"
+          />
         </div>
       {/if}
     </div>
@@ -219,16 +183,7 @@
     <div class="flex items-end gap-2">
       <div class="flex flex-1 flex-col gap-2">
         <Label>{$_('page.addPlan.details.currency')}</Label>
-        <Select.Root type="single" bind:value={currency}>
-          <Select.Trigger class="w-full">
-            {CURRENCY_OPTIONS.find((c) => c.value === currency)?.label ?? currency}
-          </Select.Trigger>
-          <Select.Content>
-            {#each CURRENCY_OPTIONS as cur (cur.value)}
-              <Select.Item value={cur.value} label={cur.label} />
-            {/each}
-          </Select.Content>
-        </Select.Root>
+        <SelectField bind:value={currency} items={CURRENCY_OPTIONS} />
       </div>
       <div class="flex flex-1 flex-col gap-2">
         <Label>{$_('page.addPlan.details.inflation')}</Label>
