@@ -33,11 +33,18 @@
   let endAge = $state<number | undefined>(85)
   let endYear = $state('')
   let endMonth = $state('')
-  // Writable $derived: tracks the profile currency once the store finishes loading
-  // (avoids a stale EUR default on reload/deep-link), while bind:value still lets the
-  // user override it — nothing here mutates profile.currency, so the override sticks.
-  let currency = $derived(appStore.profile.currency ?? DEFAULT_CURRENCY)
+  let currency = $state(DEFAULT_CURRENCY)
   let inflation = $state<number | undefined>(2)
+  let hydrated = $state(false)
+
+  // The store loads localStorage asynchronously, so profile.currency is undefined
+  // at component init. Copy it once load completes (avoids a stale EUR default on
+  // reload/deep-link); after that the user's bind:value selection is left alone.
+  $effect(() => {
+    if (hydrated || appStore.loading) return
+    if (appStore.profile.currency) currency = appStore.profile.currency
+    hydrated = true
+  })
 
   const years = getYearOptions()
   const months = $derived(getMonthOptions($locale ?? undefined))
