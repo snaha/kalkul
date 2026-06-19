@@ -153,11 +153,11 @@
   </div>
 
   <div class="flex w-full flex-col gap-4">
-    {#each liabilities as liability (liability.id)}
+    {#each liabilities as liability, idx (liability.id)}
       <EditableItemCard
         item={liability}
         collapsedValue={formatBalance(liability.outstanding_balance)}
-        dotColor={CATEGORY_COLORS.liabilities[0]}
+        dotColor={CATEGORY_COLORS.liabilities[idx % CATEGORY_COLORS.liabilities.length]}
         onToggleEditing={() => {
           liability.editing = !liability.editing
         }}
