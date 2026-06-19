@@ -58,6 +58,6 @@
   "type": "module",
   "engines": {
     "node": ">=22",
-    "pnpm": "10.x"
+    "pnpm": ">=10.x"
   }
 }
