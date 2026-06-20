@@ -203,28 +203,23 @@
       },
       "investments": {
         "title": "Investments",
-        "description": "Investment accounts holding securities like stocks, bonds, etc.",
-        "empty": "No investments added."
+        "description": "Investment accounts holding securities like stocks, bonds, etc."
       },
       "tangibleAssets": {
         "title": "Tangible assets",
-        "description": "Real estate, vehicles, and other real assets you own.",
-        "empty": "No tangible assets added."
+        "description": "Real estate, vehicles, and other real assets you own."
       },
       "liabilities": {
         "title": "Liabilities",
-        "description": "Financial obligations not linked to a specific asset.",
-        "empty": "No liabilities added."
+        "description": "Financial obligations not linked to a specific asset."
       },
       "incomes": {
         "title": "Incomes",
-        "description": "Salary, business income, and other regular earnings.",
-        "empty": "No incomes added."
+        "description": "Salary, business income, and other regular earnings."
       },
       "expenses": {
         "title": "Expenses",
-        "description": "Living costs, recurring bills, and regular financial commitments.",
-        "empty": "No expenses added."
+        "description": "Living costs, recurring bills, and regular financial commitments."
       },
       "frequency": {
         "short": {

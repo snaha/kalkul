@@ -203,28 +203,23 @@
       },
       "investments": {
         "title": "Investice",
-        "description": "Investiční účty obsahující cenné papíry jako akcie, dluhopisy atd.",
-        "empty": "Žádné investice nebyly přidány."
+        "description": "Investiční účty obsahující cenné papíry jako akcie, dluhopisy atd."
       },
       "tangibleAssets": {
         "title": "Hmotná aktiva",
-        "description": "Nemovitosti, vozidla a další reálná aktiva, která vlastníte.",
-        "empty": "Žádná hmotná aktiva nebyla přidána."
+        "description": "Nemovitosti, vozidla a další reálná aktiva, která vlastníte."
       },
       "liabilities": {
         "title": "Závazky",
-        "description": "Finanční závazky, které nejsou vázány na konkrétní aktivum.",
-        "empty": "Žádné závazky nebyly přidány."
+        "description": "Finanční závazky, které nejsou vázány na konkrétní aktivum."
       },
       "incomes": {
         "title": "Příjmy",
-        "description": "Mzda, příjmy z podnikání a další pravidelné výdělky.",
-        "empty": "Žádné příjmy nebyly přidány."
+        "description": "Mzda, příjmy z podnikání a další pravidelné výdělky."
       },
       "expenses": {
         "title": "Výdaje",
-        "description": "Životní náklady, opakující se účty a pravidelné finanční závazky.",
-        "empty": "Žádné výdaje nebyly přidány."
+        "description": "Životní náklady, opakující se účty a pravidelné finanční závazky."
       },
       "frequency": {
         "short": {
