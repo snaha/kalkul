@@ -13,38 +13,17 @@
   import { getNextStepUrl } from '$lib/onboarding-steps'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
-
-  let cashAmount = $state<number | undefined>(undefined)
-  let hasInvestments = $state(false)
-  let hasTangibleAssets = $state(false)
-  let hasLiabilities = $state(false)
-  let hydrated = $state(false)
-
-  $effect(() => {
-    if (hydrated || appStore.loading) return
-    const p = appStore.profile
-    cashAmount = p.cash_amount
-    hasInvestments = p.has_investments ?? false
-    hasTangibleAssets = p.has_tangible_assets ?? false
-    hasLiabilities = p.has_liabilities ?? false
-    hydrated = true
-  })
+  import { onboardingDraft as draft } from '$lib/stores/onboarding-draft.svelte'
 
   let canContinue = $derived(
-    (cashAmount ?? 0) > 0 || hasInvestments || hasTangibleAssets || hasLiabilities,
+    (draft.cashAmount ?? 0) > 0 ||
+      draft.hasInvestments ||
+      draft.hasTangibleAssets ||
+      draft.hasLiabilities,
   )
 
-  function saveData() {
-    appStore.updateProfile({
-      cash_amount: cashAmount,
-      has_investments: hasInvestments,
-      has_tangible_assets: hasTangibleAssets,
-      has_liabilities: hasLiabilities,
-    })
-  }
-
   function handleContinue() {
-    saveData()
+    draft.commitOverview()
     // eslint-disable-next-line svelte/no-navigation-without-resolve
     goto(getNextStepUrl(routes.FINANCES_EDIT, appStore.profile))
   }
@@ -73,11 +52,11 @@
     <Label for="setup-cash">{$_('page.setup.finances.cashLabel')}</Label>
     <SuffixedInput
       id="setup-cash"
-      value={cashAmount}
+      value={draft.cashAmount}
       suffix={appStore.profile.currencyOrDefault}
       formatNumber={appStore.formatNumber}
       onValueChange={(v) => {
-        cashAmount = v
+        draft.cashAmount = v
       }}
     />
     <p class="text-sm text-muted-foreground">
@@ -91,27 +70,27 @@
     </p>
 
     <CheckboxCard
-      checked={hasInvestments}
+      checked={draft.hasInvestments}
       onCheckedChange={(v) => {
-        hasInvestments = v
+        draft.hasInvestments = v
       }}
       title={$_('page.setup.finances.investments')}
       description={$_('page.setup.finances.investmentsDescription')}
     />
 
     <CheckboxCard
-      checked={hasTangibleAssets}
+      checked={draft.hasTangibleAssets}
       onCheckedChange={(v) => {
-        hasTangibleAssets = v
+        draft.hasTangibleAssets = v
       }}
       title={$_('page.setup.finances.tangibleAssets')}
       description={$_('page.setup.finances.tangibleAssetsDescription')}
     />
 
     <CheckboxCard
-      checked={hasLiabilities}
+      checked={draft.hasLiabilities}
       onCheckedChange={(v) => {
-        hasLiabilities = v
+        draft.hasLiabilities = v
       }}
       title={$_('page.setup.finances.liabilities')}
       description={$_('page.setup.finances.liabilitiesDescription')}

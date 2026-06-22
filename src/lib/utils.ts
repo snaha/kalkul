@@ -125,3 +125,23 @@ export function formatLastUpdated(ms: number, locale: string | null | undefined)
   const d = ms > 0 ? new Date(ms) : new Date()
   return d.toLocaleDateString(locale ?? undefined)
 }
+
+/**
+ * JSON.stringify with object keys sorted recursively, so two structurally-equal
+ * values serialize identically regardless of key insertion order. Array order is
+ * preserved (it is significant). Useful for cheap deep-equality comparisons.
+ */
+export function stableStringify(value: unknown): string {
+  return JSON.stringify(value, (_key, val) => {
+    if (val && typeof val === 'object' && !Array.isArray(val)) {
+      const record = val as Record<string, unknown>
+      return Object.keys(record)
+        .sort()
+        .reduce<Record<string, unknown>>((acc, key) => {
+          acc[key] = record[key]
+          return acc
+        }, {})
+    }
+    return val
+  })
+}

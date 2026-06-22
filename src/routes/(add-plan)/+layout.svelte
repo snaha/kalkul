@@ -7,13 +7,28 @@
   import { page } from '$app/state'
 
   import { getAddPlanSteps } from '$lib/add-plan-steps'
+  import LeaveConfirmDialog from '$lib/components/leave-confirm-dialog.svelte'
   import ThemeSwitcher from '$lib/components/theme-switcher.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Progress } from '$lib/components/ui/progress'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
+  import { leaveGuard } from '$lib/stores/leave-guard.svelte'
+  import { planDraftStore } from '$lib/stores/plan-draft.svelte'
 
   let { children } = $props()
+
+  // This layout stays mounted for the whole add-plan flow, so it owns the draft
+  // lifecycle: seed a fresh draft when the flow is entered. In-flow navigation
+  // between steps keeps the layout mounted, so the user's entries are preserved;
+  // leaving and re-entering re-mounts the layout and starts clean.
+  planDraftStore.reset(appStore.profile, appStore.portfolios.length)
+
+  // Warn before abandoning the flow (via the X or browser back) once the draft
+  // has diverged from its defaults. Creating the plan navigates with goto(), so
+  // it is never intercepted.
+  leaveGuard.guard('(add-plan)')
+  leaveGuard.setDirtyCheck(() => planDraftStore.dirty)
 
   const steps = $derived(getAddPlanSteps(appStore.profile))
   const totalSteps = $derived(steps.length)
@@ -44,3 +59,5 @@
     {@render children()}
   </main>
 </div>
+
+<LeaveConfirmDialog />

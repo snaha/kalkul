@@ -5,7 +5,6 @@
 
   import { goto } from '$app/navigation'
 
-  import { formatDate } from '$lib/@snaha/kalkul-maths'
   import { getNextAddPlanStepUrl, getPrevAddPlanStepUrl } from '$lib/add-plan-steps'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
@@ -14,62 +13,17 @@
   import * as Select from '$lib/components/ui/select'
   import { Textarea } from '$lib/components/ui/textarea'
   import routes from '$lib/routes'
-  import type { PlanEndType, PlanStartType } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
-  import { CURRENCY_OPTIONS, DEFAULT_CURRENCY, getMonthOptions, getYearOptions } from '$lib/utils'
-
-  // Generate a default plan name based on existing portfolios
-  function getDefaultPlanName(): string {
-    const existingCount = appStore.portfolios.length
-    return `Plan ${existingCount + 1}`
-  }
-
-  let name = $state(getDefaultPlanName())
-  let notes = $state('')
-  let startType = $state<PlanStartType>('now')
-  let startYear = $state(String(new Date().getFullYear()))
-  let startMonth = $state(String(new Date().getMonth()))
-  let endType = $state<PlanEndType>('when_age_is')
-  let endAge = $state<number | undefined>(85)
-  let endYear = $state('')
-  let endMonth = $state('')
-  let currency = $state(appStore.profile.currency ?? DEFAULT_CURRENCY)
-  let inflation = $state<number | undefined>(2)
+  import { planDraftStore as draft } from '$lib/stores/plan-draft.svelte'
+  import { CURRENCY_OPTIONS, getMonthOptions, getYearOptions } from '$lib/utils'
 
   const years = getYearOptions()
   const months = $derived(getMonthOptions($locale ?? undefined))
 
-  // Calculate date from start of current month
-  function getStartDate(): string {
-    if (startType === 'now') {
-      const now = new Date()
-      return formatDate(new Date(now.getFullYear(), now.getMonth(), 1))
-    }
-    return formatDate(new Date(Number(startYear), Number(startMonth), 1))
-  }
-
-  // Calculate end date based on age or specific date
-  function getEndDate(): string {
-    if (endType === 'when_age_is' && endAge !== undefined) {
-      const birthDate = appStore.profile.birthDate
-      if (birthDate) {
-        return formatDate(new Date(birthDate.getFullYear() + endAge, birthDate.getMonth(), 1))
-      }
-      // Fallback: use start year + age
-      const startYearNum = startType === 'now' ? new Date().getFullYear() : Number(startYear)
-      return formatDate(new Date(startYearNum + endAge, 0, 1))
-    }
-    if (endYear && endMonth !== '') {
-      return formatDate(new Date(Number(endYear), Number(endMonth), 1))
-    }
-    // Fallback (unreachable due to canContinue validation)
-    return formatDate(new Date(new Date().getFullYear() + 30, 0, 1))
-  }
-
   let canContinue = $derived(
-    name.trim().length > 0 &&
-      inflation !== undefined &&
-      (endType === 'when_age_is' || (endYear !== '' && endMonth !== '')),
+    draft.name.trim().length > 0 &&
+      draft.inflation !== undefined &&
+      (draft.endType === 'when_age_is' || (draft.endYear !== '' && draft.endMonth !== '')),
   )
 
   function handleBack() {
@@ -79,16 +33,7 @@
   }
 
   function handleContinue() {
-    // Store plan details in sessionStorage for step 3
-    const planDetails = {
-      name: name.trim(),
-      notes: notes.trim() || undefined,
-      currency,
-      start_date: getStartDate(),
-      end_date: getEndDate(),
-      inflation_rate: (inflation ?? 2) / 100,
-    }
-    sessionStorage.setItem('kalkul-plan-draft', JSON.stringify(planDetails))
+    // The draft lives in the shared store, so just advance the step.
     // URL is already resolved by getNextAddPlanStepUrl
     // eslint-disable-next-line svelte/no-navigation-without-resolve
     goto(getNextAddPlanStepUrl(routes.PLAN_ADD_DETAILS, appStore.profile))
@@ -104,7 +49,7 @@
   <div class="flex flex-col gap-4">
     <div class="flex flex-col gap-2">
       <Label for="plan-name">{$_('page.addPlan.details.planName')}</Label>
-      <Input id="plan-name" bind:value={name} />
+      <Input id="plan-name" bind:value={draft.name} />
     </div>
 
     <div class="flex flex-col gap-2">
@@ -112,7 +57,7 @@
       <Textarea
         id="plan-notes"
         placeholder={$_('page.addPlan.details.notesPlaceholder')}
-        bind:value={notes}
+        bind:value={draft.notes}
         class="min-h-16 resize-none"
       />
     </div>
@@ -120,9 +65,9 @@
     <div class="flex items-end gap-2">
       <div class="flex flex-1 flex-col gap-2">
         <Label>{$_('page.addPlan.details.start')}</Label>
-        <Select.Root type="single" bind:value={startType}>
+        <Select.Root type="single" bind:value={draft.startType}>
           <Select.Trigger class="w-full">
-            {startType === 'now'
+            {draft.startType === 'now'
               ? $_('page.addPlan.details.startNow')
               : $_('page.addPlan.details.startAtDate')}
           </Select.Trigger>
@@ -132,11 +77,11 @@
           </Select.Content>
         </Select.Root>
       </div>
-      {#if startType === 'at_specific_date'}
+      {#if draft.startType === 'at_specific_date'}
         <div class="flex flex-1 items-end gap-2">
-          <Select.Root type="single" bind:value={startYear}>
+          <Select.Root type="single" bind:value={draft.startYear}>
             <Select.Trigger class="w-24">
-              {startYear}
+              {draft.startYear}
             </Select.Trigger>
             <Select.Content>
               {#each years as year (year)}
@@ -144,9 +89,9 @@
               {/each}
             </Select.Content>
           </Select.Root>
-          <Select.Root type="single" bind:value={startMonth}>
+          <Select.Root type="single" bind:value={draft.startMonth}>
             <Select.Trigger class="flex-1">
-              {months[Number(startMonth)]?.label ?? ''}
+              {months[Number(draft.startMonth)]?.label ?? ''}
             </Select.Trigger>
             <Select.Content>
               {#each months as month (month.value)}
@@ -161,9 +106,9 @@
     <div class="flex items-end gap-2">
       <div class="flex flex-1 flex-col gap-2">
         <Label>{$_('page.addPlan.details.end')}</Label>
-        <Select.Root type="single" bind:value={endType}>
+        <Select.Root type="single" bind:value={draft.endType}>
           <Select.Trigger class="w-full">
-            {endType === 'when_age_is'
+            {draft.endType === 'when_age_is'
               ? $_('page.addPlan.details.endWhenAgeIs')
               : $_('page.addPlan.details.endAtDate')}
           </Select.Trigger>
@@ -173,21 +118,21 @@
           </Select.Content>
         </Select.Root>
       </div>
-      {#if endType === 'when_age_is'}
+      {#if draft.endType === 'when_age_is'}
         <div class="flex flex-1">
           <SuffixedInput
-            value={endAge}
+            value={draft.endAge}
             suffix={$_('page.addPlan.details.yearsOld')}
             formatNumber={appStore.formatNumber}
-            onValueChange={(v) => (endAge = v)}
+            onValueChange={(v) => (draft.endAge = v)}
           />
         </div>
       {:else}
         <div class="flex flex-1 items-end gap-2">
-          <Select.Root type="single" bind:value={endYear}>
+          <Select.Root type="single" bind:value={draft.endYear}>
             <Select.Trigger class="w-24">
-              {#if endYear}
-                {endYear}
+              {#if draft.endYear}
+                {draft.endYear}
               {:else}
                 <span class="text-muted-foreground">{$_('page.setup.aboutYou.selectYear')}</span>
               {/if}
@@ -198,10 +143,10 @@
               {/each}
             </Select.Content>
           </Select.Root>
-          <Select.Root type="single" bind:value={endMonth}>
+          <Select.Root type="single" bind:value={draft.endMonth}>
             <Select.Trigger class="flex-1">
-              {#if endMonth !== ''}
-                {months[Number(endMonth)]?.label ?? ''}
+              {#if draft.endMonth !== ''}
+                {months[Number(draft.endMonth)]?.label ?? ''}
               {:else}
                 <span class="text-muted-foreground">{$_('page.setup.aboutYou.selectMonth')}</span>
               {/if}
@@ -219,9 +164,9 @@
     <div class="flex items-end gap-2">
       <div class="flex flex-1 flex-col gap-2">
         <Label>{$_('page.addPlan.details.currency')}</Label>
-        <Select.Root type="single" bind:value={currency}>
+        <Select.Root type="single" bind:value={draft.currency}>
           <Select.Trigger class="w-full">
-            {CURRENCY_OPTIONS.find((c) => c.value === currency)?.label ?? currency}
+            {CURRENCY_OPTIONS.find((c) => c.value === draft.currency)?.label ?? draft.currency}
           </Select.Trigger>
           <Select.Content>
             {#each CURRENCY_OPTIONS as cur (cur.value)}
@@ -233,10 +178,10 @@
       <div class="flex flex-1 flex-col gap-2">
         <Label>{$_('page.addPlan.details.inflation')}</Label>
         <SuffixedInput
-          value={inflation}
+          value={draft.inflation}
           suffix="%"
           formatNumber={appStore.formatNumber}
-          onValueChange={(v) => (inflation = v)}
+          onValueChange={(v) => (draft.inflation = v)}
         />
       </div>
     </div>

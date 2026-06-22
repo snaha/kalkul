@@ -356,7 +356,13 @@
       "france": "France",
       "other": "Other"
     },
-    "currency": "Currency"
+    "currency": "Currency",
+    "leaveConfirm": {
+      "title": "Discard unsaved changes?",
+      "description": "If you leave now, the changes you haven't saved will be lost.",
+      "stay": "Stay",
+      "leave": "Leave"
+    }
   },
   "theme": {
     "light": "Light",

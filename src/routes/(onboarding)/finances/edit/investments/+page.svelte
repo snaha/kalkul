@@ -14,54 +14,22 @@
   import { Switch } from '$lib/components/ui/switch'
   import { getNextStepUrl, getPrevStepUrl } from '$lib/onboarding-steps'
   import routes from '$lib/routes'
-  import type { ProfileInvestment } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
+  import { type InvestmentUI, onboardingDraft as draft } from '$lib/stores/onboarding-draft.svelte'
   import { notImplemented } from '$lib/utils'
 
-  interface InvestmentUI {
-    id: string
-    name: string
-    balance: number | undefined
-    apy: number | undefined
-    editing: boolean
-    editingName: boolean
-  }
-
-  function storedToUI(stored: ProfileInvestment[]): InvestmentUI[] {
-    return stored.map((inv) => ({
-      id: inv.id,
-      name: inv.name,
-      balance: inv.balance > 0 ? inv.balance : undefined,
-      apy: inv.apy > 0 ? inv.apy : undefined,
-      editing: false,
-      editingName: false,
-    }))
-  }
-
-  let investments = $state<InvestmentUI[]>([])
-  let investmentCounter = $state(0)
-  let hydrated = $state(false)
-
-  $effect(() => {
-    if (hydrated || appStore.loading) return
-    const stored = appStore.profile.investments
-    if (stored && stored.length > 0) {
-      investments = storedToUI(stored)
-      investmentCounter = investments.length
-    }
-    hydrated = true
-  })
-
-  let canContinue = $derived(investments.some((i) => (i.balance ?? 0) > 0))
+  let canContinue = $derived(draft.investments.some((i) => (i.balance ?? 0) > 0))
 
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
   function addInvestment() {
-    investmentCounter++
-    for (const inv of investments) inv.editing = false
-    investments.push({
+    draft.investmentCounter++
+    for (const inv of draft.investments) inv.editing = false
+    draft.investments.push({
       id: crypto.randomUUID(),
-      name: $_('page.setup.investments.defaultName', { values: { index: investmentCounter } }),
+      name: $_('page.setup.investments.defaultName', {
+        values: { index: draft.investmentCounter },
+      }),
       balance: undefined,
       apy: undefined,
       editing: true,
@@ -70,9 +38,9 @@
   }
 
   function duplicateInvestment(investment: InvestmentUI) {
-    investmentCounter++
-    const idx = investments.indexOf(investment)
-    investments.splice(idx + 1, 0, {
+    draft.investmentCounter++
+    const idx = draft.investments.indexOf(investment)
+    draft.investments.splice(idx + 1, 0, {
       ...investment,
       id: crypto.randomUUID(),
       name: $_('page.setup.common.copySuffix', { values: { name: investment.name } }),
@@ -82,8 +50,8 @@
   }
 
   function deleteInvestment(investment: InvestmentUI) {
-    const idx = investments.indexOf(investment)
-    if (idx !== -1) investments.splice(idx, 1)
+    const idx = draft.investments.indexOf(investment)
+    if (idx !== -1) draft.investments.splice(idx, 1)
   }
 
   function formatBalance(balance: number | undefined): string {
@@ -91,23 +59,8 @@
     return appStore.formatCurrency(balance)
   }
 
-  function saveInvestments() {
-    const data: ProfileInvestment[] = investments
-      .filter((i) => i.name.trim().length > 0)
-      .map((i) => ({
-        id: i.id,
-        name: i.name,
-        balance: i.balance ?? 0,
-        apy: i.apy ?? 0,
-      }))
-    appStore.updateProfile({
-      investments: data,
-      has_investments: data.length > 0,
-    })
-  }
-
   function handleContinue() {
-    saveInvestments()
+    draft.commitInvestments()
     // eslint-disable-next-line svelte/no-navigation-without-resolve
     goto(getNextStepUrl(routes.FINANCES_EDIT_INVESTMENTS, appStore.profile))
   }
@@ -134,7 +87,7 @@
   </div>
 
   <div class="flex w-full flex-col gap-4">
-    {#each investments as investment (investment.id)}
+    {#each draft.investments as investment (investment.id)}
       <EditableItemCard
         item={investment}
         collapsedValue={formatBalance(investment.balance)}

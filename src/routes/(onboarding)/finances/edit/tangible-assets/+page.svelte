@@ -15,71 +15,21 @@
   import { Switch } from '$lib/components/ui/switch'
   import { getNextStepUrl, getPrevStepUrl } from '$lib/onboarding-steps'
   import routes from '$lib/routes'
-  import type { Frequency, ProfileTangibleAsset, TangibleAssetStatus } from '$lib/schemas'
+  import type { Frequency, TangibleAssetStatus } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
+  import { type AssetUI, onboardingDraft as draft } from '$lib/stores/onboarding-draft.svelte'
   import { notImplemented } from '$lib/utils'
 
-  interface AssetUI {
-    id: string
-    name: string
-    value: number | undefined
-    status: TangibleAssetStatus
-    outstanding_balance: number | undefined
-    installment_frequency: Frequency
-    annual_rate: number | undefined
-    installment_amount: number | undefined
-    remaining_term: number | undefined
-    editing: boolean
-    editingName: boolean
-  }
-
-  function storedToUI(stored: ProfileTangibleAsset[]): AssetUI[] {
-    return stored.map((a) => ({
-      id: a.id,
-      name: a.name,
-      value: a.value > 0 ? a.value : undefined,
-      status: a.status,
-      outstanding_balance:
-        a.outstanding_balance !== undefined && a.outstanding_balance > 0
-          ? a.outstanding_balance
-          : undefined,
-      installment_frequency: a.installment_frequency ?? 'monthly',
-      annual_rate: a.annual_rate !== undefined && a.annual_rate > 0 ? a.annual_rate : undefined,
-      installment_amount:
-        a.installment_amount !== undefined && a.installment_amount > 0
-          ? a.installment_amount
-          : undefined,
-      remaining_term:
-        a.remaining_term !== undefined && a.remaining_term > 0 ? a.remaining_term : undefined,
-      editing: false,
-      editingName: false,
-    }))
-  }
-
-  let assets = $state<AssetUI[]>([])
-  let assetCounter = $state(0)
-  let hydrated = $state(false)
-
-  $effect(() => {
-    if (hydrated || appStore.loading) return
-    const stored = appStore.profile.tangible_assets
-    if (stored && stored.length > 0) {
-      assets = storedToUI(stored)
-      assetCounter = assets.length
-    }
-    hydrated = true
-  })
-
-  let canContinue = $derived(assets.some((a) => (a.value ?? 0) > 0))
+  let canContinue = $derived(draft.assets.some((a) => (a.value ?? 0) > 0))
 
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
   function addAsset() {
-    assetCounter++
-    for (const a of assets) a.editing = false
-    assets.push({
+    draft.assetCounter++
+    for (const a of draft.assets) a.editing = false
+    draft.assets.push({
       id: crypto.randomUUID(),
-      name: $_('page.setup.tangibleAssets.defaultName', { values: { index: assetCounter } }),
+      name: $_('page.setup.tangibleAssets.defaultName', { values: { index: draft.assetCounter } }),
       value: undefined,
       status: 'fully_owned',
       outstanding_balance: undefined,
@@ -93,9 +43,9 @@
   }
 
   function duplicateAsset(asset: AssetUI) {
-    assetCounter++
-    const idx = assets.indexOf(asset)
-    assets.splice(idx + 1, 0, {
+    draft.assetCounter++
+    const idx = draft.assets.indexOf(asset)
+    draft.assets.splice(idx + 1, 0, {
       ...asset,
       id: crypto.randomUUID(),
       name: $_('page.setup.common.copySuffix', { values: { name: asset.name } }),
@@ -105,8 +55,8 @@
   }
 
   function deleteAsset(asset: AssetUI) {
-    const idx = assets.indexOf(asset)
-    if (idx !== -1) assets.splice(idx, 1)
+    const idx = draft.assets.indexOf(asset)
+    if (idx !== -1) draft.assets.splice(idx, 1)
   }
 
   function formatValue(val: number | undefined): string {
@@ -120,28 +70,8 @@
     return $_('page.setup.common.monthly')
   }
 
-  function saveAssets() {
-    const data: ProfileTangibleAsset[] = assets
-      .filter((a) => a.name.trim().length > 0)
-      .map((a) => ({
-        id: a.id,
-        name: a.name,
-        value: a.value ?? 0,
-        status: a.status,
-        outstanding_balance: a.status === 'financed' ? (a.outstanding_balance ?? 0) : undefined,
-        installment_frequency: a.status === 'financed' ? a.installment_frequency : undefined,
-        annual_rate: a.status === 'financed' ? (a.annual_rate ?? 0) : undefined,
-        installment_amount: a.status === 'financed' ? (a.installment_amount ?? 0) : undefined,
-        remaining_term: a.status === 'financed' ? (a.remaining_term ?? 0) : undefined,
-      }))
-    appStore.updateProfile({
-      tangible_assets: data,
-      has_tangible_assets: data.length > 0,
-    })
-  }
-
   function handleContinue() {
-    saveAssets()
+    draft.commitAssets()
     // eslint-disable-next-line svelte/no-navigation-without-resolve
     goto(getNextStepUrl(routes.FINANCES_EDIT_TANGIBLE_ASSETS, appStore.profile))
   }
@@ -168,7 +98,7 @@
   </div>
 
   <div class="flex w-full flex-col gap-4">
-    {#each assets as asset (asset.id)}
+    {#each draft.assets as asset (asset.id)}
       <EditableItemCard
         item={asset}
         collapsedValue={formatValue(asset.value)}

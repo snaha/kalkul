@@ -356,7 +356,13 @@
       "france": "Francie",
       "other": "Jiné"
     },
-    "currency": "Měna"
+    "currency": "Měna",
+    "leaveConfirm": {
+      "title": "Zahodit neuložené změny?",
+      "description": "Pokud nyní odejdete, neuložené změny budou ztraceny.",
+      "stay": "Zůstat",
+      "leave": "Odejít"
+    }
   },
   "theme": {
     "light": "Světlý",

@@ -15,60 +15,21 @@
   import { Switch } from '$lib/components/ui/switch'
   import { getNextStepUrl, getPrevStepUrl } from '$lib/onboarding-steps'
   import routes from '$lib/routes'
-  import type { Frequency, ProfileLiability } from '$lib/schemas'
+  import type { Frequency } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
+  import { type LiabilityUI, onboardingDraft as draft } from '$lib/stores/onboarding-draft.svelte'
   import { notImplemented } from '$lib/utils'
 
-  interface LiabilityUI {
-    id: string
-    name: string
-    outstanding_balance: number | undefined
-    installment_frequency: Frequency
-    annual_rate: number | undefined
-    installment_amount: number | undefined
-    remaining_term: number | undefined
-    editing: boolean
-    editingName: boolean
-  }
-
-  function storedToUI(stored: ProfileLiability[]): LiabilityUI[] {
-    return stored.map((l) => ({
-      id: l.id,
-      name: l.name,
-      outstanding_balance: l.outstanding_balance > 0 ? l.outstanding_balance : undefined,
-      installment_frequency: l.installment_frequency,
-      annual_rate: l.annual_rate > 0 ? l.annual_rate : undefined,
-      installment_amount: l.installment_amount > 0 ? l.installment_amount : undefined,
-      remaining_term: l.remaining_term > 0 ? l.remaining_term : undefined,
-      editing: false,
-      editingName: false,
-    }))
-  }
-
-  let liabilities = $state<LiabilityUI[]>([])
-  let liabilityCounter = $state(0)
-  let hydrated = $state(false)
-
-  $effect(() => {
-    if (hydrated || appStore.loading) return
-    const stored = appStore.profile.liabilities
-    if (stored && stored.length > 0) {
-      liabilities = storedToUI(stored)
-      liabilityCounter = liabilities.length
-    }
-    hydrated = true
-  })
-
-  let canContinue = $derived(liabilities.some((l) => (l.outstanding_balance ?? 0) > 0))
+  let canContinue = $derived(draft.liabilities.some((l) => (l.outstanding_balance ?? 0) > 0))
 
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
   function addLiability() {
-    liabilityCounter++
-    for (const l of liabilities) l.editing = false
-    liabilities.push({
+    draft.liabilityCounter++
+    for (const l of draft.liabilities) l.editing = false
+    draft.liabilities.push({
       id: crypto.randomUUID(),
-      name: $_('page.setup.liabilities.defaultName', { values: { index: liabilityCounter } }),
+      name: $_('page.setup.liabilities.defaultName', { values: { index: draft.liabilityCounter } }),
       outstanding_balance: undefined,
       installment_frequency: 'monthly',
       annual_rate: undefined,
@@ -80,9 +41,9 @@
   }
 
   function duplicateLiability(liability: LiabilityUI) {
-    liabilityCounter++
-    const idx = liabilities.indexOf(liability)
-    liabilities.splice(idx + 1, 0, {
+    draft.liabilityCounter++
+    const idx = draft.liabilities.indexOf(liability)
+    draft.liabilities.splice(idx + 1, 0, {
       ...liability,
       id: crypto.randomUUID(),
       name: $_('page.setup.common.copySuffix', { values: { name: liability.name } }),
@@ -92,8 +53,8 @@
   }
 
   function deleteLiability(liability: LiabilityUI) {
-    const idx = liabilities.indexOf(liability)
-    if (idx !== -1) liabilities.splice(idx, 1)
+    const idx = draft.liabilities.indexOf(liability)
+    if (idx !== -1) draft.liabilities.splice(idx, 1)
   }
 
   function formatBalance(val: number | undefined): string {
@@ -107,26 +68,8 @@
     return $_('page.setup.common.monthly')
   }
 
-  function saveLiabilities() {
-    const data: ProfileLiability[] = liabilities
-      .filter((l) => l.name.trim().length > 0)
-      .map((l) => ({
-        id: l.id,
-        name: l.name,
-        outstanding_balance: l.outstanding_balance ?? 0,
-        installment_frequency: l.installment_frequency,
-        annual_rate: l.annual_rate ?? 0,
-        installment_amount: l.installment_amount ?? 0,
-        remaining_term: l.remaining_term ?? 0,
-      }))
-    appStore.updateProfile({
-      liabilities: data,
-      has_liabilities: data.length > 0,
-    })
-  }
-
   function handleContinue() {
-    saveLiabilities()
+    draft.commitLiabilities()
     // eslint-disable-next-line svelte/no-navigation-without-resolve
     goto(getNextStepUrl(routes.FINANCES_EDIT_LIABILITIES, appStore.profile))
   }
@@ -153,7 +96,7 @@
   </div>
 
   <div class="flex w-full flex-col gap-4">
-    {#each liabilities as liability (liability.id)}
+    {#each draft.liabilities as liability (liability.id)}
       <EditableItemCard
         item={liability}
         collapsedValue={formatBalance(liability.outstanding_balance)}

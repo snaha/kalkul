@@ -6,14 +6,34 @@
   import { resolve } from '$app/paths'
   import { page } from '$app/state'
 
+  import LeaveConfirmDialog from '$lib/components/leave-confirm-dialog.svelte'
   import ThemeSwitcher from '$lib/components/theme-switcher.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Progress } from '$lib/components/ui/progress'
   import { getOnboardingSteps } from '$lib/onboarding-steps'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
+  import { leaveGuard } from '$lib/stores/leave-guard.svelte'
+  import { onboardingDraft } from '$lib/stores/onboarding-draft.svelte'
 
   let { children } = $props()
+
+  // This layout stays mounted for the whole flow, so it owns the draft lifecycle:
+  // seed a fresh draft from the profile once data has loaded. In-flow navigation
+  // keeps the layout mounted, so the user's entries survive Back/Continue; leaving
+  // and re-entering re-mounts the layout and re-seeds from the profile.
+  let seeded = $state(false)
+  $effect(() => {
+    if (seeded || appStore.loading) return
+    onboardingDraft.reset()
+    seeded = true
+  })
+
+  // Warn before abandoning setup (via the X or browser back) once the draft has
+  // unsaved changes. The flow's own Continue/Back/Skip use goto() and are never
+  // intercepted.
+  leaveGuard.guard('(onboarding)')
+  leaveGuard.setDirtyCheck(() => seeded && onboardingDraft.dirty)
 
   const steps = $derived(getOnboardingSteps(appStore.profile))
   const totalSteps = $derived(steps.length)
@@ -44,3 +64,5 @@
     {@render children()}
   </main>
 </div>
+
+<LeaveConfirmDialog />

@@ -11,34 +11,13 @@
   import { Label } from '$lib/components/ui/label'
   import * as Select from '$lib/components/ui/select'
   import routes from '$lib/routes'
-  import { appStore } from '$lib/stores/app.svelte'
+  import { onboardingDraft as draft } from '$lib/stores/onboarding-draft.svelte'
   import {
     CURRENCY_OPTIONS,
     DEFAULT_CURRENCY,
     getBirthYearOptions,
     getMonthOptions,
   } from '$lib/utils'
-
-  let name = $state('')
-  let birthYear = $state('')
-  let birthMonth = $state('')
-  let location = $state('')
-  let currency = $state('')
-  let hydrated = $state(false)
-
-  // Hydrate form state from the store exactly once, on first load.
-  $effect(() => {
-    if (hydrated || appStore.loading) return
-    const p = appStore.profile
-    name = p.name
-    if (p.location) location = p.location
-    if (p.currency) currency = p.currency
-    if (p.birthDate) {
-      birthYear = String(p.birthDate.getFullYear())
-      birthMonth = String(p.birthDate.getMonth())
-    }
-    hydrated = true
-  })
 
   const years = getBirthYearOptions()
   const months = getMonthOptions()
@@ -59,30 +38,21 @@
     { value: 'other', label: $_('common.countries.other') },
   ])
 
-  let userChangedCurrency = $state(false)
-
   $effect(() => {
-    if (location && !userChangedCurrency) {
-      const mapped = countryCurrencyMap[location]
+    if (draft.location && !draft.userChangedCurrency) {
+      const mapped = countryCurrencyMap[draft.location]
       if (mapped) {
-        currency = mapped
+        draft.currency = mapped
       }
     }
   })
 
-  let canContinue = $derived(name.trim().length > 0 && birthYear !== '' && birthMonth !== '')
+  let canContinue = $derived(
+    draft.name.trim().length > 0 && draft.birthYear !== '' && draft.birthMonth !== '',
+  )
 
   function handleContinue() {
-    const updates: Record<string, string | undefined> = {
-      name: name.trim(),
-      location: location || undefined,
-      currency: currency || undefined,
-    }
-    if (birthYear !== '' && birthMonth !== '') {
-      const date = new Date(Number(birthYear), Number(birthMonth), 1)
-      updates.birth_date = date.toISOString().split('T')[0]
-    }
-    appStore.updateProfile(updates)
+    draft.commitProfile()
     goto(resolve(routes.FINANCES_EDIT))
   }
 </script>
@@ -103,17 +73,17 @@
       <Input
         id="setup-name"
         placeholder={$_('page.setup.aboutYou.namePlaceholder')}
-        bind:value={name}
+        bind:value={draft.name}
       />
     </div>
 
     <div class="flex w-full items-end gap-2">
       <div class="flex flex-1 flex-col gap-2">
         <Label>{$_('page.setup.aboutYou.birthdate')}</Label>
-        <Select.Root type="single" bind:value={birthYear}>
+        <Select.Root type="single" bind:value={draft.birthYear}>
           <Select.Trigger class="w-full">
-            {#if birthYear}
-              {birthYear}
+            {#if draft.birthYear}
+              {draft.birthYear}
             {:else}
               <span class="text-muted-foreground">{$_('page.setup.aboutYou.selectYear')}</span>
             {/if}
@@ -126,10 +96,10 @@
         </Select.Root>
       </div>
       <div class="flex flex-1 flex-col gap-2">
-        <Select.Root type="single" bind:value={birthMonth}>
+        <Select.Root type="single" bind:value={draft.birthMonth}>
           <Select.Trigger class="w-full">
-            {#if birthMonth !== ''}
-              {months[Number(birthMonth)]?.label}
+            {#if draft.birthMonth !== ''}
+              {months[Number(draft.birthMonth)]?.label}
             {:else}
               <span class="text-muted-foreground">{$_('page.setup.aboutYou.selectMonth')}</span>
             {/if}
@@ -146,10 +116,10 @@
     <div class="flex w-full items-end gap-2">
       <div class="flex flex-1 flex-col gap-2">
         <Label>{$_('page.setup.aboutYou.location')}</Label>
-        <Select.Root type="single" bind:value={location}>
+        <Select.Root type="single" bind:value={draft.location}>
           <Select.Trigger class="w-full">
-            {#if location}
-              {countries.find((c) => c.value === location)?.label}
+            {#if draft.location}
+              {countries.find((c) => c.value === draft.location)?.label}
             {:else}
               <span class="text-muted-foreground">{$_('page.setup.aboutYou.selectCountry')}</span>
             {/if}
@@ -165,12 +135,12 @@
         <Label>{$_('common.currency')}</Label>
         <Select.Root
           type="single"
-          bind:value={currency}
-          onValueChange={() => (userChangedCurrency = true)}
+          bind:value={draft.currency}
+          onValueChange={() => (draft.userChangedCurrency = true)}
         >
           <Select.Trigger class="w-full">
-            {#if currency}
-              {CURRENCY_OPTIONS.find((c) => c.value === currency)?.label}
+            {#if draft.currency}
+              {CURRENCY_OPTIONS.find((c) => c.value === draft.currency)?.label}
             {:else}
               <span class="text-muted-foreground">{DEFAULT_CURRENCY}</span>
             {/if}
