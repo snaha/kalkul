@@ -145,6 +145,13 @@ When linking from a bare `<a>` tag (not the `Button` component), the `svelte/no-
    - ❌ Placing component-used images in `static/` and referencing via `{base}/path`
    - The `static/` folder is reserved for files that need fixed URLs: favicons, PWA icons, `manifest.json`, fonts
 
+### Commits & Pull Requests
+
+- Use [conventional commits](https://www.conventionalcommits.org/) (e.g. `fix:`, `feat:`, `chore:`).
+- Keep PR titles and descriptions concise.
+- Omit the issue number from branch names and titles
+- When a PR resolves an issue, reference it with a closing keyword (e.g. `Closes #53`) so GitHub closes the issue automatically on merge.
+
 ### Common Tasks
 
 1. **Adding a New Feature**
