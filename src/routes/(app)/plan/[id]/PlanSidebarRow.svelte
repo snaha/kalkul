@@ -3,6 +3,7 @@
 
   import { TriangleAlert } from '@lucide/svelte'
 
+  import * as Tooltip from '$lib/components/ui/tooltip'
   import { cn } from '$lib/utils'
 
   interface Props {
@@ -36,13 +37,25 @@
     {name}
   </span>
   {#if hasInsufficientFunds}
-    <span
-      title={$_('page.plan.insufficientFundsTooltip')}
-      class="inline-flex shrink-0 items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive tabular-nums"
-    >
-      <TriangleAlert class="size-3" />
-      {value}
-    </span>
+    <Tooltip.Provider delayDuration={150}>
+      <Tooltip.Root>
+        <Tooltip.Trigger>
+          {#snippet child({ props })}
+            <span
+              {...props}
+              aria-label={$_('page.plan.insufficientFundsTooltip')}
+              class="inline-flex shrink-0 items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive tabular-nums"
+            >
+              <TriangleAlert class="size-3" />
+              {value}
+            </span>
+          {/snippet}
+        </Tooltip.Trigger>
+        <Tooltip.Content>
+          {$_('page.plan.insufficientFundsTooltip')}
+        </Tooltip.Content>
+      </Tooltip.Root>
+    </Tooltip.Provider>
   {:else}
     <span
       class={cn(
