@@ -19,26 +19,14 @@
     getMonthOptions,
   } from '$lib/utils'
 
-  let name = $state('')
-  let birthYear = $state('')
-  let birthMonth = $state('')
-  let location = $state('')
-  let currency = $state('')
-  let hydrated = $state(false)
-
-  // Hydrate form state from the store exactly once, on first load.
-  $effect(() => {
-    if (hydrated || appStore.loading) return
-    const p = appStore.profile
-    name = p.name
-    if (p.location) location = p.location
-    if (p.currency) currency = p.currency
-    if (p.birthDate) {
-      birthYear = String(p.birthDate.getFullYear())
-      birthMonth = String(p.birthDate.getMonth())
-    }
-    hydrated = true
-  })
+  // The store is loaded before render (see +layout.ts), so the profile is
+  // already populated here — seed the form state directly.
+  const p = appStore.profile
+  let name = $state(p.name)
+  let birthYear = $state(p.birthDate ? String(p.birthDate.getFullYear()) : '')
+  let birthMonth = $state(p.birthDate ? String(p.birthDate.getMonth()) : '')
+  let location = $state(p.location ?? '')
+  let currency = $state(p.currency ?? '')
 
   const years = getBirthYearOptions().map((year) => ({ value: year, label: year }))
   const months = getMonthOptions()

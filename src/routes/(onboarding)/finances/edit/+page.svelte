@@ -14,21 +14,13 @@
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
 
-  let cashAmount = $state<number | undefined>(undefined)
-  let hasInvestments = $state(false)
-  let hasTangibleAssets = $state(false)
-  let hasLiabilities = $state(false)
-  let hydrated = $state(false)
-
-  $effect(() => {
-    if (hydrated || appStore.loading) return
-    const p = appStore.profile
-    cashAmount = p.cash_amount
-    hasInvestments = p.has_investments ?? false
-    hasTangibleAssets = p.has_tangible_assets ?? false
-    hasLiabilities = p.has_liabilities ?? false
-    hydrated = true
-  })
+  // The store is loaded before render (see +layout.ts), so the profile is
+  // already populated here — seed the form state directly.
+  const p = appStore.profile
+  let cashAmount = $state<number | undefined>(p.cash_amount)
+  let hasInvestments = $state(p.has_investments ?? false)
+  let hasTangibleAssets = $state(p.has_tangible_assets ?? false)
+  let hasLiabilities = $state(p.has_liabilities ?? false)
 
   let canContinue = $derived(
     (cashAmount ?? 0) > 0 || hasInvestments || hasTangibleAssets || hasLiabilities,

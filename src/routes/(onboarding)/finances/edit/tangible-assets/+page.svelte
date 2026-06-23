@@ -56,19 +56,11 @@
     }))
   }
 
-  let assets = $state<AssetUI[]>([])
-  let assetCounter = $state(0)
-  let hydrated = $state(false)
-
-  $effect(() => {
-    if (hydrated || appStore.loading) return
-    const stored = appStore.profile.tangible_assets
-    if (stored && stored.length > 0) {
-      assets = storedToUI(stored)
-      assetCounter = assets.length
-    }
-    hydrated = true
-  })
+  // The store is loaded before render (see +layout.ts), so the profile is
+  // already populated here — seed the form state directly.
+  const initialAssets = storedToUI(appStore.profile.tangible_assets ?? [])
+  let assets = $state<AssetUI[]>(initialAssets)
+  let assetCounter = $state(initialAssets.length)
 
   let canContinue = $derived(assets.some((a) => (a.value ?? 0) > 0))
 

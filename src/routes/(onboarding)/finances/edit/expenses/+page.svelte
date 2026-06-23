@@ -39,19 +39,11 @@
     }))
   }
 
-  let expenses = $state<ExpenseUI[]>([])
-  let expenseCounter = $state(0)
-  let hydrated = $state(false)
-
-  $effect(() => {
-    if (hydrated || appStore.loading) return
-    const stored = appStore.profile.expenses
-    if (stored && stored.length > 0) {
-      expenses = storedToUI(stored)
-      expenseCounter = expenses.length
-    }
-    hydrated = true
-  })
+  // The store is loaded before render (see +layout.ts), so the profile is
+  // already populated here — seed the form state directly.
+  const initialExpenses = storedToUI(appStore.profile.expenses ?? [])
+  let expenses = $state<ExpenseUI[]>(initialExpenses)
+  let expenseCounter = $state(initialExpenses.length)
 
   let canContinue = $derived(expenses.some((e) => (e.amount ?? 0) > 0))
 

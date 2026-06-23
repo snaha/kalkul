@@ -9,7 +9,6 @@ describe('withPortfolioSimulationStore', () => {
   const mockPortfolio: Portfolio = {
     id: 'test-portfolio-1',
     name: 'Test Portfolio',
-    currency: 'USD',
     start_date: '2024-01-01',
     end_date: '2024-12-31',
     inflation_rate: 0.03,

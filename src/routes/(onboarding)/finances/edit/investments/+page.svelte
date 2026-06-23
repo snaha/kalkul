@@ -38,19 +38,11 @@
     }))
   }
 
-  let investments = $state<InvestmentUI[]>([])
-  let investmentCounter = $state(0)
-  let hydrated = $state(false)
-
-  $effect(() => {
-    if (hydrated || appStore.loading) return
-    const stored = appStore.profile.investments
-    if (stored && stored.length > 0) {
-      investments = storedToUI(stored)
-      investmentCounter = investments.length
-    }
-    hydrated = true
-  })
+  // The store is loaded before render (see +layout.ts), so the profile is
+  // already populated here — seed the form state directly.
+  const initialInvestments = storedToUI(appStore.profile.investments ?? [])
+  let investments = $state<InvestmentUI[]>(initialInvestments)
+  let investmentCounter = $state(initialInvestments.length)
 
   let canContinue = $derived(investments.some((i) => (i.balance ?? 0) > 0))
 

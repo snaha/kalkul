@@ -22,7 +22,6 @@
         "endWhenAgeIs": "When your age is",
         "endAtDate": "At specific date...",
         "yearsOld": "Years old",
-        "currency": "Currency",
         "inflation": "Inflation"
       },
       "data": {

@@ -16,7 +16,6 @@ function makePlan(overrides: Partial<PortfolioNested> = {}): PortfolioNested {
   return {
     id: 'plan-1',
     name: 'Test plan',
-    currency: 'CZK',
     start_date: '2025-01-01',
     end_date: '2030-01-01',
     inflation_rate: 0,

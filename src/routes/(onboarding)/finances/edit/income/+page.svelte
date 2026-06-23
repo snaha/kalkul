@@ -42,19 +42,11 @@
     }))
   }
 
-  let incomes = $state<IncomeUI[]>([])
-  let incomeCounter = $state(0)
-  let hydrated = $state(false)
-
-  $effect(() => {
-    if (hydrated || appStore.loading) return
-    const stored = appStore.profile.incomes
-    if (stored && stored.length > 0) {
-      incomes = storedToUI(stored)
-      incomeCounter = incomes.length
-    }
-    hydrated = true
-  })
+  // The store is loaded before render (see +layout.ts), so the profile is
+  // already populated here — seed the form state directly.
+  const initialIncomes = storedToUI(appStore.profile.incomes ?? [])
+  let incomes = $state<IncomeUI[]>(initialIncomes)
+  let incomeCounter = $state(initialIncomes.length)
 
   let canContinue = $derived(incomes.some((i) => (i.amount ?? 0) > 0))
 
