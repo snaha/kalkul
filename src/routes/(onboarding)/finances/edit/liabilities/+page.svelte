@@ -45,19 +45,11 @@
     }))
   }
 
-  let liabilities = $state<LiabilityUI[]>([])
-  let liabilityCounter = $state(0)
-  let hydrated = $state(false)
-
-  $effect(() => {
-    if (hydrated || appStore.loading) return
-    const stored = appStore.profile.liabilities
-    if (stored && stored.length > 0) {
-      liabilities = storedToUI(stored)
-      liabilityCounter = liabilities.length
-    }
-    hydrated = true
-  })
+  // The store is loaded before render (see +layout.ts), so the profile is
+  // already populated here — seed the form state directly.
+  const initialLiabilities = storedToUI(appStore.profile.liabilities ?? [])
+  let liabilities = $state<LiabilityUI[]>(initialLiabilities)
+  let liabilityCounter = $state(initialLiabilities.length)
 
   let canContinue = $derived(liabilities.some((l) => (l.outstanding_balance ?? 0) > 0))
 
