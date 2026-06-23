@@ -32,7 +32,6 @@ export type PortfolioStore = Omit<PortfolioNested, 'investments' | 'goals'> & {
 export function withPortfolioStore(portfolio: PortfolioNested, app: AppParent): PortfolioStore {
   let id = $state(portfolio.id)
   let name = $state(portfolio.name)
-  let currency = $state(portfolio.currency)
   let start_date = $state(portfolio.start_date)
   let end_date = $state(portfolio.end_date)
   let inflation_rate = $state(portfolio.inflation_rate)
@@ -61,12 +60,6 @@ export function withPortfolioStore(portfolio: PortfolioNested, app: AppParent): 
     },
     set name(v) {
       name = v
-    },
-    get currency() {
-      return currency
-    },
-    set currency(v) {
-      currency = v
     },
     get start_date() {
       return start_date
@@ -246,7 +239,6 @@ export function withPortfolioStore(portfolio: PortfolioNested, app: AppParent): 
       return {
         id,
         name,
-        currency,
         start_date,
         end_date,
         inflation_rate,

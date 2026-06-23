@@ -122,9 +122,6 @@
     const portfolioId = appStore.addPortfolio({
       name: draft.name,
       notes: draft.notes,
-      // Per-plan currency isn't supported yet (no FX; formatters use the profile
-      // currency), so plans inherit the profile currency.
-      currency: appStore.profile.currencyOrDefault,
       start_date: draft.start_date,
       end_date: draft.end_date,
       inflation_rate: draft.inflation_rate,
