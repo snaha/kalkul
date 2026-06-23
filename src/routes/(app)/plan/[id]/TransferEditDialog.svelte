@@ -24,7 +24,7 @@
   } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
-  import { calculateAge, getMonthOptions, getYearOptions } from '$lib/utils'
+  import { getMonthOptions, getYearOptions } from '$lib/utils'
 
   interface Props {
     open: boolean
@@ -65,9 +65,6 @@
   const currentMonth = new Date().getMonth()
   const years = getYearOptions()
   let months = $derived(getMonthOptions($locale ?? undefined))
-  let currentAge = $derived(
-    Number(calculateAge(appStore.profile.birthDate, currentYear, currentMonth)) || undefined,
-  )
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
   // Build the From/To asset list from the profile, filtered by plan inclusion
@@ -113,13 +110,15 @@
       transaction_month: currentMonth + 1,
       frequency: 'monthly',
       start: 'immediately',
-      start_year: currentYear,
-      start_month: currentMonth + 1,
-      start_age: currentAge,
+      // Timing fields start empty so 'at_specific_date'/'when_age_is' force an
+      // explicit choice instead of silently defaulting to "now" (= plan year 1).
+      start_year: undefined,
+      start_month: undefined,
+      start_age: undefined,
       end: 'never',
-      end_year: currentYear,
-      end_month: currentMonth + 1,
-      end_age: currentAge,
+      end_year: undefined,
+      end_month: undefined,
+      end_age: undefined,
       change_over_time: 'none',
       change_percentage: undefined,
     }
@@ -139,13 +138,13 @@
     f.transaction_month = src.transaction_month ?? currentMonth + 1
     f.frequency = src.frequency ?? 'monthly'
     f.start = src.start ?? 'immediately'
-    f.start_year = src.start_year ?? currentYear
-    f.start_month = src.start_month ?? currentMonth + 1
-    f.start_age = src.start_age ?? currentAge
+    f.start_year = src.start_year
+    f.start_month = src.start_month
+    f.start_age = src.start_age
     f.end = src.end ?? 'never'
-    f.end_year = src.end_year ?? currentYear
-    f.end_month = src.end_month ?? currentMonth + 1
-    f.end_age = src.end_age ?? currentAge
+    f.end_year = src.end_year
+    f.end_month = src.end_month
+    f.end_age = src.end_age
     // Legacy migration: old change_over_time='match_inflation' folds into the
     // new toggle and the dropdown collapses to 'none'.
     const legacyInflation = src.change_over_time === 'match_inflation'
@@ -302,11 +301,28 @@
     close()
   }
 
+  // A timing edge ('start' or 'end') is complete only once the mode-specific
+  // field is filled — otherwise the projection would silently fall back to the
+  // plan's first year (see schemas.ts cashFlowTemporalRefinement).
+  function timingComplete(
+    mode: CashFlowStart | CashFlowEnd,
+    year: number | undefined,
+    month: number | undefined,
+    age: number | undefined,
+  ): boolean {
+    if (mode === 'at_specific_date') return year !== undefined && month !== undefined
+    if (mode === 'when_age_is') return age !== undefined
+    return true
+  }
+
   const canSave = $derived(
     form.from_asset_id !== '' &&
       form.to_asset_id !== '' &&
       form.from_asset_id !== form.to_asset_id &&
-      (form.transfer_all || (form.amount ?? 0) > 0),
+      (form.transfer_all || (form.amount ?? 0) > 0) &&
+      (form.schedule === 'one_time' ||
+        (timingComplete(form.start, form.start_year, form.start_month, form.start_age) &&
+          timingComplete(form.end, form.end_year, form.end_month, form.end_age))),
   )
 </script>
 
@@ -495,6 +511,7 @@
           age={form.start_age}
           {years}
           {months}
+          birthDateSet={appStore.profile.birthDate !== undefined}
           formatNumber={appStore.formatNumber}
           onValueChange={(v) => (form.start = v as CashFlowStart)}
           onYearChange={(v) => (form.start_year = v)}
@@ -510,6 +527,7 @@
           age={form.end_age}
           {years}
           {months}
+          birthDateSet={appStore.profile.birthDate !== undefined}
           formatNumber={appStore.formatNumber}
           onValueChange={(v) => (form.end = v as CashFlowEnd)}
           onYearChange={(v) => (form.end_year = v)}

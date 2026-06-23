@@ -1052,6 +1052,88 @@ describe('getYearlyPlanProjection', () => {
     expect(result[5].investments).toBeCloseTo(7200, 6) // 6 years inclusive
   })
 
+  it('delays a recurring transfer until its at_specific_date start year', () => {
+    const investments: ProfileInvestment[] = [{ id: 'inv1', name: 'Stocks', balance: 0, apy: 0 }]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'Future DCA',
+        from_asset_id: 'cash',
+        to_asset_id: 'inv1',
+        amount: 100,
+        schedule: 'recurring',
+        frequency: 'monthly',
+        start: 'at_specific_date',
+        start_year: 2028,
+        start_month: 1,
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ transfers }),
+      makeProfile({ cash_amount: 100_000, investments }),
+    )
+    // Plan runs 2025-2030; transfer starts 2028, so nothing before then.
+    expect(result[0].investments).toBeCloseTo(0, 6) // 2025
+    expect(result[1].investments).toBeCloseTo(0, 6) // 2026
+    expect(result[2].investments).toBeCloseTo(0, 6) // 2027
+    expect(result[3].investments).toBeCloseTo(1200, 6) // 2028
+    expect(result[4].investments).toBeCloseTo(2400, 6) // 2029
+  })
+
+  it('delays a recurring transfer until the when_age_is start year (birth date set)', () => {
+    const investments: ProfileInvestment[] = [{ id: 'inv1', name: 'Stocks', balance: 0, apy: 0 }]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'Age DCA',
+        from_asset_id: 'cash',
+        to_asset_id: 'inv1',
+        amount: 100,
+        schedule: 'recurring',
+        frequency: 'monthly',
+        start: 'when_age_is',
+        start_age: 48, // born 1980 → starts 2028
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ transfers }),
+      makeProfile({ cash_amount: 100_000, investments, birth_date: '1980-01-01' }),
+    )
+    expect(result[0].investments).toBeCloseTo(0, 6) // 2025
+    expect(result[2].investments).toBeCloseTo(0, 6) // 2027
+    expect(result[3].investments).toBeCloseTo(1200, 6) // 2028
+  })
+
+  it('falls back to plan start for when_age_is when no birth date is set', () => {
+    // Documents the silent fallback that the dialogs now prevent by disabling
+    // the "when age is" option when the profile has no birth date.
+    const investments: ProfileInvestment[] = [{ id: 'inv1', name: 'Stocks', balance: 0, apy: 0 }]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'Age DCA',
+        from_asset_id: 'cash',
+        to_asset_id: 'inv1',
+        amount: 100,
+        schedule: 'recurring',
+        frequency: 'monthly',
+        start: 'when_age_is',
+        start_age: 48,
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ transfers }),
+      makeProfile({ cash_amount: 100_000, investments }), // no birth_date
+    )
+    expect(result[0].investments).toBeCloseTo(1200, 6) // fires from year 1
+  })
+
   it('compounds recurring contributions at apy from the year they arrive', () => {
     // 1000 / year into an account at 10% APY, starting at plan-start.
     // Year 0: deposit 1000 -> balance 1000
