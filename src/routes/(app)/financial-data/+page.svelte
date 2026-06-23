@@ -9,6 +9,7 @@
   import BreakdownRow from '$lib/components/breakdown-row.svelte'
   import DonutChart from '$lib/components/donut-chart.svelte'
   import { Button } from '$lib/components/ui/button'
+  import { Separator } from '$lib/components/ui/separator'
   import {
     getCashTotal,
     getInvestmentsTotal,
@@ -68,17 +69,20 @@
     amount={appStore.formatCurrencyCode(tangible)}
     color={CATEGORY_COLORS.tangibleAssets[0]}
   />
+  <Separator />
   <BreakdownRow
     label={$_('page.financialData.overview.totalAssets')}
     amount={appStore.formatCurrencyCode(totalAssets)}
     bold
   />
+  <Separator />
   <BreakdownRow
     label={$_('page.financialData.nav.liabilities')}
     amount={appStore.formatCurrencyCode(-liabilities)}
     color={CATEGORY_COLORS.liabilities[0]}
     negative
   />
+  <Separator />
   <BreakdownRow
     label={$_('page.financialData.overview.netWorth')}
     amount={appStore.formatCurrencyCode(netWorth)}
