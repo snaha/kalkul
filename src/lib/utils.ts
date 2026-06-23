@@ -30,19 +30,23 @@ const COUNTRY_LOCALE_MAP: Record<string, string> = {
   FR: 'fr-FR',
 }
 
+/** Must match defaultLocale in locales/index.ts. Hardcoded here so utils stays free of the i18n init() side effect. */
+const DEFAULT_FORMATTING_LOCALE = 'en'
+
 /**
  * Resolve the locale for number/currency formatting.
- * Prefers the profile's country, falls back to browser locale.
+ * Prefers the profile's country, falls back to browser locale, then the app default.
+ * Never returns undefined: passing undefined to Intl leaks the OS locale (e.g. hu-HU).
  */
 export function getFormattingLocale(
   country: string | undefined,
   browserLocale: string | undefined,
-): string | undefined {
+): string {
   if (country) {
     const mapped = COUNTRY_LOCALE_MAP[country]
     if (mapped) return mapped
   }
-  return browserLocale ?? undefined
+  return browserLocale ?? DEFAULT_FORMATTING_LOCALE
 }
 
 export function getYearOptions(count = 50): string[] {
