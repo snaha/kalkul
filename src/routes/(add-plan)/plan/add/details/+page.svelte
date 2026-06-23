@@ -16,7 +16,7 @@
   import routes from '$lib/routes'
   import type { PlanEndType, PlanStartType } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
-  import { CURRENCY_OPTIONS, getMonthOptions, getYearOptions } from '$lib/utils'
+  import { getMonthOptions, getYearOptions } from '$lib/utils'
 
   // Generate a default plan name based on existing portfolios
   function getDefaultPlanName(): string {
@@ -33,10 +33,6 @@
   let endAge = $state<number | undefined>(85)
   let endYear = $state('')
   let endMonth = $state('')
-  // Per-plan currency isn't honored by the engine/formatters yet (no FX, display
-  // uses the profile currency), so the selector is shown read-only and the plan
-  // always inherits the profile currency.
-  const currency = $derived(appStore.profile.currencyOrDefault)
   let inflation = $state<number | undefined>(2)
 
   const years = getYearOptions()
@@ -96,7 +92,6 @@
     const planDetails = {
       name: name.trim(),
       notes: notes.trim() || undefined,
-      currency,
       start_date: getStartDate(),
       end_date: getEndDate(),
       inflation_rate: (inflation ?? 2) / 100,
@@ -183,20 +178,14 @@
       {/if}
     </div>
 
-    <div class="flex items-end gap-2">
-      <div class="flex flex-1 flex-col gap-2">
-        <Label>{$_('page.addPlan.details.currency')}</Label>
-        <SelectField value={currency} items={CURRENCY_OPTIONS} disabled />
-      </div>
-      <div class="flex flex-1 flex-col gap-2">
-        <Label>{$_('page.addPlan.details.inflation')}</Label>
-        <SuffixedInput
-          value={inflation}
-          suffix="%"
-          formatNumber={appStore.formatNumber}
-          onValueChange={(v) => (inflation = v)}
-        />
-      </div>
+    <div class="flex flex-col gap-2">
+      <Label>{$_('page.addPlan.details.inflation')}</Label>
+      <SuffixedInput
+        value={inflation}
+        suffix="%"
+        formatNumber={appStore.formatNumber}
+        onValueChange={(v) => (inflation = v)}
+      />
     </div>
   </div>
 
