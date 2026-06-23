@@ -325,7 +325,7 @@
   <!-- Bars -->
   {#each bars as bar (bar.year)}
     <g
-      class="cursor-pointer transition-opacity"
+      class="cursor-pointer transition-opacity focus:outline-none"
       class:opacity-60={hoveredYear !== undefined && bar.year === hoveredYear}
       role="button"
       tabindex="0"
@@ -333,6 +333,8 @@
       onkeydown={(e) => handleKeyDown(e, bar.year)}
       onmouseenter={() => handleBarMouseEnter(bar)}
       onmouseleave={handleBarMouseLeave}
+      onfocus={() => handleBarMouseEnter(bar)}
+      onblur={handleBarMouseLeave}
       aria-label="Year {bar.year}"
     >
       <!-- Invisible hit area to prevent tooltip flashing between bars -->
