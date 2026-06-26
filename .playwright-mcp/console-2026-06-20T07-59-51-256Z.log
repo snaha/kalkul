@@ -1,0 +1,7 @@
+[     792ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ http://localhost:5179/financial-data/incomes:0
+[   29187ms] [WARNING] %c[svelte] ownership_invalid_mutation
+%cMutating unbound props (`item`, at src/​lib/​components/​cash-flow-item-card.svelte:107:12) is strongly discouraged. Consider using `bind:item={...}` in src/lib/components/incomes-editor.svelte (or using a callback) instead
+https://svelte.dev/e/ownership_invalid_mutation font-weight: bold font-weight: normal @ http://localhost:5179/@vite/client:509
+[   36288ms] [WARNING] %c[svelte] ownership_invalid_mutation
+%cMutating unbound props (`item`, at src/​lib/​components/​cash-flow-item-card.svelte:128:10) is strongly discouraged. Consider using `bind:item={...}` in src/lib/components/incomes-editor.svelte (or using a callback) instead
+https://svelte.dev/e/ownership_invalid_mutation font-weight: bold font-weight: normal @ http://localhost:5179/@vite/client:509

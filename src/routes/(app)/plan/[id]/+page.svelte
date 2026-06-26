@@ -233,7 +233,7 @@
   const liabilitiesValue = $derived(selectedYearProjection?.liabilities ?? 0)
   const netWorth = $derived(selectedYearProjection?.netWorth ?? 0)
 
-  // Per-frequency short suffix for cash-flow rows (matches read-only-cash-flow-row.svelte)
+  // Per-frequency short suffix for cash-flow rows
   function frequencySuffix(frequency: Frequency): string {
     if (frequency === 'monthly') return $_('page.financialData.frequency.short.monthly')
     if (frequency === 'weekly') return $_('page.financialData.frequency.short.weekly')

@@ -4,29 +4,41 @@
   import { ArrowLeft, Calendar, SquarePen } from '@lucide/svelte'
 
   import { resolve } from '$app/paths'
+  import { page } from '$app/state'
 
   import { Badge } from '$lib/components/ui/badge'
   import { Button } from '$lib/components/ui/button'
-  import { resolveFinancialDataRoute } from '$lib/financial-data-nav'
   import routes from '$lib/routes'
 
   interface Props {
-    backTarget: 'home' | 'overview'
     date: string
   }
 
-  let { backTarget, date }: Props = $props()
+  let { date }: Props = $props()
 
-  const backHref = $derived(
-    backTarget === 'overview'
-      ? resolveFinancialDataRoute(routes.FINANCIAL_DATA)
-      : resolve(routes.HOME),
-  )
+  // Resume the onboarding edit flow at the category currently being viewed.
+  const editHref = $derived.by(() => {
+    const seg = page.url.pathname.replace(/\/$/, '').split('/').pop()
+    switch (seg) {
+      case 'investments':
+        return resolve(routes.FINANCES_EDIT_INVESTMENTS)
+      case 'tangible-assets':
+        return resolve(routes.FINANCES_EDIT_TANGIBLE_ASSETS)
+      case 'liabilities':
+        return resolve(routes.FINANCES_EDIT_LIABILITIES)
+      case 'incomes':
+        return resolve(routes.FINANCES_EDIT_INCOME)
+      case 'expenses':
+        return resolve(routes.FINANCES_EDIT_EXPENSES)
+      default:
+        return resolve(routes.FINANCES_EDIT)
+    }
+  })
 </script>
 
 <div class="flex items-start gap-4 p-8">
   <div class="flex min-w-0 flex-1 items-center gap-2">
-    <Button variant="ghost" size="icon" href={backHref}>
+    <Button variant="ghost" size="icon" href={resolve(routes.HOME)}>
       <ArrowLeft class="size-4" />
     </Button>
     <h1 class="text-2xl leading-8 font-bold whitespace-nowrap">
@@ -37,7 +49,7 @@
       {date}
     </Badge>
   </div>
-  <Button size="sm" href={resolve(routes.FINANCES_EDIT)}>
+  <Button size="sm" href={editHref}>
     <SquarePen class="size-4" />
     {$_('page.financialData.update')}
   </Button>

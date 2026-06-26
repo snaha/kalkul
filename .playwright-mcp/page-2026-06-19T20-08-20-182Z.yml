@@ -1,0 +1,53 @@
+- generic [ref=e3]:
+    - banner [ref=e4]:
+        - generic [ref=e5]:
+            - generic [ref=e6]: Add plan
+            - progressbar [ref=e7]
+        - button [ref=e9] [cursor=pointer]:
+            - img
+        - link [ref=e10] [cursor=pointer]:
+            - /url: ../../
+            - img
+    - main [ref=e11]:
+        - generic [ref=e12]:
+            - generic [ref=e13]:
+                - heading "Plan details" [level=1] [ref=e14]
+                - paragraph [ref=e15]: Provide basic information about this plan.
+            - generic [ref=e16]:
+                - generic [ref=e17]:
+                    - generic [ref=e18]: Plan name
+                    - textbox "Plan name" [ref=e19]: Plan 1
+                - generic [ref=e20]:
+                    - generic [ref=e21]: Notes
+                    - textbox "Notes" [ref=e22]:
+                        - /placeholder: Say something about this plan
+                - generic [ref=e24]:
+                    - generic [ref=e25]: Start
+                    - button "Now" [ref=e26]:
+                        - generic [ref=e27]: Now
+                        - img
+                - generic [ref=e28]:
+                    - generic [ref=e29]:
+                        - generic [ref=e30]: End
+                        - button "When your age is" [ref=e31]:
+                            - generic [ref=e32]: When your age is
+                            - img
+                    - generic [ref=e34]:
+                        - textbox "0" [ref=e35]: '85'
+                        - generic: Years old
+                - generic [ref=e36]:
+                    - generic [ref=e37]:
+                        - generic [ref=e38]: Currency
+                        - button "EUR" [ref=e39]:
+                            - generic [ref=e40]: EUR
+                            - img
+                    - generic [ref=e41]:
+                        - generic [ref=e42]: Inflation
+                        - generic [ref=e43]:
+                            - textbox "0" [ref=e44]: '2'
+                            - generic: '%'
+            - generic [ref=e45]:
+                - button "Back" [ref=e46] [cursor=pointer]
+                - button "Continue" [ref=e48] [cursor=pointer]:
+                    - text: Continue
+                    - img
