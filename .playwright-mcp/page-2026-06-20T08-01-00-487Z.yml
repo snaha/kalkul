@@ -1,0 +1,25 @@
+- generic [ref=e3]:
+    - banner [ref=e4]:
+        - generic [ref=e5]:
+            - generic [ref=e6]: Initial setup
+            - progressbar [ref=e7]
+        - button [ref=e9] [cursor=pointer]:
+            - img
+        - link [ref=e10] [cursor=pointer]:
+            - /url: ../../
+            - img
+    - main [ref=e11]:
+        - generic [ref=e12]:
+            - generic [ref=e13]:
+                - heading "Incomes" [level=1] [ref=e14]
+                - paragraph [ref=e15]: Salary, business income, and other regular earnings.
+            - button "Add income" [ref=e18] [cursor=pointer]:
+                - img
+                - text: Add income
+            - generic [ref=e19]:
+                - button "Back" [ref=e20] [cursor=pointer]
+                - generic [ref=e21]:
+                    - button "Skip" [ref=e22] [cursor=pointer]
+                    - button "Continue" [disabled]:
+                        - text: Continue
+                        - img

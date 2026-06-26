@@ -24,7 +24,7 @@
   } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
-  import { calculateAge, getMonthOptions, getYearOptions } from '$lib/utils'
+  import { getMonthOptions, getYearOptions } from '$lib/utils'
 
   type CashFlow = Income | Expense
 
@@ -58,13 +58,8 @@
     change_percentage: number | undefined
   }
 
-  const currentYear = new Date().getFullYear()
-  const currentMonth = new Date().getMonth()
   const years = getYearOptions()
   let months = $derived(getMonthOptions($locale ?? undefined))
-  let currentAge = $derived(
-    Number(calculateAge(appStore.profile.birthDate, currentYear, currentMonth)) || undefined,
-  )
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
   let frequencyItems = $derived([
@@ -92,13 +87,15 @@
       // terms, so this matches user intent for the common case.
       inflation_adjusted: true,
       start: 'immediately',
-      start_year: currentYear,
-      start_month: currentMonth,
-      start_age: currentAge,
+      // Timing fields start empty so 'at_specific_date'/'when_age_is' force an
+      // explicit choice instead of silently defaulting to "now" (= plan year 1).
+      start_year: undefined,
+      start_month: undefined,
+      start_age: undefined,
       end: 'never',
-      end_year: currentYear,
-      end_month: currentMonth,
-      end_age: currentAge,
+      end_year: undefined,
+      end_month: undefined,
+      end_age: undefined,
       change_over_time: 'none',
       change_percentage: undefined,
     }
@@ -122,13 +119,13 @@
       tax_percentage: isIncome(src) ? src.tax_percentage : undefined,
       inflation_adjusted: inflationAdjusted,
       start: src.start,
-      start_year: src.start_year ?? currentYear,
-      start_month: src.start_month ?? currentMonth,
-      start_age: src.start_age ?? currentAge,
+      start_year: src.start_year,
+      start_month: src.start_month,
+      start_age: src.start_age,
       end: src.end,
-      end_year: src.end_year ?? currentYear,
-      end_month: src.end_month ?? currentMonth,
-      end_age: src.end_age ?? currentAge,
+      end_year: src.end_year,
+      end_month: src.end_month,
+      end_age: src.end_age,
       change_over_time: changeOverTime,
       change_percentage: src.change_percentage,
     }
@@ -206,6 +203,25 @@
           : undefined,
     }
   }
+
+  // A timing edge ('start' or 'end') is complete only once the mode-specific
+  // field is filled — otherwise the projection would silently fall back to the
+  // plan's first year (see schemas.ts cashFlowTemporalRefinement).
+  function timingComplete(
+    mode: CashFlowStart | CashFlowEnd,
+    year: number | undefined,
+    month: number | undefined,
+    age: number | undefined,
+  ): boolean {
+    if (mode === 'at_specific_date') return year !== undefined && month !== undefined
+    if (mode === 'when_age_is') return age !== undefined
+    return true
+  }
+
+  const canSave = $derived(
+    timingComplete(form.start, form.start_year, form.start_month, form.start_age) &&
+      timingComplete(form.end, form.end_year, form.end_month, form.end_age),
+  )
 
   function close() {
     onOpenChange(false)
@@ -445,6 +461,7 @@
         age={form.start_age}
         {years}
         {months}
+        birthDateSet={appStore.profile.birthDate !== undefined}
         formatNumber={appStore.formatNumber}
         onValueChange={(v) => (form.start = v as CashFlowStart)}
         onYearChange={(v) => (form.start_year = v)}
@@ -460,6 +477,7 @@
         age={form.end_age}
         {years}
         {months}
+        birthDateSet={appStore.profile.birthDate !== undefined}
         formatNumber={appStore.formatNumber}
         onValueChange={(v) => (form.end = v as CashFlowEnd)}
         onYearChange={(v) => (form.end_year = v)}
@@ -478,7 +496,7 @@
 
     <Dialog.Footer class="flex flex-row justify-end gap-2 border-t p-4">
       <Button variant="secondary" onclick={close}>{$_('page.plan.cancel')}</Button>
-      <Button onclick={save}>{$_('page.plan.saveChanges')}</Button>
+      <Button onclick={save} disabled={!canSave}>{$_('page.plan.saveChanges')}</Button>
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>

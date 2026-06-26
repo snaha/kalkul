@@ -67,6 +67,7 @@
   import { TriangleAlert } from '@lucide/svelte'
 
   import { CATEGORY_COLORS } from '$lib/chart-colors'
+  import * as Tooltip from '$lib/components/ui/tooltip'
 
   type Props = {
     data: BarData[]
@@ -324,7 +325,7 @@
   <!-- Bars -->
   {#each bars as bar (bar.year)}
     <g
-      class="cursor-pointer transition-opacity"
+      class="cursor-pointer transition-opacity focus:outline-none"
       class:opacity-60={hoveredYear !== undefined && bar.year === hoveredYear}
       role="button"
       tabindex="0"
@@ -332,6 +333,8 @@
       onkeydown={(e) => handleKeyDown(e, bar.year)}
       onmouseenter={() => handleBarMouseEnter(bar)}
       onmouseleave={handleBarMouseLeave}
+      onfocus={() => handleBarMouseEnter(bar)}
+      onblur={handleBarMouseLeave}
       aria-label="Year {bar.year}"
     >
       <!-- Invisible hit area to prevent tooltip flashing between bars -->
@@ -407,12 +410,22 @@
       height="16"
       class="pointer-events-auto"
     >
-      <div
-        title={firstErrorTooltip}
-        class="flex size-4 items-center justify-center text-destructive"
-      >
-        <TriangleAlert class="size-4" />
-      </div>
+      <Tooltip.Provider delayDuration={150}>
+        <Tooltip.Root>
+          <Tooltip.Trigger>
+            {#snippet child({ props })}
+              <div
+                {...props}
+                aria-label={firstErrorTooltip}
+                class="flex size-4 items-center justify-center text-destructive"
+              >
+                <TriangleAlert class="size-4" />
+              </div>
+            {/snippet}
+          </Tooltip.Trigger>
+          <Tooltip.Content>{firstErrorTooltip}</Tooltip.Content>
+        </Tooltip.Root>
+      </Tooltip.Provider>
     </foreignObject>
   {/if}
 </svg>

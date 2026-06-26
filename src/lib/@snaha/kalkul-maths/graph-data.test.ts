@@ -236,7 +236,6 @@ describe('inflation-adjusted transactions on graph', () => {
   }
 
   const portfolio: Portfolio = {
-    currency: 'USD',
     end_date: '2030-12-31',
     id: 'test-portfolio-1',
     inflation_rate: 0.03,
@@ -414,7 +413,6 @@ describe('inflation-adjusted transactions on graph', () => {
   it('should use earliest transaction date as inflation baseline', () => {
     // Portfolio runs from 2025-2055 but first transaction is from 1997
     const portfolio: Portfolio = {
-      currency: 'EUR',
       end_date: '2055-01-13',
       id: 'test-portfolio-2',
       inflation_rate: 0.0225,
@@ -476,7 +474,6 @@ describe('inflation-adjusted transactions on graph', () => {
   it('should use portfolio start date when it is earlier than first transaction', () => {
     // Portfolio starts in 1990, first transaction is in 2000
     const portfolio: Portfolio = {
-      currency: 'USD',
       end_date: '2030-01-01',
       id: 'test-portfolio-3',
       inflation_rate: 0.05,
@@ -635,7 +632,6 @@ describe('per-investment caching', () => {
   const mockPortfolio: Portfolio = {
     id: 'test-portfolio-1',
     name: 'Test Portfolio',
-    currency: 'USD',
     start_date: '2024-01-01',
     end_date: '2024-12-31',
     inflation_rate: 0.03,

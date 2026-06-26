@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { untrack } from 'svelte'
+  import { onDestroy } from 'svelte'
   import { _ } from 'svelte-i18n'
 
   import { Plus } from '@lucide/svelte'
@@ -58,19 +58,11 @@
     }))
   }
 
-  let assets = $state<AssetUI[]>([])
-  let assetCounter = $state(0)
-  let hydrated = $state(false)
-
-  $effect(() => {
-    if (hydrated || appStore.loading) return
-    const stored = appStore.profile.tangible_assets
-    if (stored && stored.length > 0) {
-      assets = storedToUI(stored)
-      assetCounter = assets.length
-    }
-    hydrated = true
-  })
+  // The store is loaded before render (see +layout.ts), so the profile is
+  // already populated here — seed the form state directly.
+  const initial = storedToUI(appStore.profile.tangible_assets ?? [])
+  let assets = $state<AssetUI[]>(initial)
+  let assetCounter = $state(initial.length)
 
   $effect(() => {
     onHasValueChange?.(assets.some((a) => (a.value ?? 0) > 0))
@@ -131,7 +123,7 @@
 
   function save() {
     const data: ProfileTangibleAsset[] = assets
-      .filter((a) => a.name.trim().length > 0)
+      .filter((a) => a.name.trim().length > 0 || (a.value ?? 0) > 0)
       .map((a) => ({
         id: a.id,
         name: a.name,
@@ -148,18 +140,34 @@
       has_tangible_assets: data.length > 0,
     })
   }
-  // Auto-save on any edit. Skip the first post-hydration run so merely viewing the
-  // page doesn't rewrite the profile (and bump "last updated") without a real change.
+  // Auto-save on any edit, debounced so rapid typing does one schema-parse +
+  // localStorage write instead of one per keystroke. save() can throw on
+  // transient invalid mid-edit data, so it's guarded. Skip the first (mount)
+  // run so merely viewing the page doesn't rewrite the profile (and bump
+  // "last updated") without a real change.
+  let saveTimer: ReturnType<typeof setTimeout> | undefined
+  function flushSave() {
+    if (saveTimer !== undefined) {
+      clearTimeout(saveTimer)
+      saveTimer = undefined
+    }
+    try {
+      save()
+    } catch {
+      /* transient invalid mid-edit */
+    }
+  }
   let autoSaveArmed = false
   $effect(() => {
-    if (!hydrated) return
     $state.snapshot(assets) // track every field so edits re-run this effect
     if (!autoSaveArmed) {
       autoSaveArmed = true
       return
     }
-    untrack(save)
+    if (saveTimer !== undefined) clearTimeout(saveTimer)
+    saveTimer = setTimeout(flushSave, 300)
   })
+  onDestroy(flushSave)
 </script>
 
 <div class="flex w-full flex-col gap-4">

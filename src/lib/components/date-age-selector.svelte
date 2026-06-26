@@ -14,6 +14,12 @@
     years: string[]
     months: { value: string; label: string }[]
     /**
+     * Whether the profile has a birth date. Age-based timing ('when_age_is')
+     * can't resolve to a year without one, so the option is disabled when this
+     * is false to avoid a transfer/cash-flow silently starting at plan year 1.
+     */
+    birthDateSet?: boolean
+    /**
      * Overrides the option-aware description. When omitted, the description
      * derives from the selected option using shared i18n keys (matches the
      * Figma spec at node 233:6637).
@@ -34,6 +40,7 @@
     age,
     years,
     months,
+    birthDateSet = true,
     description,
     onValueChange,
     onYearChange,
@@ -60,18 +67,25 @@
   let yearString = $derived(year !== undefined ? String(year) : '')
   let monthString = $derived(month !== undefined ? String(month) : '')
 
+  // Age-based timing needs a birth date to resolve to a year; disable it when
+  // none is set so the flow can't silently start at the plan's first year.
+  let whenAgeIsItem = $derived({
+    value: 'when_age_is',
+    label: $_('page.setup.common.whenAgeIs'),
+    disabled: !birthDateSet,
+  })
   let modeItems = $derived(
     mode === 'start'
       ? [
           { value: 'immediately', label: $_('page.setup.common.immediately') },
           { value: 'now', label: $_('page.setup.common.now') },
           { value: 'at_specific_date', label: $_('page.setup.common.atSpecificDate') },
-          { value: 'when_age_is', label: $_('page.setup.common.whenAgeIs') },
+          whenAgeIsItem,
         ]
       : [
           { value: 'never', label: $_('page.setup.common.never') },
           { value: 'at_specific_date', label: $_('page.setup.common.atSpecificDate') },
-          { value: 'when_age_is', label: $_('page.setup.common.whenAgeIs') },
+          whenAgeIsItem,
         ],
   )
   let yearItems = $derived(years.map((y) => ({ value: y, label: y })))

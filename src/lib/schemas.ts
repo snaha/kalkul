@@ -346,7 +346,6 @@ export const portfolioSchema = z.object({
   id: z.string(),
   name: z.string(),
   notes: z.string().optional(),
-  currency: z.string(),
   start_date: z.string(),
   end_date: z.string(),
   inflation_rate: z.number(),

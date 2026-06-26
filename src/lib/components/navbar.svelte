@@ -76,11 +76,16 @@
     <img src={logo} alt="Kalkul" class="size-9" />
   </a>
   <div class="flex items-center gap-4">
-    <ThemeSwitcher class="text-white hover:bg-white/10" />
+    <ThemeSwitcher class="text-white hover:bg-white/10 hover:text-white dark:hover:bg-white/10" />
     <DropdownMenu.Root>
       <DropdownMenu.Trigger>
         {#snippet child({ props })}
-          <Button variant="ghost" size="icon" class="text-white hover:bg-white/10" {...props}>
+          <Button
+            variant="ghost"
+            size="icon"
+            class="text-white hover:bg-white/10 hover:text-white dark:hover:bg-white/10"
+            {...props}
+          >
             <EllipsisVertical class="size-4" />
           </Button>
         {/snippet}

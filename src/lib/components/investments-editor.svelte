@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { untrack } from 'svelte'
+  import { onDestroy } from 'svelte'
   import { _ } from 'svelte-i18n'
 
   import { Plus } from '@lucide/svelte'
@@ -40,19 +40,11 @@
     }))
   }
 
-  let investments = $state<InvestmentUI[]>([])
-  let investmentCounter = $state(0)
-  let hydrated = $state(false)
-
-  $effect(() => {
-    if (hydrated || appStore.loading) return
-    const stored = appStore.profile.investments
-    if (stored && stored.length > 0) {
-      investments = storedToUI(stored)
-      investmentCounter = investments.length
-    }
-    hydrated = true
-  })
+  // The store is loaded before render (see +layout.ts), so the profile is
+  // already populated here — seed the form state directly.
+  const initial = storedToUI(appStore.profile.investments ?? [])
+  let investments = $state<InvestmentUI[]>(initial)
+  let investmentCounter = $state(initial.length)
 
   $effect(() => {
     onHasValueChange?.(investments.some((i) => (i.balance ?? 0) > 0))
@@ -97,7 +89,7 @@
 
   function save() {
     const data: ProfileInvestment[] = investments
-      .filter((i) => i.name.trim().length > 0)
+      .filter((i) => i.name.trim().length > 0 || (i.balance ?? 0) > 0)
       .map((i) => ({
         id: i.id,
         name: i.name,
@@ -109,18 +101,34 @@
       has_investments: data.length > 0,
     })
   }
-  // Auto-save on any edit. Skip the first post-hydration run so merely viewing the
-  // page doesn't rewrite the profile (and bump "last updated") without a real change.
+  // Auto-save on any edit, debounced so rapid typing does one schema-parse +
+  // localStorage write instead of one per keystroke. save() can throw on
+  // transient invalid mid-edit data (e.g. "when age is" before an age is set),
+  // so it's guarded. Skip the first (mount) run so merely viewing the page
+  // doesn't rewrite the profile (and bump "last updated") without a real change.
+  let saveTimer: ReturnType<typeof setTimeout> | undefined
+  function flushSave() {
+    if (saveTimer !== undefined) {
+      clearTimeout(saveTimer)
+      saveTimer = undefined
+    }
+    try {
+      save()
+    } catch {
+      /* transient invalid mid-edit */
+    }
+  }
   let autoSaveArmed = false
   $effect(() => {
-    if (!hydrated) return
     $state.snapshot(investments) // track every field so edits re-run this effect
     if (!autoSaveArmed) {
       autoSaveArmed = true
       return
     }
-    untrack(save)
+    if (saveTimer !== undefined) clearTimeout(saveTimer)
+    saveTimer = setTimeout(flushSave, 300)
   })
+  onDestroy(flushSave)
 </script>
 
 <div class="flex w-full flex-col gap-4">

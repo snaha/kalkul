@@ -15,7 +15,8 @@
   })
 
   onMount(() => {
-    appStore.load()
+    // Data is loaded synchronously in +layout.ts before render; here we only
+    // wire up cross-tab sync, which needs the browser `window`.
     cleanupSync = appStore.startSync()
   })
 

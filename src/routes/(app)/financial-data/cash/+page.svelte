@@ -1,8 +1,6 @@
 <script lang="ts">
   import { _, locale } from 'svelte-i18n'
 
-  import { CATEGORY_COLORS } from '$lib/chart-colors'
-  import DonutChart from '$lib/components/donut-chart.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Label } from '$lib/components/ui/label'
   import { getCashTotal } from '$lib/financial-totals'
@@ -11,10 +9,6 @@
 
   const cash = $derived(getCashTotal(appStore.profile))
 
-  const segments = $derived(
-    cash > 0 ? [{ label: 'cash', value: cash, color: CATEGORY_COLORS.cash }] : [],
-  )
-
   const lastUpdatedDate = $derived(formatLastUpdated(appStore.lastUpdated, $locale))
 
   function handleCashChange(value: number | undefined) {
@@ -22,15 +16,12 @@
   }
 </script>
 
-<div class="flex w-full flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-8">
-  <DonutChart {segments} size={160} variant="pie" />
-  <div class="flex flex-1 flex-col items-start gap-2">
-    <p class="text-lg leading-7 font-medium">{$_('page.financialData.cash.title')}</p>
-    <p class="text-3xl leading-9 font-bold">{appStore.formatCurrencyCode(cash)}</p>
-    <span class="text-xs leading-4 text-muted-foreground">
-      {$_('page.financialData.overview.lastUpdated', { values: { date: lastUpdatedDate } })}
-    </span>
-  </div>
+<div class="flex w-full flex-col items-start gap-2">
+  <p class="text-lg leading-7 font-medium">{$_('page.financialData.cash.title')}</p>
+  <p class="text-3xl leading-9 font-bold">{appStore.formatCurrencyCode(cash)}</p>
+  <span class="text-xs leading-4 text-muted-foreground">
+    {$_('page.financialData.overview.lastUpdated', { values: { date: lastUpdatedDate } })}
+  </span>
 </div>
 
 <div class="flex w-full flex-col items-start gap-2">
