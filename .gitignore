@@ -8,8 +8,9 @@ node_modules
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 test-results
-.claude/settings.local.json
-.claude/scheduled_tasks.lock
+.claude/*
+!.claude/launch.json
+!.claude/settings.json
 .playwright-mcp/
 playwright-report
 playwright/.cache
