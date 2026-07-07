@@ -471,16 +471,16 @@
 
   // Calculate age from birth date for the selected year
   const currentAge = $derived.by(() => {
-    if (!appStore.profile.birth_date) return undefined
-    const birthYear = new Date(appStore.profile.birth_date).getFullYear()
-    return selectedYear - birthYear
+    const birthDate = appStore.profile.birthDate
+    if (!birthDate) return undefined
+    return selectedYear - birthDate.getFullYear()
   })
 
   // Calculate age for hovered year
   const hoveredAge = $derived.by(() => {
-    if (!appStore.profile.birth_date || hoveredYear === undefined) return undefined
-    const birthYear = new Date(appStore.profile.birth_date).getFullYear()
-    return hoveredYear - birthYear
+    const birthDate = appStore.profile.birthDate
+    if (!birthDate || hoveredYear === undefined) return undefined
+    return hoveredYear - birthDate.getFullYear()
   })
 
   // Get data for hovered year

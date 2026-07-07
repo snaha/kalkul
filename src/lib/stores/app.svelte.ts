@@ -8,6 +8,7 @@ import {
   formatCurrency,
   formatCurrencyCode,
   getFormattingLocale,
+  parseDateOnly,
 } from '$lib/utils'
 
 import type { PortfolioStore } from './portfolio.svelte'
@@ -56,7 +57,7 @@ function enrichProfile({
     expenses,
     hide_plan_intro,
     get birthDate() {
-      return birth_date ? new Date(birth_date) : undefined
+      return birth_date ? parseDateOnly(birth_date) : undefined
     },
     get currencyOrDefault() {
       return currency ?? DEFAULT_CURRENCY

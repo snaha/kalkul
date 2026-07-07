@@ -17,6 +17,7 @@
     DEFAULT_CURRENCY,
     getBirthYearOptions,
     getMonthOptions,
+    toDateOnlyString,
   } from '$lib/utils'
 
   // The store is loaded before render (see +layout.ts), so the profile is
@@ -67,11 +68,8 @@
       currency: currency || undefined,
     }
     if (birthYear !== '' && birthMonth !== '') {
-      // Build the date string from local components (day is always 1) to avoid the
-      // UTC shift that `toISOString()` introduces in positive-offset timezones, which
-      // would otherwise roll the date back a day and across the month boundary.
-      const month = String(Number(birthMonth) + 1).padStart(2, '0')
-      updates.birth_date = `${birthYear}-${month}-01`
+      const date = new Date(Number(birthYear), Number(birthMonth), 1)
+      updates.birth_date = toDateOnlyString(date)
     }
     appStore.updateProfile(updates)
     goto(resolve(routes.FINANCES_EDIT))
