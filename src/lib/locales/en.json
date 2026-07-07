@@ -424,6 +424,7 @@
     "required_when_start_when_age_is": "Required when start is at a specific age",
     "required_when_end_at_specific_date": "Required when end is at a specific date",
     "required_when_end_when_age_is": "Required when end is at a specific age",
+    "end_month_before_start_month": "End month must not be before start month in the same year",
     "required_when_financed": "Required when asset is financed",
     "required_for_one_time_transfer": "Required for a one-time transfer",
     "required_for_recurring_transfer": "Required for a recurring transfer",

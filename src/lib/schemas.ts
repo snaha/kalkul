@@ -95,6 +95,23 @@ const cashFlowTemporalRefinement = (
       message: get(_)('validation.required_when_end_when_age_is'),
     })
   }
+  // A start month after the end month within the same calendar year would
+  // silently zero the cash flow in the projection — reject it instead.
+  if (
+    obj.start === 'at_specific_date' &&
+    obj.end === 'at_specific_date' &&
+    obj.start_year !== undefined &&
+    obj.start_year === obj.end_year &&
+    obj.start_month !== undefined &&
+    obj.end_month !== undefined &&
+    obj.start_month > obj.end_month
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['end_month'],
+      message: get(_)('validation.end_month_before_start_month'),
+    })
+  }
 }
 
 // A timing edge ('start' or 'end') is complete only once the mode-specific
