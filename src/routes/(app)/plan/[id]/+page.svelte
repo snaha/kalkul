@@ -44,13 +44,13 @@
   import { appStore } from '$lib/stores/app.svelte'
   import { cn, notImplemented } from '$lib/utils'
 
-  import AddAssetDialog, { type AssetKind as AddAssetKind } from './AddAssetDialog.svelte'
-  import AddCashFlowDialog from './AddCashFlowDialog.svelte'
-  import AssetEditDialog, { type AssetKind } from './AssetEditDialog.svelte'
-  import CashEditDialog from './CashEditDialog.svelte'
-  import CashFlowEditDialog from './CashFlowEditDialog.svelte'
-  import PlanSidebarRow from './PlanSidebarRow.svelte'
-  import TransferEditDialog from './TransferEditDialog.svelte'
+  import AddAssetDialog, { type AssetKind as AddAssetKind } from './add-asset-dialog.svelte'
+  import AddCashFlowDialog from './add-cash-flow-dialog.svelte'
+  import AssetEditDialog, { type AssetKind } from './asset-edit-dialog.svelte'
+  import CashEditDialog from './cash-edit-dialog.svelte'
+  import CashFlowEditDialog from './cash-flow-edit-dialog.svelte'
+  import PlanSidebarRow from './plan-sidebar-row.svelte'
+  import TransferEditDialog from './transfer-edit-dialog.svelte'
 
   const planId = $derived(page.params.id)
   const plan = $derived(appStore.portfolios.find((p) => p.id === planId))
