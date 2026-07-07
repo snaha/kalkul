@@ -7,6 +7,7 @@ import {
   formatCompactCurrency,
   formatCurrency,
   formatCurrencyCode,
+  formatNumber,
   getFormattingLocale,
   parseDateOnly,
 } from '$lib/utils'
@@ -191,7 +192,7 @@ function withAppStore() {
 
     formatNumber(value: number) {
       const loc = getFormattingLocale(profile.location, browserLocale)
-      return value.toLocaleString(loc ?? undefined, { maximumFractionDigits: 4 })
+      return formatNumber(value, loc)
     },
     formatCurrency(value: number) {
       const loc = getFormattingLocale(profile.location, browserLocale)
