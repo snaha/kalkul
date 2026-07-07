@@ -1,3 +1,6 @@
+import { _ } from 'svelte-i18n'
+import { get } from 'svelte/store'
+
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
@@ -89,7 +92,7 @@ export function toDateOnlyString(date: Date): string {
 }
 
 export function notImplemented() {
-  alert('Not implemented yet')
+  alert(get(_)('common.notImplemented'))
 }
 
 export function formatCurrency(value: number, currency: string, locale?: string): string {
