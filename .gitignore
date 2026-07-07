@@ -3,12 +3,15 @@ node_modules
 /build
 /.svelte-kit
 /package
-.env.*
+.env*
 !.env.example
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 test-results
-.claude/settings.local.json
+.claude/*
+!.claude/launch.json
+!.claude/settings.json
+.playwright-mcp/
 playwright-report
 playwright/.cache
 backups/
