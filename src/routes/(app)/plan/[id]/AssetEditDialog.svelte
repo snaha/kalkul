@@ -32,6 +32,7 @@
     ProfileTangibleAsset,
     TangibleAssetStatus,
   } from '$lib/schemas'
+  import { getFrequencyItems, getTangibleAssetStatusItems } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
 
@@ -204,16 +205,9 @@
     { value: 'fixed', label: $_('page.plan.exitFeeFixed') },
   ])
 
-  let tangibleAssetStatusItems = $derived([
-    { value: 'fully_owned', label: $_('page.setup.tangibleAssets.fullyOwned') },
-    { value: 'financed', label: $_('page.setup.tangibleAssets.financed') },
-  ])
+  let tangibleAssetStatusItems = $derived(getTangibleAssetStatusItems($_))
 
-  let frequencyItems = $derived([
-    { value: 'monthly', label: $_('page.setup.common.monthly') },
-    { value: 'yearly', label: $_('page.setup.common.yearly') },
-    { value: 'weekly', label: $_('page.setup.common.weekly') },
-  ])
+  let frequencyItems = $derived(getFrequencyItems($_))
 
   let interestTypeItems = $derived([
     { value: 'compound', label: $_('page.plan.interestCompound') },
