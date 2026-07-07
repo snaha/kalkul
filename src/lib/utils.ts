@@ -66,6 +66,28 @@ export function getMonthOptions(locale?: string): { value: string; label: string
   }))
 }
 
+/**
+ * Parse a date-only ISO string (`YYYY-MM-DD`) into a local-midnight Date.
+ * `new Date('YYYY-MM-DD')` parses as UTC midnight, so reading local components
+ * (`getFullYear`, `getMonth`) shifts the date back a day in negative-UTC-offset
+ * timezones — this parses the components directly so no conversion happens.
+ */
+export function parseDateOnly(value: string): Date {
+  const [year, month, day] = value.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
+/**
+ * Encode a Date as a date-only ISO string (`YYYY-MM-DD`) from its local
+ * components. `toISOString()` converts to UTC first, which shifts the date
+ * back a day in positive-UTC-offset timezones.
+ */
+export function toDateOnlyString(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
+}
+
 export function notImplemented() {
   alert('Not implemented yet')
 }
