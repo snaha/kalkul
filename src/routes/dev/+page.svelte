@@ -6,6 +6,7 @@
   import { CATEGORY_COLORS } from '$lib/chart-colors'
   import { Button } from '$lib/components/ui/button'
   import routes from '$lib/routes'
+  import storageKeys from '$lib/storage-keys'
   import { appStore } from '$lib/stores/app.svelte'
 
   const colorCategories = [
@@ -416,7 +417,7 @@
   function loadPreset(preset: (typeof presets)[number]) {
     if (preset.data.profile.name === '') {
       appStore.reset()
-      localStorage.removeItem('kalkul-data')
+      localStorage.removeItem(storageKeys.DATA)
       appStore.loading = false
     } else {
       appStore.importBackup(JSON.stringify(preset.data))

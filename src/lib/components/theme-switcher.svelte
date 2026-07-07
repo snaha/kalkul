@@ -5,6 +5,7 @@
 
   import { Button } from '$lib/components/ui/button'
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
+  import storageKeys from '$lib/storage-keys'
 
   type Theme = 'light' | 'dark' | 'system'
 
@@ -27,12 +28,12 @@
 
   function setTheme(t: Theme) {
     theme = t
-    localStorage.setItem('theme', t)
+    localStorage.setItem(storageKeys.THEME, t)
     applyTheme(t)
   }
 
   $effect(() => {
-    const stored = localStorage.getItem('theme') as Theme | undefined
+    const stored = localStorage.getItem(storageKeys.THEME) as Theme | undefined
     if (stored === 'light' || stored === 'dark' || stored === 'system') {
       theme = stored
     } else {

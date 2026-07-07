@@ -15,6 +15,7 @@
   import { Textarea } from '$lib/components/ui/textarea'
   import routes from '$lib/routes'
   import type { PlanEndType, PlanStartType } from '$lib/schemas'
+  import storageKeys from '$lib/storage-keys'
   import { appStore } from '$lib/stores/app.svelte'
   import { getMonthOptions, getYearOptions } from '$lib/utils'
 
@@ -96,7 +97,7 @@
       end_date: getEndDate(),
       inflation_rate: (inflation ?? 2) / 100,
     }
-    sessionStorage.setItem('kalkul-plan-draft', JSON.stringify(planDetails))
+    sessionStorage.setItem(storageKeys.PLAN_DRAFT, JSON.stringify(planDetails))
     // URL is already resolved by getNextAddPlanStepUrl
     // eslint-disable-next-line svelte/no-navigation-without-resolve
     goto(getNextAddPlanStepUrl(routes.PLAN_ADD_DETAILS, appStore.profile))
