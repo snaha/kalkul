@@ -14,6 +14,7 @@
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
+  import { timingComplete } from '$lib/schemas'
   import type {
     CashFlowEnd,
     CashFlowStart,
@@ -202,20 +203,6 @@
           ? (f.change_percentage ?? 0)
           : undefined,
     }
-  }
-
-  // A timing edge ('start' or 'end') is complete only once the mode-specific
-  // field is filled — otherwise the projection would silently fall back to the
-  // plan's first year (see schemas.ts cashFlowTemporalRefinement).
-  function timingComplete(
-    mode: CashFlowStart | CashFlowEnd,
-    year: number | undefined,
-    month: number | undefined,
-    age: number | undefined,
-  ): boolean {
-    if (mode === 'at_specific_date') return year !== undefined && month !== undefined
-    if (mode === 'when_age_is') return age !== undefined
-    return true
   }
 
   const canSave = $derived(
