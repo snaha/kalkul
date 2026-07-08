@@ -175,10 +175,18 @@ function withAppStore() {
     set loading(value: boolean) {
       loading = value
     },
-    reset() {
+    clear() {
       profile = enrichProfile({ ...DEFAULT_PROFILE })
       portfolios = []
-      loading = true
+      lastUpdated = 0
+      try {
+        localStorage.removeItem(storageKeys.DATA)
+        storageErrorStore.clear()
+      } catch (e) {
+        console.error('Failed to clear data from localStorage', e)
+        storageErrorStore.setError()
+      }
+      loading = false
     },
 
     persist,

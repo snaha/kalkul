@@ -125,17 +125,17 @@ Raw data loaded from localStorage is plain JSON. The store "enriches" this data 
 
 ### AppStore Root
 
-| Method / Property     | Description                                     |
-| --------------------- | ----------------------------------------------- |
-| `profile`             | Reactive user profile (name, email, birth_date) |
-| `portfolios`          | Reactive array of all enriched portfolios       |
-| `loading`             | `true` until initial data load completes        |
-| `load()`              | Load from localStorage and enrich all objects   |
-| `reset()`             | Clear all data, set loading to `true`           |
-| `updateProfile(data)` | Update user profile                             |
-| `addPortfolio(data)`  | Add a new portfolio, returns ID                 |
-| `exportBackup()`      | JSON string of all data                         |
-| `importBackup(json)`  | Import and enrich from JSON string              |
+| Method / Property     | Description                                      |
+| --------------------- | ------------------------------------------------ |
+| `profile`             | Reactive user profile (name, email, birth_date)  |
+| `portfolios`          | Reactive array of all enriched portfolios        |
+| `loading`             | `true` until initial data load completes         |
+| `load()`              | Load from localStorage and enrich all objects    |
+| `clear()`             | Wipe all data and persisted storage, ready state |
+| `updateProfile(data)` | Update user profile                              |
+| `addPortfolio(data)`  | Add a new portfolio, returns ID                  |
+| `exportBackup()`      | JSON string of all data                          |
+| `importBackup(json)`  | Import and enrich from JSON string               |
 
 ### PortfolioStore
 
