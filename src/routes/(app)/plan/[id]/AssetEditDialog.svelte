@@ -1,17 +1,15 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import {
-    Copy,
-    Eye,
-    EyeOff,
-    Percent,
-    Receipt,
-    Settings2,
-    SquarePen,
-    Trash2,
-    X,
-  } from '@lucide/svelte'
+  import Copy from '@lucide/svelte/icons/copy'
+  import Eye from '@lucide/svelte/icons/eye'
+  import EyeOff from '@lucide/svelte/icons/eye-off'
+  import Percent from '@lucide/svelte/icons/percent'
+  import Receipt from '@lucide/svelte/icons/receipt'
+  import Settings2 from '@lucide/svelte/icons/settings-2'
+  import SquarePen from '@lucide/svelte/icons/square-pen'
+  import Trash2 from '@lucide/svelte/icons/trash-2'
+  import X from '@lucide/svelte/icons/x'
 
   import HelpTooltip from '$lib/components/help-tooltip.svelte'
   import SelectField from '$lib/components/select-field.svelte'

@@ -1,7 +1,12 @@
 <script lang="ts">
   import { _, locale } from 'svelte-i18n'
 
-  import { CircleHelp, CopyPlus, Eye, EyeOff, Trash2, X } from '@lucide/svelte'
+  import CircleHelp from '@lucide/svelte/icons/circle-help'
+  import CopyPlus from '@lucide/svelte/icons/copy-plus'
+  import Eye from '@lucide/svelte/icons/eye'
+  import EyeOff from '@lucide/svelte/icons/eye-off'
+  import Trash2 from '@lucide/svelte/icons/trash-2'
+  import X from '@lucide/svelte/icons/x'
 
   import ChangeOverTimeSelector from '$lib/components/change-over-time-selector.svelte'
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'

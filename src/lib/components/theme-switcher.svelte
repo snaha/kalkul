@@ -1,7 +1,9 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import { Monitor, Moon, Sun } from '@lucide/svelte'
+  import Monitor from '@lucide/svelte/icons/monitor'
+  import Moon from '@lucide/svelte/icons/moon'
+  import Sun from '@lucide/svelte/icons/sun'
 
   import { Button } from '$lib/components/ui/button'
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'

@@ -2,7 +2,7 @@
   import { onDestroy } from 'svelte'
   import { _ } from 'svelte-i18n'
 
-  import { Plus } from '@lucide/svelte'
+  import Plus from '@lucide/svelte/icons/plus'
 
   import { CATEGORY_COLORS } from '$lib/chart-colors'
   import EditableItemCard from '$lib/components/editable-item-card.svelte'

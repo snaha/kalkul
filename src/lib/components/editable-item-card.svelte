@@ -2,7 +2,11 @@
   import type { Snippet } from 'svelte'
   import { _ } from 'svelte-i18n'
 
-  import { ChevronsUpDown, Copy, EllipsisVertical, SquarePen, Trash2 } from '@lucide/svelte'
+  import ChevronsUpDown from '@lucide/svelte/icons/chevrons-up-down'
+  import Copy from '@lucide/svelte/icons/copy'
+  import EllipsisVertical from '@lucide/svelte/icons/ellipsis-vertical'
+  import SquarePen from '@lucide/svelte/icons/square-pen'
+  import Trash2 from '@lucide/svelte/icons/trash-2'
 
   import { Button } from '$lib/components/ui/button'
   import { Card, CardContent } from '$lib/components/ui/card'

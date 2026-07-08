@@ -1,7 +1,9 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import { EllipsisVertical, FileDown, FileInput } from '@lucide/svelte'
+  import EllipsisVertical from '@lucide/svelte/icons/ellipsis-vertical'
+  import FileDown from '@lucide/svelte/icons/file-down'
+  import FileInput from '@lucide/svelte/icons/file-input'
 
   import { resolve } from '$app/paths'
 

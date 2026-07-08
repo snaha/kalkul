@@ -1,7 +1,7 @@
 <script lang="ts">
   import { _, locale } from 'svelte-i18n'
 
-  import { ArrowRight } from '@lucide/svelte'
+  import ArrowRight from '@lucide/svelte/icons/arrow-right'
 
   import { goto } from '$app/navigation'
 
