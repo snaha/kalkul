@@ -9,7 +9,7 @@ Financial portfolio management application built with SvelteKit and TypeScript.
 - **Language**: TypeScript (strict mode)
 - **Storage**: localStorage (local-first SPA)
 - **Testing**: Vitest (unit) + Playwright (component & e2e)
-- **Node**: >=22, **pnpm**: >=10
+- **Node**: >=22, **pnpm**: 11.x
 
 ## Quick Start
 

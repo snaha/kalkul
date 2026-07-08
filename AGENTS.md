@@ -27,8 +27,8 @@ See `README.md` for development commands, project structure, and conventions.
    - Translation files in `src/lib/locales/` (currently `cs.json` and `en.json`)
    - Nested structure for organized translations (e.g., `page.account.settings`)
    - Import with `import { _ } from 'svelte-i18n'` and use as `$_('key.path')`
-   - Initialize in `src/lib/locales/index.ts` with Czech (`cs`) as default
-   - Browser language auto-detected in `src/routes/+layout.ts`
+   - Initialize in `src/lib/locales/index.ts` with English (`en`) as the default and fallback locale; Czech (`cs`) is also supported. `DEFAULT_FORMATTING_LOCALE` in `src/lib/utils.ts` mirrors this default.
+   - Browser language is auto-detected (via `navigator.languages` in `resolveLocale()` in `src/lib/locales/index.ts`), falling back to English when no supported language matches
    - Do not use trailing commas in the translation JSON files. Running `pnpm format` fixes the formatting of all files, including the JSON translation files.
    - Running `pnpm check-locales` returns a list of missing localizations and a list of non-used labels from the JSON translation files.
    - **IMPORTANT**: When updating localization text, ALWAYS update ALL language files (currently `cs.json` and `en.json`)
@@ -98,6 +98,7 @@ See `README.md` for development commands, project structure, and conventions.
 - **Never use dynamic imports**: Always use static imports at the top of the file
   - ✅ `import { something } from '$lib/utils'` at the top of the file
   - ❌ `const module = await import('$lib/utils')` inside a function
+  - **Sanctioned exception**: `src/lib/locales/index.ts` registers locales with lazy `import()` loaders in svelte-i18n `register()` calls (e.g. `register('en', () => import('$lib/locales/en.json'))`). svelte-i18n requires async loaders so translation dictionaries can be code-split and loaded on demand — this is the only place dynamic `import()` is allowed.
 - **Omit file extensions**: Omit `.js` extensions in import statements
   - ✅ `import { Server } from '@modelcontextprotocol/sdk/server/index'`
   - ❌ `import { Server } from '@modelcontextprotocol/sdk/server/index.js'`
@@ -272,7 +273,7 @@ test('should handle text selection replacement', async ({ mount }) => {
 4. `pnpm knip` - Finds unused files, dependencies, and exports
 5. `pnpm check-locales` - Checks for missing, unused or duplicate translations
 
-**Quick check**: Use `pnpm check:all` to run all the above checks at once (used in CI).
+**Quick check**: Use `pnpm check:all` to run all the above checks at once locally. CI (`.github/workflows/check.yaml`) does not call `check:all`; it runs the equivalent checks as individual steps (`pnpm check`, `pnpm lint`, `pnpm check-locales`, `pnpm knip`) and additionally runs `pnpm test:unit`.
 
 All commands must pass successfully before committing. This ensures code quality and prevents CI/CD failures.
 
