@@ -1,0 +1,1 @@
+var e={cash:`#7dd3fc`,investments:[`#14b8a6`,`#0d9488`,`#0f766e`,`#115e59`,`#134e4a`],tangibleAssets:[`#7c3aed`,`#6d28d9`,`#5b21b6`,`#4c1d95`,`#8b5cf6`],liabilities:[`#f87171`,`#ef4444`,`#dc2626`,`#b91c1c`,`#991b1b`]};export{e as t};
