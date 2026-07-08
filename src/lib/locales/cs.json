@@ -76,6 +76,7 @@
       "cancel": "Zrušit",
       "continue": "Pokračovat",
       "renameItem": "Přejmenovat",
+      "itemNameLabel": "Název položky",
       "duplicateItem": "Duplikovat",
       "deleteItem": "Smazat",
       "closeDialog": "Zavřít",

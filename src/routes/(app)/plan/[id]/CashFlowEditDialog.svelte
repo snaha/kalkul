@@ -333,6 +333,12 @@
 <Dialog.Root bind:open {onOpenChange}>
   <Dialog.Content showCloseButton={false} class="gap-0 p-0 sm:max-w-xl">
     <Dialog.Header class="flex flex-row items-center gap-1 border-b p-4 pe-3">
+      <!-- Dialog.Title stays mounted at all times so the dialog always has an
+      accessible name. While renaming it is visually hidden (but still exposed
+      to assistive tech) and the Input becomes the visible control. -->
+      <Dialog.Title class={editingName ? 'sr-only' : 'flex-1 truncate text-lg font-semibold'}>
+        {form.name}
+      </Dialog.Title>
       {#if editingName}
         <Input
           bind:ref={nameInputRef}
@@ -342,10 +348,9 @@
           onkeydown={(e) => {
             if (!isNew && (e.key === 'Enter' || e.key === 'Escape')) stopRenaming()
           }}
+          aria-label={$_('page.plan.itemNameLabel')}
           class="flex-1 text-lg font-semibold"
         />
-      {:else}
-        <Dialog.Title class="flex-1 truncate text-lg font-semibold">{form.name}</Dialog.Title>
       {/if}
 
       {#if !isNew}
