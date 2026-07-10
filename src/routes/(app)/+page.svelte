@@ -13,7 +13,6 @@
   import heroIllustration from '$lib/assets/hero-illustration.svg'
   import plansIllustration from '$lib/assets/plans-illustration.svg'
   import DonutChart from '$lib/components/donut-chart.svelte'
-  import { Badge } from '$lib/components/ui/badge'
   import { Button } from '$lib/components/ui/button'
   import { Progress } from '$lib/components/ui/progress'
   import { Separator } from '$lib/components/ui/separator'
@@ -54,23 +53,10 @@
     <!-- Left panel: Current finances -->
     <div class="flex flex-1 flex-col">
       <div class="flex items-start gap-4 p-8">
-        <div class="flex flex-1 items-center gap-2">
-          <h2 class="text-2xl font-bold">{$_('page.dashboard.finances.title')}</h2>
-          {#if hasFinancialData}
-            <Badge variant="outline">
-              <Calendar class="size-3" />
-              {$_('page.dashboard.finances.today')}
-            </Badge>
-          {:else}
-            <Badge variant="destructive">{$_('page.dashboard.finances.missing')}</Badge>
-          {/if}
-        </div>
+        <h2 class="flex-1 text-2xl font-bold">{$_('page.dashboard.finances.title')}</h2>
         {#if hasFinancialData}
-          <Button size="sm" href={resolve(routes.FINANCES_EDIT)}>
-            <SquarePen class="size-4" />
-            {$_('page.dashboard.finances.update')}
-          </Button>
-          <Button variant="ghost" size="icon" href={resolve(routes.FINANCIAL_DATA)}>
+          <Button variant="outline" size="sm" href={resolve(routes.FINANCIAL_DATA)}>
+            {$_('page.dashboard.finances.viewDetails')}
             <ArrowRight class="size-4" />
           </Button>
         {:else}
@@ -78,14 +64,11 @@
             <SquarePen class="size-4" />
             {$_('page.dashboard.finances.addData')}
           </Button>
-          <Button variant="ghost" size="icon" disabled>
-            <ArrowRight class="size-4" />
-          </Button>
         {/if}
       </div>
 
       {#if hasFinancialData}
-        <div class="flex flex-1 flex-col items-center gap-8 p-8">
+        <div class="flex flex-1 flex-col items-center gap-8 px-8 pb-8">
           <div class="flex w-full gap-2">
             <button
               type="button"
@@ -167,9 +150,6 @@
             </div>
           </div>
           <div class="flex items-center justify-center gap-4">
-            <Button variant="ghost" size="sm" href={resolve(routes.FINANCES_EDIT)}>
-              {$_('page.dashboard.finances.update')}
-            </Button>
             <Button variant="secondary" size="sm" href={resolve(routes.FINANCIAL_DATA)}>
               {$_('page.dashboard.finances.viewAll')}
             </Button>

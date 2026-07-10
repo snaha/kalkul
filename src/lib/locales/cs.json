@@ -155,15 +155,13 @@
     "dashboard": {
       "finances": {
         "title": "Aktuální finance",
-        "missing": "Chybí",
         "addData": "Přidat data",
         "illustrationAlt": "Ilustrace finančních dat",
         "emptyTitle": "Aktuální finance",
         "emptySubtitle": "Zpřesněte své plány",
         "emptyDescription": "Přidejte, co aktuálně vlastníte",
         "addFinancialData": "Přidat finanční data",
-        "today": "Dnes",
-        "update": "Aktualizovat",
+        "viewDetails": "Zobrazit detaily",
         "netWorthSummary": "Vaše aktuální celkové jmění je {total}",
         "lastUpdated": "Naposledy aktualizováno dnes",
         "keepUpToDate": "Udržujte aktuální pro přesné plánování",
@@ -196,7 +194,6 @@
     },
     "financialData": {
       "title": "Finanční data",
-      "update": "Upravit",
       "nav": {
         "overview": "Přehled",
         "cash": "Hotovost",

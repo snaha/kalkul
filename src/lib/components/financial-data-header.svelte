@@ -3,10 +3,8 @@
 
   import ArrowLeft from '@lucide/svelte/icons/arrow-left'
   import Calendar from '@lucide/svelte/icons/calendar'
-  import SquarePen from '@lucide/svelte/icons/square-pen'
 
   import { resolve } from '$app/paths'
-  import { page } from '$app/state'
 
   import { Badge } from '$lib/components/ui/badge'
   import { Button } from '$lib/components/ui/button'
@@ -17,25 +15,6 @@
   }
 
   let { date }: Props = $props()
-
-  // Resume the onboarding edit flow at the category currently being viewed.
-  const editHref = $derived.by(() => {
-    const seg = page.url.pathname.replace(/\/$/, '').split('/').pop()
-    switch (seg) {
-      case 'investments':
-        return resolve(routes.FINANCES_EDIT_INVESTMENTS)
-      case 'tangible-assets':
-        return resolve(routes.FINANCES_EDIT_TANGIBLE_ASSETS)
-      case 'liabilities':
-        return resolve(routes.FINANCES_EDIT_LIABILITIES)
-      case 'incomes':
-        return resolve(routes.FINANCES_EDIT_INCOME)
-      case 'expenses':
-        return resolve(routes.FINANCES_EDIT_EXPENSES)
-      default:
-        return resolve(routes.FINANCES_EDIT)
-    }
-  })
 </script>
 
 <div class="flex items-start gap-4 p-8">
@@ -51,8 +30,4 @@
       {date}
     </Badge>
   </div>
-  <Button size="sm" href={editHref}>
-    <SquarePen class="size-4" />
-    {$_('page.financialData.update')}
-  </Button>
 </div>

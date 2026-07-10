@@ -154,16 +154,14 @@
     },
     "dashboard": {
       "finances": {
-        "title": "Current finances",
-        "missing": "Missing",
+        "title": "Actual finances",
         "addData": "Add data",
         "illustrationAlt": "Financial data illustration",
-        "emptyTitle": "Current finances",
+        "emptyTitle": "Actual finances",
         "emptySubtitle": "Make your plans more accurate",
         "emptyDescription": "Add what you currently own",
         "addFinancialData": "Add your financial data",
-        "today": "Today",
-        "update": "Update",
+        "viewDetails": "View details",
         "netWorthSummary": "Your current total net worth is {total}",
         "lastUpdated": "Last updated today",
         "keepUpToDate": "Keep it up-to-date for accurate planning",
@@ -196,7 +194,6 @@
     },
     "financialData": {
       "title": "Financial data",
-      "update": "Update",
       "nav": {
         "overview": "Overview",
         "cash": "Cash",
