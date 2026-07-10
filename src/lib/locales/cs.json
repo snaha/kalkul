@@ -165,7 +165,21 @@
         "netWorthSummary": "Vaše aktuální celkové jmění je {total}",
         "lastUpdated": "Naposledy aktualizováno dnes",
         "keepUpToDate": "Udržujte aktuální pro přesné plánování",
-        "viewAll": "Zobrazit všechna finanční data"
+        "viewAll": "Zobrazit všechna finanční data",
+        "netWorthCard": {
+          "title": "Čisté jmění",
+          "description": "Celková hodnota vašeho majetku po odečtení závazků"
+        },
+        "fiCard": {
+          "title": "Finanční nezávislost",
+          "description": "Odhadovaný pokrok k životu z vašich investic"
+        },
+        "runwayCard": {
+          "title": "Rezerva",
+          "description": "Odhadovaná doba, po kterou byste vyžili ze svých současných úspor",
+          "value": "{years} let"
+        },
+        "noExpensesHint": "Přidejte své výdaje, abyste viděli tento údaj"
       },
       "plans": {
         "title": "Plány",
@@ -210,7 +224,8 @@
       },
       "liabilities": {
         "title": "Závazky",
-        "description": "Finanční závazky, které nejsou vázány na konkrétní aktivum."
+        "description": "Finanční závazky, které nejsou vázány na konkrétní aktivum.",
+        "financedCaption": "Úvěry vázané na financovaná aktiva — spravují se v sekci Hmotná aktiva"
       },
       "incomes": {
         "title": "Příjmy",
@@ -218,7 +233,8 @@
       },
       "expenses": {
         "title": "Výdaje",
-        "description": "Životní náklady, opakující se účty a pravidelné finanční závazky."
+        "description": "Životní náklady, opakující se účty a pravidelné finanční závazky.",
+        "installmentsCaption": "Splátky úvěrů — spravují se v sekcích Hmotná aktiva a Závazky"
       },
       "frequency": {
         "short": {

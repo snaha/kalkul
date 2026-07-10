@@ -21,8 +21,18 @@ export function getTangibleAssetsTotal(profile: Profile): number {
   return (profile.tangible_assets ?? []).reduce((sum, a) => sum + a.value, 0)
 }
 
-export function getLiabilitiesTotal(profile: Profile): number {
+function getStandaloneLiabilitiesTotal(profile: Profile): number {
   return (profile.liabilities ?? []).reduce((sum, l) => sum + l.outstanding_balance, 0)
+}
+
+export function getFinancedAssetsDebtTotal(profile: Profile): number {
+  return (profile.tangible_assets ?? [])
+    .filter((a) => a.status === 'financed')
+    .reduce((sum, a) => sum + (a.outstanding_balance ?? 0), 0)
+}
+
+export function getLiabilitiesTotal(profile: Profile): number {
+  return getStandaloneLiabilitiesTotal(profile) + getFinancedAssetsDebtTotal(profile)
 }
 
 export function getTotalAssets(profile: Profile): number {
@@ -64,6 +74,59 @@ export function getOverviewSegments(profile: Profile): OverviewSegment[] {
     })
   }
   return segments
+}
+
+// Mirrors FLOW_PERIODS_PER_YEAR in plan-projection.ts (Decimal-based, not exported)
+const PERIODS_PER_YEAR: Record<string, number> = {
+  weekly: 365.25 / 7,
+  monthly: 12,
+  yearly: 1,
+}
+
+export function getAnnualExpensesTotal(profile: Profile): number {
+  // ponytail: sums all expenses regardless of start/end windows; filter to
+  // currently-active flows if future-dated expenses become common
+  return (profile.expenses ?? []).reduce(
+    (sum, e) => sum + e.amount * (PERIODS_PER_YEAR[e.frequency] ?? 1),
+    0,
+  )
+}
+
+// Annualized loan payments (standalone liabilities + financed assets). Debt
+// service is a non-optional outflow, so FI %/runway count it alongside
+// living expenses.
+export function getAnnualDebtServiceTotal(profile: Profile): number {
+  const annualize = (amount: number | undefined, frequency: string | undefined) =>
+    (amount ?? 0) * (PERIODS_PER_YEAR[frequency ?? 'monthly'] ?? 1)
+  return (
+    (profile.liabilities ?? []).reduce(
+      (sum, l) => sum + annualize(l.installment_amount, l.installment_frequency),
+      0,
+    ) +
+    (profile.tangible_assets ?? [])
+      .filter((a) => a.status === 'financed')
+      .reduce((sum, a) => sum + annualize(a.installment_amount, a.installment_frequency), 0)
+  )
+}
+
+export function getInvestableNetWorth(profile: Profile): number {
+  // Financed-asset debt (e.g. the home mortgage) is excluded along with the
+  // asset that secures it — only standalone liabilities reduce investable wealth.
+  return (
+    getCashTotal(profile) + getInvestmentsTotal(profile) - getStandaloneLiabilitiesTotal(profile)
+  )
+}
+
+export function getFiPercent(profile: Profile): number | undefined {
+  const annualOutflows = getAnnualExpensesTotal(profile) + getAnnualDebtServiceTotal(profile)
+  if (annualOutflows <= 0) return undefined
+  return Math.max(0, (getInvestableNetWorth(profile) / (annualOutflows * 25)) * 100)
+}
+
+export function getRunwayYears(profile: Profile): number | undefined {
+  const annualOutflows = getAnnualExpensesTotal(profile) + getAnnualDebtServiceTotal(profile)
+  if (annualOutflows <= 0) return undefined
+  return Math.max(0, getInvestableNetWorth(profile) / annualOutflows)
 }
 
 export function hasAnyFinancialData(profile: Profile): boolean {
