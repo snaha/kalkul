@@ -164,7 +164,6 @@
   const bars = $derived.by(() => {
     return data.map((d, i) => {
       const x = PADDING_LEFT + i * (barWidth + BAR_GAP)
-      const isSelected = d.year === selectedYear
 
       // Calculate heights for each segment
       const cashHeight = scalePositive(d.cash)
@@ -182,8 +181,6 @@
       return {
         year: d.year,
         x,
-        isSelected,
-        isHovered: d.year === hoveredYear,
         segments: [
           // Cash (top of positive stack)
           {
