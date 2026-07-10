@@ -1,0 +1,114 @@
+{
+  "profile": {
+    "name": "Bence Tóth",
+    "email": "bence.toth@example.com",
+    "birth_date": "2001-09-03",
+    "location": "HU",
+    "currency": "HUF",
+    "cash_amount": 1450000,
+    "has_investments": true,
+    "investments": [
+      {
+        "id": "inv-1",
+        "name": "Robo-advisor portfolio",
+        "balance": 2100000,
+        "apy": 6.5,
+        "entry_fee": 0.75,
+        "entry_fee_type": "upfront"
+      }
+    ],
+    "has_tangible_assets": true,
+    "tangible_assets": [
+      {
+        "id": "ta-1",
+        "name": "Car (Suzuki Vitara)",
+        "value": 6800000,
+        "status": "financed",
+        "outstanding_balance": 4200000,
+        "installment_frequency": "monthly",
+        "annual_rate": 9.5,
+        "installment_amount": 115000,
+        "remaining_term": 4
+      }
+    ],
+    "has_liabilities": true,
+    "liabilities": [
+      {
+        "id": "li-1",
+        "name": "Student loan (Diákhitel)",
+        "outstanding_balance": 1800000,
+        "installment_frequency": "monthly",
+        "annual_rate": 4.5,
+        "installment_amount": 28000,
+        "remaining_term": 6,
+        "interest_type": "simple"
+      }
+    ],
+    "incomes": [
+      {
+        "id": "inc-1",
+        "name": "Salary (software tester)",
+        "amount": 720000,
+        "frequency": "monthly",
+        "withhold_taxes": true,
+        "tax_percentage": 33.5,
+        "start": "immediately",
+        "end": "never",
+        "inflation_adjusted": true,
+        "change_over_time": "increase_yearly",
+        "change_percentage": 3
+      },
+      {
+        "id": "inc-2",
+        "name": "Weekend DJ gigs",
+        "amount": 60000,
+        "frequency": "monthly",
+        "withhold_taxes": false,
+        "start": "immediately",
+        "end": "when_age_is",
+        "end_age": 30,
+        "change_over_time": "none"
+      }
+    ],
+    "expenses": [
+      {
+        "id": "exp-1",
+        "name": "Rent (Budapest flat)",
+        "amount": 230000,
+        "frequency": "monthly",
+        "start": "immediately",
+        "end": "never",
+        "change_over_time": "match_inflation"
+      },
+      {
+        "id": "exp-2",
+        "name": "Food & everyday costs",
+        "amount": 160000,
+        "frequency": "monthly",
+        "start": "immediately",
+        "end": "never",
+        "change_over_time": "match_inflation"
+      },
+      {
+        "id": "exp-3",
+        "name": "Streaming & gym subscriptions",
+        "amount": 18000,
+        "frequency": "monthly",
+        "start": "immediately",
+        "end": "never",
+        "change_over_time": "none"
+      },
+      {
+        "id": "exp-4",
+        "name": "Summer festival trip",
+        "amount": 250000,
+        "frequency": "yearly",
+        "start": "immediately",
+        "end": "when_age_is",
+        "end_age": 35,
+        "change_over_time": "none"
+      }
+    ]
+  },
+  "portfolios": []
+}
