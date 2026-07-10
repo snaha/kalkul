@@ -263,6 +263,7 @@
         "amount": "Částka",
         "frequency": "Frekvence",
         "advancedOptions": "Pokročilé možnosti",
+        "deleteConfirm": "Smazat „{name}“? Akci nelze vrátit zpět.",
         "start": "Začátek",
         "end": "Konec",
         "changeOverTime": "Změna v čase",
