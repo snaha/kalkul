@@ -92,9 +92,34 @@ export function notImplemented() {
   alert('Not implemented yet')
 }
 
+/**
+ * Cache of Intl.NumberFormat instances keyed by locale + options.
+ * Constructing a formatter is expensive and these run inside hot $derived
+ * chains; the key includes locale and currency, so the cache self-invalidates
+ * when the profile or browser locale changes.
+ */
+const numberFormatCache = new Map<string, Intl.NumberFormat>()
+
+function getNumberFormat(
+  locale: string | undefined,
+  options: Intl.NumberFormatOptions,
+): Intl.NumberFormat {
+  const key = `${locale}|${JSON.stringify(options)}`
+  let formatter = numberFormatCache.get(key)
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale ?? undefined, options)
+    numberFormatCache.set(key, formatter)
+  }
+  return formatter
+}
+
+export function formatNumber(value: number, locale?: string): string {
+  return getNumberFormat(locale, { maximumFractionDigits: 4 }).format(value)
+}
+
 export function formatCurrency(value: number, currency: string, locale?: string): string {
   try {
-    return new Intl.NumberFormat(locale ?? undefined, {
+    return getNumberFormat(locale, {
       style: 'currency',
       currency,
       maximumFractionDigits: 0,
@@ -107,7 +132,7 @@ export function formatCurrency(value: number, currency: string, locale?: string)
 
 export function formatCurrencyCode(value: number, currency: string, locale?: string): string {
   try {
-    return new Intl.NumberFormat(locale ?? undefined, {
+    return getNumberFormat(locale, {
       style: 'currency',
       currency,
       currencyDisplay: 'code',
@@ -121,7 +146,7 @@ export function formatCurrencyCode(value: number, currency: string, locale?: str
 
 export function formatCompactCurrency(value: number, currency: string, locale?: string): string {
   try {
-    return new Intl.NumberFormat(locale ?? undefined, {
+    return getNumberFormat(locale, {
       style: 'currency',
       currency,
       notation: 'compact',

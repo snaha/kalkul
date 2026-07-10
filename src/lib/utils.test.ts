@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import {
   formatCompactCurrency,
+  formatCurrency,
+  formatCurrencyCode,
+  formatNumber,
   getFormattingLocale,
   parseDateOnly,
   toDateOnlyString,
@@ -25,6 +28,32 @@ describe('getFormattingLocale', () => {
 describe('formatCompactCurrency', () => {
   it('does not emit Hungarian compact format for an explicit locale (issue #41)', () => {
     expect(formatCompactCurrency(150200, 'EUR', 'en')).not.toContain('E EUR')
+  })
+})
+
+describe('cached formatters', () => {
+  it('returns stable results on repeated calls', () => {
+    expect(formatCurrency(1234567, 'USD', 'en-US')).toBe('$1,234,567')
+    expect(formatCurrency(1234567, 'USD', 'en-US')).toBe('$1,234,567')
+    expect(formatNumber(1234.5678, 'en-US')).toBe('1,234.5678')
+    expect(formatNumber(1234.5678, 'en-US')).toBe('1,234.5678')
+  })
+
+  it('does not mix up formatters with the same locale and currency but different options', () => {
+    expect(formatCurrency(1000, 'USD', 'en-US')).toBe('$1,000')
+    expect(formatCurrencyCode(1000, 'USD', 'en-US')).toBe('USD\u00a01,000')
+    expect(formatCompactCurrency(1500, 'USD', 'en-US')).toBe('$1.5K')
+    expect(formatCurrency(1000, 'USD', 'en-US')).toBe('$1,000')
+  })
+
+  it('distinguishes locales and currencies in the cache', () => {
+    expect(formatCurrency(1000, 'CZK', 'cs-CZ')).toBe('1\u00a0000\u00a0Kč')
+    expect(formatCurrency(1000, 'EUR', 'cs-CZ')).toBe('1\u00a0000\u00a0€')
+    expect(formatCurrency(1000, 'CZK', 'en-US')).toBe('CZK\u00a01,000')
+  })
+
+  it('falls back for unsupported currency codes', () => {
+    expect(formatCurrency(1000, 'NOTACURRENCY', 'en-US')).toBe('1,000 NOTACURRENCY')
   })
 })
 
