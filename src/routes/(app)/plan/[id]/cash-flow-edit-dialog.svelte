@@ -1,7 +1,12 @@
 <script lang="ts">
   import { _, locale } from 'svelte-i18n'
 
-  import { Copy, Eye, EyeOff, SquarePen, Trash2, X } from '@lucide/svelte'
+  import Copy from '@lucide/svelte/icons/copy'
+  import Eye from '@lucide/svelte/icons/eye'
+  import EyeOff from '@lucide/svelte/icons/eye-off'
+  import SquarePen from '@lucide/svelte/icons/square-pen'
+  import Trash2 from '@lucide/svelte/icons/trash-2'
+  import X from '@lucide/svelte/icons/x'
 
   import ChangeOverTimeSelector from '$lib/components/change-over-time-selector.svelte'
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
@@ -14,6 +19,7 @@
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
+  import { timingComplete } from '$lib/schemas'
   import type {
     CashFlowEnd,
     CashFlowStart,
@@ -22,6 +28,7 @@
     Frequency,
     Income,
   } from '$lib/schemas'
+  import { getFrequencyItems } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
   import { getMonthOptions, getYearOptions } from '$lib/utils'
@@ -62,11 +69,7 @@
   let months = $derived(getMonthOptions($locale ?? undefined))
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
-  let frequencyItems = $derived([
-    { value: 'monthly', label: $_('page.setup.common.monthly') },
-    { value: 'yearly', label: $_('page.setup.common.yearly') },
-    { value: 'weekly', label: $_('page.setup.common.weekly') },
-  ])
+  let frequencyItems = $derived(getFrequencyItems($_))
 
   function blankForm(): FormState {
     const counter =
@@ -204,20 +207,6 @@
     }
   }
 
-  // A timing edge ('start' or 'end') is complete only once the mode-specific
-  // field is filled — otherwise the projection would silently fall back to the
-  // plan's first year (see schemas.ts cashFlowTemporalRefinement).
-  function timingComplete(
-    mode: CashFlowStart | CashFlowEnd,
-    year: number | undefined,
-    month: number | undefined,
-    age: number | undefined,
-  ): boolean {
-    if (mode === 'at_specific_date') return year !== undefined && month !== undefined
-    if (mode === 'when_age_is') return age !== undefined
-    return true
-  }
-
   const canSave = $derived(
     timingComplete(form.start, form.start_year, form.start_month, form.start_age) &&
       timingComplete(form.end, form.end_year, form.end_month, form.end_age),
@@ -333,6 +322,12 @@
 <Dialog.Root bind:open {onOpenChange}>
   <Dialog.Content showCloseButton={false} class="gap-0 p-0 sm:max-w-xl">
     <Dialog.Header class="flex flex-row items-center gap-1 border-b p-4 pe-3">
+      <!-- Dialog.Title stays mounted at all times so the dialog always has an
+      accessible name. While renaming it is visually hidden (but still exposed
+      to assistive tech) and the Input becomes the visible control. -->
+      <Dialog.Title class={editingName ? 'sr-only' : 'flex-1 truncate text-lg font-semibold'}>
+        {form.name}
+      </Dialog.Title>
       {#if editingName}
         <Input
           bind:ref={nameInputRef}
@@ -342,10 +337,9 @@
           onkeydown={(e) => {
             if (!isNew && (e.key === 'Enter' || e.key === 'Escape')) stopRenaming()
           }}
+          aria-label={$_('page.plan.itemNameLabel')}
           class="flex-1 text-lg font-semibold"
         />
-      {:else}
-        <Dialog.Title class="flex-1 truncate text-lg font-semibold">{form.name}</Dialog.Title>
       {/if}
 
       {#if !isNew}

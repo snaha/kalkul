@@ -1,17 +1,15 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import {
-    Copy,
-    Eye,
-    EyeOff,
-    Percent,
-    Receipt,
-    Settings2,
-    SquarePen,
-    Trash2,
-    X,
-  } from '@lucide/svelte'
+  import Copy from '@lucide/svelte/icons/copy'
+  import Eye from '@lucide/svelte/icons/eye'
+  import EyeOff from '@lucide/svelte/icons/eye-off'
+  import Percent from '@lucide/svelte/icons/percent'
+  import Receipt from '@lucide/svelte/icons/receipt'
+  import Settings2 from '@lucide/svelte/icons/settings-2'
+  import SquarePen from '@lucide/svelte/icons/square-pen'
+  import Trash2 from '@lucide/svelte/icons/trash-2'
+  import X from '@lucide/svelte/icons/x'
 
   import HelpTooltip from '$lib/components/help-tooltip.svelte'
   import SelectField from '$lib/components/select-field.svelte'
@@ -32,6 +30,7 @@
     ProfileTangibleAsset,
     TangibleAssetStatus,
   } from '$lib/schemas'
+  import { getFrequencyItems, getTangibleAssetStatusItems } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
 
@@ -204,16 +203,9 @@
     { value: 'fixed', label: $_('page.plan.exitFeeFixed') },
   ])
 
-  let tangibleAssetStatusItems = $derived([
-    { value: 'fully_owned', label: $_('page.setup.tangibleAssets.fullyOwned') },
-    { value: 'financed', label: $_('page.setup.tangibleAssets.financed') },
-  ])
+  let tangibleAssetStatusItems = $derived(getTangibleAssetStatusItems($_))
 
-  let frequencyItems = $derived([
-    { value: 'monthly', label: $_('page.setup.common.monthly') },
-    { value: 'yearly', label: $_('page.setup.common.yearly') },
-    { value: 'weekly', label: $_('page.setup.common.weekly') },
-  ])
+  let frequencyItems = $derived(getFrequencyItems($_))
 
   let interestTypeItems = $derived([
     { value: 'compound', label: $_('page.plan.interestCompound') },
@@ -437,6 +429,12 @@
 <Dialog.Root bind:open {onOpenChange}>
   <Dialog.Content showCloseButton={false} class="gap-0 p-0 sm:max-w-xl">
     <Dialog.Header class="flex flex-row items-center gap-1 border-b p-4 pe-3">
+      <!-- Dialog.Title stays mounted at all times so the dialog always has an
+      accessible name. While renaming it is visually hidden (but still exposed
+      to assistive tech) and the Input becomes the visible control. -->
+      <Dialog.Title class={editingName ? 'sr-only' : 'flex-1 truncate text-lg font-semibold'}>
+        {form.name}
+      </Dialog.Title>
       {#if editingName}
         <Input
           bind:ref={nameInputRef}
@@ -446,10 +444,9 @@
           onkeydown={(e) => {
             if (!isNew && (e.key === 'Enter' || e.key === 'Escape')) stopRenaming()
           }}
+          aria-label={$_('page.plan.itemNameLabel')}
           class="flex-1 text-lg font-semibold"
         />
-      {:else}
-        <Dialog.Title class="flex-1 truncate text-lg font-semibold">{form.name}</Dialog.Title>
       {/if}
 
       {#if !isNew}

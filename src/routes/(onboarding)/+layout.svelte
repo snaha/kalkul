@@ -1,7 +1,7 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import { X } from '@lucide/svelte'
+  import X from '@lucide/svelte/icons/x'
 
   import { resolve } from '$app/paths'
   import { page } from '$app/state'

@@ -54,6 +54,17 @@ export default typescriptEslint.config(
           message: 'Do not import from /index explicitly. Import from the directory instead.',
         },
       ],
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@lucide/svelte',
+              message: 'Import icons via deep paths: @lucide/svelte/icons/<name>',
+            },
+          ],
+        },
+      ],
     },
   },
   {

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import { TriangleAlert } from '@lucide/svelte'
+  import TriangleAlert from '@lucide/svelte/icons/triangle-alert'
 
   import * as Tooltip from '$lib/components/ui/tooltip'
   import { cn } from '$lib/utils'

@@ -1,3 +1,6 @@
+import { _ } from 'svelte-i18n'
+import { get } from 'svelte/store'
+
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
@@ -66,13 +69,60 @@ export function getMonthOptions(locale?: string): { value: string; label: string
   }))
 }
 
+/**
+ * Parse a date-only ISO string (`YYYY-MM-DD`) into a local-midnight Date.
+ * `new Date('YYYY-MM-DD')` parses as UTC midnight, so reading local components
+ * (`getFullYear`, `getMonth`) shifts the date back a day in negative-UTC-offset
+ * timezones — this parses the components directly so no conversion happens.
+ */
+export function parseDateOnly(value: string): Date {
+  const [year, month, day] = value.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
+/**
+ * Encode a Date as a date-only ISO string (`YYYY-MM-DD`) from its local
+ * components. `toISOString()` converts to UTC first, which shifts the date
+ * back a day in positive-UTC-offset timezones.
+ */
+export function toDateOnlyString(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
+}
+
 export function notImplemented() {
-  alert('Not implemented yet')
+  alert(get(_)('common.notImplemented'))
+}
+
+/**
+ * Cache of Intl.NumberFormat instances keyed by locale + options.
+ * Constructing a formatter is expensive and these run inside hot $derived
+ * chains; the key includes locale and currency, so the cache self-invalidates
+ * when the profile or browser locale changes.
+ */
+const numberFormatCache = new Map<string, Intl.NumberFormat>()
+
+function getNumberFormat(
+  locale: string | undefined,
+  options: Intl.NumberFormatOptions,
+): Intl.NumberFormat {
+  const key = `${locale}|${JSON.stringify(options)}`
+  let formatter = numberFormatCache.get(key)
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale ?? undefined, options)
+    numberFormatCache.set(key, formatter)
+  }
+  return formatter
+}
+
+export function formatNumber(value: number, locale?: string): string {
+  return getNumberFormat(locale, { maximumFractionDigits: 4 }).format(value)
 }
 
 export function formatCurrency(value: number, currency: string, locale?: string): string {
   try {
-    return new Intl.NumberFormat(locale ?? undefined, {
+    return getNumberFormat(locale, {
       style: 'currency',
       currency,
       maximumFractionDigits: 0,
@@ -85,7 +135,7 @@ export function formatCurrency(value: number, currency: string, locale?: string)
 
 export function formatCurrencyCode(value: number, currency: string, locale?: string): string {
   try {
-    return new Intl.NumberFormat(locale ?? undefined, {
+    return getNumberFormat(locale, {
       style: 'currency',
       currency,
       currencyDisplay: 'code',
@@ -99,7 +149,7 @@ export function formatCurrencyCode(value: number, currency: string, locale?: str
 
 export function formatCompactCurrency(value: number, currency: string, locale?: string): string {
   try {
-    return new Intl.NumberFormat(locale ?? undefined, {
+    return getNumberFormat(locale, {
       style: 'currency',
       currency,
       notation: 'compact',

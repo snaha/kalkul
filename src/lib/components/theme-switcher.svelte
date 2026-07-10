@@ -1,10 +1,13 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import { Monitor, Moon, Sun } from '@lucide/svelte'
+  import Monitor from '@lucide/svelte/icons/monitor'
+  import Moon from '@lucide/svelte/icons/moon'
+  import Sun from '@lucide/svelte/icons/sun'
 
   import { Button } from '$lib/components/ui/button'
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
+  import storageKeys from '$lib/storage-keys'
 
   type Theme = 'light' | 'dark' | 'system'
 
@@ -27,12 +30,12 @@
 
   function setTheme(t: Theme) {
     theme = t
-    localStorage.setItem('theme', t)
+    localStorage.setItem(storageKeys.THEME, t)
     applyTheme(t)
   }
 
   $effect(() => {
-    const stored = localStorage.getItem('theme') as Theme | undefined
+    const stored = localStorage.getItem(storageKeys.THEME) as Theme | undefined
     if (stored === 'light' || stored === 'dark' || stored === 'system') {
       theme = stored
     } else {

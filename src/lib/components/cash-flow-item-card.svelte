@@ -11,6 +11,7 @@
   import { Separator } from '$lib/components/ui/separator'
   import { Switch } from '$lib/components/ui/switch'
   import type { CashFlowEnd, CashFlowStart, ChangeOverTime, Frequency } from '$lib/schemas'
+  import { getFrequencyItems } from '$lib/select-options'
 
   interface CashFlowItem {
     id: string
@@ -70,11 +71,7 @@
     extraAdvancedContent,
   }: Props = $props()
 
-  let frequencyItems = $derived([
-    { value: 'monthly', label: $_('page.setup.common.monthly') },
-    { value: 'yearly', label: $_('page.setup.common.yearly') },
-    { value: 'weekly', label: $_('page.setup.common.weekly') },
-  ])
+  let frequencyItems = $derived(getFrequencyItems($_))
 
   let sign = $derived(sentiment === 'positive' ? '+' : '-')
   let collapsedValueClass = $derived(sentiment === 'positive' ? 'text-success' : 'text-destructive')

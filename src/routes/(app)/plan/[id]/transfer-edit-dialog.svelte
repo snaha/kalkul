@@ -1,7 +1,12 @@
 <script lang="ts">
   import { _, locale } from 'svelte-i18n'
 
-  import { CircleHelp, CopyPlus, Eye, EyeOff, Trash2, X } from '@lucide/svelte'
+  import CircleHelp from '@lucide/svelte/icons/circle-help'
+  import CopyPlus from '@lucide/svelte/icons/copy-plus'
+  import Eye from '@lucide/svelte/icons/eye'
+  import EyeOff from '@lucide/svelte/icons/eye-off'
+  import Trash2 from '@lucide/svelte/icons/trash-2'
+  import X from '@lucide/svelte/icons/x'
 
   import ChangeOverTimeSelector from '$lib/components/change-over-time-selector.svelte'
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
@@ -14,6 +19,8 @@
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
   import * as Tooltip from '$lib/components/ui/tooltip'
+  import { filterById } from '$lib/plan-projection'
+  import { timingComplete } from '$lib/schemas'
   import type {
     CashFlowEnd,
     CashFlowStart,
@@ -22,6 +29,7 @@
     Transfer,
     TransferSchedule,
   } from '$lib/schemas'
+  import { getFrequencyItems } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
   import { getMonthOptions, getYearOptions } from '$lib/utils'
@@ -67,27 +75,16 @@
   let months = $derived(getMonthOptions($locale ?? undefined))
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
-  // Build the From/To asset list from the profile, filtered by plan inclusion
-  // (mirrors `filterById` in plan-projection.ts so the dropdowns and the
-  // projection see the same asset set).
-  function included<T extends { id: string }>(
-    items: T[] | undefined,
-    includedIds: string[] | undefined,
-  ): T[] {
-    if (!items) return []
-    if (!includedIds) return items
-    const set = new Set(includedIds)
-    return items.filter((i) => set.has(i.id))
-  }
-
   // Transfers can only move between cash and investments. Tangible assets and
   // liabilities are intentionally excluded — selling/buying a house is more
   // naturally modelled as a one-off expense/income.
+  // The list is filtered by plan inclusion via the same filterById the
+  // projection uses, so the dropdowns and the projection see the same assets.
   const assetOptions = $derived<{ id: string; name: string }[]>([
     ...(plan.include_cash !== false && appStore.profile.cash_amount
       ? [{ id: 'cash', name: $_('page.plan.cashItem') }]
       : []),
-    ...included(appStore.profile.investments, plan.included_investment_ids).map((inv) => ({
+    ...filterById(appStore.profile.investments, plan.included_investment_ids).map((inv) => ({
       id: inv.id,
       name: inv.name,
     })),
@@ -198,11 +195,7 @@
     { value: 'one_time', label: $_('page.plan.scheduleOneTime') },
     { value: 'recurring', label: $_('page.plan.scheduleRecurring') },
   ])
-  let frequencyItems = $derived([
-    { value: 'monthly', label: $_('page.setup.common.monthly') },
-    { value: 'yearly', label: $_('page.setup.common.yearly') },
-    { value: 'weekly', label: $_('page.setup.common.weekly') },
-  ])
+  let frequencyItems = $derived(getFrequencyItems($_))
   let yearItems = $derived(years.map((y) => ({ value: y, label: y })))
 
   function projectTransfer(f: FormState): Transfer {
@@ -299,20 +292,6 @@
     const next = (plan.transfers ?? []).filter((t) => t.id !== form.id)
     plan.update({ transfers: next })
     close()
-  }
-
-  // A timing edge ('start' or 'end') is complete only once the mode-specific
-  // field is filled — otherwise the projection would silently fall back to the
-  // plan's first year (see schemas.ts cashFlowTemporalRefinement).
-  function timingComplete(
-    mode: CashFlowStart | CashFlowEnd,
-    year: number | undefined,
-    month: number | undefined,
-    age: number | undefined,
-  ): boolean {
-    if (mode === 'at_specific_date') return year !== undefined && month !== undefined
-    if (mode === 'when_age_is') return age !== undefined
-    return true
   }
 
   const canSave = $derived(

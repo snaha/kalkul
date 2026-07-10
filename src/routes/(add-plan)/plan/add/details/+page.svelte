@@ -1,7 +1,7 @@
 <script lang="ts">
   import { _, locale } from 'svelte-i18n'
 
-  import { ArrowRight } from '@lucide/svelte'
+  import ArrowRight from '@lucide/svelte/icons/arrow-right'
 
   import { goto } from '$app/navigation'
 
@@ -15,13 +15,14 @@
   import { Textarea } from '$lib/components/ui/textarea'
   import routes from '$lib/routes'
   import type { PlanEndType, PlanStartType } from '$lib/schemas'
+  import storageKeys from '$lib/storage-keys'
   import { appStore } from '$lib/stores/app.svelte'
   import { getMonthOptions, getYearOptions } from '$lib/utils'
 
   // Generate a default plan name based on existing portfolios
   function getDefaultPlanName(): string {
     const existingCount = appStore.portfolios.length
-    return `Plan ${existingCount + 1}`
+    return $_('page.addPlan.details.defaultName', { values: { index: existingCount + 1 } })
   }
 
   let name = $state(getDefaultPlanName())
@@ -96,7 +97,7 @@
       end_date: getEndDate(),
       inflation_rate: (inflation ?? 2) / 100,
     }
-    sessionStorage.setItem('kalkul-plan-draft', JSON.stringify(planDetails))
+    sessionStorage.setItem(storageKeys.PLAN_DRAFT, JSON.stringify(planDetails))
     // URL is already resolved by getNextAddPlanStepUrl
     // eslint-disable-next-line svelte/no-navigation-without-resolve
     goto(getNextAddPlanStepUrl(routes.PLAN_ADD_DETAILS, appStore.profile))

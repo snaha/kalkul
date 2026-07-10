@@ -1,20 +1,21 @@
 import { SvelteSet } from 'svelte/reactivity'
 
 import { type StoredData, profileSchema, storedDataSchema } from '$lib/schemas'
+import storageKeys from '$lib/storage-keys'
 import type { Portfolio, PortfolioNested, Profile } from '$lib/types'
 import {
   DEFAULT_CURRENCY,
   formatCompactCurrency,
   formatCurrency,
   formatCurrencyCode,
+  formatNumber,
   getFormattingLocale,
+  parseDateOnly,
 } from '$lib/utils'
 
 import type { PortfolioStore } from './portfolio.svelte'
 import { withPortfolioStore } from './portfolio.svelte'
 import { storageErrorStore } from './storage-error.svelte'
-
-const STORAGE_KEY = 'kalkul-data'
 
 export type ProfileStore = Profile & {
   readonly birthDate: Date | undefined
@@ -56,7 +57,7 @@ function enrichProfile({
     expenses,
     hide_plan_intro,
     get birthDate() {
-      return birth_date ? new Date(birth_date) : undefined
+      return birth_date ? parseDateOnly(birth_date) : undefined
     },
     get currencyOrDefault() {
       return currency ?? DEFAULT_CURRENCY
@@ -90,7 +91,7 @@ const DEFAULT_PROFILE: Profile = {
 
 function loadData(): StoredData {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(storageKeys.DATA)
     if (raw) {
       return storedDataSchema.parse(JSON.parse(raw))
     }
@@ -116,7 +117,7 @@ function withAppStore() {
       portfolios: portfolios.map((p) => p.toJSON()),
     }
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(stored))
+      localStorage.setItem(storageKeys.DATA, JSON.stringify(stored))
       lastUpdated = now
       storageErrorStore.clear()
     } catch (e) {
@@ -174,10 +175,18 @@ function withAppStore() {
     set loading(value: boolean) {
       loading = value
     },
-    reset() {
+    clear() {
       profile = enrichProfile({ ...DEFAULT_PROFILE })
       portfolios = []
-      loading = true
+      lastUpdated = 0
+      try {
+        localStorage.removeItem(storageKeys.DATA)
+        storageErrorStore.clear()
+      } catch (e) {
+        console.error('Failed to clear data from localStorage', e)
+        storageErrorStore.setError()
+      }
+      loading = false
     },
 
     persist,
@@ -190,7 +199,7 @@ function withAppStore() {
 
     formatNumber(value: number) {
       const loc = getFormattingLocale(profile.location, browserLocale)
-      return value.toLocaleString(loc ?? undefined, { maximumFractionDigits: 4 })
+      return formatNumber(value, loc)
     },
     formatCurrency(value: number) {
       const loc = getFormattingLocale(profile.location, browserLocale)
@@ -242,7 +251,7 @@ function withAppStore() {
 
     startSync(): () => void {
       function onStorage(event: StorageEvent): void {
-        if (event.key !== STORAGE_KEY || !event.newValue) return
+        if (event.key !== storageKeys.DATA || !event.newValue) return
 
         try {
           const data = storedDataSchema.parse(JSON.parse(event.newValue))

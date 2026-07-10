@@ -1,7 +1,9 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import { ArrowLeft, Calendar, SquarePen } from '@lucide/svelte'
+  import ArrowLeft from '@lucide/svelte/icons/arrow-left'
+  import Calendar from '@lucide/svelte/icons/calendar'
+  import SquarePen from '@lucide/svelte/icons/square-pen'
 
   import { resolve } from '$app/paths'
   import { page } from '$app/state'

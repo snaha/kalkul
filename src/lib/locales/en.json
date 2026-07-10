@@ -22,7 +22,8 @@
         "endWhenAgeIs": "When your age is",
         "endAtDate": "At specific date...",
         "yearsOld": "Years old",
-        "inflation": "Inflation"
+        "inflation": "Inflation",
+        "defaultName": "Plan {index}"
       },
       "data": {
         "title": "Financial data",
@@ -76,6 +77,7 @@
       "cancel": "Cancel",
       "continue": "Continue",
       "renameItem": "Rename",
+      "itemNameLabel": "Item name",
       "duplicateItem": "Duplicate",
       "deleteItem": "Delete",
       "closeDialog": "Close",
@@ -366,7 +368,8 @@
       "france": "France",
       "other": "Other"
     },
-    "currency": "Currency"
+    "currency": "Currency",
+    "notImplemented": "Not implemented yet"
   },
   "theme": {
     "light": "Light",
@@ -406,6 +409,16 @@
       "licenseName": "AGPL-3.0 license",
       "openSourceSuffix": ". You are free to use, modify, and distribute it under the same terms.",
       "visitGithub": "Visit our Github"
+    }
+  },
+  "dev": {
+    "confirm": {
+      "title": "Replace all your data?",
+      "description": "Loading this preset overwrites all data currently stored in this browser.",
+      "warning": "Your current data will be exported to a file first so you can restore it later.",
+      "cancel": "Cancel",
+      "exportAndContinue": "Export and continue",
+      "continue": "Continue"
     }
   },
   "validation": {

@@ -1,10 +1,15 @@
 <!-- localization-exclude -->
 <script lang="ts">
+  import { _ } from 'svelte-i18n'
+
+  import FileDown from '@lucide/svelte/icons/file-down'
+
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
 
   import { CATEGORY_COLORS } from '$lib/chart-colors'
   import { Button } from '$lib/components/ui/button'
+  import * as Dialog from '$lib/components/ui/dialog'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
 
@@ -413,15 +418,47 @@
     },
   ]
 
-  function loadPreset(preset: (typeof presets)[number]) {
+  const hasData = $derived(!appStore.loading && !!appStore.profile.name)
+
+  let confirmOpen = $state(false)
+  let pendingPreset = $state<(typeof presets)[number] | undefined>(undefined)
+
+  // Mirrors the navbar export flow: download the current data as a JSON backup.
+  function exportData(): void {
+    const json = appStore.exportBackup()
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `kalkul-backup-${new Date().toISOString().slice(0, 10)}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    // Delay revoke so the browser has time to start the download.
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+
+  function requestLoadPreset(preset: (typeof presets)[number]): void {
+    pendingPreset = preset
+    confirmOpen = true
+  }
+
+  function applyPreset(preset: (typeof presets)[number]): void {
     if (preset.data.profile.name === '') {
-      appStore.reset()
-      localStorage.removeItem('kalkul-data')
-      appStore.loading = false
+      appStore.clear()
     } else {
       appStore.importBackup(JSON.stringify(preset.data))
     }
     goto(resolve(routes.HOME))
+  }
+
+  // Export-first: back up any existing data before the destructive action.
+  function confirmLoadPreset(): void {
+    const preset = pendingPreset
+    if (!preset) return
+    if (hasData) exportData()
+    confirmOpen = false
+    applyPreset(preset)
   }
 
   const profileJson = $derived(JSON.stringify(appStore.profile.toJSON(), undefined, 2))
@@ -438,7 +475,7 @@
           <span class="font-medium">{preset.name}</span>
           <span class="text-sm text-muted-foreground">{preset.description}</span>
         </div>
-        <Button size="sm" onclick={() => loadPreset(preset)}>Load</Button>
+        <Button size="sm" onclick={() => requestLoadPreset(preset)}>Load</Button>
       </div>
     {/each}
   </div>
@@ -467,3 +504,33 @@
     <pre class="max-h-96 overflow-auto rounded-lg bg-muted p-4 text-xs">{profileJson}</pre>
   </div>
 </div>
+
+<!-- Confirm destructive preset load (export-first, like the navbar import flow) -->
+<Dialog.Root bind:open={confirmOpen}>
+  <Dialog.Content class="sm:max-w-[576px]">
+    <Dialog.Header>
+      <Dialog.Title>{$_('dev.confirm.title')}</Dialog.Title>
+      <Dialog.Description class="text-base text-foreground">
+        {$_('dev.confirm.description')}
+      </Dialog.Description>
+    </Dialog.Header>
+    {#if hasData}
+      <p class="text-base font-bold text-foreground">
+        {$_('dev.confirm.warning')}
+      </p>
+    {/if}
+    <Dialog.Footer class="sm:justify-start">
+      <Button variant="outline" onclick={() => (confirmOpen = false)}>
+        {$_('dev.confirm.cancel')}
+      </Button>
+      <Button variant="destructive" onclick={confirmLoadPreset}>
+        {#if hasData}
+          <FileDown class="size-4" />
+          {$_('dev.confirm.exportAndContinue')}
+        {:else}
+          {$_('dev.confirm.continue')}
+        {/if}
+      </Button>
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>

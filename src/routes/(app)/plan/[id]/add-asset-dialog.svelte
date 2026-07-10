@@ -1,50 +1,65 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import { X } from '@lucide/svelte'
+  import X from '@lucide/svelte/icons/x'
 
   import { Button } from '$lib/components/ui/button'
   import * as Dialog from '$lib/components/ui/dialog'
+  import { appStore } from '$lib/stores/app.svelte'
   import { cn } from '$lib/utils'
 
-  type CashFlowKind = 'transfer' | 'income' | 'expense'
+  export type AssetKind = 'cash' | 'investment' | 'tangibleAsset' | 'liability'
 
   interface Props {
     open: boolean
     onOpenChange: (open: boolean) => void
-    onContinue: (kind: CashFlowKind) => void
+    onContinue: (kind: AssetKind) => void
   }
 
   let { open = $bindable(), onOpenChange, onContinue }: Props = $props()
 
-  let selectedKind = $state<CashFlowKind>('transfer')
+  const cashAlreadyExists = $derived(
+    appStore.profile.cash_amount !== undefined && appStore.profile.cash_amount > 0,
+  )
 
-  // Re-seed default selection whenever the dialog opens.
+  let selectedKind = $state<AssetKind>('investment')
+
+  // Re-seed default selection whenever the dialog opens. Default to the first
+  // available option (cash if it doesn't yet exist, otherwise investment).
   let wasOpen = false
   $effect(() => {
     if (open && !wasOpen) {
-      selectedKind = 'transfer'
+      selectedKind = cashAlreadyExists ? 'investment' : 'cash'
     }
     wasOpen = open
   })
 
   const options = $derived([
     {
-      id: 'transfer' as const,
-      label: $_('page.plan.transfer'),
-      description: $_('page.plan.transferDescription'),
+      id: 'cash' as const,
+      label: $_('page.plan.cash'),
+      description: cashAlreadyExists
+        ? $_('page.plan.cashAlreadyExists')
+        : $_('page.plan.cashDescription'),
+      // Editing cash via the add flow doesn't make sense when one already exists.
+      disabled: cashAlreadyExists,
+    },
+    {
+      id: 'investment' as const,
+      label: $_('page.plan.investment'),
+      description: $_('page.plan.investmentDescription'),
       disabled: false,
     },
     {
-      id: 'income' as const,
-      label: $_('page.plan.income'),
-      description: $_('page.plan.incomeDescription'),
+      id: 'tangibleAsset' as const,
+      label: $_('page.plan.tangibleAsset'),
+      description: $_('page.plan.tangibleAssetDescription'),
       disabled: false,
     },
     {
-      id: 'expense' as const,
-      label: $_('page.plan.expense'),
-      description: $_('page.plan.expenseDescription'),
+      id: 'liability' as const,
+      label: $_('page.plan.liability'),
+      description: $_('page.plan.liabilityDescription'),
       disabled: false,
     },
   ])
@@ -63,7 +78,7 @@
   <Dialog.Content showCloseButton={false} class="gap-0 p-0 sm:max-w-md">
     <Dialog.Header class="flex flex-row items-center border-b p-4">
       <Dialog.Title class="flex-1 text-base font-semibold">
-        {$_('page.plan.addCashFlow')}
+        {$_('page.plan.addAsset')}
       </Dialog.Title>
       <Button variant="ghost" size="icon" onclick={close} aria-label={$_('page.plan.closeDialog')}>
         <X class="size-4" />
@@ -71,7 +86,7 @@
     </Dialog.Header>
 
     <div class="flex flex-col gap-3 p-4">
-      <p class="text-sm">{$_('page.plan.addCashFlowQuestion')}</p>
+      <p class="text-sm">{$_('page.plan.addAssetQuestion')}</p>
 
       <div class="flex flex-col gap-2">
         {#each options as option (option.id)}

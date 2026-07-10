@@ -2,7 +2,7 @@
   import { onDestroy } from 'svelte'
   import { _, locale } from 'svelte-i18n'
 
-  import { Plus } from '@lucide/svelte'
+  import Plus from '@lucide/svelte/icons/plus'
 
   import CashFlowItemCard from '$lib/components/cash-flow-item-card.svelte'
   import { Button } from '$lib/components/ui/button'

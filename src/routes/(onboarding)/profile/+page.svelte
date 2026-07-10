@@ -1,7 +1,7 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import { ArrowRight } from '@lucide/svelte'
+  import ArrowRight from '@lucide/svelte/icons/arrow-right'
 
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
@@ -17,6 +17,7 @@
     DEFAULT_CURRENCY,
     getBirthYearOptions,
     getMonthOptions,
+    toDateOnlyString,
   } from '$lib/utils'
 
   // The store is loaded before render (see +layout.ts), so the profile is
@@ -68,7 +69,7 @@
     }
     if (birthYear !== '' && birthMonth !== '') {
       const date = new Date(Number(birthYear), Number(birthMonth), 1)
-      updates.birth_date = date.toISOString().split('T')[0]
+      updates.birth_date = toDateOnlyString(date)
     }
     appStore.updateProfile(updates)
     goto(resolve(routes.FINANCES_EDIT))

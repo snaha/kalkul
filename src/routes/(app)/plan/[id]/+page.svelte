@@ -2,16 +2,14 @@
   import { tick } from 'svelte'
   import { _ } from 'svelte-i18n'
 
-  import {
-    ArrowLeft,
-    ChevronRight,
-    PanelLeft,
-    Plus,
-    Rows2,
-    Search,
-    Settings2,
-    X,
-  } from '@lucide/svelte'
+  import ArrowLeft from '@lucide/svelte/icons/arrow-left'
+  import ChevronRight from '@lucide/svelte/icons/chevron-right'
+  import PanelLeft from '@lucide/svelte/icons/panel-left'
+  import Plus from '@lucide/svelte/icons/plus'
+  import Rows2 from '@lucide/svelte/icons/rows-2'
+  import Search from '@lucide/svelte/icons/search'
+  import Settings2 from '@lucide/svelte/icons/settings-2'
+  import X from '@lucide/svelte/icons/x'
 
   import { resolve } from '$app/paths'
   import { page } from '$app/state'
@@ -46,13 +44,13 @@
   import { appStore } from '$lib/stores/app.svelte'
   import { cn, notImplemented } from '$lib/utils'
 
-  import AddAssetDialog, { type AssetKind as AddAssetKind } from './AddAssetDialog.svelte'
-  import AddCashFlowDialog from './AddCashFlowDialog.svelte'
-  import AssetEditDialog, { type AssetKind } from './AssetEditDialog.svelte'
-  import CashEditDialog from './CashEditDialog.svelte'
-  import CashFlowEditDialog from './CashFlowEditDialog.svelte'
-  import PlanSidebarRow from './PlanSidebarRow.svelte'
-  import TransferEditDialog from './TransferEditDialog.svelte'
+  import AddAssetDialog, { type AssetKind as AddAssetKind } from './add-asset-dialog.svelte'
+  import AddCashFlowDialog from './add-cash-flow-dialog.svelte'
+  import AssetEditDialog, { type AssetKind } from './asset-edit-dialog.svelte'
+  import CashEditDialog from './cash-edit-dialog.svelte'
+  import CashFlowEditDialog from './cash-flow-edit-dialog.svelte'
+  import PlanSidebarRow from './plan-sidebar-row.svelte'
+  import TransferEditDialog from './transfer-edit-dialog.svelte'
 
   const planId = $derived(page.params.id)
   const plan = $derived(appStore.portfolios.find((p) => p.id === planId))
@@ -471,16 +469,16 @@
 
   // Calculate age from birth date for the selected year
   const currentAge = $derived.by(() => {
-    if (!appStore.profile.birth_date) return undefined
-    const birthYear = new Date(appStore.profile.birth_date).getFullYear()
-    return selectedYear - birthYear
+    const birthDate = appStore.profile.birthDate
+    if (!birthDate) return undefined
+    return selectedYear - birthDate.getFullYear()
   })
 
   // Calculate age for hovered year
   const hoveredAge = $derived.by(() => {
-    if (!appStore.profile.birth_date || hoveredYear === undefined) return undefined
-    const birthYear = new Date(appStore.profile.birth_date).getFullYear()
-    return hoveredYear - birthYear
+    const birthDate = appStore.profile.birthDate
+    if (!birthDate || hoveredYear === undefined) return undefined
+    return hoveredYear - birthDate.getFullYear()
   })
 
   // Get data for hovered year

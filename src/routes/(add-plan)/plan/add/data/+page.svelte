@@ -2,7 +2,7 @@
   import { _ } from 'svelte-i18n'
   import { SvelteSet } from 'svelte/reactivity'
 
-  import { ArrowRight } from '@lucide/svelte'
+  import ArrowRight from '@lucide/svelte/icons/arrow-right'
 
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
@@ -13,6 +13,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
   import routes from '$lib/routes'
+  import storageKeys from '$lib/storage-keys'
   import { appStore } from '$lib/stores/app.svelte'
 
   // State for included items - all checked by default
@@ -102,7 +103,7 @@
 
   function handleCreatePlan() {
     // Load plan details from sessionStorage
-    const draftStr = sessionStorage.getItem('kalkul-plan-draft')
+    const draftStr = sessionStorage.getItem(storageKeys.PLAN_DRAFT)
     if (!draftStr) {
       // Fallback if no draft
       goto(resolve(routes.HOME))
@@ -144,7 +145,7 @@
     })
 
     // Clean up
-    sessionStorage.removeItem('kalkul-plan-draft')
+    sessionStorage.removeItem(storageKeys.PLAN_DRAFT)
 
     // Navigate to the new plan page
     goto(resolve(`${routes.PLAN_VIEW}/${portfolioId}`))

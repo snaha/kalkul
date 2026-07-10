@@ -1,7 +1,7 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import { CircleHelp } from '@lucide/svelte'
+  import CircleHelp from '@lucide/svelte/icons/circle-help'
 
   import { Switch } from '$lib/components/ui/switch'
   import * as Tooltip from '$lib/components/ui/tooltip'

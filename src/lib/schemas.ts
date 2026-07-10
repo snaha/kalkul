@@ -97,6 +97,21 @@ const cashFlowTemporalRefinement = (
   }
 }
 
+// A timing edge ('start' or 'end') is complete only once the mode-specific
+// field is filled — otherwise the projection would silently fall back to the
+// plan's first year. Mirrors cashFlowTemporalRefinement above; forms use it
+// to gate saving before the data ever reaches the schema.
+export function timingComplete(
+  mode: CashFlowStart | CashFlowEnd,
+  year: number | undefined,
+  month: number | undefined,
+  age: number | undefined,
+): boolean {
+  if (mode === 'at_specific_date') return year !== undefined && month !== undefined
+  if (mode === 'when_age_is') return age !== undefined
+  return true
+}
+
 export const incomeSchema = z
   .object({
     id: z.string(),

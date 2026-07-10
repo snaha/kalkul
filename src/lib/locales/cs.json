@@ -22,7 +22,8 @@
         "endWhenAgeIs": "Když vám bude",
         "endAtDate": "K určitému datu...",
         "yearsOld": "Let",
-        "inflation": "Inflace"
+        "inflation": "Inflace",
+        "defaultName": "Plán {index}"
       },
       "data": {
         "title": "Finanční data",
@@ -76,6 +77,7 @@
       "cancel": "Zrušit",
       "continue": "Pokračovat",
       "renameItem": "Přejmenovat",
+      "itemNameLabel": "Název položky",
       "duplicateItem": "Duplikovat",
       "deleteItem": "Smazat",
       "closeDialog": "Zavřít",
@@ -366,7 +368,8 @@
       "france": "Francie",
       "other": "Jiné"
     },
-    "currency": "Měna"
+    "currency": "Měna",
+    "notImplemented": "Zatím není implementováno"
   },
   "theme": {
     "light": "Světlý",
@@ -406,6 +409,16 @@
       "licenseName": "licencí AGPL-3.0",
       "openSourceSuffix": ". Můžete jej volně používat, upravovat a distribuovat za stejných podmínek.",
       "visitGithub": "Navštívit náš GitHub"
+    }
+  },
+  "dev": {
+    "confirm": {
+      "title": "Nahradit všechna vaše data?",
+      "description": "Načtení této předlohy přepíše všechna data aktuálně uložená v tomto prohlížeči.",
+      "warning": "Vaše stávající data budou nejprve exportována do souboru, abyste je mohli později obnovit.",
+      "cancel": "Zrušit",
+      "exportAndContinue": "Exportovat a pokračovat",
+      "continue": "Pokračovat"
     }
   },
   "validation": {
