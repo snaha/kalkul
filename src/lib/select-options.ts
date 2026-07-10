@@ -23,6 +23,12 @@ export function getFrequencyItems($_: Translator): SelectFieldItem[] {
   return frequencySchema.options.map((value) => ({ value, label: labels[value] }))
 }
 
+export function getFrequencyShortLabel($_: Translator, frequency: Frequency): string {
+  if (frequency === 'monthly') return $_('page.financialData.frequency.short.monthly')
+  if (frequency === 'weekly') return $_('page.financialData.frequency.short.weekly')
+  return $_('page.financialData.frequency.short.yearly')
+}
+
 export function getTangibleAssetStatusItems($_: Translator): SelectFieldItem[] {
   const labels = {
     fully_owned: $_('page.setup.tangibleAssets.fullyOwned'),

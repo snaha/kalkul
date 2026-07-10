@@ -34,13 +34,13 @@
   import routes from '$lib/routes'
   import type {
     Expense,
-    Frequency,
     Income,
     ProfileInvestment,
     ProfileLiability,
     ProfileTangibleAsset,
     Transfer,
   } from '$lib/schemas'
+  import { getFrequencyShortLabel } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import { cn, notImplemented } from '$lib/utils'
 
@@ -193,7 +193,7 @@
 
   function transferValueSuffix(t: Transfer): string {
     if (t.schedule === 'one_time') return `(${$_('page.plan.scheduleOneTime').toLowerCase()})`
-    return `/ ${frequencySuffix(t.frequency ?? 'monthly')}`
+    return `/ ${getFrequencyShortLabel($_, t.frequency ?? 'monthly')}`
   }
   const incomesCount = $derived((appStore.profile.incomes ?? []).length)
   const expensesCount = $derived((appStore.profile.expenses ?? []).length)
@@ -230,13 +230,6 @@
   const tangibleAssetsValue = $derived(selectedYearProjection?.tangibleAssets ?? 0)
   const liabilitiesValue = $derived(selectedYearProjection?.liabilities ?? 0)
   const netWorth = $derived(selectedYearProjection?.netWorth ?? 0)
-
-  // Per-frequency short suffix for cash-flow rows
-  function frequencySuffix(frequency: Frequency): string {
-    if (frequency === 'monthly') return $_('page.financialData.frequency.short.monthly')
-    if (frequency === 'weekly') return $_('page.financialData.frequency.short.weekly')
-    return $_('page.financialData.frequency.short.yearly')
-  }
 
   interface SidebarItem {
     id: string
@@ -286,7 +279,7 @@
           name: i.name,
           // Figma shows the same neutral foreground color for incomes and
           // expenses; the leading sign carries the direction.
-          value: `+${appStore.formatCurrencyCode(i.amount)} / ${frequencySuffix(i.frequency)}`,
+          value: `+${appStore.formatCurrencyCode(i.amount)} / ${getFrequencyShortLabel($_, i.frequency)}`,
           onClick: () => openEditDialog('income', i),
         })),
     },
@@ -299,7 +292,7 @@
         .map((e) => ({
           id: e.id,
           name: e.name,
-          value: `-${appStore.formatCurrencyCode(e.amount)} / ${frequencySuffix(e.frequency)}`,
+          value: `-${appStore.formatCurrencyCode(e.amount)} / ${getFrequencyShortLabel($_, e.frequency)}`,
           hasInsufficientFunds: failingExpenseIds.has(e.id),
           onClick: () => openEditDialog('expense', e),
         })),
