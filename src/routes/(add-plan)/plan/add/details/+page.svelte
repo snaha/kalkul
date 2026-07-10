@@ -21,7 +21,7 @@
   // Generate a default plan name based on existing portfolios
   function getDefaultPlanName(): string {
     const existingCount = appStore.portfolios.length
-    return `Plan ${existingCount + 1}`
+    return $_('page.addPlan.details.defaultName', { values: { index: existingCount + 1 } })
   }
 
   let name = $state(getDefaultPlanName())

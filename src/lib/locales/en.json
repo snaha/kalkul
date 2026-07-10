@@ -22,7 +22,8 @@
         "endWhenAgeIs": "When your age is",
         "endAtDate": "At specific date...",
         "yearsOld": "Years old",
-        "inflation": "Inflation"
+        "inflation": "Inflation",
+        "defaultName": "Plan {index}"
       },
       "data": {
         "title": "Financial data",
@@ -350,7 +351,8 @@
       "france": "France",
       "other": "Other"
     },
-    "currency": "Currency"
+    "currency": "Currency",
+    "notImplemented": "Not implemented yet"
   },
   "theme": {
     "light": "Light",

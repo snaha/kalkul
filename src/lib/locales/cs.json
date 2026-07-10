@@ -22,7 +22,8 @@
         "endWhenAgeIs": "Když vám bude",
         "endAtDate": "K určitému datu...",
         "yearsOld": "Let",
-        "inflation": "Inflace"
+        "inflation": "Inflace",
+        "defaultName": "Plán {index}"
       },
       "data": {
         "title": "Finanční data",
@@ -350,7 +351,8 @@
       "france": "Francie",
       "other": "Jiné"
     },
-    "currency": "Měna"
+    "currency": "Měna",
+    "notImplemented": "Zatím není implementováno"
   },
   "theme": {
     "light": "Světlý",
