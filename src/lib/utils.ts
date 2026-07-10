@@ -116,11 +116,16 @@ function getNumberFormat(
   return formatter
 }
 
+// -0 renders as "-0" in Intl.NumberFormat (e.g. a negated zero liabilities
+// total); money displays should show plain 0
+const unsignZero = (value: number) => (value === 0 ? 0 : value)
+
 export function formatNumber(value: number, locale?: string): string {
-  return getNumberFormat(locale, { maximumFractionDigits: 4 }).format(value)
+  return getNumberFormat(locale, { maximumFractionDigits: 4 }).format(unsignZero(value))
 }
 
 export function formatCurrency(value: number, currency: string, locale?: string): string {
+  value = unsignZero(value)
   try {
     return getNumberFormat(locale, {
       style: 'currency',
@@ -134,6 +139,7 @@ export function formatCurrency(value: number, currency: string, locale?: string)
 }
 
 export function formatCurrencyCode(value: number, currency: string, locale?: string): string {
+  value = unsignZero(value)
   try {
     return getNumberFormat(locale, {
       style: 'currency',
@@ -148,6 +154,7 @@ export function formatCurrencyCode(value: number, currency: string, locale?: str
 }
 
 export function formatCompactCurrency(value: number, currency: string, locale?: string): string {
+  value = unsignZero(value)
   try {
     return getNumberFormat(locale, {
       style: 'currency',
