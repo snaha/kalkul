@@ -395,6 +395,16 @@
       "visitGithub": "Visit our Github"
     }
   },
+  "dev": {
+    "confirm": {
+      "title": "Replace all your data?",
+      "description": "Loading this preset overwrites all data currently stored in this browser.",
+      "warning": "Your current data will be exported to a file first so you can restore it later.",
+      "cancel": "Cancel",
+      "exportAndContinue": "Export and continue",
+      "continue": "Continue"
+    }
+  },
   "validation": {
     "required_when_start_at_specific_date": "Required when start is at a specific date",
     "required_when_start_when_age_is": "Required when start is at a specific age",
