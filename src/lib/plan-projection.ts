@@ -338,7 +338,7 @@ function transferAmountForYear(
     .mul(fraction)
 }
 
-function filterById<T extends { id: string }>(
+export function filterById<T extends { id: string }>(
   items: T[] | undefined,
   includedIds: string[] | undefined,
 ): T[] {
