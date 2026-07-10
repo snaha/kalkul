@@ -17,6 +17,7 @@
   import externalLinks from '$lib/external-links'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
+  import { slugify } from '$lib/utils'
 
   const hasData = $derived(!appStore.loading && !!appStore.profile.name)
 
@@ -37,7 +38,8 @@
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `kalkul-backup-${new Date().toISOString().slice(0, 10)}.json`
+    const nameSlug = slugify(appStore.profile.name)
+    a.download = `kalkul-backup-${nameSlug ? `${nameSlug}-` : ''}${new Date().toISOString().slice(0, 10)}.kalkul.json`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -138,7 +140,7 @@
 <input
   bind:this={fileInput}
   type="file"
-  accept="application/json,.json"
+  accept=".kalkul.json"
   class="hidden"
   onchange={handleFileSelect}
 />
