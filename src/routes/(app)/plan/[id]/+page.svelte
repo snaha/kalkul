@@ -2,16 +2,14 @@
   import { tick } from 'svelte'
   import { _ } from 'svelte-i18n'
 
-  import {
-    ArrowLeft,
-    ChevronRight,
-    PanelLeft,
-    Plus,
-    Rows2,
-    Search,
-    Settings2,
-    X,
-  } from '@lucide/svelte'
+  import ArrowLeft from '@lucide/svelte/icons/arrow-left'
+  import ChevronRight from '@lucide/svelte/icons/chevron-right'
+  import PanelLeft from '@lucide/svelte/icons/panel-left'
+  import Plus from '@lucide/svelte/icons/plus'
+  import Rows2 from '@lucide/svelte/icons/rows-2'
+  import Search from '@lucide/svelte/icons/search'
+  import Settings2 from '@lucide/svelte/icons/settings-2'
+  import X from '@lucide/svelte/icons/x'
 
   import { resolve } from '$app/paths'
   import { page } from '$app/state'

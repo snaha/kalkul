@@ -64,7 +64,7 @@
 </script>
 
 <script lang="ts">
-  import { TriangleAlert } from '@lucide/svelte'
+  import TriangleAlert from '@lucide/svelte/icons/triangle-alert'
 
   import { CATEGORY_COLORS } from '$lib/chart-colors'
   import * as Tooltip from '$lib/components/ui/tooltip'

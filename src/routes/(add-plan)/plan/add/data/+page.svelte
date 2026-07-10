@@ -2,7 +2,7 @@
   import { _ } from 'svelte-i18n'
   import { SvelteSet } from 'svelte/reactivity'
 
-  import { ArrowRight } from '@lucide/svelte'
+  import ArrowRight from '@lucide/svelte/icons/arrow-right'
 
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'

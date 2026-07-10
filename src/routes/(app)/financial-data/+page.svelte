@@ -1,7 +1,7 @@
 <script lang="ts">
   import { _, locale } from 'svelte-i18n'
 
-  import { SquarePen } from '@lucide/svelte'
+  import SquarePen from '@lucide/svelte/icons/square-pen'
 
   import { resolve } from '$app/paths'
 

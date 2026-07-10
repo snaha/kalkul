@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { CircleHelp } from '@lucide/svelte'
+  import CircleHelp from '@lucide/svelte/icons/circle-help'
 
   import * as Tooltip from '$lib/components/ui/tooltip'
   import { cn } from '$lib/utils'

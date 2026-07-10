@@ -1,7 +1,10 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import { Eye, EyeOff, Trash2, X } from '@lucide/svelte'
+  import Eye from '@lucide/svelte/icons/eye'
+  import EyeOff from '@lucide/svelte/icons/eye-off'
+  import Trash2 from '@lucide/svelte/icons/trash-2'
+  import X from '@lucide/svelte/icons/x'
 
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
