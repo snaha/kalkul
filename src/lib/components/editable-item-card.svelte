@@ -5,7 +5,6 @@
   import ChevronsUpDown from '@lucide/svelte/icons/chevrons-up-down'
   import Copy from '@lucide/svelte/icons/copy'
   import EllipsisVertical from '@lucide/svelte/icons/ellipsis-vertical'
-  import SquarePen from '@lucide/svelte/icons/square-pen'
   import Trash2 from '@lucide/svelte/icons/trash-2'
 
   import { Button } from '$lib/components/ui/button'
@@ -15,7 +14,6 @@
 
   interface EditableItem {
     editing: boolean
-    editingName: boolean
     name: string
   }
 
@@ -27,8 +25,6 @@
     onToggleEditing: () => void
     onDuplicate: () => void
     onDelete: () => void
-    onStartEditingName: () => void
-    onStopEditingName: () => void
     expandedContent: Snippet
   }
 
@@ -40,10 +36,11 @@
     onToggleEditing,
     onDuplicate,
     onDelete,
-    onStartEditingName,
-    onStopEditingName,
     expandedContent,
   }: Props = $props()
+
+  // Snapshot for Escape-to-revert; edits commit live via oninput.
+  let nameBeforeEdit = ''
 </script>
 
 <Card class="gap-0 py-0">
@@ -58,26 +55,23 @@
           {#if dotColor}
             <div class="size-4 shrink-0 rounded-xs" style:background-color={dotColor}></div>
           {/if}
-          {#if item.editingName}
-            <Input
-              value={item.name}
-              oninput={(e) => {
-                item.name = (e.target as HTMLInputElement).value
-              }}
-              onblur={onStopEditingName}
-              onkeydown={(e) => {
-                if (e.key === 'Enter') onStopEditingName()
-              }}
-              class="flex-1"
-            />
-          {:else}
-            <span class="flex-1 truncate text-base font-medium">
-              {item.name}
-            </span>
-            <Button variant="ghost" size="icon" onclick={onStartEditingName}>
-              <SquarePen class="size-4" />
-            </Button>
-          {/if}
+          <Input
+            value={item.name}
+            oninput={(e) => {
+              item.name = (e.target as HTMLInputElement).value
+            }}
+            onfocus={() => {
+              nameBeforeEdit = item.name
+            }}
+            onkeydown={(e) => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+              if (e.key === 'Escape') {
+                item.name = nameBeforeEdit
+                ;(e.target as HTMLInputElement).blur()
+              }
+            }}
+            class="flex-1"
+          />
           <DropdownMenu.Root>
             <DropdownMenu.Trigger>
               {#snippet child({ props })}

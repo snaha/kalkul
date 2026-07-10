@@ -25,7 +25,6 @@
     installment_amount: number | undefined
     remaining_term: number | undefined
     editing: boolean
-    editingName: boolean
   }
 
   interface Props {
@@ -44,7 +43,6 @@
       installment_amount: l.installment_amount > 0 ? l.installment_amount : undefined,
       remaining_term: l.remaining_term > 0 ? l.remaining_term : undefined,
       editing: false,
-      editingName: false,
     }))
   }
 
@@ -74,7 +72,6 @@
       installment_amount: undefined,
       remaining_term: undefined,
       editing: true,
-      editingName: false,
     })
   }
 
@@ -86,7 +83,6 @@
       id: crypto.randomUUID(),
       name: $_('page.setup.common.copySuffix', { values: { name: liability.name } }),
       editing: true,
-      editingName: false,
     })
   }
 
@@ -158,12 +154,6 @@
       }}
       onDuplicate={() => duplicateLiability(liability)}
       onDelete={() => deleteLiability(liability)}
-      onStartEditingName={() => {
-        liability.editingName = true
-      }}
-      onStopEditingName={() => {
-        liability.editingName = false
-      }}
     >
       {#snippet expandedContent()}
         <div class="flex flex-col gap-2">

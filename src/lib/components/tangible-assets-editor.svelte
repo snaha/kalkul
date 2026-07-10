@@ -27,7 +27,6 @@
     installment_amount: number | undefined
     remaining_term: number | undefined
     editing: boolean
-    editingName: boolean
   }
 
   interface Props {
@@ -55,7 +54,6 @@
       remaining_term:
         a.remaining_term !== undefined && a.remaining_term > 0 ? a.remaining_term : undefined,
       editing: false,
-      editingName: false,
     }))
   }
 
@@ -89,7 +87,6 @@
       installment_amount: undefined,
       remaining_term: undefined,
       editing: true,
-      editingName: false,
     })
   }
 
@@ -101,7 +98,6 @@
       id: crypto.randomUUID(),
       name: $_('page.setup.common.copySuffix', { values: { name: asset.name } }),
       editing: true,
-      editingName: false,
     })
   }
 
@@ -175,12 +171,6 @@
       }}
       onDuplicate={() => duplicateAsset(asset)}
       onDelete={() => deleteAsset(asset)}
-      onStartEditingName={() => {
-        asset.editingName = true
-      }}
-      onStopEditingName={() => {
-        asset.editingName = false
-      }}
     >
       {#snippet expandedContent()}
         <div class="flex items-center gap-2">

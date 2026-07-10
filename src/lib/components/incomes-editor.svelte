@@ -17,7 +17,6 @@
     amount: number | undefined
     showAdvanced: boolean
     editing: boolean
-    editingName: boolean
   }
 
   interface Props {
@@ -40,7 +39,6 @@
       amount: inc.amount > 0 ? inc.amount : undefined,
       showAdvanced: false,
       editing: false,
-      editingName: false,
     }))
   }
 
@@ -78,7 +76,6 @@
       change_over_time: 'none',
       change_percentage: undefined,
       editing: true,
-      editingName: false,
     })
   }
 
@@ -90,7 +87,6 @@
       id: crypto.randomUUID(),
       name: $_('page.setup.common.copySuffix', { values: { name: income.name } }),
       editing: true,
-      editingName: false,
     })
   }
 
@@ -173,12 +169,6 @@
       }}
       onDuplicate={() => duplicateIncome(income)}
       onDelete={() => deleteIncome(income)}
-      onStartEditingName={() => {
-        income.editingName = true
-      }}
-      onStopEditingName={() => {
-        income.editingName = false
-      }}
     >
       {#snippet extraAdvancedContent()}
         <div class="flex items-end gap-4">
