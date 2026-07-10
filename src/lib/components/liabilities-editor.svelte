@@ -12,6 +12,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
   import type { Frequency, ProfileLiability } from '$lib/schemas'
+  import { getFrequencyItems } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import { notImplemented } from '$lib/utils'
 
@@ -59,11 +60,7 @@
 
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
-  let frequencyItems = $derived([
-    { value: 'monthly', label: $_('page.setup.common.monthly') },
-    { value: 'yearly', label: $_('page.setup.common.yearly') },
-    { value: 'weekly', label: $_('page.setup.common.weekly') },
-  ])
+  let frequencyItems = $derived(getFrequencyItems($_))
 
   function addLiability() {
     liabilityCounter++

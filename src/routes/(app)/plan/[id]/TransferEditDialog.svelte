@@ -24,6 +24,7 @@
     Transfer,
     TransferSchedule,
   } from '$lib/schemas'
+  import { getFrequencyItems } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
   import { getMonthOptions, getYearOptions } from '$lib/utils'
@@ -189,11 +190,7 @@
     { value: 'one_time', label: $_('page.plan.scheduleOneTime') },
     { value: 'recurring', label: $_('page.plan.scheduleRecurring') },
   ])
-  let frequencyItems = $derived([
-    { value: 'monthly', label: $_('page.setup.common.monthly') },
-    { value: 'yearly', label: $_('page.setup.common.yearly') },
-    { value: 'weekly', label: $_('page.setup.common.weekly') },
-  ])
+  let frequencyItems = $derived(getFrequencyItems($_))
   let yearItems = $derived(years.map((y) => ({ value: y, label: y })))
 
   function projectTransfer(f: FormState): Transfer {
