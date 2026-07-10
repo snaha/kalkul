@@ -10,11 +10,9 @@
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Label } from '$lib/components/ui/label'
-  import { Switch } from '$lib/components/ui/switch'
   import type { Frequency, ProfileLiability } from '$lib/schemas'
   import { getFrequencyItems } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
-  import { notImplemented } from '$lib/utils'
 
   interface LiabilityUI {
     id: string
@@ -225,13 +223,6 @@
               }}
             />
           </div>
-        </div>
-
-        <div class="flex items-center gap-2">
-          <Switch checked={false} onCheckedChange={notImplemented} />
-          <span class="text-sm font-medium text-muted-foreground">
-            {$_('page.setup.common.advancedOptions')}
-          </span>
         </div>
       {/snippet}
     </EditableItemCard>
