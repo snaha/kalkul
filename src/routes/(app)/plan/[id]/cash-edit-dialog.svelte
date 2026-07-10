@@ -3,7 +3,7 @@
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
 
-  import CashEditForm from './CashEditForm.svelte'
+  import CashEditForm from './cash-edit-form.svelte'
 
   interface Props {
     open: boolean
