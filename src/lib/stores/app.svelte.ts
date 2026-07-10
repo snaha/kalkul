@@ -1,6 +1,7 @@
 import { SvelteSet } from 'svelte/reactivity'
 
 import { type StoredData, profileSchema, storedDataSchema } from '$lib/schemas'
+import storageKeys from '$lib/storage-keys'
 import type { Portfolio, PortfolioNested, Profile } from '$lib/types'
 import {
   DEFAULT_CURRENCY,
@@ -15,8 +16,6 @@ import {
 import type { PortfolioStore } from './portfolio.svelte'
 import { withPortfolioStore } from './portfolio.svelte'
 import { storageErrorStore } from './storage-error.svelte'
-
-const STORAGE_KEY = 'kalkul-data'
 
 export type ProfileStore = Profile & {
   readonly birthDate: Date | undefined
@@ -92,7 +91,7 @@ const DEFAULT_PROFILE: Profile = {
 
 function loadData(): StoredData {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(storageKeys.DATA)
     if (raw) {
       return storedDataSchema.parse(JSON.parse(raw))
     }
@@ -118,7 +117,7 @@ function withAppStore() {
       portfolios: portfolios.map((p) => p.toJSON()),
     }
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(stored))
+      localStorage.setItem(storageKeys.DATA, JSON.stringify(stored))
       lastUpdated = now
       storageErrorStore.clear()
     } catch (e) {
@@ -244,7 +243,7 @@ function withAppStore() {
 
     startSync(): () => void {
       function onStorage(event: StorageEvent): void {
-        if (event.key !== STORAGE_KEY || !event.newValue) return
+        if (event.key !== storageKeys.DATA || !event.newValue) return
 
         try {
           const data = storedDataSchema.parse(JSON.parse(event.newValue))
