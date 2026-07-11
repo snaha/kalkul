@@ -13,12 +13,19 @@
   import heroIllustration from '$lib/assets/hero-illustration.svg'
   import plansIllustration from '$lib/assets/plans-illustration.svg'
   import DonutChart from '$lib/components/donut-chart.svelte'
-  import { Badge } from '$lib/components/ui/badge'
   import { Button } from '$lib/components/ui/button'
+  import { Progress } from '$lib/components/ui/progress'
   import { Separator } from '$lib/components/ui/separator'
-  import { getNetWorth, getOverviewSegments, hasAnyFinancialData } from '$lib/financial-totals'
+  import {
+    getFiPercent,
+    getNetWorth,
+    getOverviewSegments,
+    getRunwayYears,
+    hasAnyFinancialData,
+  } from '$lib/financial-totals'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
+  import { cn } from '$lib/utils'
 
   const addPlanUrl = $derived(getFirstAddPlanStepUrl(appStore.profile))
 
@@ -27,6 +34,18 @@
 
   const chartSegments = $derived(getOverviewSegments(appStore.profile))
   const totalNetWorth = $derived(getNetWorth(appStore.profile))
+  const fiPercent = $derived(getFiPercent(appStore.profile))
+  const runwayYears = $derived(getRunwayYears(appStore.profile))
+
+  // Selects which chart is shown below once the snapshot-based charts exist.
+  type HeadlineCard = 'netWorth' | 'fi' | 'runway'
+  let selectedCard = $state<HeadlineCard>('netWorth')
+
+  const cardClass = (card: HeadlineCard) =>
+    cn(
+      'flex flex-1 cursor-pointer flex-col rounded-xl border p-4 text-left shadow-xs transition-colors',
+      selectedCard === card ? 'bg-accent' : 'bg-card hover:bg-accent/50',
+    )
 </script>
 
 {#if hasData}
@@ -34,23 +53,10 @@
     <!-- Left panel: Current finances -->
     <div class="flex flex-1 flex-col">
       <div class="flex items-start gap-4 p-8">
-        <div class="flex flex-1 items-center gap-2">
-          <h2 class="text-2xl font-bold">{$_('page.dashboard.finances.title')}</h2>
-          {#if hasFinancialData}
-            <Badge variant="outline">
-              <Calendar class="size-3" />
-              {$_('page.dashboard.finances.today')}
-            </Badge>
-          {:else}
-            <Badge variant="destructive">{$_('page.dashboard.finances.missing')}</Badge>
-          {/if}
-        </div>
+        <h2 class="flex-1 text-2xl font-bold">{$_('page.dashboard.finances.title')}</h2>
         {#if hasFinancialData}
-          <Button size="sm" href={resolve(routes.FINANCES_EDIT)}>
-            <SquarePen class="size-4" />
-            {$_('page.dashboard.finances.update')}
-          </Button>
-          <Button variant="ghost" size="icon" href={resolve(routes.FINANCIAL_DATA)}>
+          <Button variant="outline" size="sm" href={resolve(routes.FINANCIAL_DATA)}>
+            {$_('page.dashboard.finances.viewDetails')}
             <ArrowRight class="size-4" />
           </Button>
         {:else}
@@ -58,14 +64,72 @@
             <SquarePen class="size-4" />
             {$_('page.dashboard.finances.addData')}
           </Button>
-          <Button variant="ghost" size="icon" disabled>
-            <ArrowRight class="size-4" />
-          </Button>
         {/if}
       </div>
 
       {#if hasFinancialData}
-        <div class="flex flex-1 flex-col items-center gap-8 p-8">
+        <div class="flex flex-1 flex-col items-center gap-8 px-8 pb-8">
+          <div class="flex w-full gap-2">
+            <button
+              type="button"
+              class={cardClass('netWorth')}
+              aria-pressed={selectedCard === 'netWorth'}
+              onclick={() => (selectedCard = 'netWorth')}
+            >
+              <p class="text-sm">{$_('page.dashboard.finances.netWorthCard.title')}</p>
+              <p class="text-xl font-extrabold">{appStore.formatCompactCurrency(totalNetWorth)}</p>
+              <p class="text-xs text-muted-foreground">
+                {$_('page.dashboard.finances.netWorthCard.description')}
+              </p>
+            </button>
+            <button
+              type="button"
+              class={cardClass('fi')}
+              aria-pressed={selectedCard === 'fi'}
+              onclick={() => (selectedCard = 'fi')}
+            >
+              <p class="text-sm">{$_('page.dashboard.finances.fiCard.title')}</p>
+              {#if fiPercent !== undefined}
+                <div class="flex items-center gap-2">
+                  <p class="text-xl font-extrabold">{Math.round(fiPercent)}%</p>
+                  <Progress value={Math.min(fiPercent, 100)} class="flex-1" />
+                </div>
+                <p class="text-xs text-muted-foreground">
+                  {$_('page.dashboard.finances.fiCard.description')}
+                </p>
+              {:else}
+                <p class="text-xl font-extrabold">—</p>
+                <p class="text-xs text-muted-foreground">
+                  {$_('page.dashboard.finances.noExpensesHint')}
+                </p>
+              {/if}
+            </button>
+            <button
+              type="button"
+              class={cardClass('runway')}
+              aria-pressed={selectedCard === 'runway'}
+              onclick={() => (selectedCard = 'runway')}
+            >
+              <p class="text-sm">{$_('page.dashboard.finances.runwayCard.title')}</p>
+              {#if runwayYears !== undefined}
+                <p class="text-xl font-extrabold">
+                  {$_('page.dashboard.finances.runwayCard.value', {
+                    values: {
+                      years: appStore.formatNumber(Math.round(runwayYears * 10) / 10),
+                    },
+                  })}
+                </p>
+                <p class="text-xs text-muted-foreground">
+                  {$_('page.dashboard.finances.runwayCard.description')}
+                </p>
+              {:else}
+                <p class="text-xl font-extrabold">—</p>
+                <p class="text-xs text-muted-foreground">
+                  {$_('page.dashboard.finances.noExpensesHint')}
+                </p>
+              {/if}
+            </button>
+          </div>
           <DonutChart
             segments={chartSegments}
             centerLabel={appStore.formatCompactCurrency(totalNetWorth)}
@@ -86,9 +150,6 @@
             </div>
           </div>
           <div class="flex items-center justify-center gap-4">
-            <Button variant="ghost" size="sm" href={resolve(routes.FINANCES_EDIT)}>
-              {$_('page.dashboard.finances.update')}
-            </Button>
             <Button variant="secondary" size="sm" href={resolve(routes.FINANCIAL_DATA)}>
               {$_('page.dashboard.finances.viewAll')}
             </Button>

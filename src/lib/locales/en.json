@@ -154,20 +154,32 @@
     },
     "dashboard": {
       "finances": {
-        "title": "Current finances",
-        "missing": "Missing",
+        "title": "Actual finances",
         "addData": "Add data",
         "illustrationAlt": "Financial data illustration",
-        "emptyTitle": "Current finances",
+        "emptyTitle": "Actual finances",
         "emptySubtitle": "Make your plans more accurate",
         "emptyDescription": "Add what you currently own",
         "addFinancialData": "Add your financial data",
-        "today": "Today",
-        "update": "Update",
+        "viewDetails": "View details",
         "netWorthSummary": "Your current total net worth is {total}",
         "lastUpdated": "Last updated today",
         "keepUpToDate": "Keep it up-to-date for accurate planning",
-        "viewAll": "View all financial data"
+        "viewAll": "View all financial data",
+        "netWorthCard": {
+          "title": "Net worth",
+          "description": "Total value of your assets minus your liabilities"
+        },
+        "fiCard": {
+          "title": "Financial independence",
+          "description": "Estimated progress toward living off your investments"
+        },
+        "runwayCard": {
+          "title": "Runway",
+          "description": "Estimated time you could live off your current savings",
+          "value": "{years} years"
+        },
+        "noExpensesHint": "Add your expenses to see this"
       },
       "plans": {
         "title": "Plans",
@@ -182,7 +194,6 @@
     },
     "financialData": {
       "title": "Financial data",
-      "update": "Update",
       "nav": {
         "overview": "Overview",
         "cash": "Cash",
@@ -212,7 +223,8 @@
       },
       "liabilities": {
         "title": "Liabilities",
-        "description": "Financial obligations not linked to a specific asset."
+        "description": "Financial obligations not linked to a specific asset.",
+        "financedCaption": "Loans tied to financed assets — managed under Tangible assets"
       },
       "incomes": {
         "title": "Incomes",
@@ -220,7 +232,8 @@
       },
       "expenses": {
         "title": "Expenses",
-        "description": "Living costs, recurring bills, and regular financial commitments."
+        "description": "Living costs, recurring bills, and regular financial commitments.",
+        "installmentsCaption": "Loan installments — managed under Tangible assets and Liabilities"
       },
       "frequency": {
         "short": {

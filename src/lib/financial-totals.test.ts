@@ -2,16 +2,22 @@ import { describe, expect, test } from 'vitest'
 
 import { CATEGORY_COLORS } from './chart-colors'
 import {
+  getAnnualDebtServiceTotal,
+  getAnnualExpensesTotal,
   getCashTotal,
+  getFiPercent,
+  getFinancedAssetsDebtTotal,
+  getInvestableNetWorth,
   getInvestmentsTotal,
   getLiabilitiesTotal,
   getNetWorth,
   getOverviewSegments,
+  getRunwayYears,
   getTangibleAssetsTotal,
   getTotalAssets,
   hasAnyFinancialData,
 } from './financial-totals'
-import type { Profile } from './schemas'
+import type { Expense, Profile } from './schemas'
 
 const EMPTY_PROFILE: Profile = {
   name: '',
@@ -38,8 +44,27 @@ const POPULATED_PROFILE: Profile = {
       installment_frequency: 'monthly',
       annual_rate: 3,
       installment_amount: 800,
-      remaining_term: 240,
+      remaining_term: 20,
     },
+  ],
+}
+
+// POPULATED_PROFILE plus a financed house: €200k value, €150k mortgage debt.
+const FINANCED_PROFILE: Profile = {
+  ...POPULATED_PROFILE,
+  tangible_assets: [
+    {
+      id: 't1',
+      name: 'House',
+      value: 200_000,
+      status: 'financed',
+      outstanding_balance: 150_000,
+      installment_frequency: 'monthly',
+      annual_rate: 4,
+      installment_amount: 790,
+      remaining_term: 25,
+    },
+    { id: 't2', name: 'Car', value: 8_000, status: 'fully_owned' },
   ],
 }
 
@@ -97,6 +122,24 @@ describe('getLiabilitiesTotal', () => {
   test('sums liability outstanding balances', () => {
     expect(getLiabilitiesTotal(POPULATED_PROFILE)).toBe(120_000)
   })
+
+  test('includes financed tangible asset debt', () => {
+    expect(getLiabilitiesTotal(FINANCED_PROFILE)).toBe(120_000 + 150_000)
+  })
+})
+
+describe('getFinancedAssetsDebtTotal', () => {
+  test('returns 0 when tangible_assets is undefined', () => {
+    expect(getFinancedAssetsDebtTotal(EMPTY_PROFILE)).toBe(0)
+  })
+
+  test('returns 0 when all assets are fully owned', () => {
+    expect(getFinancedAssetsDebtTotal(POPULATED_PROFILE)).toBe(0)
+  })
+
+  test('sums outstanding balances of financed assets only', () => {
+    expect(getFinancedAssetsDebtTotal(FINANCED_PROFILE)).toBe(150_000)
+  })
 })
 
 describe('getTotalAssets', () => {
@@ -124,6 +167,10 @@ describe('getNetWorth', () => {
     expect(getNetWorth(POPULATED_PROFILE)).toBe(225_200 - 120_000)
   })
 
+  test('subtracts financed tangible asset debt', () => {
+    expect(getNetWorth(FINANCED_PROFILE)).toBe(225_200 - 120_000 - 150_000)
+  })
+
   test('can be negative when liabilities exceed assets', () => {
     const profile: Profile = {
       ...EMPTY_PROFILE,
@@ -136,7 +183,7 @@ describe('getNetWorth', () => {
           installment_frequency: 'monthly',
           annual_rate: 5,
           installment_amount: 100,
-          remaining_term: 60,
+          remaining_term: 5,
         },
       ],
     }
@@ -170,6 +217,109 @@ describe('getOverviewSegments', () => {
       'liabilities',
     ])
     expect(segments.map((s) => s.value)).toEqual([4_700, 12_500, 208_000, 120_000])
+  })
+})
+
+function expense(amount: number, frequency: Expense['frequency']): Expense {
+  return {
+    id: `e-${amount}-${frequency}`,
+    name: 'Expense',
+    amount,
+    frequency,
+    start: 'now',
+    end: 'never',
+    change_over_time: 'none',
+  }
+}
+
+describe('getAnnualExpensesTotal', () => {
+  test('returns 0 when expenses is undefined', () => {
+    expect(getAnnualExpensesTotal(EMPTY_PROFILE)).toBe(0)
+  })
+
+  test('annualizes each frequency', () => {
+    const profile: Profile = {
+      ...EMPTY_PROFILE,
+      expenses: [expense(100, 'weekly'), expense(100, 'monthly'), expense(100, 'yearly')],
+    }
+    expect(getAnnualExpensesTotal(profile)).toBeCloseTo(100 * (365.25 / 7) + 1_200 + 100, 6)
+  })
+})
+
+describe('getAnnualDebtServiceTotal', () => {
+  test('returns 0 for an empty profile', () => {
+    expect(getAnnualDebtServiceTotal(EMPTY_PROFILE)).toBe(0)
+  })
+
+  test('annualizes standalone liability installments', () => {
+    // Mortgage liability: 800/month
+    expect(getAnnualDebtServiceTotal(POPULATED_PROFILE)).toBe(800 * 12)
+  })
+
+  test('includes financed tangible asset installments', () => {
+    // Standalone mortgage 800/month + financed house 790/month
+    expect(getAnnualDebtServiceTotal(FINANCED_PROFILE)).toBe((800 + 790) * 12)
+  })
+})
+
+describe('getInvestableNetWorth', () => {
+  test('is cash + investments - liabilities, excluding tangible assets', () => {
+    expect(getInvestableNetWorth(POPULATED_PROFILE)).toBe(4_700 + 12_500 - 120_000)
+  })
+
+  test('ignores financed asset debt (secured by the excluded asset)', () => {
+    expect(getInvestableNetWorth(FINANCED_PROFILE)).toBe(getInvestableNetWorth(POPULATED_PROFILE))
+  })
+})
+
+describe('getFiPercent / getRunwayYears', () => {
+  // Worked example from docs/planning-reward-features.md:
+  // €40k/yr expenses, €620k investable → FI 62%, runway 15.5 yrs
+  const workedExample: Profile = {
+    ...EMPTY_PROFILE,
+    cash_amount: 620_000,
+    expenses: [expense(40_000, 'yearly')],
+  }
+
+  test('matches the worked example', () => {
+    expect(getFiPercent(workedExample)).toBeCloseTo(62, 6)
+    expect(getRunwayYears(workedExample)).toBeCloseTo(15.5, 6)
+  })
+
+  test('return undefined without expenses', () => {
+    expect(getFiPercent({ ...EMPTY_PROFILE, cash_amount: 100 })).toBeUndefined()
+    expect(getRunwayYears({ ...EMPTY_PROFILE, cash_amount: 100 })).toBeUndefined()
+  })
+
+  test('return undefined when expenses total zero', () => {
+    const profile: Profile = {
+      ...EMPTY_PROFILE,
+      cash_amount: 100,
+      expenses: [expense(0, 'monthly')],
+    }
+    expect(getFiPercent(profile)).toBeUndefined()
+    expect(getRunwayYears(profile)).toBeUndefined()
+  })
+
+  test('include loan installments in the outflow denominator', () => {
+    // Financed house adds 790/month = 9,480/yr of non-optional debt service:
+    // outflows 40,000 → 49,480, but investable NW is unchanged.
+    const withMortgage: Profile = {
+      ...workedExample,
+      tangible_assets: FINANCED_PROFILE.tangible_assets,
+    }
+    expect(getFiPercent(withMortgage)).toBeCloseTo((620_000 / (49_480 * 25)) * 100, 6)
+    expect(getRunwayYears(withMortgage)).toBeCloseTo(620_000 / 49_480, 6)
+  })
+
+  test('clamp to 0 when investable net worth is negative', () => {
+    const profile: Profile = {
+      ...POPULATED_PROFILE,
+      expenses: [expense(1_000, 'monthly')],
+    }
+    expect(getInvestableNetWorth(profile)).toBeLessThan(0)
+    expect(getFiPercent(profile)).toBe(0)
+    expect(getRunwayYears(profile)).toBe(0)
   })
 })
 
