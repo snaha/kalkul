@@ -38,8 +38,8 @@ jobs:
         run: cp build/index.html build/404.html
 
       # Publish the production build to the root of the gh-pages branch, which
-      # the DigitalOcean App Platform static site serves at kalkul.app. The
-      # per-PR preview directories (pr-*) are left untouched.
+      # GitHub Pages serves at kalkul.app. The per-PR preview directories
+      # (pr-*) are left untouched.
       - name: Deploy to gh-pages root
         uses: JamesIves/github-pages-deploy-action@v4
         with:

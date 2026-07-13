@@ -177,7 +177,7 @@ When linking from a bare `<a>` tag (not the `Button` component), the `svelte/no-
 ### Deployment Context
 
 - The app is deployed as a static SPA everywhere (production and PR previews)
-- Production is hosted at `kalkul.app` — a DigitalOcean App Platform static site serving the `gh-pages` branch
+- Production is hosted on GitHub Pages at `kalkul.app` (served from the `gh-pages` branch)
 - Data is stored locally in the browser via localStorage
 - Environment variables control routing and base URL
 - See README.md for deployment details
