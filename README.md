@@ -47,8 +47,12 @@ pnpm test:integration # Run e2e tests (Playwright)
 
 ## Deployments
 
-- [`next.kalkul.app`](https://next.kalkul.app) - Production (Static SPA on GitHub Pages)
-- `next.kalkul.app/pr-{num}` - PR previews (Static SPA)
+- [`kalkul.app`](https://kalkul.app) - Production (Static SPA)
+- `kalkul.app/pr-{num}` - PR previews (Static SPA)
+
+Both production and PR previews are published to the `gh-pages` branch — `main` deploys to the
+root, each open PR deploys to its own `pr-{num}/` subdirectory. GitHub Pages serves that branch
+at `kalkul.app`.
 
 ## Environment Variables
 

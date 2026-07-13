@@ -13,8 +13,6 @@ concurrency: preview-${{ github.ref }}
 permissions:
   contents: write
   pull-requests: write
-  pages: write
-  id-token: write
 
 jobs:
   deploy-preview:
@@ -48,4 +46,4 @@ jobs:
         with:
           source-dir: ./build
           umbrella-dir: /
-          pages-base-url: next.kalkul.app
+          pages-base-url: kalkul.app
