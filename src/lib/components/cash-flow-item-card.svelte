@@ -11,7 +11,7 @@
   import { Separator } from '$lib/components/ui/separator'
   import { Switch } from '$lib/components/ui/switch'
   import type { CashFlowEnd, CashFlowStart, ChangeOverTime, Frequency } from '$lib/schemas'
-  import { getFrequencyItems } from '$lib/select-options'
+  import { getFrequencyItems, getFrequencyShortLabel } from '$lib/select-options'
 
   interface CashFlowItem {
     id: string
@@ -72,7 +72,7 @@
   let collapsedValueClass = $derived(sentiment === 'positive' ? 'text-success' : 'text-destructive')
   let formattedAmount = $derived.by(() => {
     if (item.amount === undefined || item.amount === 0) return ''
-    return `${sign}${formatCurrency(item.amount)}`
+    return `${sign}${formatCurrency(item.amount)} / ${getFrequencyShortLabel($_, item.frequency)}`
   })
 </script>
 
