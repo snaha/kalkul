@@ -80,7 +80,7 @@
     label={$_('page.financialData.nav.liabilities')}
     amount={appStore.formatCurrencyCode(-liabilities)}
     color={CATEGORY_COLORS.liabilities[0]}
-    negative
+    negative={liabilities > 0}
   />
   <Separator />
   <BreakdownRow

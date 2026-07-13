@@ -11,7 +11,7 @@
   import { getLiabilitiesTotal } from '$lib/financial-totals'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
-  import { formatLastUpdated } from '$lib/utils'
+  import { cn, formatLastUpdated } from '$lib/utils'
 
   const liabilities = $derived(appStore.profile.liabilities ?? [])
   const total = $derived(getLiabilitiesTotal(appStore.profile))
@@ -52,7 +52,7 @@
   <DonutChart {segments} size={160} variant="pie" />
   <div class="flex flex-1 flex-col items-start gap-2">
     <p class="text-lg leading-7 font-medium">{$_('page.financialData.liabilities.title')}</p>
-    <p class="text-3xl leading-9 font-bold text-destructive">
+    <p class={cn('text-3xl leading-9 font-bold', total > 0 && 'text-destructive')}>
       {appStore.formatCurrencyCode(-total)}
     </p>
     <span class="text-xs leading-4 text-muted-foreground">

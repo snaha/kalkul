@@ -55,6 +55,17 @@ describe('cached formatters', () => {
   it('falls back for unsupported currency codes', () => {
     expect(formatCurrency(1000, 'NOTACURRENCY', 'en-US')).toBe('1,000 NOTACURRENCY')
   })
+
+  it('renders negative zero as plain 0 (e.g. a negated zero liabilities total)', () => {
+    expect(formatNumber(-0, 'en-US')).toBe('0')
+    expect(formatCurrency(-0, 'USD', 'en-US')).toBe('$0')
+    expect(formatCurrencyCode(-0, 'USD', 'en-US')).toBe('USD 0')
+    expect(formatCompactCurrency(-0, 'USD', 'en-US')).toBe('$0.0')
+  })
+
+  it('keeps the minus sign for real negative values', () => {
+    expect(formatCurrencyCode(-5000, 'USD', 'en-US')).toBe('-USD 5,000')
+  })
 })
 
 // These pass in every timezone; `new Date('YYYY-MM-DD')` (UTC parse) and
