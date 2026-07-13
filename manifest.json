@@ -1,8 +1,8 @@
 {
   "name": "kalkul.app",
   "short_name": "kalkul.app",
-  "theme_color": "#fff",
-  "background_color": "#333",
+  "theme_color": "#0a0a0a",
+  "background_color": "#fafafa",
   "display": "standalone",
   "orientation": "portrait",
   "scope": "/",
