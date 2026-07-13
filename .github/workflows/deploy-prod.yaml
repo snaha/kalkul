@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Deploy production
 
 on:
   push:
@@ -37,7 +37,10 @@ jobs:
       - name: Copy SPA fallback
         run: cp build/index.html build/404.html
 
-      - name: Deploy to GitHub Pages
+      # Publish the production build to the root of the gh-pages branch, which
+      # the DigitalOcean App Platform static site serves at kalkul.app. The
+      # per-PR preview directories (pr-*) are left untouched.
+      - name: Deploy to gh-pages root
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: build
