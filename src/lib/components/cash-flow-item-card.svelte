@@ -30,7 +30,6 @@
     change_over_time: ChangeOverTime
     change_percentage?: number
     editing: boolean
-    editingName: boolean
   }
 
   interface Props {
@@ -47,8 +46,6 @@
     onToggleEditing: () => void
     onDuplicate: () => void
     onDelete: () => void
-    onStartEditingName: () => void
-    onStopEditingName: () => void
     extraAdvancedContent?: Snippet
   }
 
@@ -66,8 +63,6 @@
     onToggleEditing,
     onDuplicate,
     onDelete,
-    onStartEditingName,
-    onStopEditingName,
     extraAdvancedContent,
   }: Props = $props()
 
@@ -88,8 +83,6 @@
   {onToggleEditing}
   {onDuplicate}
   {onDelete}
-  {onStartEditingName}
-  {onStopEditingName}
 >
   {#snippet expandedContent()}
     <!-- Amount and Frequency row -->

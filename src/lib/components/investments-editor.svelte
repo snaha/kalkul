@@ -20,7 +20,6 @@
     balance: number | undefined
     apy: number | undefined
     editing: boolean
-    editingName: boolean
   }
 
   interface Props {
@@ -36,7 +35,6 @@
       balance: inv.balance > 0 ? inv.balance : undefined,
       apy: inv.apy > 0 ? inv.apy : undefined,
       editing: false,
-      editingName: false,
     }))
   }
 
@@ -61,7 +59,6 @@
       balance: undefined,
       apy: undefined,
       editing: true,
-      editingName: false,
     })
   }
 
@@ -73,7 +70,6 @@
       id: crypto.randomUUID(),
       name: $_('page.setup.common.copySuffix', { values: { name: investment.name } }),
       editing: true,
-      editingName: false,
     })
   }
 
@@ -142,12 +138,6 @@
       }}
       onDuplicate={() => duplicateInvestment(investment)}
       onDelete={() => deleteInvestment(investment)}
-      onStartEditingName={() => {
-        investment.editingName = true
-      }}
-      onStopEditingName={() => {
-        investment.editingName = false
-      }}
     >
       {#snippet expandedContent()}
         <div class="flex items-center gap-2">
