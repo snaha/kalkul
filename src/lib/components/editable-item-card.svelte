@@ -92,7 +92,18 @@
                 {$_('page.setup.common.duplicate')}
               </DropdownMenu.Item>
               <DropdownMenu.Separator />
-              <DropdownMenu.Item class="text-destructive" onclick={onDelete}>
+              <DropdownMenu.Item
+                class="text-destructive"
+                onclick={() => {
+                  if (
+                    window.confirm(
+                      $_('page.setup.common.deleteConfirm', { values: { name: item.name } }),
+                    )
+                  ) {
+                    onDelete()
+                  }
+                }}
+              >
                 <Trash2 class="size-4" />
                 {$_('page.setup.common.delete')}
               </DropdownMenu.Item>

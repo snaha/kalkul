@@ -276,6 +276,7 @@
         "amount": "Amount",
         "frequency": "Frequency",
         "advancedOptions": "Advanced options",
+        "deleteConfirm": "Delete \"{name}\"? This cannot be undone.",
         "start": "Start",
         "end": "End",
         "changeOverTime": "Change over time",
