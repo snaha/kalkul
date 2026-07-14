@@ -937,6 +937,33 @@ describe('getYearlyPlanProjection', () => {
     expect(result[1].cash).toBeCloseTo(500, 6)
   })
 
+  it('draws only the remaining balance when the final installment is partial', () => {
+    // Loan: 950 outstanding, monthly installment 100, 0 % interest.
+    // Nine full installments + a final partial 50 → the payoff year drains
+    // exactly 950 from cash, not 10 × 100. Locks the Decimal.min(installment,
+    // grossDue) behavior of the final period.
+    const liabilities: ProfileLiability[] = [
+      {
+        id: 'l1',
+        name: 'Loan',
+        outstanding_balance: 950,
+        installment_frequency: 'monthly',
+        annual_rate: 0,
+        installment_amount: 100,
+        remaining_term: 1,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ cash_amount: 1500, liabilities }),
+    )
+    expect(result[0].liabilities).toBeCloseTo(0, 6)
+    // Cash drained by exactly 950 (partial final installment, not 1000).
+    expect(result[0].cash).toBeCloseTo(550, 6)
+    // No further drain in subsequent years.
+    expect(result[1].cash).toBeCloseTo(550, 6)
+  })
+
   it('never lets cash go below zero when expenses exceed income + starting balance', () => {
     const expenses: Expense[] = [
       {
