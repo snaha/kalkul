@@ -8,7 +8,7 @@ Financial portfolio management application built with SvelteKit and TypeScript.
 - **UI Components**: shadcn-svelte (bits-ui + Tailwind CSS v4)
 - **Language**: TypeScript (strict mode)
 - **Storage**: localStorage (local-first SPA)
-- **Testing**: Vitest (unit) + Playwright (component & e2e)
+- **Testing**: Vitest (unit)
 - **Node**: >=22, **pnpm**: 11.x
 
 ## Quick Start
@@ -32,10 +32,9 @@ pnpm check            # TypeScript type checking
 pnpm lint             # Run linting
 pnpm format           # Auto-format code
 
-pnpm test             # Run all tests
-pnpm test:unit        # Run unit tests (Vitest)
-pnpm test:ct          # Run component tests (Playwright)
-pnpm test:integration # Run e2e tests (Playwright)
+pnpm test             # Run the unit test suite once
+pnpm test:unit        # Run unit tests in watch mode (Vitest)
+pnpm test:unit run    # Run unit tests once
 ```
 
 ## Project Structure
@@ -64,47 +63,27 @@ at `kalkul.app`.
 
 ## Testing
 
-### Test Types
+The test suite is unit tests on Vitest (`pnpm test`, or `pnpm test:unit` for watch mode):
 
-1. **Unit Tests** (`pnpm test:unit`) - Vitest
-   - Business logic, utilities, and stores
-   - Fast execution, no browser required
-   - Files: `*.test.ts`
+- Business logic, utilities, stores, and schemas
+- Fast execution, no browser required
+- Files: `*.test.ts` alongside the source
 
-2. **Component Tests** (`pnpm test:ct`) - Playwright Component Testing
-   - Individual component behavior and user interactions
-   - Real browser environment with cross-browser testing (Chrome, Firefox, Safari)
-   - Files: `*.ct.spec.ts`
-
-3. **E2E Tests** (`pnpm test:integration`) - Playwright
-   - Full application workflows
-   - Files: `tests/*.test.ts`
-
-### Component Testing Examples
-
-Component tests are ideal for testing complex UI components like the formatted number input:
-
-```typescript
-// src/lib/components/ui/input/formatted-number/formatted-number-input.ct.spec.ts
-test('should format numbers correctly', async ({ mount }) => {
-  const component = await mount(FormattedNumberInput, {
-    props: { value: 1234.56, locale: 'en-US' },
-  })
-  const input = component.locator('input')
-  await expect(input).toHaveValue('1,234.56')
-})
-```
+Component tests (Playwright CT) and browser e2e tests existed before the shadcn UI rewrite and
+were removed with it; restoring workflow-level coverage is tracked in
+[#100](https://github.com/snaha/kalkul/issues/100).
 
 ### Testing Best Practices
 
 - Use hardcoded expected values instead of regex patterns in assertions
-- Test cross-browser compatibility for user interaction components
-- Use `--reporter=list` to avoid HTML server for faster CI runs
 - Financial calculations must have comprehensive test coverage
 
-## State Management: Nested AppStore
+## State Management: AppStore
 
-The application uses a single nested reactive store (`appStore`) that manages all domain data for a single user. Data is persisted to localStorage and enriched with CRUD methods at each level of the hierarchy.
+The application uses a single reactive store (`appStore`) that manages all domain data for a
+single user. All financial data (cash, investments, tangible assets, liabilities, incomes,
+expenses) lives flat on the profile; portfolios ("plans") reference profile items by id and add
+plan-specific settings (dates, inflation, transfers). Data is persisted to localStorage.
 
 ### Data Hierarchy
 
@@ -112,85 +91,51 @@ The application uses a single nested reactive store (`appStore`) that manages al
 appStore
 ├── profile: ProfileStore
 └── portfolios: PortfolioStore[]
-    ├── investments: InvestmentStore[]
-    │   └── transactions: TransactionStore[]
-    └── goals: InvestmentStore[]
-        └── transactions: TransactionStore[]
 ```
-
-Goals and investments share the same `InvestmentStore` type but are stored in separate arrays on each portfolio. Goals are distinguished by having `goal_data` populated.
 
 ### How Enrichment Works
 
 Raw data loaded from localStorage is plain JSON. The store "enriches" this data by wrapping it in plain object literals that expose CRUD methods and a `toJSON()` implementation. This means:
 
 - `toJSON()` returns the underlying plain data, so `JSON.stringify()` stays safe for persistence
-- Child stores receive their parent explicitly as arguments, so `delete()` and `duplicate()` can modify the parent's array directly
-- After any mutation, `persist()` saves to localStorage and the relevant store array is reassigned to trigger Svelte's `$state` reactivity
+- Portfolio stores receive the app store as parent, so `delete()` can modify the parent's array directly
+- After any mutation, `persist()` saves to localStorage and the store array is reassigned to trigger Svelte's `$state` reactivity
 
 ### AppStore Root
 
-| Method / Property     | Description                                      |
-| --------------------- | ------------------------------------------------ |
-| `profile`             | Reactive user profile (name, email, birth_date)  |
-| `portfolios`          | Reactive array of all enriched portfolios        |
-| `loading`             | `true` until initial data load completes         |
-| `load()`              | Load from localStorage and enrich all objects    |
-| `clear()`             | Wipe all data and persisted storage, ready state |
-| `updateProfile(data)` | Update user profile                              |
-| `addPortfolio(data)`  | Add a new portfolio, returns ID                  |
-| `exportBackup()`      | JSON string of all data                          |
-| `importBackup(json)`  | Import and enrich from JSON string               |
+| Method / Property     | Description                                            |
+| --------------------- | ------------------------------------------------------ |
+| `profile`             | Reactive user profile (identity + all financial data)  |
+| `portfolios`          | Reactive array of all enriched portfolios              |
+| `loading`             | `true` until initial data load completes               |
+| `lastUpdated`         | Timestamp (ms) of the last successful persist          |
+| `load()`              | Load from localStorage and enrich all objects          |
+| `startSync()`         | Subscribe to cross-tab storage events, returns cleanup |
+| `clear()`             | Wipe all data and persisted storage, ready state       |
+| `updateProfile(data)` | Validate (Zod) and update user profile                 |
+| `addPortfolio(data)`  | Add a new portfolio, returns ID                        |
+| `exportBackup()`      | JSON string of all data                                |
+| `importBackup(json)`  | Import and enrich from JSON string                     |
+| `formatNumber(v)` …   | Locale-aware number/currency formatters                |
 
 ### PortfolioStore
 
-| Method                | Description                                                   |
-| --------------------- | ------------------------------------------------------------- |
-| `update(updates)`     | Update name, currency, dates, inflation_rate                  |
-| `delete()`            | Remove portfolio from store                                   |
-| `duplicate()`         | Deep copy with all investments/goals/transactions, returns ID |
-| `addInvestment(data)` | Add to investments array, returns ID                          |
-| `addGoal(data)`       | Add to goals array, returns ID                                |
-
-### InvestmentStore
-
-| Method / Property      | Description                                                            |
-| ---------------------- | ---------------------------------------------------------------------- |
-| `update(updates)`      | Update investment properties                                           |
-| `delete()`             | Remove from parent portfolio (auto-detects investments vs goals array) |
-| `duplicate()`          | Deep copy with all transactions, returns ID                            |
-| `addTransaction(data)` | Add transaction, returns ID                                            |
-| `hidden`               | (getter) Whether hidden in UI via `hiddenInvestmentIds` set            |
-| `toggleHide()`         | Toggle visibility                                                      |
-| `focused`              | (getter) Whether this is the only visible investment among siblings    |
-| `toggleFocus()`        | Hide all siblings, or show all if already focused                      |
-
-### TransactionStore
-
-| Method            | Description                   |
-| ----------------- | ----------------------------- |
-| `update(updates)` | Update transaction properties |
-| `delete()`        | Remove from parent investment |
-| `duplicate()`     | Copy transaction, returns ID  |
+| Method            | Description                                     |
+| ----------------- | ----------------------------------------------- |
+| `update(updates)` | Update name, notes, dates, inflation, transfers |
+| `delete()`        | Remove portfolio from store                     |
 
 ### Usage Example
 
 ```typescript
-// Update profile
-appStore.updateProfile({ name: 'John' })
+// Update profile (validated by profileSchema before persisting)
+appStore.updateProfile({ name: 'John', cash_amount: 5000 })
 
 // Add and work with portfolios
 const portfolioId = appStore.addPortfolio({ name: 'Retirement', ... })
 const portfolio = appStore.portfolios.find((p) => p.id === portfolioId)
 portfolio?.update({ name: 'New Name' })
-
-// Add nested data
-const investmentId = portfolio?.addInvestment({ name: 'ETF', apy: 7, ... })
-const investment = portfolio?.investments.find((i) => i.id === investmentId)
-investment?.addTransaction({ amount: 1000, date: '2024-01-01', type: 'deposit', ... })
-
-// Delete (automatically removes from parent)
-investment?.delete()
+portfolio?.delete()
 ```
 
 ## Conventions
