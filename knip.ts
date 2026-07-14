@@ -1,14 +1,28 @@
 import type { KnipConfig } from 'knip'
 
-// Test files are picked up by knip's vitest plugin automatically, so they are
-// deliberately NOT listed as entries here. That keeps `knip --production`
-// meaningful: it only follows the production entries below (the `!` suffix),
-// so code reachable solely from its own tests is reported instead of hidden
-// (issue #101's dead legacy state layer survived exactly that way).
+// `pnpm knip` runs this config twice: `knip && knip --production`.
+//
+// The trailing `!` on a pattern marks it as a PRODUCTION entry/file
+// (https://knip.dev/features/production-mode):
+//
+// - Default mode ignores the marker and analyzes everything: the entries
+//   below plus entries added by plugins (the vitest plugin adds *.test.ts
+//   files, the svelte plugin adds SvelteKit files). This pass finds unused
+//   dependencies, files, and exports across app, tests, and tooling.
+//
+// - Production mode (--production) follows ONLY the `!`-marked patterns, so
+//   the analysis starts exclusively from the shipped app (the SPA shell and
+//   the routes). Test files are not entries in this pass, which is what makes
+//   it able to report code that is reachable solely from its own tests.
+//
+// Do not add test globs to `entry`: a plain (unmarked) test entry would make
+// "a module plus its own test" count as used again, re-hiding test-only dead
+// code — the legacy state layer went unnoticed exactly that way (#101).
 const config: KnipConfig = {
   entry: ['src/app.html!', 'src/routes/**/*!'],
-  // scripts/ is dev tooling: analyzed in default mode, out of scope for
-  // --production (the `!` marks what counts as production project files).
+  // `!` scopes production mode the same way for project files: scripts/ is
+  // dev tooling (check-locales), analyzed in default mode but exempt from
+  // "is this reachable from the app?" reporting.
   project: ['src/**/*!', 'scripts/**'],
   paths: {
     '$app/*': ['node_modules/@sveltejs/kit/src/runtime/app/*'],
