@@ -1,6 +1,11 @@
 import { SvelteSet } from 'svelte/reactivity'
 
-import { type StoredData, profileSchema, storedDataSchema } from '$lib/schemas'
+import {
+  type StoredData,
+  profileSchema,
+  repairStoredCashFlowMonths,
+  storedDataSchema,
+} from '$lib/schemas'
 import storageKeys from '$lib/storage-keys'
 import type { Portfolio, PortfolioNested, Profile } from '$lib/types'
 import {
@@ -93,7 +98,10 @@ function loadData(): StoredData {
   try {
     const raw = localStorage.getItem(storageKeys.DATA)
     if (raw) {
-      return storedDataSchema.parse(JSON.parse(raw))
+      // Repair before parsing: data stored before stricter validation rules
+      // must keep loading, otherwise the whole dataset falls back to the
+      // empty default and gets overwritten on the next persist.
+      return storedDataSchema.parse(repairStoredCashFlowMonths(JSON.parse(raw)))
     }
   } catch (e) {
     console.error('Failed to load data from localStorage', e)
@@ -254,7 +262,11 @@ function withAppStore() {
         if (event.key !== storageKeys.DATA || !event.newValue) return
 
         try {
-          const data = storedDataSchema.parse(JSON.parse(event.newValue))
+          // Repaired like loadData so a tab still running an older app
+          // version can't break sync by persisting since-invalidated data.
+          const data = storedDataSchema.parse(
+            repairStoredCashFlowMonths(JSON.parse(event.newValue)),
+          )
           if (data.lastUpdated === lastUpdated) return
 
           profile = enrichProfile(data.profile)
@@ -280,7 +292,9 @@ function withAppStore() {
     },
 
     importBackup(json: string): void {
-      const parsed: unknown = JSON.parse(json)
+      // Repaired like loadData so backups exported before stricter
+      // validation rules stay restorable.
+      const parsed: unknown = repairStoredCashFlowMonths(JSON.parse(json))
       const validated = storedDataSchema.pick({ profile: true, portfolios: true }).parse(parsed)
       profile = enrichProfile(validated.profile)
       portfolios = enrichAll(validated.portfolios)

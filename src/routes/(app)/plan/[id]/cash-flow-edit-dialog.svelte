@@ -19,7 +19,7 @@
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
-  import { timingComplete } from '$lib/schemas'
+  import { sameYearMonthsInverted, timingComplete } from '$lib/schemas'
   import type {
     CashFlowEnd,
     CashFlowStart,
@@ -207,9 +207,44 @@
     }
   }
 
+  // Same-year ranges can't end before they start: months before the start
+  // month are disabled in the end dropdown, and an end month that a later
+  // start/year change turned invalid is cleared so the user picks again
+  // (Save stays disabled until they do).
+  const endMinMonth = $derived(
+    form.start === 'at_specific_date' &&
+      form.end === 'at_specific_date' &&
+      form.start_year !== undefined &&
+      form.start_year === form.end_year
+      ? form.start_month
+      : undefined,
+  )
+  $effect(() => {
+    if (
+      sameYearMonthsInverted(
+        form.start,
+        form.start_year,
+        form.start_month,
+        form.end,
+        form.end_year,
+        form.end_month,
+      )
+    ) {
+      form.end_month = undefined
+    }
+  })
+
   const canSave = $derived(
     timingComplete(form.start, form.start_year, form.start_month, form.start_age) &&
-      timingComplete(form.end, form.end_year, form.end_month, form.end_age),
+      timingComplete(form.end, form.end_year, form.end_month, form.end_age) &&
+      !sameYearMonthsInverted(
+        form.start,
+        form.start_year,
+        form.start_month,
+        form.end,
+        form.end_year,
+        form.end_month,
+      ),
   )
 
   function close() {
@@ -471,6 +506,7 @@
         age={form.end_age}
         {years}
         {months}
+        minMonth={endMinMonth}
         birthDateSet={appStore.profile.birthDate !== undefined}
         formatNumber={appStore.formatNumber}
         onValueChange={(v) => (form.end = v as CashFlowEnd)}

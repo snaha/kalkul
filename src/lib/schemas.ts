@@ -95,6 +95,103 @@ const cashFlowTemporalRefinement = (
       message: get(_)('validation.required_when_end_when_age_is'),
     })
   }
+  // A start month after the end month within the same calendar year would
+  // silently zero the cash flow in the projection — reject it instead.
+  if (
+    sameYearMonthsInverted(
+      obj.start,
+      obj.start_year,
+      obj.start_month,
+      obj.end,
+      obj.end_year,
+      obj.end_month,
+    )
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['end_month'],
+      message: get(_)('validation.end_month_before_start_month'),
+    })
+  }
+}
+
+// A same-year specific-date range whose start month is after its end month is
+// contradictory. Mirrors the check in cashFlowTemporalRefinement above; forms
+// use it to constrain the month dropdowns and gate saving before the data
+// ever reaches the schema.
+export function sameYearMonthsInverted(
+  start: string | undefined,
+  startYear: number | undefined,
+  startMonth: number | undefined,
+  end: string | undefined,
+  endYear: number | undefined,
+  endMonth: number | undefined,
+): boolean {
+  return (
+    start === 'at_specific_date' &&
+    end === 'at_specific_date' &&
+    startYear !== undefined &&
+    startYear === endYear &&
+    startMonth !== undefined &&
+    endMonth !== undefined &&
+    startMonth > endMonth
+  )
+}
+
+// --- Stored-data repair ---
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  // null check is for raw JSON.parse output, which can legitimately be null.
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function repairCashFlowMonths(flow: unknown): void {
+  if (!isRecord(flow)) return
+  const { start, start_year, start_month, end, end_year, end_month } = flow
+  if (
+    typeof start === 'string' &&
+    typeof end === 'string' &&
+    typeof start_year === 'number' &&
+    typeof end_year === 'number' &&
+    typeof start_month === 'number' &&
+    typeof end_month === 'number' &&
+    sameYearMonthsInverted(start, start_year, start_month, end, end_year, end_month)
+  ) {
+    flow.start_month = end_month
+    flow.end_month = start_month
+    console.warn(
+      `Cash flow "${String(flow.name ?? flow.id ?? 'unknown')}" had its start month after its end month in ${start_year}; swapped the months so the stored data stays valid`,
+    )
+  }
+}
+
+/**
+ * Data persisted before the same-year month-order rule existed may contain a
+ * cash flow whose start month is after its end month. storedDataSchema now
+ * rejects that, and a rejected blob would make loadData() fall back to the
+ * empty default profile — wiping the user's entire dataset on the next
+ * persist. Run this on raw parsed JSON before schema validation: it swaps the
+ * two months in place, so both user-entered values survive and the flow spans
+ * the range the user visibly intended instead of silently contributing
+ * nothing. Covers profile incomes/expenses and portfolio transfers — every
+ * place cashFlowTemporalRefinement applies.
+ */
+export function repairStoredCashFlowMonths(data: unknown): unknown {
+  if (!isRecord(data)) return data
+  if (isRecord(data.profile)) {
+    for (const key of ['incomes', 'expenses']) {
+      const flows = data.profile[key]
+      if (Array.isArray(flows)) for (const flow of flows) repairCashFlowMonths(flow)
+    }
+  }
+  if (Array.isArray(data.portfolios)) {
+    for (const portfolio of data.portfolios) {
+      if (isRecord(portfolio) && Array.isArray(portfolio.transfers)) {
+        for (const transfer of portfolio.transfers) repairCashFlowMonths(transfer)
+      }
+    }
+  }
+  return data
 }
 
 // A timing edge ('start' or 'end') is complete only once the mode-specific
