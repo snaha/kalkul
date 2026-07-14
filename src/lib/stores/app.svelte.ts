@@ -1,13 +1,12 @@
-import { SvelteSet } from 'svelte/reactivity'
-
 import {
+  type Portfolio,
+  type Profile,
   type StoredData,
   profileSchema,
   repairStoredCashFlowMonths,
   storedDataSchema,
 } from '$lib/schemas'
 import storageKeys from '$lib/storage-keys'
-import type { Portfolio, PortfolioNested, Profile } from '$lib/types'
 import {
   DEFAULT_CURRENCY,
   formatCompactCurrency,
@@ -115,7 +114,6 @@ function withAppStore() {
   let portfolios = $state<PortfolioStore[]>([])
   let loading = $state(true)
   let lastUpdated = $state(0)
-  const hiddenInvestmentIds = new SvelteSet<string>()
 
   function persist(): void {
     const now = Date.now()
@@ -142,21 +140,12 @@ function withAppStore() {
     persist()
   }
 
-  function duplicatePortfolio(newPortfolio: PortfolioNested): string | undefined {
-    const enrichedPortf = withPortfolioStore(newPortfolio, appParent)
-    portfolios.push(enrichedPortf)
-    persist()
-    return newPortfolio.id
-  }
-
   const appParent = {
     persist,
     deletePortfolio,
-    duplicatePortfolio,
-    hiddenIds: hiddenInvestmentIds,
   }
 
-  function enrichAll(rawPortfolios: PortfolioNested[]): PortfolioStore[] {
+  function enrichAll(rawPortfolios: Portfolio[]): PortfolioStore[] {
     return rawPortfolios.map((p) => withPortfolioStore(p, appParent))
   }
 
@@ -173,15 +162,8 @@ function withAppStore() {
     get portfolios() {
       return portfolios
     },
-    set portfolios(value: PortfolioStore[]) {
-      portfolios = value
-      loading = false
-    },
     get loading() {
       return loading
-    },
-    set loading(value: boolean) {
-      loading = value
     },
     clear() {
       profile = enrichProfile({ ...DEFAULT_PROFILE })
@@ -199,9 +181,6 @@ function withAppStore() {
 
     persist,
     deletePortfolio,
-    get hiddenIds() {
-      return hiddenInvestmentIds
-    },
 
     // --- Formatting ---
 
@@ -235,12 +214,7 @@ function withAppStore() {
 
     addPortfolio(data: Omit<Portfolio, 'id'>): string {
       const portId = crypto.randomUUID()
-      const newPortfolio: PortfolioNested = {
-        ...data,
-        id: portId,
-        investments: [],
-        goals: [],
-      }
+      const newPortfolio: Portfolio = { ...data, id: portId }
       const enrichedPortf = withPortfolioStore(newPortfolio, appParent)
       portfolios.push(enrichedPortf)
       persist()

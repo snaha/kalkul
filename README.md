@@ -40,7 +40,8 @@ pnpm test:integration # Run e2e tests (Playwright)
 
 ## Project Structure
 
-- `src/lib/@snaha/kalkul-maths/` - Financial calculation engine with precise decimal arithmetic
+- `src/lib/plan-projection.ts` - Plan projection engine with precise decimal arithmetic
+- `src/lib/@snaha/kalkul-maths/` - Shared low-level financial math helpers
 - `src/lib/stores/` - Svelte 5 runes-based state management
 - `src/lib/components/` - Reusable Svelte components
 - `src/routes/(app)/` - Main application routes

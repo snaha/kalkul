@@ -12,7 +12,8 @@ See `README.md` for development commands, project structure, and conventions.
 
 **Kalkul** is a financial portfolio management application built as a local-first static SPA using localStorage for data persistence. Key areas to understand:
 
-1. **Financial Calculations** (`src/lib/@snaha/kalkul-maths/`)
+1. **Financial Calculations** (`src/lib/plan-projection.ts`, `src/lib/financial-totals.ts`, `src/lib/@snaha/kalkul-maths/`)
+   - The plan projection engine is `src/lib/plan-projection.ts`; profile-level totals live in `src/lib/financial-totals.ts`; shared low-level helpers (Decimal constants, date formatting) live in `src/lib/@snaha/kalkul-maths/`
    - Always use Decimal.js for monetary calculations
    - Never use native JavaScript numbers for financial data
    - Test extensively when modifying calculation logic
@@ -164,7 +165,7 @@ When linking from a bare `<a>` tag (not the `Button` component), the `svelte/no-
    - Use conventional commits
 
 2. **Modifying Financial Calculations**
-   - Review existing tests in `@snaha/kalkul-maths`
+   - Review existing tests in `plan-projection.test.ts` and `financial-totals.test.ts`
    - Always use Decimal.js
    - Consider precision and rounding implications
    - Add comprehensive test coverage
@@ -252,7 +253,7 @@ test('should handle text selection replacement', async ({ mount }) => {
 
 **Unit Tests**: Use `pnpm test:unit run [test-file]` to run unit tests once (without watch mode)
 
-- Example: `pnpm test:unit run graph-data.test.ts`
+- Example: `pnpm test:unit run plan-projection.test.ts`
 - `pnpm test:unit` without "run" starts watch mode and runs indefinitely
 
 ### Package Management
@@ -270,7 +271,7 @@ test('should handle text selection replacement', async ({ mount }) => {
 1. `pnpm format` - Formats code with Prettier
 2. `pnpm lint` - Checks code style and quality with ESLint and Prettier
 3. `pnpm check` - Runs Svelte Kit sync and TypeScript type checking
-4. `pnpm knip` - Finds unused files, dependencies, and exports
+4. `pnpm knip` - Finds unused files, dependencies, and exports. Runs in two passes: default mode, then `--production` mode, which only follows production entries (routes) so code kept alive solely by its own tests is still reported
 5. `pnpm check-locales` - Checks for missing, unused or duplicate translations
 
 **Quick check**: Use `pnpm check:all` to run all the above checks at once locally. CI (`.github/workflows/check.yaml`) does not call `check:all`; it runs the equivalent checks as individual steps (`pnpm check`, `pnpm lint`, `pnpm check-locales`, `pnpm knip`) and additionally runs `pnpm test:unit`.

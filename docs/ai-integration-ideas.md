@@ -8,7 +8,7 @@ Kalkul-next is a local-first SPA that stores all data in the browser's localStor
 
 ### Key Insight
 
-The AI doesn't need to perform financial calculations - the JavaScript engine (`@snaha/kalkul-maths`) handles that with full Decimal.js precision. The AI's role is to:
+The AI doesn't need to perform financial calculations - the JavaScript projection engine (`src/lib/plan-projection.ts`) handles that with full Decimal.js precision. The AI's role is to:
 
 1. **Read** - Access portfolio data and calculation results
 2. **Reason** - Understand user goals, compare scenarios, identify issues
@@ -48,7 +48,7 @@ This separation is powerful: AI handles reasoning and advice, JavaScript handles
 │  MCP Server (Node.js)           │
 │  ┌───────────┴───────────────┐  │
 │  │  - WebSocket server       │  │
-│  │  - @snaha/kalkul-maths    │  │
+│  │  - projection engine      │  │
 │  │  - MCP protocol handler   │  │
 │  └───────────────────────────┘  │
 └─────────────────────────────────┘
@@ -424,17 +424,16 @@ The preferred interaction model: AI proposes changes, user reviews and approves.
 
 ### From kalkul-next
 
-**Calculation library** (`src/lib/@snaha/kalkul-maths/`):
+**Calculation engine** (`src/lib/plan-projection.ts`, `src/lib/financial-totals.ts`):
 
-- `getInvestmentValues()` - projection with fees and inflation
-- `getCurrentInvestmentValue()` - current value calculation
-- `getGraphData()` - data for visualization
+- `getYearlyPlanProjection()` - yearly plan projection with fees and inflation
+- Profile-level totals (net worth, FI percent, runway)
 - Full Decimal.js precision
 - TypeScript, can run in Node.js
 
-**Data model** (`src/lib/types.ts`):
+**Data model** (`src/lib/schemas.ts`):
 
-- Client, Portfolio, Investment, Transaction
+- Profile, Portfolio, assets, liabilities, cash flows (Zod schemas)
 - Clean JSON structure
 - Easy to serialize/deserialize
 
@@ -464,7 +463,7 @@ The preferred interaction model: AI proposes changes, user reviews and approves.
 
 ### Phase 2: Extract Shared Library
 
-- Make `@snaha/kalkul-maths` a standalone NPM package
+- Extract the projection engine into a standalone NPM package
 - Use in both browser and Node.js MCP server
 - Ensure calculation parity
 

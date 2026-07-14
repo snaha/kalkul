@@ -4,7 +4,7 @@ import { getYearlyPlanProjection } from './plan-projection'
 import type {
   Expense,
   Income,
-  PortfolioNested,
+  Portfolio,
   Profile,
   ProfileInvestment,
   ProfileLiability,
@@ -12,15 +12,13 @@ import type {
   Transfer,
 } from './schemas'
 
-function makePlan(overrides: Partial<PortfolioNested> = {}): PortfolioNested {
+function makePlan(overrides: Partial<Portfolio> = {}): Portfolio {
   return {
     id: 'plan-1',
     name: 'Test plan',
     start_date: '2025-01-01',
     end_date: '2030-01-01',
     inflation_rate: 0,
-    investments: [],
-    goals: [],
     ...overrides,
   }
 }
