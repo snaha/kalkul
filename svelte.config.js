@@ -13,6 +13,24 @@ const config = {
       base: process.env.VITE_BASE_URL ?? '',
     },
     adapter: staticAdapter({ fallback: 'index.html' }),
+    // All financial data lives in localStorage on this origin, so any XSS or
+    // compromised dependency could exfiltrate it. GitHub Pages can't set
+    // response headers; kit.csp injects the policy as a <meta> tag into the
+    // SPA fallback page at build time. 'hash' mode allowlists SvelteKit's own
+    // inline init script. 'unsafe-inline' styles are required by Svelte
+    // transitions and the chart library's inline style attributes.
+    csp: {
+      mode: 'hash',
+      directives: {
+        'default-src': ['self'],
+        'script-src': ['self'],
+        'style-src': ['self', 'unsafe-inline'],
+        'img-src': ['self', 'data:'],
+        'connect-src': ['self'],
+        'object-src': ['none'],
+        'base-uri': ['self'],
+      },
+    },
   },
 }
 
