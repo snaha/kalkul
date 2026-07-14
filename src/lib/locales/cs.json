@@ -385,6 +385,13 @@
     },
     "export": "Exportovat zálohu"
   },
+  "storageRecovery": {
+    "title": "Část uložených dat se nepodařilo načíst",
+    "description": "Data uložená v tomto prohlížeči neodpovídají tomu, co Kalkul očekává — to se může stát po aktualizaci aplikace nebo při zásahu do úložiště. Vše, co šlo obnovit, bylo načteno.",
+    "warning": "Vaše původní data zůstala zachována. Stáhněte si je, ať o nic nepřijdete, a poté pokračujte.",
+    "download": "Stáhnout původní data",
+    "continue": "Pokračovat"
+  },
   "navbar": {
     "menu": {
       "exportData": "Exportovat data",
