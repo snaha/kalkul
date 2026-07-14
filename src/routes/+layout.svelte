@@ -2,6 +2,7 @@
   import { onDestroy, onMount } from 'svelte'
   import { locale } from 'svelte-i18n'
 
+  import StorageErrorBanner from '$lib/components/storage-error-banner.svelte'
   import { appStore } from '$lib/stores/app.svelte'
 
   import '../app.css'
@@ -26,3 +27,4 @@
 </script>
 
 {@render children()}
+<StorageErrorBanner />
