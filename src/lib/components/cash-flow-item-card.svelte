@@ -11,6 +11,7 @@
   import { Separator } from '$lib/components/ui/separator'
   import { Switch } from '$lib/components/ui/switch'
   import type { CashFlowEnd, CashFlowStart, ChangeOverTime, Frequency } from '$lib/schemas'
+  import { sameYearMonthsInverted } from '$lib/schemas'
   import { getFrequencyItems, getFrequencyShortLabel } from '$lib/select-options'
 
   interface CashFlowItem {
@@ -67,6 +68,33 @@
   }: Props = $props()
 
   let frequencyItems = $derived(getFrequencyItems($_))
+
+  // Same-year ranges can't end before they start: months before the start
+  // month are disabled in the end dropdown, and an end month that a later
+  // start/year change turned invalid is cleared so the user picks again
+  // (the editors' auto-save skips the item until they do).
+  let endMinMonth = $derived(
+    item.start === 'at_specific_date' &&
+      item.end === 'at_specific_date' &&
+      item.start_year !== undefined &&
+      item.start_year === item.end_year
+      ? item.start_month
+      : undefined,
+  )
+  $effect(() => {
+    if (
+      sameYearMonthsInverted(
+        item.start,
+        item.start_year,
+        item.start_month,
+        item.end,
+        item.end_year,
+        item.end_month,
+      )
+    ) {
+      item.end_month = undefined
+    }
+  })
 
   let sign = $derived(sentiment === 'positive' ? '+' : '-')
   let collapsedValueClass = $derived(sentiment === 'positive' ? 'text-success' : 'text-destructive')
@@ -164,6 +192,7 @@
         age={item.end_age}
         {years}
         {months}
+        minMonth={endMinMonth}
         description={endDescription}
         {formatNumber}
         onValueChange={(v) => {

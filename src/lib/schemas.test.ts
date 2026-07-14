@@ -1,9 +1,16 @@
 import { addMessages, init } from 'svelte-i18n'
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import en from './locales/en.json'
-import { expenseSchema, incomeSchema, timingComplete, transferSchema } from './schemas'
+import {
+  expenseSchema,
+  incomeSchema,
+  repairStoredCashFlowMonths,
+  storedDataSchema,
+  timingComplete,
+  transferSchema,
+} from './schemas'
 import type { CashFlowEnd, CashFlowStart, Expense, Income, Transfer } from './schemas'
 
 // The temporal refinement resolves its error messages through svelte-i18n at
@@ -228,5 +235,65 @@ describe('cash flow month order validation', () => {
       end_age: 65,
     })
     expect(result.success).toBe(true)
+  })
+})
+
+describe('repairStoredCashFlowMonths', () => {
+  function storedWithInverted() {
+    return {
+      lastUpdated: 1,
+      profile: {
+        name: 'Test',
+        email: '',
+        incomes: [{ ...baseIncome, ...sameYearInverted }],
+        expenses: [{ ...baseExpense, ...sameYearInverted }],
+      },
+      portfolios: [
+        {
+          id: 'portfolio-1',
+          name: 'Plan',
+          start_date: '2026-01-01',
+          end_date: '2060-01-01',
+          inflation_rate: 2,
+          investments: [],
+          goals: [],
+          transfers: [{ ...baseTransfer, ...sameYearInverted }],
+        },
+      ],
+    }
+  }
+
+  it('swaps inverted same-year months everywhere so legacy stored data still parses', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const repaired = storedDataSchema.parse(repairStoredCashFlowMonths(storedWithInverted()))
+    expect(repaired.profile.incomes?.[0]).toMatchObject({ start_month: 3, end_month: 8 })
+    expect(repaired.profile.expenses?.[0]).toMatchObject({ start_month: 3, end_month: 8 })
+    expect(repaired.portfolios[0].transfers?.[0]).toMatchObject({ start_month: 3, end_month: 8 })
+    expect(warn).toHaveBeenCalledTimes(3)
+    warn.mockRestore()
+  })
+
+  it('leaves an ordered same-year range untouched', () => {
+    const stored = storedWithInverted()
+    stored.profile.incomes[0].start_month = 3
+    stored.profile.incomes[0].end_month = 8
+    repairStoredCashFlowMonths(stored)
+    expect(stored.profile.incomes[0]).toMatchObject({ start_month: 3, end_month: 8 })
+  })
+
+  it('leaves months in different years untouched', () => {
+    const stored = storedWithInverted()
+    stored.profile.incomes[0].end_year = 2031
+    repairStoredCashFlowMonths(stored)
+    expect(stored.profile.incomes[0]).toMatchObject({ start_month: 8, end_month: 3 })
+  })
+
+  it('passes through data that is not a stored-data object', () => {
+    expect(repairStoredCashFlowMonths(undefined)).toBe(undefined)
+    expect(repairStoredCashFlowMonths('not an object')).toBe('not an object')
+    expect(repairStoredCashFlowMonths({ profile: 'malformed', portfolios: 42 })).toEqual({
+      profile: 'malformed',
+      portfolios: 42,
+    })
   })
 })

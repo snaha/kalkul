@@ -25,6 +25,12 @@
      * Figma spec at node 233:6637).
      */
     description?: string
+    /**
+     * Disables month options before this month. Passed to an end selector
+     * when the start is a specific date in the same year, so a range that
+     * ends before it starts can't be picked.
+     */
+    minMonth?: number
     onValueChange: (v: string) => void
     onYearChange: (v: number | undefined) => void
     onMonthChange: (v: number | undefined) => void
@@ -42,6 +48,7 @@
     months,
     birthDateSet = true,
     description,
+    minMonth,
     onValueChange,
     onYearChange,
     onMonthChange,
@@ -89,6 +96,11 @@
         ],
   )
   let yearItems = $derived(years.map((y) => ({ value: y, label: y })))
+  let monthItems = $derived(
+    minMonth === undefined
+      ? months
+      : months.map((m) => ({ ...m, disabled: Number(m.value) < minMonth })),
+  )
 </script>
 
 <div class="flex items-end gap-2">
@@ -114,7 +126,7 @@
       />
       <SelectField
         value={monthString}
-        items={months}
+        items={monthItems}
         onValueChange={(v) => {
           if (v) onMonthChange(Number(v))
         }}

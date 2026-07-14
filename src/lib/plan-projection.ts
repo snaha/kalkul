@@ -129,11 +129,12 @@ function activeMonthFraction(
     endMonth = cashFlow.end_month
   }
   const months = endMonth - startMonth + 1
-  // Schema validation rejects a same-year start month after the end month for
-  // new/edited data, but previously stored data may still contain it. Treat
-  // the flow as inactive and warn instead of throwing so the projection keeps
-  // rendering. ('now' starts are excluded — a real-world current month past
-  // the end month just means the flow already ended.)
+  // Schema validation rejects a same-year start month after the end month and
+  // stored data is repaired at load, but not every write path validates (e.g.
+  // portfolio transfer updates). Treat such a flow as inactive and warn
+  // instead of throwing so the projection keeps rendering. ('now' starts are
+  // excluded — a real-world current month past the end month just means the
+  // flow already ended.)
   if (months <= 0 && cashFlow.start === 'at_specific_date' && cashFlow.end === 'at_specific_date') {
     console.warn(
       `Cash flow start month (${startMonth}) is after end month (${endMonth}) in ${year}; treating it as inactive`,
