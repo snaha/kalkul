@@ -203,6 +203,15 @@ When linking from a bare `<a>` tag (not the `Button` component), the `svelte/no-
    - Full application workflows
    - Files: `tests/*.test.ts`
 
+**TDD for non-UI logic:**
+
+Non-UI logic is anything a Vitest unit test can exercise without rendering a component — financial calculations (`plan-projection.ts`, `financial-totals.ts`, `src/lib/@snaha/kalkul-maths/`), stores (`src/lib/stores/`), Zod schemas (`schemas.ts`), and utilities.
+
+- **Bug fixes**: always work TDD-style — write a failing unit test that reproduces the bug first, run it (`pnpm test:unit run <file>`) and confirm it fails for the expected reason (wrong value or behavior, not a setup error), then fix, then confirm the new test passes and the rest of the unit suite stays green
+- **New behavior**: write unit tests for the expected behavior first where practical, then implement until they pass; either way, never land non-UI logic changes without unit tests in the same PR
+- **Exempt**: pure refactors (no behavior change), docs, formatting, and type-only changes — existing tests must still pass
+- If a bug in non-UI logic can't be reproduced in a unit test, prefer restructuring the code so the logic becomes unit-testable (e.g. extract it from the component); only fall back to a component/E2E test when that isn't reasonable
+
 **When to use Component Tests:**
 
 - Complex UI components (formatted inputs, charts, modals)
@@ -244,6 +253,7 @@ test('should handle text selection replacement', async ({ mount }) => {
 - Financial precision is critical - always use Decimal.js
 - Follow conventional commits strictly
 - Test financial calculations thoroughly (unit tests)
+- Fix bugs in non-UI logic TDD-style — failing unit test first, then the fix (see Testing Strategy)
 - Test UI interactions comprehensively (component tests)
 - Check TypeScript types before committing
 - Reference README.md for commands and setup
