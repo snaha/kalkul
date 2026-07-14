@@ -374,6 +374,11 @@
     "dark": "Dark",
     "system": "System"
   },
+  "storageError": {
+    "title": "Changes are not being saved",
+    "description": "Your browser is blocking local storage (it may be full or restricted), so recent changes exist only in this tab. Export a backup now so you don't lose them.",
+    "export": "Export backup"
+  },
   "navbar": {
     "menu": {
       "exportData": "Export data",

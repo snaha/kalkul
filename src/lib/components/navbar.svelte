@@ -8,6 +8,7 @@
   import { resolve } from '$app/paths'
 
   import logo from '$lib/assets/logo.svg'
+  import { downloadBackup } from '$lib/backup'
   import DiscordIcon from '$lib/components/icons/discord-icon.svelte'
   import GithubIcon from '$lib/components/icons/github-icon.svelte'
   import ThemeSwitcher from '$lib/components/theme-switcher.svelte'
@@ -31,26 +32,12 @@
     if (!importOpen) backupExported = false
   })
 
-  function exportData(): void {
-    const json = appStore.exportBackup()
-    const blob = new Blob([json], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `kalkul-backup-${new Date().toISOString().slice(0, 10)}.json`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    // Delay revoke so the browser has time to start the download.
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
-  }
-
   function triggerFileSelect(): void {
     fileInput?.click()
   }
 
   function exportBeforeImporting(): void {
-    exportData()
+    downloadBackup()
     // Keep the dialog open and transition to the "ready to import" state.
     // The file picker needs its own user gesture, so we don't open it here.
     backupExported = true
@@ -95,7 +82,7 @@
       <DropdownMenu.Content align="end">
         <DropdownMenu.Group>
           {#if hasData}
-            <DropdownMenu.Item onSelect={exportData}>
+            <DropdownMenu.Item onSelect={downloadBackup}>
               {$_('navbar.menu.exportData')}
             </DropdownMenu.Item>
           {/if}

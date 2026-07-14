@@ -374,6 +374,11 @@
     "dark": "Tmavý",
     "system": "Systém"
   },
+  "storageError": {
+    "title": "Změny se neukládají",
+    "description": "Prohlížeč blokuje ukládání dat (úložiště může být plné nebo omezené), poslední změny proto existují jen v této záložce. Exportujte si zálohu, ať o ně nepřijdete.",
+    "export": "Exportovat zálohu"
+  },
   "navbar": {
     "menu": {
       "exportData": "Exportovat data",
