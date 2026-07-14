@@ -76,6 +76,9 @@ const INSTALLMENT_PERIODS_PER_YEAR: Record<Frequency, number> = {
   yearly: 1,
 }
 
+// Floor for the effective investment APY: −100% is a total loss.
+const DECIMAL_MINUS_100 = new Decimal(-100)
+
 function resolveStartYear(
   cashFlow: CashFlowTemporal,
   planStartYear: number,
@@ -416,9 +419,10 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   const investmentsById = new Map<string, ProfileInvestment>(investments.map((i) => [i.id, i]))
   // Effective APY = APY − TER − ongoing portion of the entry fee. The ongoing
   // entry-fee component models the year-after-year drag (whole fee for
-  // 'ongoing', 60% for 'forty-sixty', 0 for 'upfront'). Capped at zero so a
-  // misconfigured fee can't flip compounding into negative growth via the
-  // multiplier (>100% loss/yr).
+  // 'ongoing', 60% for 'forty-sixty', 0 for 'upfront'). Floored at −100% (a
+  // total loss) so the yearly multiplier bottoms out at 0 — fees exceeding
+  // 100 + APY would otherwise flip the multiplier negative and make the
+  // balance oscillate in sign.
   const investmentApy = new Map<string, Decimal>(
     investments.map((i) => {
       const apy = new Decimal(i.apy)
@@ -427,7 +431,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       let ongoingDrag = DECIMAL_0
       if (i.entry_fee_type === 'ongoing') ongoingDrag = entryFee
       else if (i.entry_fee_type === 'forty-sixty') ongoingDrag = entryFee.mul(0.6)
-      return [i.id, apy.minus(ter).minus(ongoingDrag)]
+      return [i.id, Decimal.max(apy.minus(ter).minus(ongoingDrag), DECIMAL_MINUS_100)]
     }),
   )
 
