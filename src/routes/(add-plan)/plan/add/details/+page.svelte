@@ -14,7 +14,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Textarea } from '$lib/components/ui/textarea'
   import routes from '$lib/routes'
-  import type { PlanEndType, PlanStartType } from '$lib/schemas'
+  import type { PlanDraft, PlanEndType, PlanStartType } from '$lib/schemas'
   import storageKeys from '$lib/storage-keys'
   import { appStore } from '$lib/stores/app.svelte'
   import { getMonthOptions, getYearOptions } from '$lib/utils'
@@ -89,8 +89,9 @@
   }
 
   function handleContinue() {
-    // Store plan details in sessionStorage for step 3
-    const planDetails = {
+    // Store plan details in sessionStorage for step 3. The data step parses
+    // this with planDraftSchema, so the type keeps writer and reader in sync.
+    const planDetails: PlanDraft = {
       name: name.trim(),
       notes: notes.trim() || undefined,
       start_date: getStartDate(),

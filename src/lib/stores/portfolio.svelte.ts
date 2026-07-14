@@ -5,14 +5,17 @@ type AppParent = {
   deletePortfolio(id: string): void
 }
 
-export type PortfolioStore = Portfolio & {
+// `id` is readonly: identity is assigned once at creation and nothing may
+// rewrite it afterwards (update() also excludes it).
+export type PortfolioStore = Omit<Portfolio, 'id'> & {
+  readonly id: string
   update(updates: Partial<Omit<Portfolio, 'id'>>): void
   delete(): void
   toJSON(): Portfolio
 }
 
 export function withPortfolioStore(portfolio: Portfolio, app: AppParent): PortfolioStore {
-  let id = $state(portfolio.id)
+  const id = portfolio.id
   let name = $state(portfolio.name)
   let notes = $state(portfolio.notes)
   let start_date = $state(portfolio.start_date)
@@ -32,9 +35,6 @@ export function withPortfolioStore(portfolio: Portfolio, app: AppParent): Portfo
   return {
     get id() {
       return id
-    },
-    set id(v) {
-      id = v
     },
     get name() {
       return name

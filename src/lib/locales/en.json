@@ -375,8 +375,14 @@
     "system": "System"
   },
   "storageError": {
-    "title": "Changes are not being saved",
-    "description": "Your browser is blocking local storage (it may be full or restricted), so recent changes exist only in this tab. Export a backup now so you don't lose them.",
+    "write": {
+      "title": "Changes are not being saved",
+      "description": "Your browser is blocking local storage (it may be full or restricted), so recent changes exist only in this tab. Export a backup now so you don't lose them."
+    },
+    "validation": {
+      "title": "Your latest change could not be saved",
+      "description": "Kalkul refused to save an invalid change to protect your stored data — this is a bug, please report it. Recent changes exist only in this tab; export a backup so you don't lose them."
+    },
     "export": "Export backup"
   },
   "navbar": {
