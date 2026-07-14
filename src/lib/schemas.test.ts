@@ -255,8 +255,6 @@ describe('repairStoredCashFlowMonths', () => {
           start_date: '2026-01-01',
           end_date: '2060-01-01',
           inflation_rate: 2,
-          investments: [],
-          goals: [],
           transfers: [{ ...baseTransfer, ...sameYearInverted }],
         },
       ],

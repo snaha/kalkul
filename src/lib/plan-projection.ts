@@ -8,7 +8,7 @@ import type {
   Expense,
   Frequency,
   Income,
-  PortfolioNested,
+  Portfolio,
   Profile,
   ProfileInvestment,
   ProfileLiability,
@@ -359,10 +359,7 @@ export function filterById<T extends { id: string }>(
   return items.filter((item) => set.has(item.id))
 }
 
-export function getYearlyPlanProjection(
-  plan: PortfolioNested,
-  profile: Profile,
-): YearlyProjection[] {
+export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): YearlyProjection[] {
   // Direct string parse: ISO date-only strings parse as UTC, so
   // `new Date(...).getFullYear()` is timezone-dependent.
   const startYear = Number(plan.start_date.slice(0, 4))

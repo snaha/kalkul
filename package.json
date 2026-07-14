@@ -13,6 +13,7 @@
     "check:all": "pnpm lint && pnpm check && pnpm knip && pnpm check-locales",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "check-locales": "tsx scripts/check-locales",
+    "knip": "knip && knip --production",
     "lint": "prettier --check . && eslint .",
     "format": "prettier --write .",
     "test:integration": "playwright test",
