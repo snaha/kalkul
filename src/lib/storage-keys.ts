@@ -13,6 +13,12 @@
 export default {
   /** localStorage — persisted app data (profile, portfolios, plans). */
   DATA: 'kalkul-data',
+  /**
+   * localStorage — prefix for quarantined copies of unparseable app data
+   * (suffixed with a timestamp). Written before anything can overwrite DATA
+   * so the user's original payload survives a failed load.
+   */
+  DATA_CORRUPT_PREFIX: 'kalkul-data-corrupt-',
   /** sessionStorage — in-progress add-plan wizard draft. */
   PLAN_DRAFT: 'kalkul-plan-draft',
   /** localStorage — selected color theme ('light' | 'dark' | 'system'). */

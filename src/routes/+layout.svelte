@@ -3,6 +3,7 @@
   import { locale } from 'svelte-i18n'
 
   import StorageErrorBanner from '$lib/components/storage-error-banner.svelte'
+  import StorageRecoveryDialog from '$lib/components/storage-recovery-dialog.svelte'
   import { appStore } from '$lib/stores/app.svelte'
 
   import '../app.css'
@@ -28,3 +29,4 @@
 
 {@render children()}
 <StorageErrorBanner />
+<StorageRecoveryDialog />

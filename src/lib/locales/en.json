@@ -385,6 +385,13 @@
     },
     "export": "Export backup"
   },
+  "storageRecovery": {
+    "title": "Some of your stored data could not be loaded",
+    "description": "The data saved in this browser does not match what Kalkul expects — this can happen after an app update or if the storage was modified. Everything that could be recovered has been loaded.",
+    "warning": "Your original data has been preserved. Download it now so nothing is lost, then continue.",
+    "download": "Download original data",
+    "continue": "Continue"
+  },
   "navbar": {
     "menu": {
       "exportData": "Export data",
