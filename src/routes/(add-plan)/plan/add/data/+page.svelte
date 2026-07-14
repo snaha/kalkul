@@ -13,6 +13,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
   import routes from '$lib/routes'
+  import { type PlanDraft, planDraftSchema } from '$lib/schemas'
   import storageKeys from '$lib/storage-keys'
   import { appStore } from '$lib/stores/app.svelte'
 
@@ -110,12 +111,22 @@
       return
     }
 
-    const draft = JSON.parse(draftStr) as {
-      name: string
-      notes?: string
-      start_date: string
-      end_date: string
-      inflation_rate: number
+    // Validate the draft instead of blind-casting: a corrupted or outdated
+    // draft would otherwise flow unchecked into addPortfolio and make the
+    // Create button throw. On failure, drop it and return to the details
+    // step so the user can re-enter the plan basics.
+    let draft: PlanDraft | undefined
+    try {
+      draft = planDraftSchema.parse(JSON.parse(draftStr))
+    } catch (e) {
+      console.error('Discarding unparseable plan draft', e)
+    }
+    if (!draft) {
+      sessionStorage.removeItem(storageKeys.PLAN_DRAFT)
+      // URL is already resolved by getPrevAddPlanStepUrl
+      // eslint-disable-next-line svelte/no-navigation-without-resolve
+      goto(getPrevAddPlanStepUrl(routes.PLAN_ADD_DATA, appStore.profile))
+      return
     }
 
     // Create the portfolio with included references

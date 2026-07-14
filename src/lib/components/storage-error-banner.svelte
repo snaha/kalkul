@@ -17,9 +17,17 @@
   <div class="fixed inset-x-0 bottom-0 z-50 flex justify-center p-4">
     <Alert.Root variant="destructive" class="max-w-xl border-destructive shadow-lg">
       <TriangleAlert class="size-4" />
-      <Alert.Title>{$_('storageError.title')}</Alert.Title>
+      {#if storageErrorStore.kind === 'validation'}
+        <Alert.Title>{$_('storageError.validation.title')}</Alert.Title>
+      {:else}
+        <Alert.Title>{$_('storageError.write.title')}</Alert.Title>
+      {/if}
       <Alert.Description>
-        {$_('storageError.description')}
+        {#if storageErrorStore.kind === 'validation'}
+          {$_('storageError.validation.description')}
+        {:else}
+          {$_('storageError.write.description')}
+        {/if}
         <Button variant="outline" size="sm" class="mt-2 text-foreground" onclick={downloadBackup}>
           <FileDown class="size-4" />
           {$_('storageError.export')}

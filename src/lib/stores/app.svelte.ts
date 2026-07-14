@@ -122,13 +122,25 @@ function withAppStore() {
       profile: profile.toJSON(),
       portfolios: portfolios.map((p) => p.toJSON()),
     }
+    // Never write data the read path would reject: loadData() enforces the
+    // full schema, so an invalid write would persist fine today and brick the
+    // whole dataset on the next load. updateProfile validates the profile,
+    // but portfolio writes (update()/addPortfolio) have no gate of their own
+    // — this is the one place that covers them all.
+    const validated = storedDataSchema.safeParse(stored)
+    if (!validated.success) {
+      console.error('Refusing to persist data that would fail to load', validated.error)
+      storageErrorStore.setError('validation')
+      portfolios = [...portfolios]
+      return
+    }
     try {
       localStorage.setItem(storageKeys.DATA, JSON.stringify(stored))
       lastUpdated = now
       storageErrorStore.clear()
     } catch (e) {
       console.error('Failed to save data to localStorage', e)
-      storageErrorStore.setError()
+      storageErrorStore.setError('write')
     }
     // Trigger reactivity: $state reassignment
     portfolios = [...portfolios]

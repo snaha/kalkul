@@ -463,6 +463,19 @@ export const storedDataSchema = z.object({
   portfolios: z.array(portfolioSchema),
 })
 
+/**
+ * In-progress add-plan wizard draft persisted to sessionStorage between the
+ * details and data steps. Shared by the writer (details page) and reader
+ * (data page) so the two can never drift apart.
+ */
+export const planDraftSchema = z.object({
+  name: z.string(),
+  notes: z.string().optional(),
+  start_date: z.string(),
+  end_date: z.string(),
+  inflation_rate: z.number(),
+})
+
 // --- Derived types ---
 
 export type EntryFeeType = z.infer<typeof entryFeeTypeSchema>
@@ -476,6 +489,7 @@ export type Income = z.infer<typeof incomeSchema>
 export type Expense = z.infer<typeof expenseSchema>
 export type Profile = z.infer<typeof profileSchema>
 export type Portfolio = z.infer<typeof portfolioSchema>
+export type PlanDraft = z.infer<typeof planDraftSchema>
 export type Transfer = z.infer<typeof transferSchema>
 export type TransferSchedule = z.infer<typeof transferScheduleSchema>
 export type StoredData = z.infer<typeof storedDataSchema>

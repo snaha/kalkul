@@ -375,8 +375,14 @@
     "system": "Systém"
   },
   "storageError": {
-    "title": "Změny se neukládají",
-    "description": "Prohlížeč blokuje ukládání dat (úložiště může být plné nebo omezené), poslední změny proto existují jen v této záložce. Exportujte si zálohu, ať o ně nepřijdete.",
+    "write": {
+      "title": "Změny se neukládají",
+      "description": "Prohlížeč blokuje ukládání dat (úložiště může být plné nebo omezené), poslední změny proto existují jen v této záložce. Exportujte si zálohu, ať o ně nepřijdete."
+    },
+    "validation": {
+      "title": "Poslední změnu se nepodařilo uložit",
+      "description": "Kalkul odmítl uložit neplatnou změnu, aby ochránil vaše uložená data — jde o chybu aplikace, prosíme nahlaste ji. Poslední změny existují jen v této záložce; exportujte si zálohu, ať o ně nepřijdete."
+    },
     "export": "Exportovat zálohu"
   },
   "navbar": {
