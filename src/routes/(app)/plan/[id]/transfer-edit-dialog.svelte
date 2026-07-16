@@ -43,6 +43,8 @@
     onDuplicated?: (id: string) => void
   }
 
+  const uid = $props.id()
+
   let { open = $bindable(), onOpenChange, initial, plan, onDuplicated }: Props = $props()
 
   interface FormState {
@@ -394,8 +396,9 @@
       <!-- From + To -->
       <div class="flex items-end gap-2">
         <div class="flex flex-1 flex-col gap-2">
-          <Label>{$_('page.plan.transferFromLabel')}</Label>
+          <Label for="{uid}-transferFromLabel">{$_('page.plan.transferFromLabel')}</Label>
           <SelectField
+            id="{uid}-transferFromLabel"
             value={form.from_asset_id}
             items={fromAssetItems}
             placeholder={$_('page.plan.pickAsset')}
@@ -405,8 +408,9 @@
           />
         </div>
         <div class="flex flex-1 flex-col gap-2">
-          <Label>{$_('page.plan.transferToLabel')}</Label>
+          <Label for="{uid}-transferToLabel">{$_('page.plan.transferToLabel')}</Label>
           <SelectField
+            id="{uid}-transferToLabel"
             value={form.to_asset_id}
             items={toAssetItems}
             placeholder={$_('page.plan.pickAsset')}
@@ -420,8 +424,9 @@
       <!-- Schedule + (one-time) Date  /  (recurring) Schedule alone -->
       <div class="flex items-end gap-2">
         <div class="flex flex-1 flex-col gap-2">
-          <Label>{$_('page.plan.scheduleLabel')}</Label>
+          <Label for="{uid}-scheduleLabel">{$_('page.plan.scheduleLabel')}</Label>
           <SelectField
+            id="{uid}-scheduleLabel"
             value={form.schedule}
             items={scheduleItems}
             onValueChange={(v) => {
@@ -459,8 +464,11 @@
         {:else}
           <!-- Recurring: Frequency sits in the right column of the Schedule row. -->
           <div class="flex flex-1 flex-col gap-2">
-            <Label>{$_('page.plan.transferFrequencyLabel')}</Label>
+            <Label for="{uid}-transferFrequencyLabel"
+              >{$_('page.plan.transferFrequencyLabel')}</Label
+            >
             <SelectField
+              id="{uid}-transferFrequencyLabel"
               value={form.frequency}
               items={frequencyItems}
               onValueChange={(v) => {

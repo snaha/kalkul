@@ -283,6 +283,7 @@
         "start": "Start",
         "end": "End",
         "changeOverTime": "Change over time",
+        "changePercentage": "Yearly change percentage",
         "immediately": "When plan starts",
         "now": "Now",
         "atSpecificDate": "On specific time",

@@ -173,8 +173,11 @@
       {#snippet expandedContent()}
         <div class="flex items-center gap-2">
           <div class="flex flex-1 flex-col gap-2">
-            <Label>{$_('page.setup.tangibleAssets.currentValue')}</Label>
+            <Label for="currentValue-{asset.id}"
+              >{$_('page.setup.tangibleAssets.currentValue')}</Label
+            >
             <SuffixedInput
+              id="currentValue-{asset.id}"
               value={asset.value}
               suffix={currencyLabel}
               formatNumber={appStore.formatNumber}
@@ -184,8 +187,9 @@
             />
           </div>
           <div class="flex flex-1 flex-col gap-2">
-            <Label>{$_('page.setup.tangibleAssets.status')}</Label>
+            <Label for="status-{asset.id}">{$_('page.setup.tangibleAssets.status')}</Label>
             <SelectField
+              id="status-{asset.id}"
               value={asset.status}
               items={statusItems}
               onValueChange={(v) => {
@@ -197,8 +201,11 @@
 
         {#if asset.status === 'financed'}
           <div class="flex flex-col gap-2">
-            <Label>{$_('page.setup.tangibleAssets.outstandingBalance')}</Label>
+            <Label for="outstandingBalance-{asset.id}"
+              >{$_('page.setup.tangibleAssets.outstandingBalance')}</Label
+            >
             <SuffixedInput
+              id="outstandingBalance-{asset.id}"
               value={asset.outstanding_balance}
               suffix={currencyLabel}
               formatNumber={appStore.formatNumber}
@@ -209,8 +216,11 @@
           </div>
           <div class="flex items-center gap-2">
             <div class="flex flex-1 flex-col gap-2">
-              <Label>{$_('page.setup.tangibleAssets.installmentFrequency')}</Label>
+              <Label for="installmentFrequency-{asset.id}"
+                >{$_('page.setup.tangibleAssets.installmentFrequency')}</Label
+              >
               <SelectField
+                id="installmentFrequency-{asset.id}"
                 value={asset.installment_frequency}
                 items={frequencyItems}
                 onValueChange={(v) => {
@@ -219,8 +229,10 @@
               />
             </div>
             <div class="flex flex-1 flex-col gap-2">
-              <Label>{$_('page.setup.tangibleAssets.annualRate')}</Label>
+              <Label for="annualRate-{asset.id}">{$_('page.setup.tangibleAssets.annualRate')}</Label
+              >
               <SuffixedInput
+                id="annualRate-{asset.id}"
                 value={asset.annual_rate}
                 suffix="%"
                 formatNumber={appStore.formatNumber}
@@ -232,8 +244,11 @@
           </div>
           <div class="flex items-center gap-2">
             <div class="flex flex-1 flex-col gap-2">
-              <Label>{$_('page.setup.tangibleAssets.installmentAmount')}</Label>
+              <Label for="installmentAmount-{asset.id}"
+                >{$_('page.setup.tangibleAssets.installmentAmount')}</Label
+              >
               <SuffixedInput
+                id="installmentAmount-{asset.id}"
                 value={asset.installment_amount}
                 suffix={currencyLabel}
                 formatNumber={appStore.formatNumber}
@@ -243,8 +258,11 @@
               />
             </div>
             <div class="flex flex-1 flex-col gap-2">
-              <Label>{$_('page.setup.tangibleAssets.remainingTerm')}</Label>
+              <Label for="remainingTerm-{asset.id}"
+                >{$_('page.setup.tangibleAssets.remainingTerm')}</Label
+              >
               <SuffixedInput
+                id="remainingTerm-{asset.id}"
                 value={asset.remaining_term}
                 suffix={$_('page.setup.tangibleAssets.years', {
                   values: { count: asset.remaining_term ?? 0 },

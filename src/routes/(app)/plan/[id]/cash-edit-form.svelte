@@ -19,6 +19,8 @@
     onClose: () => void
   }
 
+  const uid = $props.id()
+
   let { initial, plan, onClose }: Props = $props()
 
   // Seeded synchronously from `initial` at mount. Because this component is
@@ -81,8 +83,9 @@
 
 <div class="flex flex-col gap-4 p-4">
   <div class="flex flex-col gap-2">
-    <Label>{$_('page.setup.common.amount')}</Label>
+    <Label for="{uid}-amount">{$_('page.setup.common.amount')}</Label>
     <SuffixedInput
+      id="{uid}-amount"
       value={amount}
       suffix={currencyLabel}
       formatNumber={appStore.formatNumber}

@@ -48,6 +48,8 @@
     onDuplicated?: (id: string) => void
   }
 
+  const uid = $props.id()
+
   let { open = $bindable(), onOpenChange, kind, initial, plan, onDuplicated }: Props = $props()
 
   interface FormState {
@@ -522,8 +524,9 @@
       {#if kind === 'investment'}
         <div class="flex items-end gap-2">
           <div class="flex flex-1 flex-col gap-2">
-            <Label>{$_('page.setup.investments.currentBalance')}</Label>
+            <Label for="{uid}-currentBalance">{$_('page.setup.investments.currentBalance')}</Label>
             <SuffixedInput
+              id="{uid}-currentBalance"
               value={form.balance}
               suffix={currencyLabel}
               formatNumber={appStore.formatNumber}
@@ -531,8 +534,9 @@
             />
           </div>
           <div class="flex w-32 flex-col gap-2">
-            <Label>{$_('page.setup.investments.apy')}</Label>
+            <Label for="{uid}-apy">{$_('page.setup.investments.apy')}</Label>
             <SuffixedInput
+              id="{uid}-apy"
               value={form.apy}
               suffix="%"
               formatNumber={appStore.formatNumber}
@@ -553,8 +557,9 @@
         <!-- Total expense ratio -->
         <div class="flex items-end gap-2">
           <div class="flex flex-1 flex-col gap-2">
-            <Label>{$_('page.plan.totalExpenseRatio')}</Label>
+            <Label for="{uid}-totalExpenseRatio">{$_('page.plan.totalExpenseRatio')}</Label>
             <SuffixedInput
+              id="{uid}-totalExpenseRatio"
               value={form.ter}
               suffix="%"
               formatNumber={appStore.formatNumber}
@@ -567,8 +572,9 @@
         <!-- Entry fee + payment type -->
         <div class="flex items-end gap-2">
           <div class="flex flex-1 flex-col gap-2">
-            <Label>{$_('page.plan.entryFee')}</Label>
+            <Label for="{uid}-entryFee">{$_('page.plan.entryFee')}</Label>
             <SuffixedInput
+              id="{uid}-entryFee"
               value={form.entry_fee}
               suffix="%"
               formatNumber={appStore.formatNumber}
@@ -576,8 +582,9 @@
             />
           </div>
           <div class="flex flex-1 flex-col gap-2">
-            <Label>{$_('page.plan.entryFeePaymentType')}</Label>
+            <Label for="{uid}-entryFeePaymentType">{$_('page.plan.entryFeePaymentType')}</Label>
             <SelectField
+              id="{uid}-entryFeePaymentType"
               value={form.entry_fee_type}
               items={entryFeeTypeItems}
               onValueChange={(v) => {
@@ -591,8 +598,9 @@
         <!-- Exit fee type + value -->
         <div class="flex items-end gap-2">
           <div class="flex flex-1 flex-col gap-2">
-            <Label>{$_('page.plan.exitFee')}</Label>
+            <Label for="{uid}-exitFee">{$_('page.plan.exitFee')}</Label>
             <SelectField
+              id="{uid}-exitFee"
               value={form.exit_fee_type}
               items={exitFeeTypeItems}
               onValueChange={(v) => {
@@ -603,6 +611,7 @@
           <div class="flex flex-1 flex-col gap-2">
             <SuffixedInput
               value={form.exit_fee}
+              aria-label={$_('page.plan.exitFee')}
               suffix={form.exit_fee_type === 'fixed' ? currencyLabel : '%'}
               formatNumber={appStore.formatNumber}
               onValueChange={(v) => (form.exit_fee = v)}
@@ -613,8 +622,9 @@
       {:else if kind === 'tangibleAsset'}
         <div class="flex items-end gap-2">
           <div class="flex flex-1 flex-col gap-2">
-            <Label>{$_('page.setup.tangibleAssets.currentValue')}</Label>
+            <Label for="{uid}-currentValue">{$_('page.setup.tangibleAssets.currentValue')}</Label>
             <SuffixedInput
+              id="{uid}-currentValue"
               value={form.value}
               suffix={currencyLabel}
               formatNumber={appStore.formatNumber}
@@ -622,8 +632,9 @@
             />
           </div>
           <div class="flex flex-1 flex-col gap-2">
-            <Label>{$_('page.setup.tangibleAssets.status')}</Label>
+            <Label for="{uid}-status">{$_('page.setup.tangibleAssets.status')}</Label>
             <SelectField
+              id="{uid}-status"
               value={form.status}
               items={tangibleAssetStatusItems}
               onValueChange={(v) => {
@@ -635,8 +646,11 @@
 
         {#if form.status === 'financed'}
           <div class="flex flex-col gap-2">
-            <Label>{$_('page.setup.tangibleAssets.outstandingBalance')}</Label>
+            <Label for="{uid}-outstandingBalance"
+              >{$_('page.setup.tangibleAssets.outstandingBalance')}</Label
+            >
             <SuffixedInput
+              id="{uid}-outstandingBalance"
               value={form.outstanding_balance}
               suffix={currencyLabel}
               formatNumber={appStore.formatNumber}
@@ -645,8 +659,11 @@
           </div>
           <div class="flex items-end gap-2">
             <div class="flex flex-1 flex-col gap-2">
-              <Label>{$_('page.setup.tangibleAssets.installmentFrequency')}</Label>
+              <Label for="{uid}-installmentFrequency"
+                >{$_('page.setup.tangibleAssets.installmentFrequency')}</Label
+              >
               <SelectField
+                id="{uid}-installmentFrequency"
                 value={form.installment_frequency}
                 items={frequencyItems}
                 onValueChange={(v) => {
@@ -655,8 +672,9 @@
               />
             </div>
             <div class="flex flex-1 flex-col gap-2">
-              <Label>{$_('page.setup.tangibleAssets.annualRate')}</Label>
+              <Label for="{uid}-annualRate">{$_('page.setup.tangibleAssets.annualRate')}</Label>
               <SuffixedInput
+                id="{uid}-annualRate"
                 value={form.annual_rate}
                 suffix="%"
                 formatNumber={appStore.formatNumber}
@@ -666,8 +684,11 @@
           </div>
           <div class="flex items-end gap-2">
             <div class="flex flex-1 flex-col gap-2">
-              <Label>{$_('page.setup.tangibleAssets.installmentAmount')}</Label>
+              <Label for="{uid}-installmentAmount"
+                >{$_('page.setup.tangibleAssets.installmentAmount')}</Label
+              >
               <SuffixedInput
+                id="{uid}-installmentAmount"
                 value={form.installment_amount}
                 suffix={currencyLabel}
                 formatNumber={appStore.formatNumber}
@@ -675,8 +696,11 @@
               />
             </div>
             <div class="flex flex-1 flex-col gap-2">
-              <Label>{$_('page.setup.tangibleAssets.remainingTerm')}</Label>
+              <Label for="{uid}-remainingTerm"
+                >{$_('page.setup.tangibleAssets.remainingTerm')}</Label
+              >
               <SuffixedInput
+                id="{uid}-remainingTerm"
                 value={form.remaining_term}
                 suffix={$_('page.setup.tangibleAssets.years', {
                   values: { count: form.remaining_term ?? 0 },
@@ -690,8 +714,11 @@
       {:else}
         <!-- liability -->
         <div class="flex flex-col gap-2">
-          <Label>{$_('page.setup.liabilities.outstandingBalance')}</Label>
+          <Label for="{uid}-outstandingBalance2"
+            >{$_('page.setup.liabilities.outstandingBalance')}</Label
+          >
           <SuffixedInput
+            id="{uid}-outstandingBalance2"
             value={form.outstanding_balance}
             suffix={currencyLabel}
             formatNumber={appStore.formatNumber}
@@ -700,8 +727,11 @@
         </div>
         <div class="flex items-end gap-2">
           <div class="flex flex-1 flex-col gap-2">
-            <Label>{$_('page.setup.liabilities.installmentFrequency')}</Label>
+            <Label for="{uid}-installmentFrequency2"
+              >{$_('page.setup.liabilities.installmentFrequency')}</Label
+            >
             <SelectField
+              id="{uid}-installmentFrequency2"
               value={form.installment_frequency}
               items={frequencyItems}
               onValueChange={(v) => {
@@ -710,8 +740,9 @@
             />
           </div>
           <div class="flex flex-1 flex-col gap-2">
-            <Label>{$_('page.setup.liabilities.annualRate')}</Label>
+            <Label for="{uid}-annualRate2">{$_('page.setup.liabilities.annualRate')}</Label>
             <SuffixedInput
+              id="{uid}-annualRate2"
               value={form.annual_rate}
               suffix="%"
               formatNumber={appStore.formatNumber}
@@ -721,8 +752,11 @@
         </div>
         <div class="flex items-end gap-2">
           <div class="flex flex-1 flex-col gap-2">
-            <Label>{$_('page.setup.liabilities.installmentAmount')}</Label>
+            <Label for="{uid}-installmentAmount2"
+              >{$_('page.setup.liabilities.installmentAmount')}</Label
+            >
             <SuffixedInput
+              id="{uid}-installmentAmount2"
               value={form.installment_amount}
               suffix={currencyLabel}
               formatNumber={appStore.formatNumber}
@@ -730,8 +764,9 @@
             />
           </div>
           <div class="flex flex-1 flex-col gap-2">
-            <Label>{$_('page.setup.liabilities.remainingTerm')}</Label>
+            <Label for="{uid}-remainingTerm2">{$_('page.setup.liabilities.remainingTerm')}</Label>
             <SuffixedInput
+              id="{uid}-remainingTerm2"
               value={form.remaining_term}
               suffix={$_('page.setup.liabilities.years', {
                 values: { count: form.remaining_term ?? 0 },
@@ -768,8 +803,9 @@
 
           <div class="flex items-end gap-2">
             <div class="flex flex-1 flex-col gap-2">
-              <Label>{$_('page.plan.interestType')}</Label>
+              <Label for="{uid}-interestType">{$_('page.plan.interestType')}</Label>
               <SelectField
+                id="{uid}-interestType"
                 value={form.interest_type}
                 items={interestTypeItems}
                 onValueChange={(v) => {
@@ -779,8 +815,11 @@
             </div>
             {#if form.interest_type === 'compound'}
               <div class="flex flex-1 flex-col gap-2">
-                <Label>{$_('page.plan.compoundingFrequency')}</Label>
+                <Label for="{uid}-compoundingFrequency"
+                  >{$_('page.plan.compoundingFrequency')}</Label
+                >
                 <SelectField
+                  id="{uid}-compoundingFrequency"
                   value={form.compounding_frequency}
                   items={compoundingFrequencyItems}
                   onValueChange={(v) => {

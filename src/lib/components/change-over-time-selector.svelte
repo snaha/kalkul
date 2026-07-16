@@ -18,6 +18,8 @@
     onPercentageChange: (v: number | undefined) => void
   }
 
+  const uid = $props.id()
+
   let {
     value,
     percentage,
@@ -42,8 +44,9 @@
 
 <div class="flex items-end gap-2">
   <div class="flex flex-1 flex-col gap-2">
-    <Label>{$_('page.setup.common.changeOverTime')}</Label>
+    <Label for="{uid}-change">{$_('page.setup.common.changeOverTime')}</Label>
     <SelectField
+      id="{uid}-change"
       value={changeItems.some((i) => i.value === value) ? value : 'none'}
       items={changeItems}
       onValueChange={(v) => {
@@ -55,6 +58,7 @@
     <div class="flex flex-1 flex-col gap-2">
       <SuffixedInput
         value={percentage}
+        aria-label={$_('page.setup.common.changePercentage')}
         suffix="%"
         {formatNumber}
         onValueChange={onPercentageChange}

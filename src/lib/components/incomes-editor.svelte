@@ -187,8 +187,11 @@
           </div>
           {#if income.withhold_taxes}
             <div class="flex flex-1 flex-col gap-2">
-              <Label>{$_('page.setup.income.percentageToWithhold')}</Label>
+              <Label for="percentageToWithhold-{income.id}"
+                >{$_('page.setup.income.percentageToWithhold')}</Label
+              >
               <SuffixedInput
+                id="percentageToWithhold-{income.id}"
                 value={income.tax_percentage}
                 suffix="%"
                 formatNumber={appStore.formatNumber}

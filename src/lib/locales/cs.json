@@ -283,6 +283,7 @@
         "start": "Začátek",
         "end": "Konec",
         "changeOverTime": "Změna v čase",
+        "changePercentage": "Roční změna v procentech",
         "immediately": "Když plán začíná",
         "now": "Nyní",
         "atSpecificDate": "K určitému datu",

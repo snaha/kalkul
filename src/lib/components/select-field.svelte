@@ -26,6 +26,7 @@
     allowDeselect?: boolean
     id?: string
     name?: string
+    'aria-label'?: string
     /** Classes applied to the trigger (use for width/height overrides). */
     class?: string
     /** Classes applied to the dropdown content. */
@@ -43,6 +44,7 @@
     allowDeselect = false,
     id,
     name,
+    'aria-label': ariaLabel,
     class: className,
     contentClass,
     'aria-invalid': ariaInvalid,
@@ -73,7 +75,12 @@
   {allowDeselect}
   {onValueChange}
 >
-  <Select.Trigger {id} aria-invalid={ariaInvalid} class={cn('w-full', className)}>
+  <Select.Trigger
+    {id}
+    aria-label={ariaLabel}
+    aria-invalid={ariaInvalid}
+    class={cn('w-full', className)}
+  >
     <span data-slot="select-value" class={cn(!selectedLabel && 'text-muted-foreground')}>
       {selectedLabel || placeholder}
     </span>
