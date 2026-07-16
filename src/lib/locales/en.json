@@ -116,6 +116,7 @@
       "defaultTransferName": "Transfer {index}",
       "pickAsset": "Please select",
       "deleteTransferConfirm": "Delete this transfer? This cannot be undone.",
+      "duplicateUnsavedConfirm": "You have unsaved changes that will be lost. Continue?",
       "transferFrequencyLabel": "Frequency",
       "transferMax": "Max",
       "transferMaxDescription": "Transfers all available funds at the time of execution",

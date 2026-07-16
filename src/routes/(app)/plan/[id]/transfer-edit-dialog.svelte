@@ -39,9 +39,11 @@
     onOpenChange: (open: boolean) => void
     initial: Transfer | undefined
     plan: PortfolioStore
+    /** Called with the copy's id after a duplicate, so the caller can open it. */
+    onDuplicated?: (id: string) => void
   }
 
-  let { open = $bindable(), onOpenChange, initial, plan }: Props = $props()
+  let { open = $bindable(), onOpenChange, initial, plan, onDuplicated }: Props = $props()
 
   interface FormState {
     id: string
@@ -260,6 +262,10 @@
   }
 
   function duplicate() {
+    // Duplicating copies the SAVED item; edits sitting in the form would be
+    // silently lost, so ask before discarding them (issue #65).
+    const hasChanges = JSON.stringify(form) !== JSON.stringify(seedForm(initial))
+    if (hasChanges && !window.confirm($_('page.plan.duplicateUnsavedConfirm'))) return
     const existing = plan.transfers ?? []
     const idx = existing.findIndex((t) => t.id === form.id)
     if (idx === -1) return
@@ -275,6 +281,7 @@
     }
     plan.update(updates)
     close()
+    onDuplicated?.(copy.id)
   }
 
   function toggleExclude() {

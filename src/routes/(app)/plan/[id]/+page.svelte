@@ -142,6 +142,39 @@
       openCreateDialog(kind)
     }
   }
+
+  // Reopen an edit dialog on the freshly duplicated item (issue #65). The
+  // short delay lets the closing dialog finish its exit transition so the
+  // open state goes through a real false -> true cycle and the form re-seeds.
+  const REOPEN_DELAY_MS = 150
+
+  function reopenAssetDialog(id: string) {
+    const kind = assetDialogKind
+    const item =
+      kind === 'investment'
+        ? appStore.profile.investments?.find((i) => i.id === id)
+        : kind === 'tangibleAsset'
+          ? appStore.profile.tangible_assets?.find((a) => a.id === id)
+          : appStore.profile.liabilities?.find((l) => l.id === id)
+    if (!item) return
+    setTimeout(() => openAssetEditDialog(kind, item), REOPEN_DELAY_MS)
+  }
+
+  function reopenCashFlowDialog(id: string) {
+    const kind = editDialogKind
+    const item =
+      kind === 'income'
+        ? appStore.profile.incomes?.find((i) => i.id === id)
+        : appStore.profile.expenses?.find((e) => e.id === id)
+    if (!item) return
+    setTimeout(() => openEditDialog(kind, item), REOPEN_DELAY_MS)
+  }
+
+  function reopenTransferDialog(id: string) {
+    const item = (plan?.transfers ?? []).find((t) => t.id === id)
+    if (!item) return
+    setTimeout(() => openTransferDialog(item), REOPEN_DELAY_MS)
+  }
   let hoveredYear = $state<number | undefined>(undefined)
   let hoverPosition = $state<HoverPosition | undefined>(undefined)
   let chartContainerRef: HTMLDivElement | undefined = $state()
@@ -886,6 +919,7 @@
       onOpenChange={(v) => (transferDialogOpen = v)}
       initial={transferDialogInitial}
       {plan}
+      onDuplicated={reopenTransferDialog}
     />
 
     <!-- Cash-flow edit dialog -->
@@ -895,6 +929,7 @@
       kind={editDialogKind}
       initial={editDialogInitial}
       {plan}
+      onDuplicated={reopenCashFlowDialog}
     />
 
     <!-- Add asset type picker -->
@@ -911,6 +946,7 @@
       kind={assetDialogKind}
       initial={assetDialogInitial}
       {plan}
+      onDuplicated={reopenAssetDialog}
     />
 
     <!-- Cash edit dialog -->
