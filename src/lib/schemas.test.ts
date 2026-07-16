@@ -6,6 +6,7 @@ import en from './locales/en.json'
 import {
   expenseSchema,
   incomeSchema,
+  planDraftSchema,
   repairStoredCashFlowMonths,
   storedDataSchema,
   timingComplete,
@@ -293,5 +294,22 @@ describe('repairStoredCashFlowMonths', () => {
       profile: 'malformed',
       portfolios: 42,
     })
+  })
+})
+
+describe('planDraftSchema', () => {
+  it('accepts the shape the details step writes', () => {
+    const result = planDraftSchema.safeParse({
+      name: 'Retirement',
+      notes: 'First attempt',
+      start_date: '2026-07-01',
+      end_date: '2060-01-01',
+      inflation_rate: 0.02,
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects a draft missing required fields', () => {
+    expect(planDraftSchema.safeParse({ name: 'Broken' }).success).toBe(false)
   })
 })
