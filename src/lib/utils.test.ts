@@ -5,7 +5,9 @@ import {
   formatCompactCurrency,
   formatCurrency,
   formatCurrencyCode,
+  formatLastUpdated,
   formatNumber,
+  formatPercent,
   getFormattingLocale,
   parseDateOnly,
   toDateOnlyString,
@@ -121,5 +123,33 @@ describe('toDateOnlyString', () => {
   it('round-trips with parseDateOnly (no drift on repeated save/load)', () => {
     expect(toDateOnlyString(parseDateOnly('1985-03-01'))).toBe('1985-03-01')
     expect(toDateOnlyString(parseDateOnly('1990-01-01'))).toBe('1990-01-01')
+  })
+})
+
+describe('formatPercent', () => {
+  it('formats already-percent-scaled values with locale separators', () => {
+    expect(formatPercent(5.3, 1, 'en-US')).toBe('5.3%')
+    expect(formatPercent(5.3, 1, 'cs-CZ')).toBe('5,3 %')
+    expect(formatPercent(-2.5, 1, 'en-US')).toBe('-2.5%')
+    expect(formatPercent(12, 0, 'en-US')).toBe('12%')
+  })
+
+  it('renders negative zero as plain 0', () => {
+    expect(formatPercent(-0, 1, 'en-US')).toBe('0.0%')
+  })
+})
+
+describe('formatLastUpdated', () => {
+  // Local-midnight date so the expected string is timezone-independent.
+  const savedAt = new Date(2026, 6, 7).getTime()
+
+  it('formats the timestamp with the given locale', () => {
+    expect(formatLastUpdated(savedAt, 'en-US')).toBe('7/7/2026')
+    expect(formatLastUpdated(savedAt, 'cs-CZ')).toBe('7. 7. 2026')
+  })
+
+  it('returns undefined when nothing was saved yet instead of faking today', () => {
+    expect(formatLastUpdated(0, 'en-US')).toBeUndefined()
+    expect(formatLastUpdated(-1, 'en-US')).toBeUndefined()
   })
 })
