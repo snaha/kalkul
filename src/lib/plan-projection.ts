@@ -360,6 +360,41 @@ function transferAmountForYear(
     .mul(fraction)
 }
 
+/**
+ * Sum the annualized, grown, month-fractioned nominal amounts of the cash
+ * flows active in `year`, and report which items were active. `growthFactor`
+ * takes both the years-since-the-cash-flow-started (for change_over_time
+ * growth) and the years-since-plan-start (for the inflation factor, which is
+ * always anchored to plan start so the entered amount is consistently
+ * interpreted as today's-money).
+ */
+function accumulateCashFlows<T extends CashFlowTemporal & { id: string; frequency: Frequency }>(
+  items: T[],
+  year: number,
+  planStartYear: number,
+  birthYear: number | undefined,
+  inflationRate: Decimal,
+  getAmount: (item: T) => Decimal,
+): { total: Decimal; activeIds: string[] } {
+  let total = DECIMAL_0
+  const activeIds: string[] = []
+  for (const item of items) {
+    const itemStart = resolveStartYear(item, planStartYear, birthYear)
+    const itemEnd = resolveEndYear(item, birthYear)
+    if (year < itemStart || year > itemEnd) continue
+    const fraction = activeMonthFraction(item, year, itemStart, itemEnd)
+    if (fraction.isZero()) continue
+    const annual = annualizedAmount(getAmount(item), item.frequency)
+    total = total.plus(
+      annual
+        .mul(growthFactor(item, year - itemStart, year - planStartYear, inflationRate))
+        .mul(fraction),
+    )
+    activeIds.push(item.id)
+  }
+  return { total, activeIds }
+}
+
 export function filterById<T extends { id: string }>(
   items: T[] | undefined,
   includedIds: string[] | undefined,
@@ -474,44 +509,24 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       )
     }
 
-    // 3. Income / expense accumulation. `growthFactor` takes both the
-    //    years-since-the-cash-flow-started (for change_over_time growth) and
-    //    the years-since-plan-start (for the inflation factor, which is
-    //    always anchored to plan start so the entered amount is consistently
-    //    interpreted as today's-money).
-    let incomesThisYearNominal = DECIMAL_0
-    for (const income of incomes) {
-      const incomeStart = resolveStartYear(income, startYear, birthYear)
-      const incomeEnd = resolveEndYear(income, birthYear)
-      if (year < incomeStart || year > incomeEnd) continue
-      const fraction = activeMonthFraction(income, year, incomeStart, incomeEnd)
-      if (fraction.isZero()) continue
-      const yearsSinceCashFlowStart = year - incomeStart
-      const annual = annualizedAmount(netIncome(income), income.frequency)
-      incomesThisYearNominal = incomesThisYearNominal.plus(
-        annual
-          .mul(growthFactor(income, yearsSinceCashFlowStart, yearsSincePlanStart, inflationRate))
-          .mul(fraction),
+    // 3. Income / expense accumulation (see accumulateCashFlows).
+    const incomesThisYearNominal = accumulateCashFlows(
+      incomes,
+      year,
+      startYear,
+      birthYear,
+      inflationRate,
+      netIncome,
+    ).total
+    const { total: expensesThisYearNominal, activeIds: activeExpenseIdsThisYear } =
+      accumulateCashFlows(
+        expenses,
+        year,
+        startYear,
+        birthYear,
+        inflationRate,
+        (expense) => new Decimal(expense.amount),
       )
-    }
-
-    let expensesThisYearNominal = DECIMAL_0
-    const activeExpenseIdsThisYear: string[] = []
-    for (const expense of expenses) {
-      const expenseStart = resolveStartYear(expense, startYear, birthYear)
-      const expenseEnd = resolveEndYear(expense, birthYear)
-      if (year < expenseStart || year > expenseEnd) continue
-      const fraction = activeMonthFraction(expense, year, expenseStart, expenseEnd)
-      if (fraction.isZero()) continue
-      const yearsSinceCashFlowStart = year - expenseStart
-      const annual = annualizedAmount(new Decimal(expense.amount), expense.frequency)
-      expensesThisYearNominal = expensesThisYearNominal.plus(
-        annual
-          .mul(growthFactor(expense, yearsSinceCashFlowStart, yearsSincePlanStart, inflationRate))
-          .mul(fraction),
-      )
-      activeExpenseIdsThisYear.push(expense.id)
-    }
 
     // 4. Apply income to cash up front, then run transfers, then settle
     //    expenses + liability payments. Doing transfers before the cash check
