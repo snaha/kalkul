@@ -296,3 +296,229 @@ describe('appStore.load corrupt-data recovery', () => {
     expect(recoveryKeys()).toHaveLength(1)
   })
 })
+
+describe('appStore persistence round-trips', () => {
+  let backing: Map<string, string>
+
+  beforeEach(() => {
+    backing = new Map<string, string>()
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => (backing.has(key) ? backing.get(key) : undefined),
+      setItem: (key: string, value: string) => {
+        backing.set(key, value)
+      },
+      removeItem: (key: string) => {
+        backing.delete(key)
+      },
+    })
+    appStore.clear()
+    storageErrorStore.clear()
+    loadErrorStore.dismiss()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  // A realistic profile built through the public API only.
+  function buildState(): string {
+    appStore.updateProfile({
+      name: 'Jane',
+      email: 'jane@example.com',
+      birth_date: '1990-06-01',
+      location: 'CZ',
+      currency: 'CZK',
+      cash_amount: 250_000,
+      investments: [{ id: 'inv-1', name: 'ETF', balance: 800_000, apy: 7 }],
+      liabilities: [
+        {
+          id: 'liab-1',
+          name: 'Loan',
+          outstanding_balance: 120_000,
+          installment_frequency: 'monthly',
+          annual_rate: 3.5,
+          installment_amount: 2_000,
+          remaining_term: 6,
+        },
+      ],
+      incomes: [
+        {
+          id: 'income-1',
+          name: 'Salary',
+          amount: 65_000,
+          frequency: 'monthly',
+          withhold_taxes: false,
+          start: 'immediately',
+          end: 'never',
+          change_over_time: 'none',
+        },
+      ],
+    })
+    return appStore.addPortfolio({
+      name: 'Plan',
+      notes: 'Base',
+      start_date: '2026-07-01',
+      end_date: '2055-06-01',
+      inflation_rate: 0.02,
+      include_cash: true,
+      included_investment_ids: ['inv-1'],
+      transfers: [
+        {
+          id: 't1',
+          name: 'Invest monthly',
+          from_asset_id: 'cash',
+          to_asset_id: 'inv-1',
+          amount: 10_000,
+          schedule: 'recurring',
+          frequency: 'monthly',
+          start: 'immediately',
+          end: 'never',
+          change_over_time: 'none',
+        },
+      ],
+    })
+  }
+
+  it('re-loads every mutation the public API produced (the wipe-path guard)', () => {
+    const portfolioId = buildState()
+    const profileBefore = appStore.profile.toJSON()
+    const portfoliosBefore = appStore.portfolios.map((p) => p.toJSON())
+
+    appStore.load()
+
+    expect(appStore.profile.toJSON()).toEqual(profileBefore)
+    expect(appStore.portfolios.map((p) => p.toJSON())).toEqual(portfoliosBefore)
+    expect(appStore.portfolios[0].id).toBe(portfolioId)
+    expect(loadErrorStore.error).toBeUndefined()
+  })
+
+  it('round-trips through export + import', () => {
+    buildState()
+    const profileBefore = appStore.profile.toJSON()
+    const portfoliosBefore = appStore.portfolios.map((p) => p.toJSON())
+
+    const backup = appStore.exportBackup()
+    appStore.clear()
+    expect(appStore.profile.name).toBe('')
+    appStore.importBackup(backup)
+
+    expect(appStore.profile.toJSON()).toEqual(profileBefore)
+    expect(appStore.portfolios.map((p) => p.toJSON())).toEqual(portfoliosBefore)
+  })
+
+  it('rejects a malformed backup without touching current data', () => {
+    buildState()
+    const before = backing.get(storageKeys.DATA)
+    expect(() => appStore.importBackup('{not json')).toThrow()
+    expect(() => appStore.importBackup('{"profile": 42}')).toThrow()
+    expect(appStore.profile.name).toBe('Jane')
+    expect(backing.get(storageKeys.DATA)).toBe(before)
+  })
+
+  it('updateProfile rejects invalid updates without persisting partial state', () => {
+    buildState()
+    const before = backing.get(storageKeys.DATA)
+    expect(() =>
+      appStore.updateProfile({
+        incomes: [
+          {
+            id: 'income-2',
+            name: 'Broken',
+            amount: 100,
+            frequency: 'monthly',
+            withhold_taxes: false,
+            start: 'when_age_is', // start_age missing -> refinement fails
+            end: 'never',
+            change_over_time: 'none',
+          },
+        ],
+      }),
+    ).toThrow()
+    // Neither memory nor storage picked up the invalid write.
+    expect(appStore.profile.incomes?.map((i) => i.id)).toEqual(['income-1'])
+    expect(backing.get(storageKeys.DATA)).toBe(before)
+  })
+})
+
+describe('appStore.startSync', () => {
+  let backing: Map<string, string>
+  let storageHandler: ((event: StorageEvent) => void) | undefined
+
+  beforeEach(() => {
+    backing = new Map<string, string>()
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => (backing.has(key) ? backing.get(key) : undefined),
+      setItem: (key: string, value: string) => {
+        backing.set(key, value)
+      },
+      removeItem: (key: string) => {
+        backing.delete(key)
+      },
+    })
+    vi.stubGlobal('window', {
+      addEventListener: (_type: string, handler: (event: StorageEvent) => void) => {
+        storageHandler = handler
+      },
+      removeEventListener: () => {
+        storageHandler = undefined
+      },
+    })
+    appStore.clear()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  function syncEvent(newValue: string | undefined): StorageEvent {
+    return { key: storageKeys.DATA, newValue } as StorageEvent
+  }
+
+  it('applies a newer payload from another tab', () => {
+    appStore.updateProfile({ name: 'Old' })
+    const cleanup = appStore.startSync()
+
+    storageHandler?.(
+      syncEvent(
+        JSON.stringify({
+          lastUpdated: appStore.lastUpdated + 1000,
+          profile: { name: 'From other tab', email: '' },
+          portfolios: [],
+        }),
+      ),
+    )
+
+    expect(appStore.profile.name).toBe('From other tab')
+    cleanup()
+  })
+
+  it('ignores an event with the lastUpdated it already has', () => {
+    appStore.updateProfile({ name: 'Current' })
+    const cleanup = appStore.startSync()
+
+    storageHandler?.(
+      syncEvent(
+        JSON.stringify({
+          lastUpdated: appStore.lastUpdated,
+          profile: { name: 'Echo of self', email: '' },
+          portfolios: [],
+        }),
+      ),
+    )
+
+    expect(appStore.profile.name).toBe('Current')
+    cleanup()
+  })
+
+  it('ignores malformed payloads from other tabs', () => {
+    appStore.updateProfile({ name: 'Current' })
+    const cleanup = appStore.startSync()
+
+    storageHandler?.(syncEvent('{definitely not json'))
+    storageHandler?.(syncEvent(JSON.stringify({ lastUpdated: 'nope' })))
+    storageHandler?.(syncEvent(undefined))
+
+    expect(appStore.profile.name).toBe('Current')
+    cleanup()
+  })
+})
