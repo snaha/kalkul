@@ -2096,4 +2096,98 @@ describe('getYearlyPlanProjection', () => {
     )
     expect(result[0].insufficientFundExpenseIds).toEqual(['exp1'])
   })
+  it('computes per-year FI percent and runway from investable wealth and outflows', () => {
+    const expenses: Expense[] = [
+      {
+        id: 'exp1',
+        name: 'Living',
+        amount: 10_000,
+        frequency: 'yearly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const investments: ProfileInvestment[] = [{ id: 'i1', name: 'Fund', balance: 100_000, apy: 0 }]
+    const result = getYearlyPlanProjection(
+      makePlan({ include_cash: false }),
+      makeProfile({ investments, expenses }),
+    )
+    // Year 0: investable 100,000; outflows 10,000.
+    // FI % = 100,000 / (10,000 * 25) * 100 = 40; runway = 10 years.
+    expect(result[0].fiPercent).toBeCloseTo(40, 6)
+    expect(result[0].runwayYears).toBeCloseTo(10, 6)
+  })
+
+  it('subtracts standalone liabilities from investable wealth and counts their installments as outflows', () => {
+    const liabilities: ProfileLiability[] = [
+      {
+        id: 'l1',
+        name: 'Loan',
+        outstanding_balance: 20_000,
+        installment_frequency: 'yearly',
+        annual_rate: 0,
+        installment_amount: 10_000,
+        remaining_term: 2,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ cash_amount: 100_000, liabilities }),
+    )
+    // Year 0: cash 100,000 - installment 10,000 = 90,000; outstanding 10,000.
+    // investable = 90,000 - 10,000 = 80,000; outflows = 10,000 (installment).
+    expect(result[0].fiPercent).toBeCloseTo((80_000 / 250_000) * 100, 6)
+    expect(result[0].runwayYears).toBeCloseTo(8, 6)
+    // Year 2: loan paid off, no expenses left -> no outflows -> undefined.
+    expect(result[2].fiPercent).toBeUndefined()
+    expect(result[2].runwayYears).toBeUndefined()
+  })
+
+  it('leaves FI percent and runway undefined in years with zero outflows', () => {
+    const result = getYearlyPlanProjection(makePlan(), makeProfile({ cash_amount: 50_000 }))
+    for (const entry of result) {
+      expect(entry.fiPercent).toBeUndefined()
+      expect(entry.runwayYears).toBeUndefined()
+    }
+  })
+
+  it('excludes tangibles and financed-asset debt from investable wealth', () => {
+    const tangible_assets: ProfileTangibleAsset[] = [
+      {
+        id: 't1',
+        name: 'House',
+        value: 1_000_000,
+        status: 'financed',
+        outstanding_balance: 200_000,
+        installment_frequency: 'yearly',
+        annual_rate: 0,
+        installment_amount: 20_000,
+        remaining_term: 10,
+      },
+    ]
+    const expenses: Expense[] = [
+      {
+        id: 'exp1',
+        name: 'Living',
+        amount: 10_000,
+        frequency: 'yearly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ include_cash: false }),
+      makeProfile({
+        investments: [{ id: 'i1', name: 'Fund', balance: 150_000, apy: 0 }],
+        tangible_assets,
+        expenses,
+      }),
+    )
+    // investable = investments only (house + mortgage excluded); outflows =
+    // expenses 10,000 + mortgage installment 20,000 = 30,000.
+    expect(result[0].runwayYears).toBeCloseTo(150_000 / 30_000, 6)
+    expect(result[0].fiPercent).toBeCloseTo((150_000 / (30_000 * 25)) * 100, 6)
+  })
 })

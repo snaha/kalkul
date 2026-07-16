@@ -51,6 +51,14 @@ export interface YearlyProjection {
   liabilitiesByItem: YearlyProjectionItem[]
   totalIncome: number
   totalExpenses: number
+  // Progress toward financial independence in this year: investable wealth
+  // (cash + investments − standalone liabilities outstanding) as a percent of
+  // 25× this year's outflows (living expenses + loan installments).
+  // Undefined in years with zero outflows, where the ratio is meaningless.
+  fiPercent?: number
+  // Years this year's investable wealth could cover this year's outflow
+  // level. Undefined in years with zero outflows.
+  runwayYears?: number
   // IDs of transfers that were skipped this year because the source did not
   // hold enough balance to cover the move. Used by the sidebar to surface
   // unmet cash flows. Empty in healthy years.
@@ -673,6 +681,27 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       ),
     }))
 
+    // 8. Per-year FI % and runway, mirroring the dashboard's snapshot
+    //    formulas (getFiPercent/getRunwayYears in financial-totals.ts):
+    //    investable wealth excludes tangibles and subtracts only standalone
+    //    liabilities (the first `liabilities.length` schedules — a mortgage
+    //    is secured by its asset), while outflows include every installment
+    //    actually paid this year. Numerator and denominator are both nominal,
+    //    so the deflator cancels and the ratio is basis-independent.
+    const standaloneOutstandingNominal = liabilitySchedules
+      .slice(0, liabilities.length)
+      .reduce<Decimal>((sum, s) => sum.plus(s.outstandingByYear.get(year) ?? DECIMAL_0), DECIMAL_0)
+    const outflowsNominal = expensesThisYearNominal.plus(liabilitiesPaidThisYearNominal)
+    const investableNominal = cashNominal
+      .plus(investmentsNominal)
+      .minus(standaloneOutstandingNominal)
+    let fiPercent: number | undefined
+    let runwayYears: number | undefined
+    if (outflowsNominal.greaterThan(0)) {
+      fiPercent = Math.max(0, investableNominal.div(outflowsNominal.mul(25)).mul(100).toNumber())
+      runwayYears = Math.max(0, investableNominal.div(outflowsNominal).toNumber())
+    }
+
     projection.push({
       year,
       cash: clampNonNeg(cashReal),
@@ -685,6 +714,8 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       liabilitiesByItem,
       totalIncome: incomesThisYearReal.toNumber(),
       totalExpenses: expensesThisYearReal.toNumber(),
+      fiPercent,
+      runwayYears,
       insufficientFundTransferIds: insufficientFundTransferIdsThisYear,
       insufficientFundExpenseIds: insufficientFundExpenseIdsThisYear,
     })
