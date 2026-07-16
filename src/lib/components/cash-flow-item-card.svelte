@@ -134,7 +134,7 @@
           value={item.frequency}
           items={frequencyItems}
           onValueChange={(v) => {
-            if (v) item.frequency = v as Frequency
+            if (v) item.frequency = v
           }}
         />
       </div>
@@ -172,7 +172,7 @@
         description={startDescription}
         {formatNumber}
         onValueChange={(v) => {
-          item.start = v as CashFlowStart
+          item.start = v
         }}
         onYearChange={(v) => {
           item.start_year = v
@@ -198,7 +198,7 @@
         description={endDescription}
         {formatNumber}
         onValueChange={(v) => {
-          item.end = v as CashFlowEnd
+          item.end = v
         }}
         onYearChange={(v) => {
           item.end_year = v
@@ -218,7 +218,7 @@
         {changeDescription}
         {formatNumber}
         onValueChange={(v) => {
-          item.change_over_time = v as ChangeOverTime
+          item.change_over_time = v
         }}
         onPercentageChange={(v) => {
           item.change_percentage = v

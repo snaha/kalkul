@@ -12,7 +12,7 @@
   import X from '@lucide/svelte/icons/x'
 
   import HelpTooltip from '$lib/components/help-tooltip.svelte'
-  import SelectField from '$lib/components/select-field.svelte'
+  import SelectField, { type SelectFieldItem } from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import * as Dialog from '$lib/components/ui/dialog'
@@ -36,13 +36,18 @@
 
   export type AssetKind = 'investment' | 'tangibleAsset' | 'liability'
 
-  type Asset = ProfileInvestment | ProfileTangibleAsset | ProfileLiability
+  // Discriminated union: the kind determines which asset type `initial` may
+  // carry, so a kind/initial mismatch fails the typecheck instead of seeding
+  // the wrong form at runtime.
+  export type AssetTarget =
+    | { kind: 'investment'; initial?: ProfileInvestment }
+    | { kind: 'tangibleAsset'; initial?: ProfileTangibleAsset }
+    | { kind: 'liability'; initial?: ProfileLiability }
 
   interface Props {
     open: boolean
     onOpenChange: (open: boolean) => void
-    kind: AssetKind
-    initial: Asset | undefined
+    target: AssetTarget
     plan: PortfolioStore
     /** Called with the copy's id after a duplicate, so the caller can open it. */
     onDuplicated?: (id: string) => void
@@ -50,7 +55,10 @@
 
   const uid = $props.id()
 
-  let { open = $bindable(), onOpenChange, kind, initial, plan, onDuplicated }: Props = $props()
+  let { open = $bindable(), onOpenChange, target, plan, onDuplicated }: Props = $props()
+
+  const kind = $derived(target.kind)
+  const initial = $derived(target.initial)
 
   interface FormState {
     id: string
@@ -114,13 +122,13 @@
     }
   }
 
-  function seedForm(src: Asset | undefined): FormState {
-    if (!src) return blankForm()
+  function seedForm(src: AssetTarget): FormState {
     const f = blankForm()
-    f.id = src.id
-    f.name = src.name
-    if (kind === 'investment') {
-      const inv = src as ProfileInvestment
+    if (!src.initial) return f
+    f.id = src.initial.id
+    f.name = src.initial.name
+    if (src.kind === 'investment') {
+      const inv = src.initial
       f.balance = inv.balance > 0 ? inv.balance : undefined
       f.apy = inv.apy > 0 ? inv.apy : undefined
       f.ter = inv.ter !== undefined && inv.ter > 0 ? inv.ter : undefined
@@ -128,8 +136,8 @@
       f.entry_fee_type = inv.entry_fee_type ?? 'ongoing'
       f.exit_fee = inv.exit_fee !== undefined && inv.exit_fee > 0 ? inv.exit_fee : undefined
       f.exit_fee_type = inv.exit_fee_type ?? 'percentage'
-    } else if (kind === 'tangibleAsset') {
-      const a = src as ProfileTangibleAsset
+    } else if (src.kind === 'tangibleAsset') {
+      const a = src.initial
       f.value = a.value > 0 ? a.value : undefined
       f.status = a.status
       f.outstanding_balance =
@@ -145,7 +153,7 @@
       f.remaining_term =
         a.remaining_term !== undefined && a.remaining_term > 0 ? a.remaining_term : undefined
     } else {
-      const l = src as ProfileLiability
+      const l = src.initial
       f.outstanding_balance = l.outstanding_balance > 0 ? l.outstanding_balance : undefined
       f.installment_frequency = l.installment_frequency
       f.annual_rate = l.annual_rate > 0 ? l.annual_rate : undefined
@@ -169,12 +177,12 @@
   let wasOpen = false
   $effect(() => {
     if (open && !wasOpen) {
-      form = seedForm(initial)
-      editingName = initial === undefined
-      if (kind === 'liability') {
-        const l = initial as ProfileLiability | undefined
+      form = seedForm(target)
+      editingName = target.initial === undefined
+      if (target.kind === 'liability') {
         showLiabilityAdvanced =
-          l?.interest_type !== undefined || l?.compounding_frequency !== undefined
+          target.initial?.interest_type !== undefined ||
+          target.initial?.compounding_frequency !== undefined
       } else {
         showLiabilityAdvanced = false
       }
@@ -196,13 +204,13 @@
     return ids.includes(form.id)
   })
 
-  let entryFeeTypeItems = $derived([
+  let entryFeeTypeItems: SelectFieldItem<EntryFeeType>[] = $derived([
     { value: 'ongoing', label: $_('page.plan.entryFeeOngoing') },
     { value: 'upfront', label: $_('page.plan.entryFeeUpfront') },
     { value: 'forty-sixty', label: $_('page.plan.entryFeeFortySixty') },
   ])
 
-  let exitFeeTypeItems = $derived([
+  let exitFeeTypeItems: SelectFieldItem<ExitFeeType>[] = $derived([
     { value: 'percentage', label: $_('page.plan.exitFeePercentage') },
     { value: 'fixed', label: $_('page.plan.exitFeeFixed') },
   ])
@@ -211,12 +219,12 @@
 
   let frequencyItems = $derived(getFrequencyItems($_))
 
-  let interestTypeItems = $derived([
+  let interestTypeItems: SelectFieldItem<InterestType>[] = $derived([
     { value: 'compound', label: $_('page.plan.interestCompound') },
     { value: 'simple', label: $_('page.plan.interestSimple') },
   ])
 
-  let compoundingFrequencyItems = $derived([
+  let compoundingFrequencyItems: SelectFieldItem<CompoundingFrequency>[] = $derived([
     { value: 'daily', label: $_('page.plan.compoundingDaily') },
     { value: 'monthly', label: $_('page.setup.common.monthly') },
     { value: 'yearly', label: $_('page.setup.common.yearly') },
@@ -588,7 +596,7 @@
               value={form.entry_fee_type}
               items={entryFeeTypeItems}
               onValueChange={(v) => {
-                if (v) form.entry_fee_type = v as EntryFeeType
+                if (v) form.entry_fee_type = v
               }}
             />
           </div>
@@ -604,7 +612,7 @@
               value={form.exit_fee_type}
               items={exitFeeTypeItems}
               onValueChange={(v) => {
-                if (v) form.exit_fee_type = v as ExitFeeType
+                if (v) form.exit_fee_type = v
               }}
             />
           </div>
@@ -638,7 +646,7 @@
               value={form.status}
               items={tangibleAssetStatusItems}
               onValueChange={(v) => {
-                if (v) form.status = v as TangibleAssetStatus
+                if (v) form.status = v
               }}
             />
           </div>
@@ -667,7 +675,7 @@
                 value={form.installment_frequency}
                 items={frequencyItems}
                 onValueChange={(v) => {
-                  if (v) form.installment_frequency = v as Frequency
+                  if (v) form.installment_frequency = v
                 }}
               />
             </div>
@@ -735,7 +743,7 @@
               value={form.installment_frequency}
               items={frequencyItems}
               onValueChange={(v) => {
-                if (v) form.installment_frequency = v as Frequency
+                if (v) form.installment_frequency = v
               }}
             />
           </div>
@@ -809,7 +817,7 @@
                 value={form.interest_type}
                 items={interestTypeItems}
                 onValueChange={(v) => {
-                  if (v) form.interest_type = v as InterestType
+                  if (v) form.interest_type = v
                 }}
               />
             </div>
@@ -823,7 +831,7 @@
                   value={form.compounding_frequency}
                   items={compoundingFrequencyItems}
                   onValueChange={(v) => {
-                    if (v) form.compounding_frequency = v as CompoundingFrequency
+                    if (v) form.compounding_frequency = v
                   }}
                 />
               </div>

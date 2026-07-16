@@ -14,7 +14,7 @@ type Translator = (id: string) => string
 // typecheck here (via the `satisfies Record<...>`) instead of silently missing
 // from dropdowns.
 
-export function getFrequencyItems($_: Translator): SelectFieldItem[] {
+export function getFrequencyItems($_: Translator): SelectFieldItem<Frequency>[] {
   const labels = {
     monthly: $_('page.setup.common.monthly'),
     yearly: $_('page.setup.common.yearly'),
@@ -29,7 +29,9 @@ export function getFrequencyShortLabel($_: Translator, frequency: Frequency): st
   return $_('page.financialData.frequency.short.yearly')
 }
 
-export function getTangibleAssetStatusItems($_: Translator): SelectFieldItem[] {
+export function getTangibleAssetStatusItems(
+  $_: Translator,
+): SelectFieldItem<TangibleAssetStatus>[] {
   const labels = {
     fully_owned: $_('page.setup.tangibleAssets.fullyOwned'),
     financed: $_('page.setup.tangibleAssets.financed'),

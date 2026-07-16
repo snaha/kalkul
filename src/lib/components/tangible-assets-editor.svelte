@@ -141,7 +141,7 @@
                 value={asset.status}
                 items={statusItems}
                 onValueChange={(v) => {
-                  asset.status = v as TangibleAssetStatus
+                  asset.status = v
                 }}
               />
             </div>
@@ -172,7 +172,7 @@
                   value={asset.installment_frequency}
                   items={frequencyItems}
                   onValueChange={(v) => {
-                    asset.installment_frequency = v as Frequency
+                    asset.installment_frequency = v
                   }}
                 />
               </div>

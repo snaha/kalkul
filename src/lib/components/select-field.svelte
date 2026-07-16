@@ -1,12 +1,12 @@
 <script lang="ts" module>
-  export interface SelectFieldItem {
-    value: string
+  export interface SelectFieldItem<T extends string = string> {
+    value: T
     label: string
     disabled?: boolean
   }
 </script>
 
-<script lang="ts">
+<script lang="ts" generics="T extends string">
   import type { HTMLInputAttributes } from 'svelte/elements'
 
   import * as Select from '$lib/components/ui/select'
@@ -14,15 +14,19 @@
 
   interface Props {
     /** The selected value. Bindable. */
-    value?: string
+    value?: T
     /** Whether the dropdown is open. Bindable. */
     open?: boolean
     /** Options to choose from. Accepts readonly arrays (e.g. `as const`). */
-    items: readonly SelectFieldItem[]
+    items: readonly SelectFieldItem<T>[]
     /** Placeholder shown on the trigger when nothing is selected. */
     placeholder?: string
     disabled?: boolean
-    /** Allow clearing the selection by selecting the active item again. */
+    /**
+     * Allow clearing the selection by selecting the active item again.
+     * Deselecting emits an empty string, so only enable this with handlers
+     * that treat '' as "cleared".
+     */
     allowDeselect?: boolean
     id?: string
     name?: string
@@ -32,11 +36,20 @@
     /** Classes applied to the dropdown content. */
     contentClass?: string
     'aria-invalid'?: HTMLInputAttributes['aria-invalid']
-    onValueChange?: (value: string) => void
+    /**
+     * Fires with the picked item's value, typed by the `items` array — an
+     * enum-backed dropdown gets the enum member without a cast at the call
+     * site (a typo'd option value fails the typecheck instead of flowing
+     * into schema-validated data).
+     */
+    onValueChange?: (value: T) => void
   }
 
   let {
-    value = $bindable(''),
+    // '' is bits-ui's "nothing selected" sentinel; it never reaches
+    // onValueChange (items can only carry T values), so the cast is confined
+    // to this initialization.
+    value = $bindable('' as T),
     open = $bindable(false),
     items,
     placeholder,
@@ -69,11 +82,11 @@
   type="single"
   bind:value
   bind:open
-  items={items as SelectFieldItem[]}
+  items={items as SelectFieldItem<T>[]}
   {name}
   {disabled}
   {allowDeselect}
-  {onValueChange}
+  onValueChange={onValueChange as ((value: string) => void) | undefined}
 >
   <Select.Trigger
     {id}

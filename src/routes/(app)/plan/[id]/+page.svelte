@@ -32,21 +32,14 @@
   import { Slider } from '$lib/components/ui/slider'
   import { getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
   import routes from '$lib/routes'
-  import type {
-    Expense,
-    Income,
-    ProfileInvestment,
-    ProfileLiability,
-    ProfileTangibleAsset,
-    Transfer,
-  } from '$lib/schemas'
+  import type { Expense, Income, Transfer } from '$lib/schemas'
   import { getFrequencyShortLabel } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import { cn, notImplemented } from '$lib/utils'
 
   import AddAssetDialog, { type AssetKind as AddAssetKind } from './add-asset-dialog.svelte'
   import AddCashFlowDialog from './add-cash-flow-dialog.svelte'
-  import AssetEditDialog, { type AssetKind } from './asset-edit-dialog.svelte'
+  import AssetEditDialog, { type AssetKind, type AssetTarget } from './asset-edit-dialog.svelte'
   import CashEditDialog from './cash-edit-dialog.svelte'
   import CashFlowEditDialog from './cash-flow-edit-dialog.svelte'
   import PlanSidebarRow from './plan-sidebar-row.svelte'
@@ -79,10 +72,7 @@
 
   // Asset edit dialog state
   let assetDialogOpen = $state(false)
-  let assetDialogKind = $state<AssetKind>('investment')
-  let assetDialogInitial = $state<
-    ProfileInvestment | ProfileTangibleAsset | ProfileLiability | undefined
-  >(undefined)
+  let assetDialogTarget = $state<AssetTarget>({ kind: 'investment' })
   let cashDialogOpen = $state(false)
   let addAssetDialogOpen = $state(false)
 
@@ -102,18 +92,19 @@
     editDialogOpen = true
   }
 
-  function openAssetEditDialog(
-    kind: AssetKind,
-    item: ProfileInvestment | ProfileTangibleAsset | ProfileLiability,
-  ) {
-    assetDialogKind = kind
-    assetDialogInitial = item
+  function openAssetEditDialog(target: AssetTarget) {
+    assetDialogTarget = target
     assetDialogOpen = true
   }
 
   function openAssetCreateDialog(kind: AssetKind) {
-    assetDialogKind = kind
-    assetDialogInitial = undefined
+    // Spelled out per kind so each branch is a valid AssetTarget literal.
+    assetDialogTarget =
+      kind === 'investment'
+        ? { kind: 'investment' }
+        : kind === 'tangibleAsset'
+          ? { kind: 'tangibleAsset' }
+          : { kind: 'liability' }
     assetDialogOpen = true
   }
 
@@ -359,7 +350,7 @@
           id: inv.id,
           name: inv.name,
           value: appStore.formatCurrencyCode(inv.balance),
-          onClick: () => openAssetEditDialog('investment', inv),
+          onClick: () => openAssetEditDialog({ kind: 'investment', initial: inv }),
         })),
     },
     {
@@ -372,7 +363,7 @@
           id: a.id,
           name: a.name,
           value: appStore.formatCurrencyCode(a.value),
-          onClick: () => openAssetEditDialog('tangibleAsset', a),
+          onClick: () => openAssetEditDialog({ kind: 'tangibleAsset', initial: a }),
         })),
     },
     {
@@ -386,7 +377,7 @@
           name: l.name,
           value: `-${appStore.formatCurrencyCode(l.outstanding_balance)}`,
           valueClass: 'text-destructive',
-          onClick: () => openAssetEditDialog('liability', l),
+          onClick: () => openAssetEditDialog({ kind: 'liability', initial: l }),
         })),
     },
   ])
@@ -943,8 +934,7 @@
     <AssetEditDialog
       bind:open={assetDialogOpen}
       onOpenChange={(v) => (assetDialogOpen = v)}
-      kind={assetDialogKind}
-      initial={assetDialogInitial}
+      target={assetDialogTarget}
       {plan}
       onDuplicated={reopenAssetDialog}
     />

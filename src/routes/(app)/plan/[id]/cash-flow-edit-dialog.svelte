@@ -459,7 +459,7 @@
             value={form.frequency}
             items={frequencyItems}
             onValueChange={(v) => {
-              if (v) form.frequency = v as Frequency
+              if (v) form.frequency = v
             }}
           />
         </div>
@@ -515,7 +515,7 @@
         {months}
         birthDateSet={appStore.profile.birthDate !== undefined}
         formatNumber={appStore.formatNumber}
-        onValueChange={(v) => (form.start = v as CashFlowStart)}
+        onValueChange={(v) => (form.start = v)}
         onYearChange={(v) => (form.start_year = v)}
         onMonthChange={(v) => (form.start_month = v)}
         onAgeChange={(v) => (form.start_age = v)}
@@ -532,7 +532,7 @@
         minMonth={endMinMonth}
         birthDateSet={appStore.profile.birthDate !== undefined}
         formatNumber={appStore.formatNumber}
-        onValueChange={(v) => (form.end = v as CashFlowEnd)}
+        onValueChange={(v) => (form.end = v)}
         onYearChange={(v) => (form.end_year = v)}
         onMonthChange={(v) => (form.end_month = v)}
         onAgeChange={(v) => (form.end_age = v)}
@@ -542,7 +542,7 @@
         value={form.change_over_time}
         percentage={form.change_percentage}
         formatNumber={appStore.formatNumber}
-        onValueChange={(v) => (form.change_over_time = v as ChangeOverTime)}
+        onValueChange={(v) => (form.change_over_time = v)}
         onPercentageChange={(v) => (form.change_percentage = v)}
       />
     </div>
