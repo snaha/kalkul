@@ -503,6 +503,15 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
         const apy = investmentApy.get(id) ?? DECIMAL_0
         invBalancesNominal.set(id, balance.mul(DECIMAL_1.plus(apy.div(100))))
       }
+      // Tangibles passively track inflation: compound the nominal value at
+      // the inflation rate so the real value stays flat absent transfers.
+      // Keeping this balance truly nominal (instead of treating it as
+      // already-real) is what makes transfers unit-consistent — withdraw()
+      // and deposit() move nominal amounts between cash, investments, and
+      // tangibles, so mixing units would create or destroy net worth.
+      for (const [id, value] of tangValuesNominal) {
+        tangValuesNominal.set(id, value.mul(DECIMAL_1.plus(inflationRate)))
+      }
     }
 
     // 2. Liability schedule lookup (no state change here; the schedule is
@@ -675,9 +684,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     const incomesThisYearReal = incomesThisYearNominal.div(deflationFactor)
     const expensesThisYearReal = expensesThisYearNominal.div(deflationFactor)
 
-    // Tangibles passively track inflation, so their real value equals the
-    // current nominal value (after any transfers).
-    const tangibleAssetsReal = tangibleAssetsTotalNominal
+    const tangibleAssetsReal = tangibleAssetsTotalNominal.div(deflationFactor)
 
     const netWorth = cashReal.plus(investmentsReal).plus(tangibleAssetsReal).minus(liabilitiesReal)
 
@@ -695,7 +702,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     const tangibleAssetsByItem: YearlyProjectionItem[] = tangibleAssets.map((asset) => ({
       id: asset.id,
       name: asset.name,
-      value: clampNonNeg(tangValuesNominal.get(asset.id) ?? DECIMAL_0),
+      value: clampNonNeg((tangValuesNominal.get(asset.id) ?? DECIMAL_0).div(deflationFactor)),
     }))
 
     // Only user-defined liabilities (the first `liabilities.length` schedules);

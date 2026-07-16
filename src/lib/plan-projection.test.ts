@@ -2239,4 +2239,65 @@ describe('getYearlyPlanProjection', () => {
     expect(result[0].runwayYears).toBeCloseTo(150_000 / 30_000, 6)
     expect(result[0].fiPercent).toBeCloseTo((150_000 / (30_000 * 25)) * 100, 6)
   })
+
+  it('conserves net worth when a tangible asset is sold to cash under inflation', () => {
+    // Regression for the nominal/real unit mix: the sale-year sweep used to
+    // move the tangible's real value into nominal cash, silently shrinking
+    // net worth by the accumulated deflator.
+    const tangible_assets: ProfileTangibleAsset[] = [
+      { id: 't1', name: 'House', value: 1_000_000, status: 'fully_owned' },
+    ]
+    const transfers: Transfer[] = [
+      {
+        id: 'tr1',
+        name: 'Sell house',
+        from_asset_id: 't1',
+        to_asset_id: 'cash',
+        amount: 0,
+        transfer_all: true,
+        schedule: 'one_time',
+        transaction_year: 2027,
+        transaction_month: 1,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ inflation_rate: 0.02, transfers }),
+      makeProfile({ cash_amount: 0, tangible_assets }),
+    )
+    const before = result.find((r) => r.year === 2026)
+    const saleYear = result.find((r) => r.year === 2027)
+    // Real house value is flat pre-sale; the sale converts it 1:1 into cash.
+    expect(before?.netWorth).toBeCloseTo(1_000_000, 4)
+    expect(saleYear?.netWorth).toBeCloseTo(1_000_000, 4)
+    expect(saleYear?.cash).toBeCloseTo(1_000_000, 4)
+    expect(saleYear?.tangibleAssets).toBeCloseTo(0, 6)
+  })
+
+  it('conserves net worth on a cash -> tangible purchase under inflation', () => {
+    const tangible_assets: ProfileTangibleAsset[] = [
+      { id: 't1', name: 'House', value: 0, status: 'fully_owned' },
+    ]
+    const transfers: Transfer[] = [
+      {
+        id: 'tr1',
+        name: 'Buy house',
+        from_asset_id: 'cash',
+        to_asset_id: 't1',
+        amount: 500_000,
+        schedule: 'one_time',
+        transaction_year: 2027,
+        transaction_month: 6,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ inflation_rate: 0.02, transfers }),
+      makeProfile({ cash_amount: 600_000, tangible_assets }),
+    )
+    const saleYear = result.find((r) => r.year === 2027)
+    // An internal move must not change total net worth: cash held nominal, so
+    // in 2027 real terms the total is 600,000 deflated by two years.
+    expect(saleYear?.netWorth).toBeCloseTo(600_000 / 1.02 ** 2, 4)
+    expect(saleYear?.tangibleAssets).toBeCloseTo(500_000 / 1.02 ** 2, 4)
+    expect(saleYear?.cash).toBeCloseTo(100_000 / 1.02 ** 2, 4)
+  })
 })
