@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  calculateAge,
   formatCompactCurrency,
   formatCurrency,
   formatCurrencyCode,
@@ -26,8 +27,11 @@ describe('getFormattingLocale', () => {
 })
 
 describe('formatCompactCurrency', () => {
-  it('does not emit Hungarian compact format for an explicit locale (issue #41)', () => {
-    expect(formatCompactCurrency(150200, 'EUR', 'en')).not.toContain('E EUR')
+  it('emits the exact compact format for an explicit locale (issue #41)', () => {
+    // Exact value instead of a negative substring match — the old
+    // `.not.toContain('E EUR')` kept passing for any regression short of
+    // the one Hungarian-locale bug it was written against.
+    expect(formatCompactCurrency(150200, 'EUR', 'en')).toBe('€150.2K')
   })
 })
 
@@ -54,6 +58,8 @@ describe('cached formatters', () => {
 
   it('falls back for unsupported currency codes', () => {
     expect(formatCurrency(1000, 'NOTACURRENCY', 'en-US')).toBe('1,000 NOTACURRENCY')
+    expect(formatCurrencyCode(1000, 'NOTACURRENCY', 'en-US')).toBe('1,000 NOTACURRENCY')
+    expect(formatCompactCurrency(1000, 'NOTACURRENCY', 'en-US')).toBe('1,000 NOTACURRENCY')
   })
 
   it('renders negative zero as plain 0 (e.g. a negated zero liabilities total)', () => {
@@ -65,6 +71,28 @@ describe('cached formatters', () => {
 
   it('keeps the minus sign for real negative values', () => {
     expect(formatCurrencyCode(-5000, 'USD', 'en-US')).toBe('-USD 5,000')
+  })
+})
+
+describe('calculateAge', () => {
+  // Onboarding captures only year + month (day fixed to 1), so age is
+  // month-granular by design: it increments at the start of the birth month.
+  const birthDate = new Date(1990, 5, 1) // June 1990
+
+  it('counts the age as already incremented during the birth month', () => {
+    expect(calculateAge(birthDate, 2026, 5)).toBe('36')
+  })
+
+  it('is one lower in the month before the birth month', () => {
+    expect(calculateAge(birthDate, 2026, 4)).toBe('35')
+  })
+
+  it('stays incremented for the rest of the year', () => {
+    expect(calculateAge(birthDate, 2026, 11)).toBe('36')
+  })
+
+  it('returns an empty string without a birth date', () => {
+    expect(calculateAge(undefined, 2026, 5)).toBe('')
   })
 })
 
