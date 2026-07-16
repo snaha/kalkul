@@ -164,6 +164,8 @@
         "viewDetails": "Zobrazit detaily",
         "netWorthSummary": "Vaše aktuální celkové jmění je {total}",
         "lastUpdated": "Naposledy aktualizováno dnes",
+        "lastUpdatedOn": "Naposledy aktualizováno {date}",
+        "lastUpdatedNever": "Zatím neaktualizováno",
         "keepUpToDate": "Udržujte aktuální pro přesné plánování",
         "viewAll": "Zobrazit všechna finanční data",
         "netWorthCard": {

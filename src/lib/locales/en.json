@@ -164,6 +164,8 @@
         "viewDetails": "View details",
         "netWorthSummary": "Your current total net worth is {total}",
         "lastUpdated": "Last updated today",
+        "lastUpdatedOn": "Last updated {date}",
+        "lastUpdatedNever": "Not updated yet",
         "keepUpToDate": "Keep it up-to-date for accurate planning",
         "viewAll": "View all financial data",
         "netWorthCard": {

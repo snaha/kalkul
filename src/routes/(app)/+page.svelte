@@ -37,6 +37,22 @@
   const fiPercent = $derived(getFiPercent(appStore.profile))
   const runwayYears = $derived(getRunwayYears(appStore.profile))
 
+  // "Last updated today" only when actually today; otherwise the real date,
+  // or a "not updated yet" state when nothing was ever saved.
+  const lastUpdatedLabel = $derived.by(() => {
+    if (appStore.lastUpdated <= 0) return $_('page.dashboard.finances.lastUpdatedNever')
+    const updated = new Date(appStore.lastUpdated)
+    const now = new Date()
+    const isToday =
+      updated.getFullYear() === now.getFullYear() &&
+      updated.getMonth() === now.getMonth() &&
+      updated.getDate() === now.getDate()
+    if (isToday) return $_('page.dashboard.finances.lastUpdated')
+    return $_('page.dashboard.finances.lastUpdatedOn', {
+      values: { date: appStore.formatDate(appStore.lastUpdated) },
+    })
+  })
+
   // Selects which chart is shown below once the snapshot-based charts exist.
   type HeadlineCard = 'netWorth' | 'fi' | 'runway'
   let selectedCard = $state<HeadlineCard>('netWorth')
@@ -143,7 +159,7 @@
               })}
             </h3>
             <div class="flex flex-col gap-1">
-              <p class="text-base">{$_('page.dashboard.finances.lastUpdated')}</p>
+              <p class="text-base">{lastUpdatedLabel}</p>
               <p class="text-sm text-muted-foreground">
                 {$_('page.dashboard.finances.keepUpToDate')}
               </p>

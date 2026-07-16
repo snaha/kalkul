@@ -1,18 +1,19 @@
 <script lang="ts">
-  import { _, locale } from 'svelte-i18n'
+  import { _ } from 'svelte-i18n'
 
   import IncomesEditor from '$lib/components/incomes-editor.svelte'
   import { appStore } from '$lib/stores/app.svelte'
-  import { formatLastUpdated } from '$lib/utils'
 
-  const lastUpdatedDate = $derived(formatLastUpdated(appStore.lastUpdated, $locale))
+  const lastUpdatedDate = $derived(appStore.formatLastUpdated())
 </script>
 
 <div class="flex w-full flex-col items-start gap-2">
   <p class="text-lg leading-7 font-medium">{$_('page.financialData.incomes.title')}</p>
-  <span class="text-xs leading-4 text-muted-foreground">
-    {$_('page.financialData.overview.lastUpdated', { values: { date: lastUpdatedDate } })}
-  </span>
+  {#if lastUpdatedDate}
+    <span class="text-xs leading-4 text-muted-foreground">
+      {$_('page.financialData.overview.lastUpdated', { values: { date: lastUpdatedDate } })}
+    </span>
+  {/if}
 </div>
 
 <p class="text-sm leading-5 text-muted-foreground">
