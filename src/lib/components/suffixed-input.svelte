@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Input } from '$lib/components/ui/input'
+  import { decimalSeparatorOf, formatNumberInput, parseNumberInput } from '$lib/parse-number-input'
   import { cn } from '$lib/utils'
 
   interface Props {
@@ -29,34 +30,20 @@
   // Digits, minus, and both decimal separators.
   const TYPING_RE = /[^0-9.,-]/g
 
-  function parseDraft(raw: string): number | undefined {
-    if (!raw) return undefined
-    // Normalize separators: strip thousand separators, allow either . or , as decimal.
-    // Heuristic: the last '.' or ',' is the decimal separator; earlier ones are group separators.
-    const trimmed = raw.trim().replace(/\s/g, '')
-    const lastDot = trimmed.lastIndexOf('.')
-    const lastComma = trimmed.lastIndexOf(',')
-    const lastSep = Math.max(lastDot, lastComma)
-    let normalized: string
-    if (lastSep === -1) {
-      normalized = trimmed
-    } else {
-      const intPart = trimmed.slice(0, lastSep).replace(/[.,\s]/g, '')
-      const fracPart = trimmed.slice(lastSep + 1)
-      normalized = `${intPart}.${fracPart}`
-    }
-    const n = Number(normalized)
-    return Number.isFinite(n) ? n : undefined
-  }
+  // The formatter the unfocused field displays with — parsing derives its
+  // decimal separator from the same function, so whatever the field shows
+  // always parses back to the same value.
+  const effectiveFormat = $derived(
+    formatNumber ?? ((n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 4 })),
+  )
+  const decimalSep = $derived(decimalSeparatorOf(effectiveFormat))
 
-  function formatDisplay(n: number | undefined): string {
-    if (n === undefined || !Number.isFinite(n)) return ''
-    if (formatNumber) return formatNumber(n)
-    return n.toLocaleString(undefined, { maximumFractionDigits: 4 })
+  function parseDraft(raw: string): number | undefined {
+    return parseNumberInput(raw, decimalSep)
   }
 
   // What the input should show given focus state.
-  let displayValue = $derived(focused ? draft : formatDisplay(value))
+  let displayValue = $derived(focused ? draft : formatNumberInput(value, effectiveFormat))
 
   function handleFocus() {
     focused = true
