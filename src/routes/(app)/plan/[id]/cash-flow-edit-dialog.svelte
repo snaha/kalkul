@@ -301,6 +301,11 @@
       }
       const next = [...existing.slice(0, idx + 1), copy, ...existing.slice(idx + 1)]
       appStore.updateProfile({ incomes: next })
+      // Mirror save(): an explicit include list must gain the copy's id, or
+      // the duplicate lands excluded from this plan.
+      if (plan.included_income_ids !== undefined) {
+        plan.update({ included_income_ids: [...plan.included_income_ids, copy.id] })
+      }
     } else {
       const existing = appStore.profile.expenses ?? []
       const idx = existing.findIndex((e) => e.id === form.id)
@@ -312,6 +317,9 @@
       }
       const next = [...existing.slice(0, idx + 1), copy, ...existing.slice(idx + 1)]
       appStore.updateProfile({ expenses: next })
+      if (plan.included_expense_ids !== undefined) {
+        plan.update({ included_expense_ids: [...plan.included_expense_ids, copy.id] })
+      }
     }
     close()
     if (copyId !== undefined) onDuplicated?.(copyId)
