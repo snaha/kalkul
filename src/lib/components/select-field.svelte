@@ -1,12 +1,12 @@
 <script lang="ts" module>
-  export interface SelectFieldItem {
-    value: string
+  export interface SelectFieldItem<T extends string = string> {
+    value: T
     label: string
     disabled?: boolean
   }
 </script>
 
-<script lang="ts">
+<script lang="ts" generics="T extends string">
   import type { HTMLInputAttributes } from 'svelte/elements'
 
   import * as Select from '$lib/components/ui/select'
@@ -14,16 +14,19 @@
 
   interface Props {
     /** The selected value. Bindable. */
-    value?: string
+    value?: T
     /** Whether the dropdown is open. Bindable. */
     open?: boolean
     /** Options to choose from. Accepts readonly arrays (e.g. `as const`). */
-    items: readonly SelectFieldItem[]
+    items: readonly SelectFieldItem<T>[]
     /** Placeholder shown on the trigger when nothing is selected. */
     placeholder?: string
     disabled?: boolean
-    /** Allow clearing the selection by selecting the active item again. */
-    allowDeselect?: boolean
+    // No `allowDeselect`: bits-ui emits '' when the active item is chosen
+    // again, which would flow into an `onValueChange` typed as T and hand
+    // enum-typed state a value outside its union without the compiler
+    // objecting. Add it back only alongside a signature that models the
+    // cleared case (e.g. a separate onClear).
     id?: string
     name?: string
     'aria-label'?: string
@@ -32,16 +35,24 @@
     /** Classes applied to the dropdown content. */
     contentClass?: string
     'aria-invalid'?: HTMLInputAttributes['aria-invalid']
-    onValueChange?: (value: string) => void
+    /**
+     * Fires with the picked item's value, typed by the `items` array — an
+     * enum-backed dropdown gets the enum member without a cast at the call
+     * site (a typo'd option value fails the typecheck instead of flowing
+     * into schema-validated data).
+     */
+    onValueChange?: (value: T) => void
   }
 
   let {
-    value = $bindable(''),
+    // '' is bits-ui's "nothing selected" sentinel; it never reaches
+    // onValueChange (items can only carry T values), so the cast is confined
+    // to this initialization.
+    value = $bindable('' as T),
     open = $bindable(false),
     items,
     placeholder,
     disabled = false,
-    allowDeselect = false,
     id,
     name,
     'aria-label': ariaLabel,
@@ -69,11 +80,10 @@
   type="single"
   bind:value
   bind:open
-  items={items as SelectFieldItem[]}
+  items={items as SelectFieldItem<T>[]}
   {name}
   {disabled}
-  {allowDeselect}
-  {onValueChange}
+  onValueChange={onValueChange as ((value: string) => void) | undefined}
 >
   <Select.Trigger
     {id}

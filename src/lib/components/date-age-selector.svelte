@@ -1,13 +1,16 @@
-<script lang="ts">
+<script lang="ts" generics="T extends string">
   import { _ } from 'svelte-i18n'
 
-  import SelectField from '$lib/components/select-field.svelte'
+  import SelectField, { type SelectFieldItem } from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Label } from '$lib/components/ui/label'
 
   interface Props {
     mode: 'start' | 'end'
-    value: string
+    // The timing enum of the caller's field (CashFlowStart for mode 'start',
+    // CashFlowEnd for mode 'end') — onValueChange fires with that type so
+    // call sites need no casts.
+    value: T
     year: number | undefined
     month: number | undefined
     age: number | undefined
@@ -31,7 +34,7 @@
      * ends before it starts can't be picked.
      */
     minMonth?: number
-    onValueChange: (v: string) => void
+    onValueChange: (v: T) => void
     onYearChange: (v: number | undefined) => void
     onMonthChange: (v: number | undefined) => void
     onAgeChange: (v: number | undefined) => void
@@ -83,8 +86,11 @@
     label: $_('page.setup.common.whenAgeIs'),
     disabled: !birthDateSet,
   })
+  // The literals below are the CashFlowStart/CashFlowEnd members for the
+  // respective mode; TypeScript can't correlate `mode` with `T`, so this one
+  // cast stands in for the per-call-site casts it removes.
   let modeItems = $derived(
-    mode === 'start'
+    (mode === 'start'
       ? [
           { value: 'immediately', label: $_('page.setup.common.immediately') },
           { value: 'now', label: $_('page.setup.common.now') },
@@ -95,7 +101,7 @@
           { value: 'never', label: $_('page.setup.common.never') },
           { value: 'at_specific_date', label: $_('page.setup.common.atSpecificDate') },
           whenAgeIsItem,
-        ],
+        ]) as SelectFieldItem<T>[],
   )
   let yearItems = $derived(years.map((y) => ({ value: y, label: y })))
   let monthItems = $derived(

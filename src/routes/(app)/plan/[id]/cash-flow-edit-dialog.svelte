@@ -1,22 +1,12 @@
 <script lang="ts">
   import { _, locale } from 'svelte-i18n'
 
-  import Copy from '@lucide/svelte/icons/copy'
-  import Eye from '@lucide/svelte/icons/eye'
-  import EyeOff from '@lucide/svelte/icons/eye-off'
-  import SquarePen from '@lucide/svelte/icons/square-pen'
-  import Trash2 from '@lucide/svelte/icons/trash-2'
-  import X from '@lucide/svelte/icons/x'
-
   import ChangeOverTimeSelector from '$lib/components/change-over-time-selector.svelte'
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
   import InflationAdjustToggle from '$lib/components/inflation-adjust-toggle.svelte'
   import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
-  import { Button } from '$lib/components/ui/button'
   import { Checkbox } from '$lib/components/ui/checkbox'
-  import * as Dialog from '$lib/components/ui/dialog'
-  import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
   import { sameYearMonthsInverted, timingComplete } from '$lib/schemas'
@@ -32,6 +22,16 @@
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
   import { getMonthOptions, getYearOptions } from '$lib/utils'
+
+  import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
+  import {
+    PROFILE_LISTS,
+    duplicateProfileItem,
+    isIncludedInPlan,
+    removeProfileItem,
+    toggleIncludedInPlan,
+    upsertProfileItem,
+  } from './profile-lists'
 
   type CashFlow = Income | Expense
 
@@ -139,29 +139,21 @@
   }
 
   let form = $state<FormState>(blankForm())
-  let editingName = $state(false)
-  let nameInputRef: HTMLInputElement | undefined = $state()
 
   // Re-seed form whenever the dialog opens, so reopening discards prior edits.
   let wasOpen = false
   $effect(() => {
     if (open && !wasOpen) {
       form = seedForm(initial)
-      editingName = initial === undefined
     }
     wasOpen = open
   })
 
   const isNew = $derived(initial === undefined)
 
-  // Plan-level "included" state for the current item kind. `undefined` means
-  // all items are included (no exclusion list yet).
-  const isIncluded = $derived.by(() => {
-    if (isNew) return true
-    const ids = kind === 'income' ? plan.included_income_ids : plan.included_expense_ids
-    if (ids === undefined) return true
-    return ids.includes(form.id)
-  })
+  const listConfig = $derived(PROFILE_LISTS[kind])
+
+  const isIncluded = $derived(isNew ? true : isIncludedInPlan(listConfig, form.id, plan))
 
   function projectIncome(f: FormState): Income {
     return {
@@ -257,31 +249,9 @@
 
   function save() {
     if (kind === 'income') {
-      const existing = appStore.profile.incomes ?? []
-      const projected = projectIncome(form)
-      const idx = existing.findIndex((i) => i.id === form.id)
-      const next =
-        idx === -1
-          ? [...existing, projected]
-          : existing.map((it, i) => (i === idx ? projected : it))
-      appStore.updateProfile({ incomes: next })
-      // If the plan has an explicit include list, append the new id so the
-      // item is visible in this plan by default.
-      if (idx === -1 && plan.included_income_ids !== undefined) {
-        plan.update({ included_income_ids: [...plan.included_income_ids, form.id] })
-      }
+      upsertProfileItem(PROFILE_LISTS.income, projectIncome(form), plan)
     } else {
-      const existing = appStore.profile.expenses ?? []
-      const projected = projectExpense(form)
-      const idx = existing.findIndex((e) => e.id === form.id)
-      const next =
-        idx === -1
-          ? [...existing, projected]
-          : existing.map((it, i) => (i === idx ? projected : it))
-      appStore.updateProfile({ expenses: next })
-      if (idx === -1 && plan.included_expense_ids !== undefined) {
-        plan.update({ included_expense_ids: [...plan.included_expense_ids, form.id] })
-      }
+      upsertProfileItem(PROFILE_LISTS.expense, projectExpense(form), plan)
     }
     close()
   }
@@ -291,57 +261,18 @@
     // silently lost, so ask before discarding them (issue #65).
     const hasChanges = JSON.stringify(form) !== JSON.stringify(seedForm(initial))
     if (hasChanges && !window.confirm($_('page.plan.duplicateUnsavedConfirm'))) return
-    let copyId: string | undefined
-    if (kind === 'income') {
-      const existing = appStore.profile.incomes ?? []
-      const idx = existing.findIndex((i) => i.id === form.id)
-      if (idx === -1) return
-      const copy: Income = {
-        ...existing[idx],
-        id: (copyId = crypto.randomUUID()),
-        name: $_('page.setup.common.copySuffix', { values: { name: existing[idx].name } }),
-      }
-      const next = [...existing.slice(0, idx + 1), copy, ...existing.slice(idx + 1)]
-      appStore.updateProfile({ incomes: next })
-      // Mirror save(): an explicit include list must gain the copy's id, or
-      // the duplicate lands excluded from this plan.
-      if (plan.included_income_ids !== undefined) {
-        plan.update({ included_income_ids: [...plan.included_income_ids, copy.id] })
-      }
-    } else {
-      const existing = appStore.profile.expenses ?? []
-      const idx = existing.findIndex((e) => e.id === form.id)
-      if (idx === -1) return
-      const copy: Expense = {
-        ...existing[idx],
-        id: (copyId = crypto.randomUUID()),
-        name: $_('page.setup.common.copySuffix', { values: { name: existing[idx].name } }),
-      }
-      const next = [...existing.slice(0, idx + 1), copy, ...existing.slice(idx + 1)]
-      appStore.updateProfile({ expenses: next })
-      if (plan.included_expense_ids !== undefined) {
-        plan.update({ included_expense_ids: [...plan.included_expense_ids, copy.id] })
-      }
-    }
+    const copyId = duplicateProfileItem(
+      listConfig,
+      form.id,
+      (name) => $_('page.setup.common.copySuffix', { values: { name } }),
+      plan,
+    )
     close()
     if (copyId !== undefined) onDuplicated?.(copyId)
   }
 
   function toggleExclude() {
-    const currentIds = kind === 'income' ? plan.included_income_ids : plan.included_expense_ids
-    const allIds =
-      kind === 'income'
-        ? (appStore.profile.incomes ?? []).map((i) => i.id)
-        : (appStore.profile.expenses ?? []).map((e) => e.id)
-    const seeded = currentIds ?? allIds
-    const nextIds = seeded.includes(form.id)
-      ? seeded.filter((id) => id !== form.id)
-      : [...seeded, form.id]
-    if (kind === 'income') {
-      plan.update({ included_income_ids: nextIds })
-    } else {
-      plan.update({ included_expense_ids: nextIds })
-    }
+    toggleIncludedInPlan(listConfig, form.id, plan)
     close()
   }
 
@@ -349,207 +280,127 @@
     const confirmMessage =
       kind === 'income' ? $_('page.plan.deleteIncomeConfirm') : $_('page.plan.deleteExpenseConfirm')
     if (!window.confirm(confirmMessage)) return
-    if (kind === 'income') {
-      const next = (appStore.profile.incomes ?? []).filter((i) => i.id !== form.id)
-      appStore.updateProfile({ incomes: next })
-    } else {
-      const next = (appStore.profile.expenses ?? []).filter((e) => e.id !== form.id)
-      appStore.updateProfile({ expenses: next })
-    }
+    removeProfileItem(listConfig, form.id)
     close()
-  }
-
-  function startRenaming() {
-    editingName = true
-    queueMicrotask(() => {
-      nameInputRef?.focus()
-      nameInputRef?.select()
-    })
-  }
-
-  function stopRenaming() {
-    editingName = false
   }
 </script>
 
-<Dialog.Root bind:open {onOpenChange}>
-  <Dialog.Content showCloseButton={false} class="gap-0 p-0 sm:max-w-xl">
-    <Dialog.Header class="flex flex-row items-center gap-1 border-b p-4 pe-3">
-      <!-- Dialog.Title stays mounted at all times so the dialog always has an
-      accessible name. While renaming it is visually hidden (but still exposed
-      to assistive tech) and the Input becomes the visible control. -->
-      <Dialog.Title class={editingName ? 'sr-only' : 'flex-1 truncate text-lg font-semibold'}>
-        {form.name}
-      </Dialog.Title>
-      {#if editingName}
-        <Input
-          bind:ref={nameInputRef}
-          value={form.name}
-          oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
-          onblur={isNew ? undefined : stopRenaming}
-          onkeydown={(e) => {
-            if (!isNew && (e.key === 'Enter' || e.key === 'Escape')) stopRenaming()
-          }}
-          aria-label={$_('page.plan.itemNameLabel')}
-          class="flex-1 text-lg font-semibold"
-        />
-      {/if}
-
-      {#if !isNew}
-        <Button
-          variant="ghost"
-          size="icon"
-          onclick={startRenaming}
-          aria-label={$_('page.plan.renameItem')}
-        >
-          <SquarePen class="size-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onclick={duplicate}
-          aria-label={$_('page.plan.duplicateItem')}
-        >
-          <Copy class="size-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onclick={toggleExclude}
-          aria-label={isIncluded ? $_('page.plan.excludeFromPlan') : $_('page.plan.includeInPlan')}
-        >
-          {#if isIncluded}
-            <Eye class="size-4" />
-          {:else}
-            <EyeOff class="size-4 text-destructive" />
-          {/if}
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onclick={remove}
-          aria-label={$_('page.plan.deleteItem')}
-        >
-          <Trash2 class="size-4" />
-        </Button>
-      {/if}
-
-      <Button variant="ghost" size="icon" onclick={close} aria-label={$_('page.plan.closeDialog')}>
-        <X class="size-4" />
-      </Button>
-    </Dialog.Header>
-
-    <div class="flex max-h-[70vh] flex-col gap-4 overflow-y-auto p-4">
-      <!-- Amount + Frequency -->
-      <div class="flex items-end gap-2">
-        <div class="flex flex-1 flex-col gap-2">
-          <Label for="{uid}-amount">{$_('page.setup.common.amount')}</Label>
-          <SuffixedInput
-            id="{uid}-amount"
-            value={form.amount}
-            suffix={currencyLabel}
-            formatNumber={appStore.formatNumber}
-            onValueChange={(v) => (form.amount = v)}
-          />
-        </div>
-        <div class="flex flex-1 flex-col gap-2">
-          <Label for="{uid}-frequency">{$_('page.setup.common.frequency')}</Label>
-          <SelectField
-            id="{uid}-frequency"
-            value={form.frequency}
-            items={frequencyItems}
-            onValueChange={(v) => {
-              if (v) form.frequency = v as Frequency
-            }}
-          />
-        </div>
-      </div>
-
-      <InflationAdjustToggle
-        checked={form.inflation_adjusted}
-        onCheckedChange={(v) => (form.inflation_adjusted = v)}
-      />
-
-      {#if kind === 'income'}
-        <!-- Withhold taxes -->
-        <div class="flex items-end gap-4">
-          <div class="flex flex-1 flex-col justify-center">
-            <label class="flex h-8 cursor-pointer items-center gap-2">
-              <Checkbox
-                checked={form.withhold_taxes}
-                onCheckedChange={(v) => (form.withhold_taxes = v === true)}
-              />
-              <span class="text-sm font-medium leading-none">
-                {$_('page.setup.income.withholdTaxes')}
-              </span>
-            </label>
-          </div>
-          {#if form.withhold_taxes}
-            <div class="flex flex-1 flex-col gap-2">
-              <Label for="{uid}-percentageToWithhold"
-                >{$_('page.setup.income.percentageToWithhold')}</Label
-              >
-              <SuffixedInput
-                id="{uid}-percentageToWithhold"
-                value={form.tax_percentage}
-                suffix="%"
-                formatNumber={appStore.formatNumber}
-                onValueChange={(v) => (form.tax_percentage = v)}
-              />
-            </div>
-          {:else}
-            <div class="flex-1"></div>
-          {/if}
-        </div>
-      {/if}
-
-      <Separator />
-
-      <DateAgeSelector
-        mode="start"
-        value={form.start}
-        year={form.start_year}
-        month={form.start_month}
-        age={form.start_age}
-        {years}
-        {months}
-        birthDateSet={appStore.profile.birthDate !== undefined}
+<ItemEditDialogShell
+  bind:open
+  {onOpenChange}
+  name={form.name}
+  onNameChange={(v) => (form.name = v)}
+  {isNew}
+  {isIncluded}
+  saveDisabled={!canSave}
+  onSave={save}
+  onDuplicate={duplicate}
+  onToggleInclude={toggleExclude}
+  onDelete={remove}
+>
+  <!-- Amount + Frequency -->
+  <div class="flex items-end gap-2">
+    <div class="flex flex-1 flex-col gap-2">
+      <Label for="{uid}-amount">{$_('page.setup.common.amount')}</Label>
+      <SuffixedInput
+        id="{uid}-amount"
+        value={form.amount}
+        suffix={currencyLabel}
         formatNumber={appStore.formatNumber}
-        onValueChange={(v) => (form.start = v as CashFlowStart)}
-        onYearChange={(v) => (form.start_year = v)}
-        onMonthChange={(v) => (form.start_month = v)}
-        onAgeChange={(v) => (form.start_age = v)}
-      />
-
-      <DateAgeSelector
-        mode="end"
-        value={form.end}
-        year={form.end_year}
-        month={form.end_month}
-        age={form.end_age}
-        {years}
-        {months}
-        minMonth={endMinMonth}
-        birthDateSet={appStore.profile.birthDate !== undefined}
-        formatNumber={appStore.formatNumber}
-        onValueChange={(v) => (form.end = v as CashFlowEnd)}
-        onYearChange={(v) => (form.end_year = v)}
-        onMonthChange={(v) => (form.end_month = v)}
-        onAgeChange={(v) => (form.end_age = v)}
-      />
-
-      <ChangeOverTimeSelector
-        value={form.change_over_time}
-        percentage={form.change_percentage}
-        formatNumber={appStore.formatNumber}
-        onValueChange={(v) => (form.change_over_time = v as ChangeOverTime)}
-        onPercentageChange={(v) => (form.change_percentage = v)}
+        onValueChange={(v) => (form.amount = v)}
       />
     </div>
+    <div class="flex flex-1 flex-col gap-2">
+      <Label for="{uid}-frequency">{$_('page.setup.common.frequency')}</Label>
+      <SelectField
+        id="{uid}-frequency"
+        value={form.frequency}
+        items={frequencyItems}
+        onValueChange={(v) => {
+          if (v) form.frequency = v
+        }}
+      />
+    </div>
+  </div>
 
-    <Dialog.Footer class="flex flex-row justify-end gap-2 border-t p-4">
-      <Button variant="secondary" onclick={close}>{$_('page.plan.cancel')}</Button>
-      <Button onclick={save} disabled={!canSave}>{$_('page.plan.saveChanges')}</Button>
-    </Dialog.Footer>
-  </Dialog.Content>
-</Dialog.Root>
+  <InflationAdjustToggle
+    checked={form.inflation_adjusted}
+    onCheckedChange={(v) => (form.inflation_adjusted = v)}
+  />
+
+  {#if kind === 'income'}
+    <!-- Withhold taxes -->
+    <div class="flex items-end gap-4">
+      <div class="flex flex-1 flex-col justify-center">
+        <label class="flex h-8 cursor-pointer items-center gap-2">
+          <Checkbox
+            checked={form.withhold_taxes}
+            onCheckedChange={(v) => (form.withhold_taxes = v === true)}
+          />
+          <span class="text-sm font-medium leading-none">
+            {$_('page.setup.income.withholdTaxes')}
+          </span>
+        </label>
+      </div>
+      {#if form.withhold_taxes}
+        <div class="flex flex-1 flex-col gap-2">
+          <Label for="{uid}-percentageToWithhold"
+            >{$_('page.setup.income.percentageToWithhold')}</Label
+          >
+          <SuffixedInput
+            id="{uid}-percentageToWithhold"
+            value={form.tax_percentage}
+            suffix="%"
+            formatNumber={appStore.formatNumber}
+            onValueChange={(v) => (form.tax_percentage = v)}
+          />
+        </div>
+      {:else}
+        <div class="flex-1"></div>
+      {/if}
+    </div>
+  {/if}
+
+  <Separator />
+
+  <DateAgeSelector
+    mode="start"
+    value={form.start}
+    year={form.start_year}
+    month={form.start_month}
+    age={form.start_age}
+    {years}
+    {months}
+    birthDateSet={appStore.profile.birthDate !== undefined}
+    formatNumber={appStore.formatNumber}
+    onValueChange={(v) => (form.start = v)}
+    onYearChange={(v) => (form.start_year = v)}
+    onMonthChange={(v) => (form.start_month = v)}
+    onAgeChange={(v) => (form.start_age = v)}
+  />
+
+  <DateAgeSelector
+    mode="end"
+    value={form.end}
+    year={form.end_year}
+    month={form.end_month}
+    age={form.end_age}
+    {years}
+    {months}
+    minMonth={endMinMonth}
+    birthDateSet={appStore.profile.birthDate !== undefined}
+    formatNumber={appStore.formatNumber}
+    onValueChange={(v) => (form.end = v)}
+    onYearChange={(v) => (form.end_year = v)}
+    onMonthChange={(v) => (form.end_month = v)}
+    onAgeChange={(v) => (form.end_age = v)}
+  />
+
+  <ChangeOverTimeSelector
+    value={form.change_over_time}
+    percentage={form.change_percentage}
+    formatNumber={appStore.formatNumber}
+    onValueChange={(v) => (form.change_over_time = v)}
+    onPercentageChange={(v) => (form.change_percentage = v)}
+  />
+</ItemEditDialogShell>

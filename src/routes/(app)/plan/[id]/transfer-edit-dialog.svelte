@@ -2,19 +2,12 @@
   import { _, locale } from 'svelte-i18n'
 
   import CircleHelp from '@lucide/svelte/icons/circle-help'
-  import CopyPlus from '@lucide/svelte/icons/copy-plus'
-  import Eye from '@lucide/svelte/icons/eye'
-  import EyeOff from '@lucide/svelte/icons/eye-off'
-  import Trash2 from '@lucide/svelte/icons/trash-2'
-  import X from '@lucide/svelte/icons/x'
 
   import ChangeOverTimeSelector from '$lib/components/change-over-time-selector.svelte'
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
   import InflationAdjustToggle from '$lib/components/inflation-adjust-toggle.svelte'
-  import SelectField from '$lib/components/select-field.svelte'
+  import SelectField, { type SelectFieldItem } from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
-  import { Button } from '$lib/components/ui/button'
-  import * as Dialog from '$lib/components/ui/dialog'
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
@@ -33,6 +26,8 @@
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
   import { getMonthOptions, getYearOptions } from '$lib/utils'
+
+  import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
 
   interface Props {
     open: boolean
@@ -195,7 +190,7 @@
       disabled: opt.id === form.from_asset_id,
     })),
   )
-  let scheduleItems = $derived([
+  let scheduleItems: SelectFieldItem<TransferSchedule>[] = $derived([
     { value: 'one_time', label: $_('page.plan.scheduleOneTime') },
     { value: 'recurring', label: $_('page.plan.scheduleRecurring') },
   ])
@@ -349,253 +344,210 @@
   )
 </script>
 
-<Dialog.Root bind:open {onOpenChange}>
-  <Dialog.Content showCloseButton={false} class="gap-0 p-0 sm:max-w-xl">
-    <Dialog.Header class="flex flex-row items-center gap-1 border-b p-4 pe-3">
-      <Dialog.Title class="flex-1 truncate text-lg font-semibold">
-        {isNew ? $_('page.plan.newTransfer') : form.name}
-      </Dialog.Title>
-
-      {#if !isNew}
-        <Button
-          variant="ghost"
-          size="icon"
-          onclick={duplicate}
-          aria-label={$_('page.plan.duplicateItem')}
-        >
-          <CopyPlus class="size-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onclick={toggleExclude}
-          aria-label={isIncluded ? $_('page.plan.excludeFromPlan') : $_('page.plan.includeInPlan')}
-        >
-          {#if isIncluded}
-            <Eye class="size-4" />
-          {:else}
-            <EyeOff class="size-4 text-destructive" />
-          {/if}
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onclick={remove}
-          aria-label={$_('page.plan.deleteItem')}
-        >
-          <Trash2 class="size-4" />
-        </Button>
-      {/if}
-
-      <Button variant="ghost" size="icon" onclick={close} aria-label={$_('page.plan.closeDialog')}>
-        <X class="size-4" />
-      </Button>
-    </Dialog.Header>
-
-    <div class="flex max-h-[70vh] flex-col gap-4 overflow-y-auto p-4">
-      <!-- From + To -->
-      <div class="flex items-end gap-2">
-        <div class="flex flex-1 flex-col gap-2">
-          <Label for="{uid}-transferFromLabel">{$_('page.plan.transferFromLabel')}</Label>
-          <SelectField
-            id="{uid}-transferFromLabel"
-            value={form.from_asset_id}
-            items={fromAssetItems}
-            placeholder={$_('page.plan.pickAsset')}
-            onValueChange={(v) => {
-              if (v) form.from_asset_id = v
-            }}
-          />
-        </div>
-        <div class="flex flex-1 flex-col gap-2">
-          <Label for="{uid}-transferToLabel">{$_('page.plan.transferToLabel')}</Label>
-          <SelectField
-            id="{uid}-transferToLabel"
-            value={form.to_asset_id}
-            items={toAssetItems}
-            placeholder={$_('page.plan.pickAsset')}
-            onValueChange={(v) => {
-              if (v) form.to_asset_id = v
-            }}
-          />
-        </div>
-      </div>
-
-      <!-- Schedule + (one-time) Date  /  (recurring) Schedule alone -->
-      <div class="flex items-end gap-2">
-        <div class="flex flex-1 flex-col gap-2">
-          <Label for="{uid}-scheduleLabel">{$_('page.plan.scheduleLabel')}</Label>
-          <SelectField
-            id="{uid}-scheduleLabel"
-            value={form.schedule}
-            items={scheduleItems}
-            onValueChange={(v) => {
-              if (v) {
-                form.schedule = v as TransferSchedule
-                // `transfer_all` (Max) only applies to one-time transfers.
-                if (form.schedule !== 'one_time') form.transfer_all = false
-              }
-            }}
-          />
-        </div>
-        {#if form.schedule === 'one_time'}
-          <div class="flex flex-1 flex-col gap-2">
-            <!-- One visible label over two controls, so the label targets the
-                 year and each select carries its own name (as DateAgeSelector
-                 does) rather than leaving them unnamed. -->
-            <Label for="{uid}-transactionYear">{$_('page.plan.transactionDateLabel')}</Label>
-            <div class="flex items-center gap-2">
-              <SelectField
-                id="{uid}-transactionYear"
-                class="max-w-24"
-                aria-label={$_('page.setup.aboutYou.selectYear')}
-                value={form.transaction_year !== undefined ? String(form.transaction_year) : ''}
-                items={yearItems}
-                onValueChange={(v) => {
-                  if (v) form.transaction_year = Number(v)
-                }}
-              />
-              <SelectField
-                aria-label={$_('page.setup.aboutYou.selectMonth')}
-                value={form.transaction_month !== undefined
-                  ? String(form.transaction_month - 1)
-                  : ''}
-                items={months}
-                onValueChange={(v) => {
-                  if (v) form.transaction_month = Number(v) + 1
-                }}
-              />
-            </div>
-          </div>
-        {:else}
-          <!-- Recurring: Frequency sits in the right column of the Schedule row. -->
-          <div class="flex flex-1 flex-col gap-2">
-            <Label for="{uid}-transferFrequencyLabel"
-              >{$_('page.plan.transferFrequencyLabel')}</Label
-            >
-            <SelectField
-              id="{uid}-transferFrequencyLabel"
-              value={form.frequency}
-              items={frequencyItems}
-              onValueChange={(v) => {
-                if (v) form.frequency = v as Frequency
-              }}
-            />
-          </div>
-        {/if}
-      </div>
-
-      <!-- Amount (+ Max toggle for one-time only) + Label -->
-      <div class="flex items-end gap-2">
-        <div class="flex flex-1 flex-col gap-2">
-          <Label for="{uid}-transferAmount">{$_('page.setup.common.amount')}</Label>
-          <div class="flex items-center gap-2">
-            <div class="flex-1">
-              {#if form.transfer_all}
-                <Input
-                  id="{uid}-transferAmount"
-                  value={$_('page.plan.transferMax')}
-                  readonly
-                  class="text-muted-foreground"
-                />
-              {:else}
-                <SuffixedInput
-                  id="{uid}-transferAmount"
-                  value={form.amount}
-                  suffix={currencyLabel}
-                  formatNumber={appStore.formatNumber}
-                  onValueChange={(v) => (form.amount = v)}
-                />
-              {/if}
-            </div>
-            {#if form.schedule === 'one_time'}
-              <label class="flex shrink-0 cursor-pointer items-center gap-2">
-                <Switch
-                  checked={form.transfer_all}
-                  onCheckedChange={(v) => (form.transfer_all = v === true)}
-                />
-                <span class="text-sm font-medium">{$_('page.plan.transferMax')}</span>
-              </label>
-              <Tooltip.Provider delayDuration={150}>
-                <Tooltip.Root bind:open={maxTooltipOpen} disableCloseOnTriggerClick>
-                  <Tooltip.Trigger
-                    type="button"
-                    aria-label={$_('page.plan.transferMaxDescription')}
-                    onclick={() => (maxTooltipOpen = !maxTooltipOpen)}
-                    class="text-muted-foreground hover:text-foreground shrink-0"
-                  >
-                    <CircleHelp class="size-4" />
-                  </Tooltip.Trigger>
-                  <Tooltip.Content>
-                    {$_('page.plan.transferMaxDescription')}
-                  </Tooltip.Content>
-                </Tooltip.Root>
-              </Tooltip.Provider>
-            {/if}
-          </div>
-        </div>
-        <div class="flex flex-1 flex-col gap-2">
-          <Label for="{uid}-transferName">{$_('page.plan.transferLabelLabel')}</Label>
-          <Input
-            id="{uid}-transferName"
-            value={form.name}
-            oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
-          />
-        </div>
-      </div>
-
-      {#if form.schedule === 'recurring'}
-        <DateAgeSelector
-          mode="start"
-          value={form.start}
-          year={form.start_year}
-          month={form.start_month}
-          age={form.start_age}
-          {years}
-          {months}
-          birthDateSet={appStore.profile.birthDate !== undefined}
-          formatNumber={appStore.formatNumber}
-          onValueChange={(v) => (form.start = v as CashFlowStart)}
-          onYearChange={(v) => (form.start_year = v)}
-          onMonthChange={(v) => (form.start_month = v)}
-          onAgeChange={(v) => (form.start_age = v)}
-        />
-
-        <DateAgeSelector
-          mode="end"
-          value={form.end}
-          year={form.end_year}
-          month={form.end_month}
-          age={form.end_age}
-          {years}
-          {months}
-          minMonth={endMinMonth}
-          birthDateSet={appStore.profile.birthDate !== undefined}
-          formatNumber={appStore.formatNumber}
-          onValueChange={(v) => (form.end = v as CashFlowEnd)}
-          onYearChange={(v) => (form.end_year = v)}
-          onMonthChange={(v) => (form.end_month = v)}
-          onAgeChange={(v) => (form.end_age = v)}
-        />
-
-        <ChangeOverTimeSelector
-          value={form.change_over_time}
-          percentage={form.change_percentage}
-          formatNumber={appStore.formatNumber}
-          onValueChange={(v) => (form.change_over_time = v as ChangeOverTime)}
-          onPercentageChange={(v) => (form.change_percentage = v)}
-        />
-      {/if}
-
-      <InflationAdjustToggle
-        checked={form.inflation_adjusted}
-        onCheckedChange={(v) => (form.inflation_adjusted = v)}
+<ItemEditDialogShell
+  bind:open
+  {onOpenChange}
+  name={form.name}
+  onNameChange={(v) => (form.name = v)}
+  {isNew}
+  {isIncluded}
+  renamable={false}
+  newTitle={$_('page.plan.newTransfer')}
+  saveDisabled={!canSave}
+  onSave={save}
+  onDuplicate={duplicate}
+  onToggleInclude={toggleExclude}
+  onDelete={remove}
+>
+  <!-- From + To -->
+  <div class="flex items-end gap-2">
+    <div class="flex flex-1 flex-col gap-2">
+      <Label for="{uid}-transferFromLabel">{$_('page.plan.transferFromLabel')}</Label>
+      <SelectField
+        id="{uid}-transferFromLabel"
+        value={form.from_asset_id}
+        items={fromAssetItems}
+        placeholder={$_('page.plan.pickAsset')}
+        onValueChange={(v) => {
+          if (v) form.from_asset_id = v
+        }}
       />
     </div>
+    <div class="flex flex-1 flex-col gap-2">
+      <Label for="{uid}-transferToLabel">{$_('page.plan.transferToLabel')}</Label>
+      <SelectField
+        id="{uid}-transferToLabel"
+        value={form.to_asset_id}
+        items={toAssetItems}
+        placeholder={$_('page.plan.pickAsset')}
+        onValueChange={(v) => {
+          if (v) form.to_asset_id = v
+        }}
+      />
+    </div>
+  </div>
 
-    <Dialog.Footer class="flex flex-row justify-end gap-2 border-t p-4">
-      <Button variant="secondary" onclick={close}>{$_('page.plan.cancel')}</Button>
-      <Button onclick={save} disabled={!canSave}>{$_('page.plan.saveChanges')}</Button>
-    </Dialog.Footer>
-  </Dialog.Content>
-</Dialog.Root>
+  <!-- Schedule + (one-time) Date  /  (recurring) Schedule alone -->
+  <div class="flex items-end gap-2">
+    <div class="flex flex-1 flex-col gap-2">
+      <Label for="{uid}-scheduleLabel">{$_('page.plan.scheduleLabel')}</Label>
+      <SelectField
+        id="{uid}-scheduleLabel"
+        value={form.schedule}
+        items={scheduleItems}
+        onValueChange={(v) => {
+          if (v) {
+            form.schedule = v
+            // `transfer_all` (Max) only applies to one-time transfers.
+            if (form.schedule !== 'one_time') form.transfer_all = false
+          }
+        }}
+      />
+    </div>
+    {#if form.schedule === 'one_time'}
+      <div class="flex flex-1 flex-col gap-2">
+        <Label for="{uid}-transactionYear">{$_('page.plan.transactionDateLabel')}</Label>
+        <div class="flex items-center gap-2">
+          <SelectField
+            id="{uid}-transactionYear"
+            class="max-w-24"
+            aria-label={$_('page.setup.aboutYou.selectYear')}
+            value={form.transaction_year !== undefined ? String(form.transaction_year) : ''}
+            items={yearItems}
+            onValueChange={(v) => {
+              if (v) form.transaction_year = Number(v)
+            }}
+          />
+          <SelectField
+            aria-label={$_('page.setup.aboutYou.selectMonth')}
+            value={form.transaction_month !== undefined ? String(form.transaction_month - 1) : ''}
+            items={months}
+            onValueChange={(v) => {
+              if (v) form.transaction_month = Number(v) + 1
+            }}
+          />
+        </div>
+      </div>
+    {:else}
+      <!-- Recurring: Frequency sits in the right column of the Schedule row. -->
+      <div class="flex flex-1 flex-col gap-2">
+        <Label for="{uid}-transferFrequencyLabel">{$_('page.plan.transferFrequencyLabel')}</Label>
+        <SelectField
+          id="{uid}-transferFrequencyLabel"
+          value={form.frequency}
+          items={frequencyItems}
+          onValueChange={(v) => {
+            if (v) form.frequency = v
+          }}
+        />
+      </div>
+    {/if}
+  </div>
+
+  <!-- Amount (+ Max toggle for one-time only) + Label -->
+  <div class="flex items-end gap-2">
+    <div class="flex flex-1 flex-col gap-2">
+      <Label for="{uid}-transferAmount">{$_('page.setup.common.amount')}</Label>
+      <div class="flex items-center gap-2">
+        <div class="flex-1">
+          {#if form.transfer_all}
+            <Input
+              id="{uid}-transferAmount"
+              value={$_('page.plan.transferMax')}
+              readonly
+              class="text-muted-foreground"
+            />
+          {:else}
+            <SuffixedInput
+              id="{uid}-transferAmount"
+              value={form.amount}
+              suffix={currencyLabel}
+              formatNumber={appStore.formatNumber}
+              onValueChange={(v) => (form.amount = v)}
+            />
+          {/if}
+        </div>
+        {#if form.schedule === 'one_time'}
+          <label class="flex shrink-0 cursor-pointer items-center gap-2">
+            <Switch
+              checked={form.transfer_all}
+              onCheckedChange={(v) => (form.transfer_all = v === true)}
+            />
+            <span class="text-sm font-medium">{$_('page.plan.transferMax')}</span>
+          </label>
+          <Tooltip.Provider delayDuration={150}>
+            <Tooltip.Root bind:open={maxTooltipOpen} disableCloseOnTriggerClick>
+              <Tooltip.Trigger
+                type="button"
+                aria-label={$_('page.plan.transferMaxDescription')}
+                onclick={() => (maxTooltipOpen = !maxTooltipOpen)}
+                class="text-muted-foreground hover:text-foreground shrink-0"
+              >
+                <CircleHelp class="size-4" />
+              </Tooltip.Trigger>
+              <Tooltip.Content>
+                {$_('page.plan.transferMaxDescription')}
+              </Tooltip.Content>
+            </Tooltip.Root>
+          </Tooltip.Provider>
+        {/if}
+      </div>
+    </div>
+    <div class="flex flex-1 flex-col gap-2">
+      <Label for="{uid}-transferName">{$_('page.plan.transferLabelLabel')}</Label>
+      <Input
+        id="{uid}-transferName"
+        value={form.name}
+        oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
+      />
+    </div>
+  </div>
+
+  {#if form.schedule === 'recurring'}
+    <DateAgeSelector
+      mode="start"
+      value={form.start}
+      year={form.start_year}
+      month={form.start_month}
+      age={form.start_age}
+      {years}
+      {months}
+      birthDateSet={appStore.profile.birthDate !== undefined}
+      formatNumber={appStore.formatNumber}
+      onValueChange={(v) => (form.start = v)}
+      onYearChange={(v) => (form.start_year = v)}
+      onMonthChange={(v) => (form.start_month = v)}
+      onAgeChange={(v) => (form.start_age = v)}
+    />
+
+    <DateAgeSelector
+      mode="end"
+      value={form.end}
+      year={form.end_year}
+      month={form.end_month}
+      age={form.end_age}
+      {years}
+      {months}
+      minMonth={endMinMonth}
+      birthDateSet={appStore.profile.birthDate !== undefined}
+      formatNumber={appStore.formatNumber}
+      onValueChange={(v) => (form.end = v)}
+      onYearChange={(v) => (form.end_year = v)}
+      onMonthChange={(v) => (form.end_month = v)}
+      onAgeChange={(v) => (form.end_age = v)}
+    />
+
+    <ChangeOverTimeSelector
+      value={form.change_over_time}
+      percentage={form.change_percentage}
+      formatNumber={appStore.formatNumber}
+      onValueChange={(v) => (form.change_over_time = v)}
+      onPercentageChange={(v) => (form.change_percentage = v)}
+    />
+  {/if}
+
+  <InflationAdjustToggle
+    checked={form.inflation_adjusted}
+    onCheckedChange={(v) => (form.inflation_adjusted = v)}
+  />
+</ItemEditDialogShell>

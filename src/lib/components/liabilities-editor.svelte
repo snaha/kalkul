@@ -127,7 +127,7 @@
                 value={liability.installment_frequency}
                 items={frequencyItems}
                 onValueChange={(v) => {
-                  liability.installment_frequency = v as Frequency
+                  liability.installment_frequency = v
                 }}
               />
             </div>

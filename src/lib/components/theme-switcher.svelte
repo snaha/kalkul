@@ -35,7 +35,7 @@
   }
 
   $effect(() => {
-    const stored = localStorage.getItem(storageKeys.THEME) as Theme | undefined
+    const stored = localStorage.getItem(storageKeys.THEME)
     if (stored === 'light' || stored === 'dark' || stored === 'system') {
       theme = stored
     } else {

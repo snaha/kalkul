@@ -7,7 +7,7 @@
 
   import { formatDate } from '$lib/@snaha/kalkul-maths'
   import { getNextAddPlanStepUrl, getPrevAddPlanStepUrl } from '$lib/add-plan-steps'
-  import SelectField from '$lib/components/select-field.svelte'
+  import SelectField, { type SelectFieldItem } from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Input } from '$lib/components/ui/input'
@@ -42,11 +42,11 @@
   const months = $derived(getMonthOptions($locale ?? undefined))
 
   const yearItems = $derived(years.map((y) => ({ value: y, label: y })))
-  const startTypeItems = $derived([
+  const startTypeItems: SelectFieldItem<PlanStartType>[] = $derived([
     { value: 'now', label: $_('page.addPlan.details.startNow') },
     { value: 'at_specific_date', label: $_('page.addPlan.details.startAtDate') },
   ])
-  const endTypeItems = $derived([
+  const endTypeItems: SelectFieldItem<PlanEndType>[] = $derived([
     { value: 'when_age_is', label: $_('page.addPlan.details.endWhenAgeIs') },
     { value: 'at_specific_date', label: $_('page.addPlan.details.endAtDate') },
   ])
@@ -135,7 +135,7 @@
           id="{uid}-start"
           value={startType}
           items={startTypeItems}
-          onValueChange={(v) => (startType = v as PlanStartType)}
+          onValueChange={(v) => (startType = v)}
         />
       </div>
       {#if startType === 'at_specific_date'}
@@ -163,7 +163,7 @@
           id="{uid}-end"
           value={endType}
           items={endTypeItems}
-          onValueChange={(v) => (endType = v as PlanEndType)}
+          onValueChange={(v) => (endType = v)}
         />
       </div>
       {#if endType === 'when_age_is'}

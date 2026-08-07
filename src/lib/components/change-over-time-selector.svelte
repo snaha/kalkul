@@ -1,12 +1,13 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import SelectField from '$lib/components/select-field.svelte'
+  import SelectField, { type SelectFieldItem } from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Label } from '$lib/components/ui/label'
+  import type { ChangeOverTime } from '$lib/schemas'
 
   interface Props {
-    value: string
+    value: ChangeOverTime
     percentage: number | undefined
     /**
      * Override for the description shown when the dropdown is 'none'.
@@ -14,7 +15,7 @@
      */
     changeDescription?: string
     formatNumber: (n: number) => string
-    onValueChange: (v: string) => void
+    onValueChange: (v: ChangeOverTime) => void
     onPercentageChange: (v: number | undefined) => void
   }
 
@@ -33,7 +34,7 @@
   // Adjust-for-inflation toggle covers that case); we keep it out of the option
   // list. Legacy data carrying the old value still renders as 'None' here, while
   // the calculation honors it via the legacy fallback in growthFactor.
-  let changeItems = $derived([
+  let changeItems: SelectFieldItem<ChangeOverTime>[] = $derived([
     { value: 'none', label: $_('page.setup.common.none') },
     { value: 'increase_yearly', label: $_('page.setup.common.increaseYearlyBy') },
     { value: 'decrease_yearly', label: $_('page.setup.common.decreaseYearlyBy') },
