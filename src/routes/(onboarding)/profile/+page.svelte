@@ -30,8 +30,9 @@
   let currency = $state(p.currency ?? '')
 
   const years = getBirthYearOptions().map((year) => ({ value: year, label: year }))
-  // Reactive and locale-aware: month names are translations, so they follow
-  // the UI language (a bare getMonthOptions() would leak the OS locale).
+  // Reactive and locale-aware: Intl produces these month names, so passing
+  // the UI language keeps them in step with it (a bare getMonthOptions()
+  // would leak the OS locale instead).
   const months = $derived(getMonthOptions($locale ?? undefined))
 
   const countryCurrencyMap: Record<string, string> = {
