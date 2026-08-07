@@ -206,7 +206,9 @@
             <Label>{$_('page.setup.liabilities.remainingTerm')}</Label>
             <SuffixedInput
               value={liability.remaining_term}
-              suffix={$_('page.setup.liabilities.years')}
+              suffix={$_('page.setup.liabilities.years', {
+                values: { count: liability.remaining_term ?? 0 },
+              })}
               formatNumber={appStore.formatNumber}
               onValueChange={(v) => {
                 liability.remaining_term = v

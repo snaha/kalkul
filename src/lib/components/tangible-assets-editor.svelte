@@ -246,7 +246,9 @@
               <Label>{$_('page.setup.tangibleAssets.remainingTerm')}</Label>
               <SuffixedInput
                 value={asset.remaining_term}
-                suffix={$_('page.setup.tangibleAssets.years')}
+                suffix={$_('page.setup.tangibleAssets.years', {
+                  values: { count: asset.remaining_term ?? 0 },
+                })}
                 formatNumber={appStore.formatNumber}
                 onValueChange={(v) => {
                   asset.remaining_term = v

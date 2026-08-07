@@ -313,7 +313,7 @@
         "annualRate": "Roční úroková sazba",
         "installmentAmount": "Výše splátky",
         "remainingTerm": "Zbývající doba",
-        "years": "let",
+        "years": "{count, plural, one {rok} few {roky} many {roku} other {let}}",
         "defaultName": "Hmotný majetek {index}"
       },
       "liabilities": {
@@ -325,7 +325,7 @@
         "annualRate": "Roční úroková sazba",
         "installmentAmount": "Výše splátky",
         "remainingTerm": "Zbývající doba",
-        "years": "let",
+        "years": "{count, plural, one {rok} few {roky} many {roku} other {let}}",
         "defaultName": "Závazek {index}"
       },
       "investments": {

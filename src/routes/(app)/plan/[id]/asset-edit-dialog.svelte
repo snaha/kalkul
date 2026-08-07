@@ -653,7 +653,9 @@
               <Label>{$_('page.setup.tangibleAssets.remainingTerm')}</Label>
               <SuffixedInput
                 value={form.remaining_term}
-                suffix={$_('page.setup.tangibleAssets.years')}
+                suffix={$_('page.setup.tangibleAssets.years', {
+                  values: { count: form.remaining_term ?? 0 },
+                })}
                 formatNumber={appStore.formatNumber}
                 onValueChange={(v) => (form.remaining_term = v)}
               />
@@ -706,7 +708,9 @@
             <Label>{$_('page.setup.liabilities.remainingTerm')}</Label>
             <SuffixedInput
               value={form.remaining_term}
-              suffix={$_('page.setup.liabilities.years')}
+              suffix={$_('page.setup.liabilities.years', {
+                values: { count: form.remaining_term ?? 0 },
+              })}
               formatNumber={appStore.formatNumber}
               onValueChange={(v) => (form.remaining_term = v)}
             />

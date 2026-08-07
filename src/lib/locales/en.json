@@ -313,7 +313,7 @@
         "annualRate": "Annual percentage rate",
         "installmentAmount": "Installment amount",
         "remainingTerm": "Remaining term",
-        "years": "years",
+        "years": "{count, plural, one {year} other {years}}",
         "defaultName": "Tangible asset {index}"
       },
       "liabilities": {
@@ -325,7 +325,7 @@
         "annualRate": "Annual percentage rate",
         "installmentAmount": "Installment amount",
         "remainingTerm": "Remaining term",
-        "years": "years",
+        "years": "{count, plural, one {year} other {years}}",
         "defaultName": "Liability {index}"
       },
       "investments": {
