@@ -16,6 +16,20 @@ export type WithoutChildrenOrChild<T> = T extends { children?: infer _C; child?:
   ? Omit<T, 'children' | 'child'>
   : T
 
+/**
+ * Filename-safe slug: lowercase, combining accents stripped, and every
+ * remaining non-ASCII-alphanumeric run collapsed to a dash. Letters that do
+ * not decompose to ASCII (e.g. "Ł", "ß") are dropped rather than transliterated.
+ */
+export function slugify(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
 export const DEFAULT_CURRENCY = 'EUR'
 
 export const CURRENCY_OPTIONS = [

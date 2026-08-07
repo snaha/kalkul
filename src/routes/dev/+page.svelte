@@ -12,6 +12,7 @@
   import * as Dialog from '$lib/components/ui/dialog'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
+  import { slugify } from '$lib/utils'
 
   const colorCategories = [
     { name: 'Cash', colors: [CATEGORY_COLORS.cash] },
@@ -430,7 +431,8 @@
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `kalkul-backup-${new Date().toISOString().slice(0, 10)}.json`
+    const nameSlug = slugify(appStore.profile.name)
+    a.download = `kalkul-backup-${nameSlug ? `${nameSlug}-` : ''}${new Date().toISOString().slice(0, 10)}.kalkul.json`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)

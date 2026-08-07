@@ -10,8 +10,25 @@ import {
   formatPercent,
   getFormattingLocale,
   parseDateOnly,
+  slugify,
   toDateOnlyString,
 } from './utils'
+
+describe('slugify', () => {
+  it('lowercases and strips accents', () => {
+    expect(slugify('Martin Kováč')).toBe('martin-kovac')
+    expect(slugify('Tereza Svobodová')).toBe('tereza-svobodova')
+  })
+
+  it('collapses non-alphanumerics and trims dashes', () => {
+    expect(slugify('  Bence Tóth (jr.) & co!  ')).toBe('bence-toth-jr-co')
+  })
+
+  it('returns an empty string when nothing survives', () => {
+    expect(slugify('  ')).toBe('')
+    expect(slugify('***')).toBe('')
+  })
+})
 
 describe('getFormattingLocale', () => {
   it('maps a known country to its locale', () => {

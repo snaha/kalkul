@@ -1,0 +1,167 @@
+{
+  "profile": {
+    "name": "Pavel Dvořák",
+    "email": "pavel.dvorak@example.com",
+    "birth_date": "1976-11-08",
+    "location": "CZ",
+    "currency": "CZK",
+    "cash_amount": 850000,
+    "has_investments": true,
+    "investments": [
+      {
+        "id": "inv-1",
+        "name": "Global equity ETF",
+        "balance": 3900000,
+        "apy": 6.5,
+        "ter": 0.2
+      },
+      {
+        "id": "inv-2",
+        "name": "Government bond fund",
+        "balance": 1600000,
+        "apy": 3.8,
+        "exit_fee": 500,
+        "exit_fee_type": "fixed"
+      },
+      {
+        "id": "inv-3",
+        "name": "Building savings (stavební spoření)",
+        "balance": 420000,
+        "apy": 2.5
+      }
+    ],
+    "has_tangible_assets": true,
+    "tangible_assets": [
+      {
+        "id": "ta-1",
+        "name": "House (Brno)",
+        "value": 9500000,
+        "status": "fully_owned"
+      },
+      {
+        "id": "ta-2",
+        "name": "Cottage (Vysočina)",
+        "value": 2800000,
+        "status": "fully_owned"
+      },
+      {
+        "id": "ta-3",
+        "name": "Car (Škoda Superb)",
+        "value": 550000,
+        "status": "fully_owned"
+      }
+    ],
+    "has_liabilities": false,
+    "incomes": [
+      {
+        "id": "inc-1",
+        "name": "Salary (senior engineer)",
+        "amount": 95000,
+        "frequency": "monthly",
+        "withhold_taxes": true,
+        "tax_percentage": 26,
+        "start": "immediately",
+        "end": "when_age_is",
+        "end_age": 65,
+        "change_over_time": "match_inflation"
+      },
+      {
+        "id": "inc-2",
+        "name": "State pension",
+        "amount": 24000,
+        "frequency": "monthly",
+        "withhold_taxes": false,
+        "start": "when_age_is",
+        "start_age": 65,
+        "end": "never",
+        "change_over_time": "match_inflation"
+      }
+    ],
+    "expenses": [
+      {
+        "id": "exp-1",
+        "name": "Household & living",
+        "amount": 38000,
+        "frequency": "monthly",
+        "start": "immediately",
+        "end": "never",
+        "change_over_time": "match_inflation"
+      },
+      {
+        "id": "exp-2",
+        "name": "Active lifestyle (travel, hobbies)",
+        "amount": 180000,
+        "frequency": "yearly",
+        "start": "immediately",
+        "end": "never",
+        "change_over_time": "decrease_yearly",
+        "change_percentage": 2
+      },
+      {
+        "id": "exp-3",
+        "name": "Cottage maintenance",
+        "amount": 45000,
+        "frequency": "yearly",
+        "start": "immediately",
+        "end": "never",
+        "change_over_time": "match_inflation"
+      },
+      {
+        "id": "exp-4",
+        "name": "Support for daughter at university",
+        "amount": 12000,
+        "frequency": "monthly",
+        "start": "immediately",
+        "end": "at_specific_date",
+        "end_year": 2030,
+        "end_month": 6,
+        "change_over_time": "none"
+      }
+    ]
+  },
+  "portfolios": [
+    {
+      "id": "plan-1",
+      "name": "Retirement at 65",
+      "notes": "Shift building savings into bonds at retirement, then draw down the ETF monthly.",
+      "start_date": "2026-07-01",
+      "end_date": "2066-11-01",
+      "inflation_rate": 0.025,
+      "include_cash": true,
+      "included_investment_ids": ["inv-1", "inv-2", "inv-3"],
+      "included_tangible_asset_ids": ["ta-1", "ta-2"],
+      "included_income_ids": ["inc-1", "inc-2"],
+      "included_expense_ids": ["exp-1", "exp-2", "exp-3", "exp-4"],
+      "transfers": [
+        {
+          "id": "tr-1",
+          "name": "Move building savings to bonds at retirement",
+          "from_asset_id": "inv-3",
+          "to_asset_id": "inv-2",
+          "amount": 0,
+          "transfer_all": true,
+          "schedule": "one_time",
+          "transaction_year": 2041,
+          "transaction_month": 11
+        },
+        {
+          "id": "tr-2",
+          "name": "Monthly pension top-up from ETF",
+          "from_asset_id": "inv-1",
+          "to_asset_id": "cash",
+          "amount": 30000,
+          "inflation_adjusted": true,
+          "schedule": "recurring",
+          "frequency": "monthly",
+          "start": "when_age_is",
+          "start_age": 65,
+          "end": "never",
+          "change_over_time": "none"
+        }
+      ],
+      "included_transfer_ids": ["tr-1", "tr-2"],
+      "investments": [],
+      "goals": []
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+{
+  "profile": {
+    "name": "Tereza Svobodová",
+    "email": "tereza.svobodova@example.com",
+    "birth_date": "2006-02-18",
+    "location": "CZ",
+    "currency": "CZK",
+    "cash_amount": 48000,
+    "incomes": [
+      {
+        "id": "inc-1",
+        "name": "Part-time job (café)",
+        "amount": 2800,
+        "frequency": "weekly",
+        "withhold_taxes": false,
+        "start": "immediately",
+        "end": "at_specific_date",
+        "end_year": 2029,
+        "end_month": 6,
+        "change_over_time": "none"
+      },
+      {
+        "id": "inc-2",
+        "name": "Allowance from parents",
+        "amount": 4000,
+        "frequency": "monthly",
+        "withhold_taxes": false,
+        "start": "immediately",
+        "end": "when_age_is",
+        "end_age": 24,
+        "change_over_time": "none"
+      },
+      {
+        "id": "inc-3",
+        "name": "First full-time salary",
+        "amount": 42000,
+        "frequency": "monthly",
+        "withhold_taxes": true,
+        "tax_percentage": 21,
+        "start": "at_specific_date",
+        "start_year": 2029,
+        "start_month": 7,
+        "end": "never",
+        "change_over_time": "increase_yearly",
+        "change_percentage": 4
+      }
+    ],
+    "expenses": [
+      {
+        "id": "exp-1",
+        "name": "Shared flat rent",
+        "amount": 8500,
+        "frequency": "monthly",
+        "start": "immediately",
+        "end": "never",
+        "change_over_time": "increase_yearly",
+        "change_percentage": 5
+      },
+      {
+        "id": "exp-2",
+        "name": "Food & living",
+        "amount": 6000,
+        "frequency": "monthly",
+        "start": "immediately",
+        "end": "never",
+        "change_over_time": "match_inflation"
+      },
+      {
+        "id": "exp-3",
+        "name": "Student transport pass",
+        "amount": 1280,
+        "frequency": "yearly",
+        "start": "immediately",
+        "end": "when_age_is",
+        "end_age": 26,
+        "change_over_time": "none"
+      },
+      {
+        "id": "exp-4",
+        "name": "Phone & subscriptions",
+        "amount": 550,
+        "frequency": "monthly",
+        "start": "immediately",
+        "end": "never",
+        "change_over_time": "none"
+      }
+    ]
+  },
+  "portfolios": []
+}
