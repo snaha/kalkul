@@ -411,6 +411,7 @@
           <SelectField
             id="{uid}-transactionYear"
             class="max-w-24"
+            aria-label={$_('page.setup.aboutYou.selectYear')}
             value={form.transaction_year !== undefined ? String(form.transaction_year) : ''}
             items={yearItems}
             onValueChange={(v) => {
@@ -418,6 +419,7 @@
             }}
           />
           <SelectField
+            aria-label={$_('page.setup.aboutYou.selectMonth')}
             value={form.transaction_month !== undefined ? String(form.transaction_month - 1) : ''}
             items={months}
             onValueChange={(v) => {
@@ -457,6 +459,7 @@
             />
           {:else}
             <SuffixedInput
+              id="{uid}-transferAmount"
               value={form.amount}
               suffix={currencyLabel}
               formatNumber={appStore.formatNumber}

@@ -425,6 +425,7 @@
       <div class="flex flex-1 flex-col gap-2">
         <SuffixedInput
           value={form.exit_fee}
+          aria-label={$_('page.plan.exitFee')}
           suffix={form.exit_fee_type === 'fixed' ? currencyLabel : '%'}
           formatNumber={appStore.formatNumber}
           onValueChange={(v) => (form.exit_fee = v)}
@@ -513,7 +514,9 @@
           <SuffixedInput
             id="{uid}-remainingTerm"
             value={form.remaining_term}
-            suffix={$_('page.setup.tangibleAssets.years')}
+            suffix={$_('page.setup.tangibleAssets.years', {
+              values: { count: form.remaining_term ?? 0 },
+            })}
             formatNumber={appStore.formatNumber}
             onValueChange={(v) => (form.remaining_term = v)}
           />
@@ -577,7 +580,9 @@
         <SuffixedInput
           id="{uid}-remainingTerm2"
           value={form.remaining_term}
-          suffix={$_('page.setup.liabilities.years')}
+          suffix={$_('page.setup.liabilities.years', {
+            values: { count: form.remaining_term ?? 0 },
+          })}
           formatNumber={appStore.formatNumber}
           onValueChange={(v) => (form.remaining_term = v)}
         />
