@@ -41,9 +41,11 @@
     kind: 'income' | 'expense'
     initial: CashFlow | undefined
     plan: PortfolioStore
+    /** Called with the copy's id after a duplicate, so the caller can open it. */
+    onDuplicated?: (id: string) => void
   }
 
-  let { open = $bindable(), onOpenChange, kind, initial, plan }: Props = $props()
+  let { open = $bindable(), onOpenChange, kind, initial, plan, onDuplicated }: Props = $props()
 
   interface FormState {
     id: string
@@ -283,30 +285,44 @@
   }
 
   function duplicate() {
+    // Duplicating copies the SAVED item; edits sitting in the form would be
+    // silently lost, so ask before discarding them (issue #65).
+    const hasChanges = JSON.stringify(form) !== JSON.stringify(seedForm(initial))
+    if (hasChanges && !window.confirm($_('page.plan.duplicateUnsavedConfirm'))) return
+    let copyId: string | undefined
     if (kind === 'income') {
       const existing = appStore.profile.incomes ?? []
       const idx = existing.findIndex((i) => i.id === form.id)
       if (idx === -1) return
       const copy: Income = {
         ...existing[idx],
-        id: crypto.randomUUID(),
+        id: (copyId = crypto.randomUUID()),
         name: $_('page.setup.common.copySuffix', { values: { name: existing[idx].name } }),
       }
       const next = [...existing.slice(0, idx + 1), copy, ...existing.slice(idx + 1)]
       appStore.updateProfile({ incomes: next })
+      // Mirror save(): an explicit include list must gain the copy's id, or
+      // the duplicate lands excluded from this plan.
+      if (plan.included_income_ids !== undefined) {
+        plan.update({ included_income_ids: [...plan.included_income_ids, copy.id] })
+      }
     } else {
       const existing = appStore.profile.expenses ?? []
       const idx = existing.findIndex((e) => e.id === form.id)
       if (idx === -1) return
       const copy: Expense = {
         ...existing[idx],
-        id: crypto.randomUUID(),
+        id: (copyId = crypto.randomUUID()),
         name: $_('page.setup.common.copySuffix', { values: { name: existing[idx].name } }),
       }
       const next = [...existing.slice(0, idx + 1), copy, ...existing.slice(idx + 1)]
       appStore.updateProfile({ expenses: next })
+      if (plan.included_expense_ids !== undefined) {
+        plan.update({ included_expense_ids: [...plan.included_expense_ids, copy.id] })
+      }
     }
     close()
+    if (copyId !== undefined) onDuplicated?.(copyId)
   }
 
   function toggleExclude() {

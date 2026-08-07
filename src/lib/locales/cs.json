@@ -116,6 +116,7 @@
       "defaultTransferName": "Převod {index}",
       "pickAsset": "Vyberte",
       "deleteTransferConfirm": "Smazat tento převod? Akci nelze vrátit zpět.",
+      "duplicateUnsavedConfirm": "Máte neuložené změny, které budou ztraceny. Pokračovat?",
       "transferFrequencyLabel": "Frekvence",
       "transferMax": "Max",
       "transferMaxDescription": "Převede všechny dostupné prostředky v okamžiku provedení",

@@ -44,9 +44,11 @@
     kind: AssetKind
     initial: Asset | undefined
     plan: PortfolioStore
+    /** Called with the copy's id after a duplicate, so the caller can open it. */
+    onDuplicated?: (id: string) => void
   }
 
-  let { open = $bindable(), onOpenChange, kind, initial, plan }: Props = $props()
+  let { open = $bindable(), onOpenChange, kind, initial, plan, onDuplicated }: Props = $props()
 
   interface FormState {
     id: string
@@ -328,41 +330,64 @@
   }
 
   function duplicate() {
+    // Duplicating copies the SAVED item; edits sitting in the form would be
+    // silently lost, so ask before discarding them (issue #65).
+    const hasChanges = JSON.stringify(form) !== JSON.stringify(seedForm(initial))
+    if (hasChanges && !window.confirm($_('page.plan.duplicateUnsavedConfirm'))) return
+    let copyId: string | undefined
     if (kind === 'investment') {
       const existing = appStore.profile.investments ?? []
       const idx = existing.findIndex((i) => i.id === form.id)
       if (idx === -1) return
       const copy: ProfileInvestment = {
         ...existing[idx],
-        id: crypto.randomUUID(),
+        id: (copyId = crypto.randomUUID()),
         name: $_('page.setup.common.copySuffix', { values: { name: existing[idx].name } }),
       }
       const next = [...existing.slice(0, idx + 1), copy, ...existing.slice(idx + 1)]
       appStore.updateProfile({ investments: next })
+      // Mirror save(): an explicit include list must gain the copy's id, or
+      // the duplicate lands excluded from this plan.
+      if (plan.included_investment_ids !== undefined) {
+        plan.update({
+          included_investment_ids: [...plan.included_investment_ids, copy.id],
+        })
+      }
     } else if (kind === 'tangibleAsset') {
       const existing = appStore.profile.tangible_assets ?? []
       const idx = existing.findIndex((a) => a.id === form.id)
       if (idx === -1) return
       const copy: ProfileTangibleAsset = {
         ...existing[idx],
-        id: crypto.randomUUID(),
+        id: (copyId = crypto.randomUUID()),
         name: $_('page.setup.common.copySuffix', { values: { name: existing[idx].name } }),
       }
       const next = [...existing.slice(0, idx + 1), copy, ...existing.slice(idx + 1)]
       appStore.updateProfile({ tangible_assets: next })
+      if (plan.included_tangible_asset_ids !== undefined) {
+        plan.update({
+          included_tangible_asset_ids: [...plan.included_tangible_asset_ids, copy.id],
+        })
+      }
     } else {
       const existing = appStore.profile.liabilities ?? []
       const idx = existing.findIndex((l) => l.id === form.id)
       if (idx === -1) return
       const copy: ProfileLiability = {
         ...existing[idx],
-        id: crypto.randomUUID(),
+        id: (copyId = crypto.randomUUID()),
         name: $_('page.setup.common.copySuffix', { values: { name: existing[idx].name } }),
       }
       const next = [...existing.slice(0, idx + 1), copy, ...existing.slice(idx + 1)]
       appStore.updateProfile({ liabilities: next })
+      if (plan.included_liability_ids !== undefined) {
+        plan.update({
+          included_liability_ids: [...plan.included_liability_ids, copy.id],
+        })
+      }
     }
     close()
+    if (copyId !== undefined) onDuplicated?.(copyId)
   }
 
   function toggleExclude() {
