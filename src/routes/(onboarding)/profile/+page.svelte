@@ -50,14 +50,16 @@
 
   let userChangedCurrency = $state(false)
 
-  $effect(() => {
-    if (location && !userChangedCurrency) {
-      const mapped = countryCurrencyMap[location]
-      if (mapped) {
-        currency = mapped
-      }
-    }
-  })
+  // Map country -> currency only when the user actually changes the country.
+  // The previous $effect also ran on mount, where userChangedCurrency is
+  // always freshly false — so navigating Back to this page overwrote the
+  // saved currency with the country default (issue #38: "currency reverts
+  // back to HUF").
+  function handleLocationChange(value: string) {
+    if (userChangedCurrency) return
+    const mapped = countryCurrencyMap[value]
+    if (mapped) currency = mapped
+  }
 
   let canContinue = $derived(name.trim().length > 0 && birthYear !== '' && birthMonth !== '')
 
@@ -121,6 +123,7 @@
           bind:value={location}
           items={countries}
           placeholder={$_('page.setup.aboutYou.selectCountry')}
+          onValueChange={handleLocationChange}
         />
       </div>
       <div class="flex w-32 flex-col gap-2">
