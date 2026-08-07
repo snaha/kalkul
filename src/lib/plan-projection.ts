@@ -373,8 +373,9 @@ export function filterById<T extends { id: string }>(
 /**
  * Year of a date-only ISO string (`YYYY-MM-DD`), parsed directly from the
  * string. ISO date-only strings parse as UTC, so `new Date(...).getFullYear()`
- * shifts first-of-year dates back a year in UTC-negative timezones — every
- * consumer of plan/birth dates must use this instead.
+ * shifts first-of-year dates back a year in UTC-negative timezones — use this
+ * whenever only the year is needed. When an actual `Date` is required, use
+ * `parseDateOnly()` from `$lib/utils`, which parses to local midnight.
  */
 export function yearOf(dateString: string): number {
   return Number(dateString.slice(0, 4))
