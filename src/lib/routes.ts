@@ -20,3 +20,17 @@ export default {
   PLAN_VIEW: '/plan',
   DEV: '/dev',
 } as const
+
+/**
+ * Convert a SvelteKit route id (e.g. `/(app)/financial-data/cash`) into the
+ * matching route constant path (`/financial-data/cash`) by dropping
+ * layout-group segments. Unlike `page.url.pathname`, the route id is
+ * unaffected by the configured base path and by the hash router used on PR
+ * previews, so comparisons against the constants above work on every
+ * deployment target.
+ */
+export function routeFromId(routeId: string | null | undefined): string {
+  if (!routeId) return ''
+  const path = routeId.replaceAll(/\/\([^)]+\)/g, '')
+  return path === '' ? '/' : path
+}
