@@ -6,9 +6,11 @@
 
   import { CATEGORY_COLORS } from '$lib/chart-colors'
   import EditableItemCard from '$lib/components/editable-item-card.svelte'
+  import EditorItemErrors from '$lib/components/editor-item-errors.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Label } from '$lib/components/ui/label'
+  import { createListEditor } from '$lib/list-editor.svelte'
   import type { ProfileInvestment } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
 
@@ -26,152 +28,100 @@
 
   let { onHasValueChange }: Props = $props()
 
-  function storedToUI(stored: ProfileInvestment[]): InvestmentUI[] {
-    return stored.map((inv) => ({
+  const editor = createListEditor<ProfileInvestment, InvestmentUI>({
+    load: () => appStore.profile.investments,
+    toUI: (inv) => ({
       id: inv.id,
       name: inv.name,
       balance: inv.balance > 0 ? inv.balance : undefined,
       apy: inv.apy > 0 ? inv.apy : undefined,
       editing: false,
-    }))
-  }
-
-  // The store is loaded before render (see +layout.ts), so the profile is
-  // already populated here — seed the form state directly.
-  const initial = storedToUI(appStore.profile.investments ?? [])
-  let investments = $state<InvestmentUI[]>(initial)
-  let investmentCounter = $state(initial.length)
-
-  $effect(() => {
-    onHasValueChange?.(investments.some((i) => (i.balance ?? 0) > 0))
-  })
-
-  let currencyLabel = $derived(appStore.profile.currencyOrDefault)
-
-  function addInvestment() {
-    investmentCounter++
-    for (const inv of investments) inv.editing = false
-    investments.push({
+    }),
+    makeBlank: (index) => ({
       id: crypto.randomUUID(),
-      name: $_('page.setup.investments.defaultName', { values: { index: investmentCounter } }),
+      name: $_('page.setup.investments.defaultName', { values: { index } }),
       balance: undefined,
       apy: undefined,
       editing: true,
-    })
-  }
+    }),
+    copyName: (name) => $_('page.setup.common.copySuffix', { values: { name } }),
+    hasValue: (i) => (i.balance ?? 0) > 0,
+    toStored: (i) => ({
+      id: i.id,
+      name: i.name,
+      balance: i.balance ?? 0,
+      apy: i.apy ?? 0,
+    }),
+    persist: (data) =>
+      appStore.updateProfile({
+        investments: data,
+        has_investments: data.length > 0,
+      }),
+  })
+  onDestroy(editor.flushSave)
 
-  function duplicateInvestment(investment: InvestmentUI) {
-    investmentCounter++
-    const idx = investments.indexOf(investment)
-    investments.splice(idx + 1, 0, {
-      ...investment,
-      id: crypto.randomUUID(),
-      name: $_('page.setup.common.copySuffix', { values: { name: investment.name } }),
-      editing: true,
-    })
-  }
+  $effect(() => {
+    onHasValueChange?.(editor.hasAnyValue)
+  })
 
-  function deleteInvestment(investment: InvestmentUI) {
-    const idx = investments.indexOf(investment)
-    if (idx !== -1) investments.splice(idx, 1)
-  }
+  let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
   function formatBalance(balance: number | undefined): string {
     if (balance === undefined || balance === 0) return ''
     return appStore.formatCurrency(balance)
   }
-
-  function save() {
-    const data: ProfileInvestment[] = investments
-      .filter((i) => i.name.trim().length > 0 || (i.balance ?? 0) > 0)
-      .map((i) => ({
-        id: i.id,
-        name: i.name,
-        balance: i.balance ?? 0,
-        apy: i.apy ?? 0,
-      }))
-    appStore.updateProfile({
-      investments: data,
-      has_investments: data.length > 0,
-    })
-  }
-  // Auto-save on any edit, debounced so rapid typing does one schema-parse +
-  // localStorage write instead of one per keystroke. save() can throw on
-  // transient invalid mid-edit data (e.g. "when age is" before an age is set),
-  // so it's guarded. Skip the first (mount) run so merely viewing the page
-  // doesn't rewrite the profile (and bump "last updated") without a real change.
-  let saveTimer: ReturnType<typeof setTimeout> | undefined
-  function flushSave() {
-    if (saveTimer !== undefined) {
-      clearTimeout(saveTimer)
-      saveTimer = undefined
-    }
-    try {
-      save()
-    } catch {
-      /* transient invalid mid-edit */
-    }
-  }
-  let autoSaveArmed = false
-  $effect(() => {
-    $state.snapshot(investments) // track every field so edits re-run this effect
-    if (!autoSaveArmed) {
-      autoSaveArmed = true
-      return
-    }
-    if (saveTimer !== undefined) clearTimeout(saveTimer)
-    saveTimer = setTimeout(flushSave, 300)
-  })
-  onDestroy(flushSave)
 </script>
 
 <div class="flex w-full flex-col gap-4">
-  {#each investments as investment, idx (investment.id)}
-    <EditableItemCard
-      item={investment}
-      collapsedValue={formatBalance(investment.balance)}
-      dotColor={CATEGORY_COLORS.investments[idx % CATEGORY_COLORS.investments.length]}
-      onToggleEditing={() => {
-        investment.editing = !investment.editing
-      }}
-      onDuplicate={() => duplicateInvestment(investment)}
-      onDelete={() => deleteInvestment(investment)}
-    >
-      {#snippet expandedContent()}
-        <div class="flex items-center gap-2">
-          <div class="flex flex-1 flex-col gap-2">
-            <Label for="currentBalance-{investment.id}"
-              >{$_('page.setup.investments.currentBalance')}</Label
-            >
-            <SuffixedInput
-              id="currentBalance-{investment.id}"
-              value={investment.balance}
-              suffix={currencyLabel}
-              formatNumber={appStore.formatNumber}
-              onValueChange={(v) => {
-                investment.balance = v
-              }}
-            />
+  {#each editor.items as investment, idx (investment.id)}
+    <div class="flex flex-col gap-1">
+      <EditableItemCard
+        item={investment}
+        collapsedValue={formatBalance(investment.balance)}
+        dotColor={CATEGORY_COLORS.investments[idx % CATEGORY_COLORS.investments.length]}
+        onToggleEditing={() => {
+          investment.editing = !investment.editing
+        }}
+        onDuplicate={() => editor.duplicate(investment)}
+        onDelete={() => editor.remove(investment)}
+      >
+        {#snippet expandedContent()}
+          <div class="flex items-center gap-2">
+            <div class="flex flex-1 flex-col gap-2">
+              <Label for="currentBalance-{investment.id}"
+                >{$_('page.setup.investments.currentBalance')}</Label
+              >
+              <SuffixedInput
+                id="currentBalance-{investment.id}"
+                value={investment.balance}
+                suffix={currencyLabel}
+                formatNumber={appStore.formatNumber}
+                onValueChange={(v) => {
+                  investment.balance = v
+                }}
+              />
+            </div>
+            <div class="flex w-32 flex-col gap-2">
+              <Label for="apy-{investment.id}">{$_('page.setup.investments.apy')}</Label>
+              <SuffixedInput
+                id="apy-{investment.id}"
+                value={investment.apy}
+                suffix="%"
+                formatNumber={appStore.formatNumber}
+                onValueChange={(v) => {
+                  investment.apy = v
+                }}
+              />
+            </div>
           </div>
-          <div class="flex w-32 flex-col gap-2">
-            <Label for="apy-{investment.id}">{$_('page.setup.investments.apy')}</Label>
-            <SuffixedInput
-              id="apy-{investment.id}"
-              value={investment.apy}
-              suffix="%"
-              formatNumber={appStore.formatNumber}
-              onValueChange={(v) => {
-                investment.apy = v
-              }}
-            />
-          </div>
-        </div>
-      {/snippet}
-    </EditableItemCard>
+        {/snippet}
+      </EditableItemCard>
+      <EditorItemErrors messages={editor.errors[investment.id]} />
+    </div>
   {/each}
 
   <div>
-    <Button variant="secondary" onclick={addInvestment}>
+    <Button variant="secondary" onclick={editor.add}>
       <Plus class="size-4" />
       {$_('page.setup.investments.addInvestment')}
     </Button>

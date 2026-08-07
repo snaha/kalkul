@@ -6,10 +6,12 @@
 
   import { CATEGORY_COLORS } from '$lib/chart-colors'
   import EditableItemCard from '$lib/components/editable-item-card.svelte'
+  import EditorItemErrors from '$lib/components/editor-item-errors.svelte'
   import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Label } from '$lib/components/ui/label'
+  import { createListEditor } from '$lib/list-editor.svelte'
   import type { Frequency, ProfileLiability } from '$lib/schemas'
   import { getFrequencyItems } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
@@ -31,8 +33,9 @@
 
   let { onHasValueChange }: Props = $props()
 
-  function storedToUI(stored: ProfileLiability[]): LiabilityUI[] {
-    return stored.map((l) => ({
+  const editor = createListEditor<ProfileLiability, LiabilityUI>({
+    load: () => appStore.profile.liabilities,
+    toUI: (l) => ({
       id: l.id,
       name: l.name,
       outstanding_balance: l.outstanding_balance > 0 ? l.outstanding_balance : undefined,
@@ -41,200 +44,149 @@
       installment_amount: l.installment_amount > 0 ? l.installment_amount : undefined,
       remaining_term: l.remaining_term > 0 ? l.remaining_term : undefined,
       editing: false,
-    }))
-  }
-
-  // The store is loaded before render (see +layout.ts), so the profile is
-  // already populated here — seed the form state directly.
-  const initial = storedToUI(appStore.profile.liabilities ?? [])
-  let liabilities = $state<LiabilityUI[]>(initial)
-  let liabilityCounter = $state(initial.length)
-
-  $effect(() => {
-    onHasValueChange?.(liabilities.some((l) => (l.outstanding_balance ?? 0) > 0))
-  })
-
-  let currencyLabel = $derived(appStore.profile.currencyOrDefault)
-
-  let frequencyItems = $derived(getFrequencyItems($_))
-
-  function addLiability() {
-    liabilityCounter++
-    for (const l of liabilities) l.editing = false
-    liabilities.push({
+    }),
+    makeBlank: (index) => ({
       id: crypto.randomUUID(),
-      name: $_('page.setup.liabilities.defaultName', { values: { index: liabilityCounter } }),
+      name: $_('page.setup.liabilities.defaultName', { values: { index } }),
       outstanding_balance: undefined,
       installment_frequency: 'monthly',
       annual_rate: undefined,
       installment_amount: undefined,
       remaining_term: undefined,
       editing: true,
-    })
-  }
+    }),
+    copyName: (name) => $_('page.setup.common.copySuffix', { values: { name } }),
+    hasValue: (l) => (l.outstanding_balance ?? 0) > 0,
+    toStored: (l) => ({
+      id: l.id,
+      name: l.name,
+      outstanding_balance: l.outstanding_balance ?? 0,
+      installment_frequency: l.installment_frequency,
+      annual_rate: l.annual_rate ?? 0,
+      installment_amount: l.installment_amount ?? 0,
+      remaining_term: l.remaining_term ?? 0,
+    }),
+    persist: (data) =>
+      appStore.updateProfile({
+        liabilities: data,
+        has_liabilities: data.length > 0,
+      }),
+  })
+  onDestroy(editor.flushSave)
 
-  function duplicateLiability(liability: LiabilityUI) {
-    liabilityCounter++
-    const idx = liabilities.indexOf(liability)
-    liabilities.splice(idx + 1, 0, {
-      ...liability,
-      id: crypto.randomUUID(),
-      name: $_('page.setup.common.copySuffix', { values: { name: liability.name } }),
-      editing: true,
-    })
-  }
+  $effect(() => {
+    onHasValueChange?.(editor.hasAnyValue)
+  })
 
-  function deleteLiability(liability: LiabilityUI) {
-    const idx = liabilities.indexOf(liability)
-    if (idx !== -1) liabilities.splice(idx, 1)
-  }
+  let currencyLabel = $derived(appStore.profile.currencyOrDefault)
+
+  let frequencyItems = $derived(getFrequencyItems($_))
 
   function formatBalance(val: number | undefined): string {
     if (val === undefined || val === 0) return ''
     return appStore.formatCurrency(val)
   }
-
-  function save() {
-    const data: ProfileLiability[] = liabilities
-      .filter((l) => l.name.trim().length > 0 || (l.outstanding_balance ?? 0) > 0)
-      .map((l) => ({
-        id: l.id,
-        name: l.name,
-        outstanding_balance: l.outstanding_balance ?? 0,
-        installment_frequency: l.installment_frequency,
-        annual_rate: l.annual_rate ?? 0,
-        installment_amount: l.installment_amount ?? 0,
-        remaining_term: l.remaining_term ?? 0,
-      }))
-    appStore.updateProfile({
-      liabilities: data,
-      has_liabilities: data.length > 0,
-    })
-  }
-  // Auto-save on any edit, debounced so rapid typing does one schema-parse +
-  // localStorage write instead of one per keystroke. save() can throw on
-  // transient invalid mid-edit data, so it's guarded. Skip the first (mount)
-  // run so merely viewing the page doesn't rewrite the profile (and bump
-  // "last updated") without a real change.
-  let saveTimer: ReturnType<typeof setTimeout> | undefined
-  function flushSave() {
-    if (saveTimer !== undefined) {
-      clearTimeout(saveTimer)
-      saveTimer = undefined
-    }
-    try {
-      save()
-    } catch {
-      /* transient invalid mid-edit */
-    }
-  }
-  let autoSaveArmed = false
-  $effect(() => {
-    $state.snapshot(liabilities) // track every field so edits re-run this effect
-    if (!autoSaveArmed) {
-      autoSaveArmed = true
-      return
-    }
-    if (saveTimer !== undefined) clearTimeout(saveTimer)
-    saveTimer = setTimeout(flushSave, 300)
-  })
-  onDestroy(flushSave)
 </script>
 
 <div class="flex w-full flex-col gap-4">
-  {#each liabilities as liability, idx (liability.id)}
-    <EditableItemCard
-      item={liability}
-      collapsedValue={formatBalance(liability.outstanding_balance)}
-      dotColor={CATEGORY_COLORS.liabilities[idx % CATEGORY_COLORS.liabilities.length]}
-      onToggleEditing={() => {
-        liability.editing = !liability.editing
-      }}
-      onDuplicate={() => duplicateLiability(liability)}
-      onDelete={() => deleteLiability(liability)}
-    >
-      {#snippet expandedContent()}
-        <div class="flex flex-col gap-2">
-          <Label for="outstandingBalance-{liability.id}"
-            >{$_('page.setup.liabilities.outstandingBalance')}</Label
-          >
-          <SuffixedInput
-            id="outstandingBalance-{liability.id}"
-            value={liability.outstanding_balance}
-            suffix={currencyLabel}
-            formatNumber={appStore.formatNumber}
-            onValueChange={(v) => {
-              liability.outstanding_balance = v
-            }}
-          />
-        </div>
-
-        <div class="flex items-center gap-2">
-          <div class="flex flex-1 flex-col gap-2">
-            <Label for="installmentFrequency-{liability.id}"
-              >{$_('page.setup.liabilities.installmentFrequency')}</Label
-            >
-            <SelectField
-              id="installmentFrequency-{liability.id}"
-              value={liability.installment_frequency}
-              items={frequencyItems}
-              onValueChange={(v) => {
-                liability.installment_frequency = v as Frequency
-              }}
-            />
-          </div>
-          <div class="flex flex-1 flex-col gap-2">
-            <Label for="annualRate-{liability.id}">{$_('page.setup.liabilities.annualRate')}</Label>
-            <SuffixedInput
-              id="annualRate-{liability.id}"
-              value={liability.annual_rate}
-              suffix="%"
-              formatNumber={appStore.formatNumber}
-              onValueChange={(v) => {
-                liability.annual_rate = v
-              }}
-            />
-          </div>
-        </div>
-
-        <div class="flex items-center gap-2">
-          <div class="flex flex-1 flex-col gap-2">
-            <Label for="installmentAmount-{liability.id}"
-              >{$_('page.setup.liabilities.installmentAmount')}</Label
+  {#each editor.items as liability, idx (liability.id)}
+    <div class="flex flex-col gap-1">
+      <EditableItemCard
+        item={liability}
+        collapsedValue={formatBalance(liability.outstanding_balance)}
+        dotColor={CATEGORY_COLORS.liabilities[idx % CATEGORY_COLORS.liabilities.length]}
+        onToggleEditing={() => {
+          liability.editing = !liability.editing
+        }}
+        onDuplicate={() => editor.duplicate(liability)}
+        onDelete={() => editor.remove(liability)}
+      >
+        {#snippet expandedContent()}
+          <div class="flex flex-col gap-2">
+            <Label for="outstandingBalance-{liability.id}"
+              >{$_('page.setup.liabilities.outstandingBalance')}</Label
             >
             <SuffixedInput
-              id="installmentAmount-{liability.id}"
-              value={liability.installment_amount}
+              id="outstandingBalance-{liability.id}"
+              value={liability.outstanding_balance}
               suffix={currencyLabel}
               formatNumber={appStore.formatNumber}
               onValueChange={(v) => {
-                liability.installment_amount = v
+                liability.outstanding_balance = v
               }}
             />
           </div>
-          <div class="flex flex-1 flex-col gap-2">
-            <Label for="remainingTerm-{liability.id}"
-              >{$_('page.setup.liabilities.remainingTerm')}</Label
-            >
-            <SuffixedInput
-              id="remainingTerm-{liability.id}"
-              value={liability.remaining_term}
-              suffix={$_('page.setup.liabilities.years', {
-                values: { count: liability.remaining_term ?? 0 },
-              })}
-              formatNumber={appStore.formatNumber}
-              onValueChange={(v) => {
-                liability.remaining_term = v
-              }}
-            />
+
+          <div class="flex items-center gap-2">
+            <div class="flex flex-1 flex-col gap-2">
+              <Label for="installmentFrequency-{liability.id}"
+                >{$_('page.setup.liabilities.installmentFrequency')}</Label
+              >
+              <SelectField
+                id="installmentFrequency-{liability.id}"
+                value={liability.installment_frequency}
+                items={frequencyItems}
+                onValueChange={(v) => {
+                  liability.installment_frequency = v as Frequency
+                }}
+              />
+            </div>
+            <div class="flex flex-1 flex-col gap-2">
+              <Label for="annualRate-{liability.id}"
+                >{$_('page.setup.liabilities.annualRate')}</Label
+              >
+              <SuffixedInput
+                id="annualRate-{liability.id}"
+                value={liability.annual_rate}
+                suffix="%"
+                formatNumber={appStore.formatNumber}
+                onValueChange={(v) => {
+                  liability.annual_rate = v
+                }}
+              />
+            </div>
           </div>
-        </div>
-      {/snippet}
-    </EditableItemCard>
+
+          <div class="flex items-center gap-2">
+            <div class="flex flex-1 flex-col gap-2">
+              <Label for="installmentAmount-{liability.id}"
+                >{$_('page.setup.liabilities.installmentAmount')}</Label
+              >
+              <SuffixedInput
+                id="installmentAmount-{liability.id}"
+                value={liability.installment_amount}
+                suffix={currencyLabel}
+                formatNumber={appStore.formatNumber}
+                onValueChange={(v) => {
+                  liability.installment_amount = v
+                }}
+              />
+            </div>
+            <div class="flex flex-1 flex-col gap-2">
+              <Label for="remainingTerm-{liability.id}"
+                >{$_('page.setup.liabilities.remainingTerm')}</Label
+              >
+              <SuffixedInput
+                id="remainingTerm-{liability.id}"
+                value={liability.remaining_term}
+                suffix={$_('page.setup.liabilities.years', {
+                  values: { count: liability.remaining_term ?? 0 },
+                })}
+                formatNumber={appStore.formatNumber}
+                onValueChange={(v) => {
+                  liability.remaining_term = v
+                }}
+              />
+            </div>
+          </div>
+        {/snippet}
+      </EditableItemCard>
+      <EditorItemErrors messages={editor.errors[liability.id]} />
+    </div>
   {/each}
 
   <div>
-    <Button variant="secondary" onclick={addLiability}>
+    <Button variant="secondary" onclick={editor.add}>
       <Plus class="size-4" />
       {$_('page.setup.liabilities.addLiability')}
     </Button>
