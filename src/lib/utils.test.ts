@@ -77,6 +77,8 @@ describe('cached formatters', () => {
 describe('calculateAge', () => {
   // Onboarding captures only year + month (day fixed to 1), so age is
   // month-granular by design: it increments at the start of the birth month.
+  // Months are 0-based here, matching `Date#getMonth()`: the birth month below
+  // and every `currentMonth` argument in this block are 0-based, so 5 is June.
   const birthDate = new Date(1990, 5, 1) // June 1990
 
   it('counts the age as already incremented during the birth month', () => {
