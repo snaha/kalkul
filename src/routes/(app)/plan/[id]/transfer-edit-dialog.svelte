@@ -440,10 +440,15 @@
         </div>
         {#if form.schedule === 'one_time'}
           <div class="flex flex-1 flex-col gap-2">
-            <Label>{$_('page.plan.transactionDateLabel')}</Label>
+            <!-- One visible label over two controls, so the label targets the
+                 year and each select carries its own name (as DateAgeSelector
+                 does) rather than leaving them unnamed. -->
+            <Label for="{uid}-transactionYear">{$_('page.plan.transactionDateLabel')}</Label>
             <div class="flex items-center gap-2">
               <SelectField
+                id="{uid}-transactionYear"
                 class="max-w-24"
+                aria-label={$_('page.setup.aboutYou.selectYear')}
                 value={form.transaction_year !== undefined ? String(form.transaction_year) : ''}
                 items={yearItems}
                 onValueChange={(v) => {
@@ -451,6 +456,7 @@
                 }}
               />
               <SelectField
+                aria-label={$_('page.setup.aboutYou.selectMonth')}
                 value={form.transaction_month !== undefined
                   ? String(form.transaction_month - 1)
                   : ''}
@@ -482,13 +488,19 @@
       <!-- Amount (+ Max toggle for one-time only) + Label -->
       <div class="flex items-end gap-2">
         <div class="flex flex-1 flex-col gap-2">
-          <Label>{$_('page.setup.common.amount')}</Label>
+          <Label for="{uid}-transferAmount">{$_('page.setup.common.amount')}</Label>
           <div class="flex items-center gap-2">
             <div class="flex-1">
               {#if form.transfer_all}
-                <Input value={$_('page.plan.transferMax')} readonly class="text-muted-foreground" />
+                <Input
+                  id="{uid}-transferAmount"
+                  value={$_('page.plan.transferMax')}
+                  readonly
+                  class="text-muted-foreground"
+                />
               {:else}
                 <SuffixedInput
+                  id="{uid}-transferAmount"
                   value={form.amount}
                   suffix={currencyLabel}
                   formatNumber={appStore.formatNumber}
@@ -523,8 +535,9 @@
           </div>
         </div>
         <div class="flex flex-1 flex-col gap-2">
-          <Label>{$_('page.plan.transferLabelLabel')}</Label>
+          <Label for="{uid}-transferName">{$_('page.plan.transferLabelLabel')}</Label>
           <Input
+            id="{uid}-transferName"
             value={form.name}
             oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
           />
