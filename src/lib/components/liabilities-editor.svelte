@@ -103,7 +103,9 @@
       >
         {#snippet expandedContent()}
           <div class="flex flex-col gap-2">
-            <Label for="outstandingBalance-{liability.id}">{$_('page.setup.liabilities.outstandingBalance')}</Label>
+            <Label for="outstandingBalance-{liability.id}"
+              >{$_('page.setup.liabilities.outstandingBalance')}</Label
+            >
             <SuffixedInput
               id="outstandingBalance-{liability.id}"
               value={liability.outstanding_balance}
@@ -117,9 +119,11 @@
 
           <div class="flex items-center gap-2">
             <div class="flex flex-1 flex-col gap-2">
-              <Label for="installmentFrequency-{liability.id}">{$_('page.setup.liabilities.installmentFrequency')}</Label>
+              <Label for="installmentFrequency-{liability.id}"
+                >{$_('page.setup.liabilities.installmentFrequency')}</Label
+              >
               <SelectField
-              id="installmentFrequency-{liability.id}"
+                id="installmentFrequency-{liability.id}"
                 value={liability.installment_frequency}
                 items={frequencyItems}
                 onValueChange={(v) => {
@@ -128,9 +132,11 @@
               />
             </div>
             <div class="flex flex-1 flex-col gap-2">
-              <Label for="annualRate-{liability.id}">{$_('page.setup.liabilities.annualRate')}</Label>
+              <Label for="annualRate-{liability.id}"
+                >{$_('page.setup.liabilities.annualRate')}</Label
+              >
               <SuffixedInput
-              id="annualRate-{liability.id}"
+                id="annualRate-{liability.id}"
                 value={liability.annual_rate}
                 suffix="%"
                 formatNumber={appStore.formatNumber}
@@ -143,9 +149,11 @@
 
           <div class="flex items-center gap-2">
             <div class="flex flex-1 flex-col gap-2">
-              <Label for="installmentAmount-{liability.id}">{$_('page.setup.liabilities.installmentAmount')}</Label>
+              <Label for="installmentAmount-{liability.id}"
+                >{$_('page.setup.liabilities.installmentAmount')}</Label
+              >
               <SuffixedInput
-              id="installmentAmount-{liability.id}"
+                id="installmentAmount-{liability.id}"
                 value={liability.installment_amount}
                 suffix={currencyLabel}
                 formatNumber={appStore.formatNumber}
@@ -155,9 +163,11 @@
               />
             </div>
             <div class="flex flex-1 flex-col gap-2">
-              <Label for="remainingTerm-{liability.id}">{$_('page.setup.liabilities.remainingTerm')}</Label>
+              <Label for="remainingTerm-{liability.id}"
+                >{$_('page.setup.liabilities.remainingTerm')}</Label
+              >
               <SuffixedInput
-              id="remainingTerm-{liability.id}"
+                id="remainingTerm-{liability.id}"
                 value={liability.remaining_term}
                 suffix={$_('page.setup.liabilities.years')}
                 formatNumber={appStore.formatNumber}

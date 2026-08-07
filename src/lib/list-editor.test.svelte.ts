@@ -81,6 +81,24 @@ describe('createListEditor', () => {
     cleanup()
   })
 
+  it('flushSave() is a no-op without edits — the components call it from onDestroy, so navigating away from a page that was only viewed must not rewrite the profile', () => {
+    const { editor, persisted, cleanup } = setup({ initial: [one] })
+    editor.flushSave()
+    expect(persisted).toEqual([])
+    cleanup()
+  })
+
+  it('flushSave() does not persist a second time once the debounce already saved', () => {
+    const { editor, persisted, cleanup } = setup({ initial: [one] })
+    editor.items[0].value = 42
+    flushSync()
+    vi.advanceTimersByTime(300)
+    expect(persisted).toHaveLength(1)
+    editor.flushSave()
+    expect(persisted).toHaveLength(1)
+    cleanup()
+  })
+
   it('debounces edits into a single persist with the mapped stored shape', () => {
     const { editor, persisted, cleanup } = setup({ initial: [one] })
     editor.items[0].value = 42
@@ -133,6 +151,14 @@ describe('createListEditor', () => {
     const { editor, cleanup } = setup({ initial: [one] })
     editor.remove(editor.items[0])
     expect(editor.items).toEqual([])
+    cleanup()
+  })
+
+  it('duplicate() ignores an item that is not in the list rather than inserting at the head', () => {
+    const { editor, cleanup } = setup({ initial: [one] })
+    const stale: ThingUI = { id: 'gone', name: 'Stale', value: 1, editing: false }
+    editor.duplicate(stale)
+    expect(editor.items.map((i) => i.name)).toEqual(['Existing'])
     cleanup()
   })
 

@@ -142,6 +142,13 @@ function scanSourceFiles() {
       return
     }
 
+    // Skip tests: their fixture schemas carry throwaway `message:` values that
+    // are never rendered, so treating them as required translation keys would
+    // report missing texts that must not exist in the locale files.
+    if (/\.(test|spec)(\.svelte)?\.(ts|js)$/.test(filePath)) {
+      return
+    }
+
     const file = fs.readFileSync(filePath, { encoding: 'utf8' })
 
     // First, find simple $_('key') patterns

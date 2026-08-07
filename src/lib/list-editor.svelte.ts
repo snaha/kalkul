@@ -84,11 +84,18 @@ export function createListEditor<TStored, TUI extends ListEditorItem>(
   // run so merely viewing the page doesn't rewrite the profile (and bump
   // "last updated") without a real change.
   let saveTimer: ReturnType<typeof setTimeout> | undefined
+  // Set when an edit schedules a save, cleared once that save runs. Without it
+  // `onDestroy(editor.flushSave)` would persist on a page the user only
+  // viewed, rewriting the profile and bumping "last updated" with no actual
+  // change — the same thing the mount skip below exists to prevent.
+  let pendingSave = false
   function flushSave(): void {
     if (saveTimer !== undefined) {
       clearTimeout(saveTimer)
       saveTimer = undefined
     }
+    if (!pendingSave) return
+    pendingSave = false
     save()
   }
   let autoSaveArmed = false
@@ -99,6 +106,7 @@ export function createListEditor<TStored, TUI extends ListEditorItem>(
       return
     }
     if (saveTimer !== undefined) clearTimeout(saveTimer)
+    pendingSave = true
     saveTimer = setTimeout(flushSave, 300)
   })
 
@@ -118,8 +126,11 @@ export function createListEditor<TStored, TUI extends ListEditorItem>(
       items.push(config.makeBlank(counter))
     },
     duplicate(item: TUI) {
-      counter++
+      // Guard like remove() does: a stale item reference would otherwise make
+      // splice(-1 + 1, ...) insert the copy at the head of the list.
       const idx = items.indexOf(item)
+      if (idx === -1) return
+      counter++
       items.splice(idx + 1, 0, {
         ...item,
         id: crypto.randomUUID(),
