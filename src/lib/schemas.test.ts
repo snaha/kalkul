@@ -6,6 +6,7 @@ import en from './locales/en.json'
 import {
   expenseSchema,
   incomeSchema,
+  profileTangibleAssetSchema,
   repairStoredCashFlowMonths,
   storedDataSchema,
   timingComplete,
@@ -293,5 +294,267 @@ describe('repairStoredCashFlowMonths', () => {
       profile: 'malformed',
       portfolios: 42,
     })
+  })
+})
+
+describe('profileTangibleAssetSchema financed refinement', () => {
+  const financed = {
+    id: 'asset-1',
+    name: 'House',
+    value: 1_000_000,
+    status: 'financed' as const,
+    outstanding_balance: 500_000,
+    installment_frequency: 'monthly' as const,
+    annual_rate: 4.5,
+    installment_amount: 2_500,
+    remaining_term: 25,
+  }
+
+  it('accepts a fully populated financed asset', () => {
+    expect(profileTangibleAssetSchema.safeParse(financed).success).toBe(true)
+  })
+
+  it('accepts a fully-owned asset without any financing fields', () => {
+    const result = profileTangibleAssetSchema.safeParse({
+      id: 'asset-2',
+      name: 'Car',
+      value: 15_000,
+      status: 'fully_owned',
+    })
+    expect(result.success).toBe(true)
+  })
+
+  const requiredWhenFinanced = [
+    'outstanding_balance',
+    'installment_frequency',
+    'annual_rate',
+    'installment_amount',
+    'remaining_term',
+  ] as const
+
+  for (const field of requiredWhenFinanced) {
+    it(`requires ${field} when financed`, () => {
+      const { [field]: _omitted, ...withoutField } = financed
+      const result = profileTangibleAssetSchema.safeParse(withoutField)
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error.issues.map((i) => i.path)).toContainEqual([field])
+      }
+    })
+  }
+})
+
+describe('transferSchema refinement', () => {
+  const oneTime: Transfer = {
+    id: 'transfer-1',
+    name: 'Deposit',
+    from_asset_id: 'cash',
+    to_asset_id: 'inv-1',
+    amount: 1000,
+    schedule: 'one_time',
+    transaction_year: 2030,
+    transaction_month: 6,
+  }
+
+  it('accepts a valid one-time transfer', () => {
+    expect(transferSchema.safeParse(oneTime).success).toBe(true)
+  })
+
+  it('rejects identical endpoints', () => {
+    const result = transferSchema.safeParse({ ...oneTime, to_asset_id: 'cash' })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((i) => i.path)).toContainEqual(['to_asset_id'])
+    }
+  })
+
+  it('requires transaction year and month for one-time transfers', () => {
+    const { transaction_year: _y, transaction_month: _m, ...bare } = oneTime
+    const result = transferSchema.safeParse(bare)
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      const paths = result.error.issues.map((i) => i.path)
+      expect(paths).toContainEqual(['transaction_year'])
+      expect(paths).toContainEqual(['transaction_month'])
+    }
+  })
+
+  it('requires frequency, start, end, and change_over_time for recurring transfers', () => {
+    const result = transferSchema.safeParse({
+      id: 'transfer-2',
+      name: 'Savings',
+      from_asset_id: 'cash',
+      to_asset_id: 'inv-1',
+      amount: 100,
+      schedule: 'recurring',
+    })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      const paths = result.error.issues.map((i) => i.path)
+      for (const field of ['frequency', 'start', 'end', 'change_over_time']) {
+        expect(paths).toContainEqual([field])
+      }
+    }
+  })
+
+  it('re-checks the nested temporal refinement for recurring transfers', () => {
+    const result = transferSchema.safeParse({
+      id: 'transfer-3',
+      name: 'Savings',
+      from_asset_id: 'cash',
+      to_asset_id: 'inv-1',
+      amount: 100,
+      schedule: 'recurring',
+      frequency: 'monthly',
+      start: 'at_specific_date',
+      end: 'never',
+      change_over_time: 'none',
+    })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      const paths = result.error.issues.map((i) => i.path)
+      expect(paths).toContainEqual(['start_year'])
+      expect(paths).toContainEqual(['start_month'])
+    }
+  })
+})
+
+// The cheap regression guard against schema changes invalidating existing
+// localStorage: a realistic fully-populated payload must always parse. If a
+// stricter rule is ever added, this fixture fails first — BEFORE real users
+// hit the salvage path on load. (Valid data never resolves refinement
+// messages, so no locale lookup happens on this path — though this suite
+// initializes svelte-i18n above, so it does not prove that on its own.)
+describe('storedDataSchema golden fixture', () => {
+  it('parses a realistic fully-populated payload', () => {
+    const golden = {
+      lastUpdated: 1_784_000_000_000,
+      profile: {
+        name: 'Jane Doe',
+        email: 'jane@example.com',
+        birth_date: '1990-06-01',
+        location: 'CZ',
+        currency: 'CZK',
+        cash_amount: 250_000,
+        has_investments: true,
+        has_tangible_assets: true,
+        has_liabilities: true,
+        investments: [
+          {
+            id: 'inv-1',
+            name: 'ETF portfolio',
+            balance: 800_000,
+            apy: 7,
+            ter: 0.2,
+            entry_fee: 1,
+            entry_fee_type: 'forty-sixty',
+            exit_fee: 0.5,
+            exit_fee_type: 'percentage',
+          },
+        ],
+        tangible_assets: [
+          {
+            id: 'asset-1',
+            name: 'Apartment',
+            value: 6_500_000,
+            status: 'financed',
+            outstanding_balance: 3_200_000,
+            installment_frequency: 'monthly',
+            annual_rate: 4.79,
+            installment_amount: 18_500,
+            remaining_term: 22,
+          },
+          { id: 'asset-2', name: 'Car', value: 250_000, status: 'fully_owned' },
+        ],
+        liabilities: [
+          {
+            id: 'liab-1',
+            name: 'Student loan',
+            outstanding_balance: 120_000,
+            installment_frequency: 'monthly',
+            annual_rate: 3.5,
+            installment_amount: 2_000,
+            remaining_term: 6,
+            interest_type: 'compound',
+            compounding_frequency: 'monthly',
+          },
+        ],
+        incomes: [
+          {
+            id: 'income-1',
+            name: 'Salary',
+            amount: 65_000,
+            frequency: 'monthly',
+            withhold_taxes: true,
+            tax_percentage: 23,
+            start: 'immediately',
+            end: 'when_age_is',
+            end_age: 65,
+            inflation_adjusted: true,
+            change_over_time: 'increase_yearly',
+            change_percentage: 2,
+          },
+        ],
+        expenses: [
+          {
+            id: 'expense-1',
+            name: 'Living costs',
+            amount: 35_000,
+            frequency: 'monthly',
+            start: 'immediately',
+            end: 'never',
+            inflation_adjusted: true,
+            change_over_time: 'none',
+          },
+        ],
+        hide_plan_intro: true,
+      },
+      portfolios: [
+        {
+          id: 'portfolio-1',
+          name: 'Retirement',
+          notes: 'Base scenario',
+          start_date: '2026-07-01',
+          end_date: '2055-06-01',
+          inflation_rate: 0.02,
+          include_cash: true,
+          included_investment_ids: ['inv-1'],
+          included_tangible_asset_ids: ['asset-1', 'asset-2'],
+          included_liability_ids: ['liab-1'],
+          included_income_ids: ['income-1'],
+          included_expense_ids: ['expense-1'],
+          transfers: [
+            {
+              id: 'transfer-1',
+              name: 'Monthly investing',
+              from_asset_id: 'cash',
+              to_asset_id: 'inv-1',
+              amount: 10_000,
+              schedule: 'recurring',
+              frequency: 'monthly',
+              start: 'immediately',
+              end: 'when_age_is',
+              end_age: 60,
+              inflation_adjusted: true,
+              change_over_time: 'none',
+            },
+            {
+              id: 'transfer-2',
+              name: 'Sell the car',
+              from_asset_id: 'asset-2',
+              to_asset_id: 'cash',
+              amount: 0,
+              transfer_all: true,
+              schedule: 'one_time',
+              transaction_year: 2032,
+              transaction_month: 6,
+            },
+          ],
+          included_transfer_ids: ['transfer-1', 'transfer-2'],
+        },
+      ],
+    }
+    const result = storedDataSchema.safeParse(golden)
+    expect(result.success).toBe(true)
   })
 })
