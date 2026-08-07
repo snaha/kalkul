@@ -30,7 +30,7 @@
   import { Input } from '$lib/components/ui/input'
   import { Separator } from '$lib/components/ui/separator'
   import { Slider } from '$lib/components/ui/slider'
-  import { getYearlyPlanProjection } from '$lib/plan-projection'
+  import { getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
   import routes from '$lib/routes'
   import type {
     Expense,
@@ -55,11 +55,10 @@
   const planId = $derived(page.params.id)
   const plan = $derived(appStore.portfolios.find((p) => p.id === planId))
 
-  // Year range from portfolio dates
-  const startYear = $derived(
-    plan ? new Date(plan.start_date).getFullYear() : new Date().getFullYear(),
-  )
-  const endYear = $derived(plan ? new Date(plan.end_date).getFullYear() : new Date().getFullYear())
+  // Year range from portfolio dates (yearOf: date-only strings parse as UTC,
+  // so new Date(...).getFullYear() would be off by one in UTC-negative zones)
+  const startYear = $derived(plan ? yearOf(plan.start_date) : new Date().getFullYear())
+  const endYear = $derived(plan ? yearOf(plan.end_date) : new Date().getFullYear())
 
   // State for UI
   let activeTab = $state<'cashflows' | 'assets'>('cashflows')

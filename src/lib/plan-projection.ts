@@ -370,15 +370,24 @@ export function filterById<T extends { id: string }>(
   return items.filter((item) => set.has(item.id))
 }
 
+/**
+ * Year of a date-only ISO string (`YYYY-MM-DD`), parsed directly from the
+ * string. ISO date-only strings parse as UTC, so `new Date(...).getFullYear()`
+ * shifts first-of-year dates back a year in UTC-negative timezones — use this
+ * whenever only the year is needed. When an actual `Date` is required, use
+ * `parseDateOnly()` from `$lib/utils`, which parses to local midnight.
+ */
+export function yearOf(dateString: string): number {
+  return Number(dateString.slice(0, 4))
+}
+
 export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): YearlyProjection[] {
-  // Direct string parse: ISO date-only strings parse as UTC, so
-  // `new Date(...).getFullYear()` is timezone-dependent.
-  const startYear = Number(plan.start_date.slice(0, 4))
-  const endYear = Number(plan.end_date.slice(0, 4))
+  const startYear = yearOf(plan.start_date)
+  const endYear = yearOf(plan.end_date)
 
   if (endYear < startYear) return []
 
-  const birthYear = profile.birth_date ? Number(profile.birth_date.slice(0, 4)) : undefined
+  const birthYear = profile.birth_date ? yearOf(profile.birth_date) : undefined
 
   const investments: ProfileInvestment[] = filterById(
     profile.investments,
