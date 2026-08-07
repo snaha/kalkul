@@ -88,6 +88,27 @@ describe('createListEditor', () => {
     cleanup()
   })
 
+  it('retries on flushSave() when the debounced write was rejected', () => {
+    let failNext = true
+    const attempts: StoredThing[][] = []
+    const { editor, cleanup } = setup({
+      initial: [one],
+      persist: (items) => {
+        attempts.push(items)
+        if (failNext) throw new Error('quota exceeded')
+      },
+    })
+    editor.items[0].value = 42
+    flushSync()
+    vi.advanceTimersByTime(300)
+    expect(attempts).toHaveLength(1) // rejected, so the edit is still unsaved
+    failNext = false
+    editor.flushSave()
+    expect(attempts).toHaveLength(2)
+    expect(attempts[1]).toEqual([{ id: 'a', name: 'Existing', value: 42 }])
+    cleanup()
+  })
+
   it('flushSave() does not persist a second time once the debounce already saved', () => {
     const { editor, persisted, cleanup } = setup({ initial: [one] })
     editor.items[0].value = 42

@@ -54,11 +54,13 @@ export function createListEditor<TStored, TUI extends ListEditorItem>(
   let counter = $state(initial.length)
   let errors = $state<Record<string, string[]>>({})
 
-  function save(): void {
+  /** Returns whether the write actually landed, so callers can retry later. */
+  function save(): boolean {
     const persisted = items.filter((item) => item.name.trim().length > 0 || config.hasValue(item))
     try {
       config.persist(persisted.map(config.toStored))
       errors = {}
+      return true
     } catch (e) {
       if (e instanceof z.ZodError) {
         // The write was rejected as a whole and nothing was persisted. Show
@@ -76,6 +78,7 @@ export function createListEditor<TStored, TUI extends ListEditorItem>(
       } else {
         console.error('Failed to save editor changes', e)
       }
+      return false
     }
   }
 
@@ -95,8 +98,9 @@ export function createListEditor<TStored, TUI extends ListEditorItem>(
       saveTimer = undefined
     }
     if (!pendingSave) return
-    pendingSave = false
-    save()
+    // Stay pending when the write was rejected, so the onDestroy flush still
+    // gets a chance to persist edits that a transient failure held back.
+    if (save()) pendingSave = false
   }
   let autoSaveArmed = false
   $effect(() => {
