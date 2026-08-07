@@ -41,6 +41,10 @@
     onContinue,
   }: Props = $props()
 
+  // Ties the visible question line to the radiogroup via aria-labelledby, so
+  // the option set is announced with the question rather than unnamed.
+  const questionId = $props.id()
+
   // Initial value only matters before the first open — the $effect below
   // re-seeds from the current defaultId every time the dialog opens.
   // svelte-ignore state_referenced_locally
@@ -81,11 +85,12 @@
     </Dialog.Header>
 
     <div class="flex flex-col gap-3 p-4">
-      <p class="text-sm">{question}</p>
+      <p id={questionId} class="text-sm">{question}</p>
 
       <RadioGroup.Root
         value={selected}
         onValueChange={(v) => (selected = v as T)}
+        aria-labelledby={questionId}
         class="flex flex-col gap-2"
       >
         {#each options as option (option.id)}
