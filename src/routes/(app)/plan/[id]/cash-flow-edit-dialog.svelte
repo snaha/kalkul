@@ -45,6 +45,8 @@
     onDuplicated?: (id: string) => void
   }
 
+  const uid = $props.id()
+
   let { open = $bindable(), onOpenChange, kind, initial, plan, onDuplicated }: Props = $props()
 
   interface FormState {
@@ -441,8 +443,9 @@
       <!-- Amount + Frequency -->
       <div class="flex items-end gap-2">
         <div class="flex flex-1 flex-col gap-2">
-          <Label>{$_('page.setup.common.amount')}</Label>
+          <Label for="{uid}-amount">{$_('page.setup.common.amount')}</Label>
           <SuffixedInput
+            id="{uid}-amount"
             value={form.amount}
             suffix={currencyLabel}
             formatNumber={appStore.formatNumber}
@@ -450,8 +453,9 @@
           />
         </div>
         <div class="flex flex-1 flex-col gap-2">
-          <Label>{$_('page.setup.common.frequency')}</Label>
+          <Label for="{uid}-frequency">{$_('page.setup.common.frequency')}</Label>
           <SelectField
+            id="{uid}-frequency"
             value={form.frequency}
             items={frequencyItems}
             onValueChange={(v) => {
@@ -482,8 +486,11 @@
           </div>
           {#if form.withhold_taxes}
             <div class="flex flex-1 flex-col gap-2">
-              <Label>{$_('page.setup.income.percentageToWithhold')}</Label>
+              <Label for="{uid}-percentageToWithhold"
+                >{$_('page.setup.income.percentageToWithhold')}</Label
+              >
               <SuffixedInput
+                id="{uid}-percentageToWithhold"
                 value={form.tax_percentage}
                 suffix="%"
                 formatNumber={appStore.formatNumber}

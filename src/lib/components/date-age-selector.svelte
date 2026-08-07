@@ -38,6 +38,8 @@
     formatNumber: (n: number) => string
   }
 
+  const uid = $props.id()
+
   let {
     mode,
     value,
@@ -105,8 +107,9 @@
 
 <div class="flex items-end gap-2">
   <div class="flex flex-1 flex-col gap-2">
-    <Label>{label}</Label>
+    <Label for="{uid}-mode">{label}</Label>
     <SelectField
+      id="{uid}-mode"
       {value}
       items={modeItems}
       onValueChange={(v) => {
@@ -118,6 +121,7 @@
     <div class="flex flex-1 items-center gap-2">
       <SelectField
         class="max-w-24"
+        aria-label={$_('page.setup.aboutYou.selectYear')}
         value={yearString}
         items={yearItems}
         onValueChange={(v) => {
@@ -125,6 +129,7 @@
         }}
       />
       <SelectField
+        aria-label={$_('page.setup.aboutYou.selectMonth')}
         value={monthString}
         items={monthItems}
         onValueChange={(v) => {
@@ -136,6 +141,7 @@
     <div class="flex flex-1 flex-col gap-2">
       <SuffixedInput
         value={age}
+        aria-label={$_('page.setup.common.whenAgeIs')}
         suffix={$_('page.setup.common.yearsOld')}
         {formatNumber}
         onValueChange={onAgeChange}

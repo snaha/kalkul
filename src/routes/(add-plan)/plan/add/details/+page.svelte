@@ -20,6 +20,8 @@
   import { getMonthOptions, getYearOptions } from '$lib/utils'
 
   // Generate a default plan name based on existing portfolios
+  const uid = $props.id()
+
   function getDefaultPlanName(): string {
     const existingCount = appStore.portfolios.length
     return $_('page.addPlan.details.defaultName', { values: { index: existingCount + 1 } })
@@ -128,8 +130,9 @@
 
     <div class="flex items-end gap-2">
       <div class="flex flex-1 flex-col gap-2">
-        <Label>{$_('page.addPlan.details.start')}</Label>
+        <Label for="{uid}-start">{$_('page.addPlan.details.start')}</Label>
         <SelectField
+          id="{uid}-start"
           value={startType}
           items={startTypeItems}
           onValueChange={(v) => (startType = v as PlanStartType)}
@@ -137,16 +140,27 @@
       </div>
       {#if startType === 'at_specific_date'}
         <div class="flex flex-1 items-end gap-2">
-          <SelectField bind:value={startYear} items={yearItems} class="w-24" />
-          <SelectField bind:value={startMonth} items={months} class="flex-1" />
+          <SelectField
+            bind:value={startYear}
+            items={yearItems}
+            aria-label={$_('page.setup.aboutYou.selectYear')}
+            class="w-24"
+          />
+          <SelectField
+            bind:value={startMonth}
+            items={months}
+            aria-label={$_('page.setup.aboutYou.selectMonth')}
+            class="flex-1"
+          />
         </div>
       {/if}
     </div>
 
     <div class="flex items-end gap-2">
       <div class="flex flex-1 flex-col gap-2">
-        <Label>{$_('page.addPlan.details.end')}</Label>
+        <Label for="{uid}-end">{$_('page.addPlan.details.end')}</Label>
         <SelectField
+          id="{uid}-end"
           value={endType}
           items={endTypeItems}
           onValueChange={(v) => (endType = v as PlanEndType)}
@@ -156,6 +170,7 @@
         <div class="flex flex-1">
           <SuffixedInput
             value={endAge}
+            aria-label={$_('page.addPlan.details.endWhenAgeIs')}
             suffix={$_('page.addPlan.details.yearsOld')}
             formatNumber={appStore.formatNumber}
             onValueChange={(v) => (endAge = v)}
@@ -167,12 +182,14 @@
             bind:value={endYear}
             items={yearItems}
             placeholder={$_('page.setup.aboutYou.selectYear')}
+            aria-label={$_('page.setup.aboutYou.selectYear')}
             class="w-24"
           />
           <SelectField
             bind:value={endMonth}
             items={months}
             placeholder={$_('page.setup.aboutYou.selectMonth')}
+            aria-label={$_('page.setup.aboutYou.selectMonth')}
             class="flex-1"
           />
         </div>
@@ -180,8 +197,9 @@
     </div>
 
     <div class="flex flex-col gap-2">
-      <Label>{$_('page.addPlan.details.inflation')}</Label>
+      <Label for="{uid}-inflation">{$_('page.addPlan.details.inflation')}</Label>
       <SuffixedInput
+        id="{uid}-inflation"
         value={inflation}
         suffix="%"
         formatNumber={appStore.formatNumber}

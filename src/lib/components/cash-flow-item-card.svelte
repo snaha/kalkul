@@ -116,8 +116,9 @@
     <!-- Amount and Frequency row -->
     <div class="flex items-center gap-2">
       <div class="flex flex-1 flex-col gap-2">
-        <Label>{$_('page.setup.common.amount')}</Label>
+        <Label for="amount-{item.id}">{$_('page.setup.common.amount')}</Label>
         <SuffixedInput
+          id="amount-{item.id}"
           value={item.amount}
           {suffix}
           {formatNumber}
@@ -127,8 +128,9 @@
         />
       </div>
       <div class="flex flex-1 flex-col gap-2">
-        <Label>{$_('page.setup.common.frequency')}</Label>
+        <Label for="frequency-{item.id}">{$_('page.setup.common.frequency')}</Label>
         <SelectField
+          id="frequency-{item.id}"
           value={item.frequency}
           items={frequencyItems}
           onValueChange={(v) => {

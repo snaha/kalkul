@@ -8,6 +8,7 @@
     suffix: string
     placeholder?: string
     id?: string
+    'aria-label'?: string
     class?: string
     // Required so no call site can accidentally fall back to the OS locale —
     // pass appStore.formatNumber (or a wrapper around it).
@@ -20,6 +21,7 @@
     suffix,
     placeholder = '0',
     id,
+    'aria-label': ariaLabel,
     class: className,
     formatNumber,
     onValueChange,
@@ -73,6 +75,7 @@
   <Input
     {placeholder}
     {id}
+    aria-label={ariaLabel}
     value={displayValue}
     inputmode="decimal"
     onfocus={handleFocus}

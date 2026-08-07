@@ -103,8 +103,9 @@
 
     <div class="flex w-full items-end gap-2">
       <div class="flex flex-1 flex-col gap-2">
-        <Label>{$_('page.setup.aboutYou.birthdate')}</Label>
+        <Label for="setup-birth-year">{$_('page.setup.aboutYou.birthdate')}</Label>
         <SelectField
+          id="setup-birth-year"
           bind:value={birthYear}
           items={years}
           placeholder={$_('page.setup.aboutYou.selectYear')}
@@ -115,14 +116,16 @@
           bind:value={birthMonth}
           items={months}
           placeholder={$_('page.setup.aboutYou.selectMonth')}
+          aria-label={$_('page.setup.aboutYou.selectMonth')}
         />
       </div>
     </div>
 
     <div class="flex w-full items-end gap-2">
       <div class="flex flex-1 flex-col gap-2">
-        <Label>{$_('page.setup.aboutYou.location')}</Label>
+        <Label for="setup-location">{$_('page.setup.aboutYou.location')}</Label>
         <SelectField
+          id="setup-location"
           bind:value={location}
           items={countries}
           placeholder={$_('page.setup.aboutYou.selectCountry')}
@@ -130,8 +133,9 @@
         />
       </div>
       <div class="flex w-32 flex-col gap-2">
-        <Label>{$_('common.currency')}</Label>
+        <Label for="setup-currency">{$_('common.currency')}</Label>
         <SelectField
+          id="setup-currency"
           bind:value={currency}
           items={CURRENCY_OPTIONS}
           placeholder={DEFAULT_CURRENCY}

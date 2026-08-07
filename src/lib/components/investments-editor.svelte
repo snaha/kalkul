@@ -140,8 +140,11 @@
       {#snippet expandedContent()}
         <div class="flex items-center gap-2">
           <div class="flex flex-1 flex-col gap-2">
-            <Label>{$_('page.setup.investments.currentBalance')}</Label>
+            <Label for="currentBalance-{investment.id}"
+              >{$_('page.setup.investments.currentBalance')}</Label
+            >
             <SuffixedInput
+              id="currentBalance-{investment.id}"
               value={investment.balance}
               suffix={currencyLabel}
               formatNumber={appStore.formatNumber}
@@ -151,8 +154,9 @@
             />
           </div>
           <div class="flex w-32 flex-col gap-2">
-            <Label>{$_('page.setup.investments.apy')}</Label>
+            <Label for="apy-{investment.id}">{$_('page.setup.investments.apy')}</Label>
             <SuffixedInput
+              id="apy-{investment.id}"
               value={investment.apy}
               suffix="%"
               formatNumber={appStore.formatNumber}
