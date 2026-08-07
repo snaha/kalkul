@@ -423,7 +423,8 @@ describe('transferSchema refinement', () => {
 // localStorage: a realistic fully-populated payload must always parse. If a
 // stricter rule is ever added, this fixture fails first — BEFORE real users
 // hit the salvage path on load. (Valid data never resolves refinement
-// messages, so this also pins that parsing succeeds independent of i18n.)
+// messages, so no locale lookup happens on this path — though this suite
+// initializes svelte-i18n above, so it does not prove that on its own.)
 describe('storedDataSchema golden fixture', () => {
   it('parses a realistic fully-populated payload', () => {
     const golden = {
