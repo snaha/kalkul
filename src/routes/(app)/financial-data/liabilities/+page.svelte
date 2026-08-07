@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { _, locale } from 'svelte-i18n'
+  import { _ } from 'svelte-i18n'
 
   import ArrowRight from '@lucide/svelte/icons/arrow-right'
 
@@ -11,7 +11,7 @@
   import { getLiabilitiesTotal } from '$lib/financial-totals'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
-  import { cn, formatLastUpdated } from '$lib/utils'
+  import { cn } from '$lib/utils'
 
   const liabilities = $derived(appStore.profile.liabilities ?? [])
   const total = $derived(getLiabilitiesTotal(appStore.profile))
@@ -45,7 +45,7 @@
 
   const segments = $derived([...standaloneSegments, ...financedDebts])
 
-  const lastUpdatedDate = $derived(formatLastUpdated(appStore.lastUpdated, $locale))
+  const lastUpdatedDate = $derived(appStore.formatLastUpdated())
 </script>
 
 <div class="flex w-full flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-8">
@@ -55,9 +55,11 @@
     <p class={cn('text-3xl leading-9 font-bold', total > 0 && 'text-destructive')}>
       {appStore.formatCurrencyCode(-total)}
     </p>
-    <span class="text-xs leading-4 text-muted-foreground">
-      {$_('page.financialData.overview.lastUpdated', { values: { date: lastUpdatedDate } })}
-    </span>
+    {#if lastUpdatedDate}
+      <span class="text-xs leading-4 text-muted-foreground">
+        {$_('page.financialData.overview.lastUpdated', { values: { date: lastUpdatedDate } })}
+      </span>
+    {/if}
   </div>
 </div>
 

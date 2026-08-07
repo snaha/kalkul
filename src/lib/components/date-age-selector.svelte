@@ -35,7 +35,7 @@
     onYearChange: (v: number | undefined) => void
     onMonthChange: (v: number | undefined) => void
     onAgeChange: (v: number | undefined) => void
-    formatNumber?: (n: number) => string
+    formatNumber: (n: number) => string
   }
 
   let {

@@ -12,7 +12,9 @@ import {
   formatCompactCurrency,
   formatCurrency,
   formatCurrencyCode,
+  formatLastUpdated,
   formatNumber,
+  formatPercent,
   getFormattingLocale,
   parseDateOnly,
 } from '$lib/utils'
@@ -199,6 +201,23 @@ function withAppStore() {
     formatCurrencyCode(value: number) {
       const loc = getFormattingLocale(profile.location, browserLocale)
       return formatCurrencyCode(value, profile.currencyOrDefault, loc)
+    },
+    // Dates shown next to formatted numbers resolve the same formatting
+    // locale (profile location → browser), NOT the svelte-i18n UI language —
+    // otherwise a Czech user with an English UI sees '1 234 567 Kč' next to
+    // '7/7/2026' on one screen.
+    formatDate(ms: number) {
+      const loc = getFormattingLocale(profile.location, browserLocale)
+      return new Date(ms).toLocaleDateString(loc)
+    },
+    formatPercent(value: number, digits = 1) {
+      const loc = getFormattingLocale(profile.location, browserLocale)
+      return formatPercent(value, digits, loc)
+    },
+    /** Formatted lastUpdated date, or undefined when nothing was saved yet. */
+    formatLastUpdated(): string | undefined {
+      const loc = getFormattingLocale(profile.location, browserLocale)
+      return formatLastUpdated(lastUpdated, loc)
     },
 
     // --- Profile ---

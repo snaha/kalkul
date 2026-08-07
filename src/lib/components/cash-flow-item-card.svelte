@@ -43,7 +43,7 @@
     years: string[]
     months: { value: string; label: string }[]
     formatCurrency: (value: number) => string
-    formatNumber?: (value: number) => string
+    formatNumber: (value: number) => string
     onToggleEditing: () => void
     onDuplicate: () => void
     onDelete: () => void

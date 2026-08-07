@@ -1,14 +1,11 @@
 <script lang="ts">
-  import { locale } from 'svelte-i18n'
-
   import FinancialDataHeader from '$lib/components/financial-data-header.svelte'
   import FinancialDataSidebar from '$lib/components/financial-data-sidebar.svelte'
   import { appStore } from '$lib/stores/app.svelte'
-  import { formatLastUpdated } from '$lib/utils'
 
   let { children } = $props()
 
-  const date = $derived(formatLastUpdated(appStore.lastUpdated, $locale))
+  const date = $derived(appStore.formatLastUpdated())
 </script>
 
 <div class="flex flex-1 flex-col">

@@ -13,7 +13,7 @@
      * Defaults to a shared i18n key.
      */
     changeDescription?: string
-    formatNumber?: (n: number) => string
+    formatNumber: (n: number) => string
     onValueChange: (v: string) => void
     onPercentageChange: (v: number | undefined) => void
   }

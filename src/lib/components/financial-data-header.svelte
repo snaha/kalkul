@@ -11,7 +11,7 @@
   import routes from '$lib/routes'
 
   interface Props {
-    date: string
+    date: string | undefined
   }
 
   let { date }: Props = $props()
@@ -25,9 +25,11 @@
     <h1 class="text-2xl leading-8 font-bold whitespace-nowrap">
       {$_('page.financialData.title')}
     </h1>
-    <Badge variant="outline">
-      <Calendar class="size-3" />
-      {date}
-    </Badge>
+    {#if date}
+      <Badge variant="outline">
+        <Calendar class="size-3" />
+        {date}
+      </Badge>
+    {/if}
   </div>
 </div>

@@ -446,7 +446,7 @@
     const amount = signed(yearOnYearDelta, appStore.formatCurrencyCode(Math.abs(yearOnYearDelta)))
     if (yearOnYearPercent === undefined) return amount
     const pctSign = yearOnYearPercent > 0 ? '+' : ''
-    return `${amount} (${pctSign}${yearOnYearPercent.toFixed(1)}%)`
+    return `${amount} (${pctSign}${appStore.formatPercent(yearOnYearPercent, 1)})`
   })
   const yearOnYearClass = $derived.by(() => {
     if (yearOnYearDelta === undefined || yearOnYearDelta === 0) return undefined

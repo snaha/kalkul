@@ -180,9 +180,22 @@ export function calculateAge(
 
 /**
  * Format a "last updated" timestamp as a locale-aware date string.
- * Falls back to today's date when the timestamp is unset (0).
+ * Returns undefined when the timestamp is unset (0) so callers can render a
+ * real "never updated" state instead of silently showing today's date.
  */
-export function formatLastUpdated(ms: number, locale: string | null | undefined): string {
-  const d = ms > 0 ? new Date(ms) : new Date()
-  return d.toLocaleDateString(locale ?? undefined)
+export function formatLastUpdated(ms: number, locale: string | undefined): string | undefined {
+  if (ms <= 0) return undefined
+  return new Date(ms).toLocaleDateString(locale)
+}
+
+/**
+ * Format an already-percent-scaled value (e.g. 5.3 → "5.3%" / "5,3 %") with
+ * locale-aware decimal separator and percent-sign placement.
+ */
+export function formatPercent(value: number, digits: number, locale?: string): string {
+  return getNumberFormat(locale, {
+    style: 'percent',
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(unsignZero(value) / 100)
 }

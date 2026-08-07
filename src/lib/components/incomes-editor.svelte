@@ -191,6 +191,7 @@
               <SuffixedInput
                 value={income.tax_percentage}
                 suffix="%"
+                formatNumber={appStore.formatNumber}
                 onValueChange={(v) => {
                   income.tax_percentage = v
                 }}

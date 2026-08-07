@@ -9,7 +9,9 @@
     placeholder?: string
     id?: string
     class?: string
-    formatNumber?: (n: number) => string
+    // Required so no call site can accidentally fall back to the OS locale —
+    // pass appStore.formatNumber (or a wrapper around it).
+    formatNumber: (n: number) => string
     onValueChange: (value: number | undefined) => void
   }
 
@@ -30,20 +32,17 @@
   // Digits, minus, and both decimal separators.
   const TYPING_RE = /[^0-9.,-]/g
 
-  // The formatter the unfocused field displays with — parsing derives its
-  // decimal separator from the same function, so whatever the field shows
-  // always parses back to the same value.
-  const effectiveFormat = $derived(
-    formatNumber ?? ((n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 4 })),
-  )
-  const decimalSep = $derived(decimalSeparatorOf(effectiveFormat))
+  // Parsing derives its decimal separator from the same formatter the
+  // unfocused field displays with, so whatever the field shows always parses
+  // back to the same value.
+  const decimalSep = $derived(decimalSeparatorOf(formatNumber))
 
   function parseDraft(raw: string): number | undefined {
     return parseNumberInput(raw, decimalSep)
   }
 
   // What the input should show given focus state.
-  let displayValue = $derived(focused ? draft : formatNumberInput(value, effectiveFormat))
+  let displayValue = $derived(focused ? draft : formatNumberInput(value, formatNumber))
 
   function handleFocus() {
     focused = true
