@@ -1685,6 +1685,28 @@ describe('getYearlyPlanProjection', () => {
     expect(result[1].investments).toBeCloseTo(1060, 6)
   })
 
+  it('floors the effective APY at −100 % so extreme fees decay the balance to 0', () => {
+    // TER + ongoing fee = 250 % ≫ 100 + APY: without the floor the yearly
+    // multiplier would be 1 + (5 − 250)/100 = −1.45 and the balance would
+    // oscillate in sign; with it the multiplier is 0.
+    const investments: ProfileInvestment[] = [
+      {
+        id: 'i1',
+        name: 'Fund',
+        balance: 1000,
+        apy: 5,
+        ter: 200,
+        entry_fee: 50,
+        entry_fee_type: 'ongoing',
+      },
+    ]
+    const result = getYearlyPlanProjection(makePlan(), makeProfile({ investments }))
+    expect(result[0].investments).toBeCloseTo(1000, 6)
+    for (const entry of result.slice(1)) {
+      expect(entry.investments).toBe(0)
+    }
+  })
+
   it('splits a forty-sixty entry fee 40% upfront + 60% ongoing drag', () => {
     const investments: ProfileInvestment[] = [
       {
