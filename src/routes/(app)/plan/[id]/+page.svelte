@@ -140,15 +140,21 @@
   const REOPEN_DELAY_MS = 150
 
   function reopenAssetDialog(id: string) {
-    const kind = assetDialogKind
-    const item =
-      kind === 'investment'
-        ? appStore.profile.investments?.find((i) => i.id === id)
-        : kind === 'tangibleAsset'
-          ? appStore.profile.tangible_assets?.find((a) => a.id === id)
-          : appStore.profile.liabilities?.find((l) => l.id === id)
-    if (!item) return
-    setTimeout(() => openAssetEditDialog(kind, item), REOPEN_DELAY_MS)
+    // Branch per kind rather than building one target: AssetTarget is a
+    // discriminated union, so kind and initial must be narrowed together.
+    const kind = assetDialogTarget.kind
+    const reopen = (target: AssetTarget) =>
+      setTimeout(() => openAssetEditDialog(target), REOPEN_DELAY_MS)
+    if (kind === 'investment') {
+      const initial = appStore.profile.investments?.find((i) => i.id === id)
+      if (initial) reopen({ kind, initial })
+    } else if (kind === 'tangibleAsset') {
+      const initial = appStore.profile.tangible_assets?.find((a) => a.id === id)
+      if (initial) reopen({ kind, initial })
+    } else {
+      const initial = appStore.profile.liabilities?.find((l) => l.id === id)
+      if (initial) reopen({ kind, initial })
+    }
   }
 
   function reopenCashFlowDialog(id: string) {

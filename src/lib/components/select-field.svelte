@@ -22,12 +22,11 @@
     /** Placeholder shown on the trigger when nothing is selected. */
     placeholder?: string
     disabled?: boolean
-    /**
-     * Allow clearing the selection by selecting the active item again.
-     * Deselecting emits an empty string, so only enable this with handlers
-     * that treat '' as "cleared".
-     */
-    allowDeselect?: boolean
+    // No `allowDeselect`: bits-ui emits '' when the active item is chosen
+    // again, which would flow into an `onValueChange` typed as T and hand
+    // enum-typed state a value outside its union without the compiler
+    // objecting. Add it back only alongside a signature that models the
+    // cleared case (e.g. a separate onClear).
     id?: string
     name?: string
     'aria-label'?: string
@@ -54,7 +53,6 @@
     items,
     placeholder,
     disabled = false,
-    allowDeselect = false,
     id,
     name,
     'aria-label': ariaLabel,
@@ -85,7 +83,6 @@
   items={items as SelectFieldItem<T>[]}
   {name}
   {disabled}
-  {allowDeselect}
   onValueChange={onValueChange as ((value: string) => void) | undefined}
 >
   <Select.Trigger

@@ -41,11 +41,13 @@
     kind: 'income' | 'expense'
     initial: CashFlow | undefined
     plan: PortfolioStore
+    /** Called with the copy's id after a duplicate, so the caller can open it. */
+    onDuplicated?: (id: string) => void
   }
 
   const uid = $props.id()
 
-  let { open = $bindable(), onOpenChange, kind, initial, plan }: Props = $props()
+  let { open = $bindable(), onOpenChange, kind, initial, plan, onDuplicated }: Props = $props()
 
   interface FormState {
     id: string
@@ -255,10 +257,18 @@
   }
 
   function duplicate() {
-    duplicateProfileItem(listConfig, form.id, (name) =>
-      $_('page.setup.common.copySuffix', { values: { name } }),
+    // Duplicating copies the SAVED item; edits sitting in the form would be
+    // silently lost, so ask before discarding them (issue #65).
+    const hasChanges = JSON.stringify(form) !== JSON.stringify(seedForm(initial))
+    if (hasChanges && !window.confirm($_('page.plan.duplicateUnsavedConfirm'))) return
+    const copyId = duplicateProfileItem(
+      listConfig,
+      form.id,
+      (name) => $_('page.setup.common.copySuffix', { values: { name } }),
+      plan,
     )
     close()
+    if (copyId !== undefined) onDuplicated?.(copyId)
   }
 
   function toggleExclude() {
@@ -293,7 +303,7 @@
     <div class="flex flex-1 flex-col gap-2">
       <Label for="{uid}-amount">{$_('page.setup.common.amount')}</Label>
       <SuffixedInput
-            id="{uid}-amount"
+        id="{uid}-amount"
         value={form.amount}
         suffix={currencyLabel}
         formatNumber={appStore.formatNumber}
@@ -303,7 +313,7 @@
     <div class="flex flex-1 flex-col gap-2">
       <Label for="{uid}-frequency">{$_('page.setup.common.frequency')}</Label>
       <SelectField
-            id="{uid}-frequency"
+        id="{uid}-frequency"
         value={form.frequency}
         items={frequencyItems}
         onValueChange={(v) => {
@@ -334,7 +344,9 @@
       </div>
       {#if form.withhold_taxes}
         <div class="flex flex-1 flex-col gap-2">
-          <Label for="{uid}-percentageToWithhold">{$_('page.setup.income.percentageToWithhold')}</Label>
+          <Label for="{uid}-percentageToWithhold"
+            >{$_('page.setup.income.percentageToWithhold')}</Label
+          >
           <SuffixedInput
             id="{uid}-percentageToWithhold"
             value={form.tax_percentage}

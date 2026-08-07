@@ -34,11 +34,13 @@
     onOpenChange: (open: boolean) => void
     initial: Transfer | undefined
     plan: PortfolioStore
+    /** Called with the copy's id after a duplicate, so the caller can open it. */
+    onDuplicated?: (id: string) => void
   }
 
   const uid = $props.id()
 
-  let { open = $bindable(), onOpenChange, initial, plan }: Props = $props()
+  let { open = $bindable(), onOpenChange, initial, plan, onDuplicated }: Props = $props()
 
   interface FormState {
     id: string
@@ -257,6 +259,10 @@
   }
 
   function duplicate() {
+    // Duplicating copies the SAVED item; edits sitting in the form would be
+    // silently lost, so ask before discarding them (issue #65).
+    const hasChanges = JSON.stringify(form) !== JSON.stringify(seedForm(initial))
+    if (hasChanges && !window.confirm($_('page.plan.duplicateUnsavedConfirm'))) return
     const existing = plan.transfers ?? []
     const idx = existing.findIndex((t) => t.id === form.id)
     if (idx === -1) return
@@ -272,6 +278,7 @@
     }
     plan.update(updates)
     close()
+    onDuplicated?.(copy.id)
   }
 
   function toggleExclude() {
@@ -357,7 +364,7 @@
     <div class="flex flex-1 flex-col gap-2">
       <Label for="{uid}-transferFromLabel">{$_('page.plan.transferFromLabel')}</Label>
       <SelectField
-            id="{uid}-transferFromLabel"
+        id="{uid}-transferFromLabel"
         value={form.from_asset_id}
         items={fromAssetItems}
         placeholder={$_('page.plan.pickAsset')}
@@ -369,7 +376,7 @@
     <div class="flex flex-1 flex-col gap-2">
       <Label for="{uid}-transferToLabel">{$_('page.plan.transferToLabel')}</Label>
       <SelectField
-            id="{uid}-transferToLabel"
+        id="{uid}-transferToLabel"
         value={form.to_asset_id}
         items={toAssetItems}
         placeholder={$_('page.plan.pickAsset')}
@@ -385,7 +392,7 @@
     <div class="flex flex-1 flex-col gap-2">
       <Label for="{uid}-scheduleLabel">{$_('page.plan.scheduleLabel')}</Label>
       <SelectField
-            id="{uid}-scheduleLabel"
+        id="{uid}-scheduleLabel"
         value={form.schedule}
         items={scheduleItems}
         onValueChange={(v) => {
@@ -424,7 +431,7 @@
       <div class="flex flex-1 flex-col gap-2">
         <Label for="{uid}-transferFrequencyLabel">{$_('page.plan.transferFrequencyLabel')}</Label>
         <SelectField
-            id="{uid}-transferFrequencyLabel"
+          id="{uid}-transferFrequencyLabel"
           value={form.frequency}
           items={frequencyItems}
           onValueChange={(v) => {
@@ -443,7 +450,11 @@
         <div class="flex-1">
           {#if form.transfer_all}
             <Input
-            id="{uid}-transferAmount" value={$_('page.plan.transferMax')} readonly class="text-muted-foreground" />
+              id="{uid}-transferAmount"
+              value={$_('page.plan.transferMax')}
+              readonly
+              class="text-muted-foreground"
+            />
           {:else}
             <SuffixedInput
               value={form.amount}
@@ -482,7 +493,7 @@
     <div class="flex flex-1 flex-col gap-2">
       <Label for="{uid}-transferName">{$_('page.plan.transferLabelLabel')}</Label>
       <Input
-            id="{uid}-transferName"
+        id="{uid}-transferName"
         value={form.name}
         oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
       />
