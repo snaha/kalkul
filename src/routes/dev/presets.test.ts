@@ -1,0 +1,113 @@
+import { describe, expect, test } from 'vitest'
+
+import { storedDataSchema } from '$lib/schemas'
+import { latestSnapshot, snapshotNetWorth } from '$lib/snapshots'
+import { toDateOnlyString } from '$lib/utils'
+
+import { getDevPresets } from './presets'
+
+const TODAY = new Date(2026, 7, 12) // 2026-08-12
+const presets = getDevPresets(TODAY)
+
+// Every country the profile picker offers. A preset carrying anything else
+// (a translation key, say) would silently fall back to the browser locale for
+// number formatting instead of the country's — the exact bug this guards.
+const VALID_LOCATIONS = new Set(['CZ', 'SK', 'HU', 'FR', 'other'])
+
+describe('dev presets', () => {
+  test('every preset is loadable data', () => {
+    for (const preset of presets) {
+      // Mirrors what importBackup() does when the preset is applied.
+      expect(() =>
+        storedDataSchema.pick({ profile: true, portfolios: true }).parse(preset.data),
+      ).not.toThrow()
+    }
+  })
+
+  test('every location is a country the profile picker offers', () => {
+    for (const preset of presets) {
+      const { location } = preset.data.profile
+      if (location !== undefined) expect(VALID_LOCATIONS).toContain(location)
+    }
+  })
+
+  test('names are unique so the list keys stay stable', () => {
+    expect(new Set(presets.map((p) => p.name)).size).toBe(presets.length)
+  })
+
+  test('snapshots run oldest to newest and never into the future', () => {
+    for (const preset of presets) {
+      const dates = (preset.data.profile.snapshots ?? []).map((s) => s.date)
+      expect(dates).toEqual([...dates].sort())
+      for (const date of dates) expect(date <= toDateOnlyString(TODAY)).toBe(true)
+    }
+  })
+
+  test('the newest snapshot matches the profile it was captured from', () => {
+    // The dashboard treats stored balances as "as of" the latest snapshot, so a
+    // mismatch would make the page jump the moment it loads.
+    for (const preset of presets) {
+      const newest = latestSnapshot(preset.data.profile.snapshots)
+      if (!newest) continue
+      expect(newest.cash_amount).toBe(preset.data.profile.cash_amount ?? 0)
+      expect(newest.investments).toEqual(
+        (preset.data.profile.investments ?? []).map((i) => ({ id: i.id, balance: i.balance })),
+      )
+    }
+  })
+
+  test('plan date ranges are non-empty', () => {
+    for (const preset of presets) {
+      for (const plan of preset.data.portfolios) {
+        expect(plan.end_date > plan.start_date).toBe(true)
+      }
+    }
+  })
+
+  test('covers the dashboard states worth exercising by hand', () => {
+    const withSnapshots = presets.filter((p) => (p.data.profile.snapshots ?? []).length > 0)
+    const todayDate = toDateOnlyString(TODAY)
+
+    // A fresh profile (no staleness banner) and a stale one (banner + dashed tail).
+    expect(
+      withSnapshots.some((p) => latestSnapshot(p.data.profile.snapshots)?.date === todayDate),
+    ).toBe(true)
+    expect(
+      withSnapshots.some((p) => (latestSnapshot(p.data.profile.snapshots)?.date ?? '') < todayDate),
+    ).toBe(true)
+
+    // A negative net worth, so the History axis has to reach below zero.
+    expect(
+      withSnapshots.some((p) => {
+        const newest = latestSnapshot(p.data.profile.snapshots)
+        return newest !== undefined && snapshotNetWorth(newest) < 0
+      }),
+    ).toBe(true)
+
+    // A profile with no income at all, for the savings-rate fallback.
+    expect(presets.some((p) => (p.data.profile.incomes ?? []).length === 0)).toBe(true)
+
+    // More than one saved plan, to fill the Projections list.
+    expect(presets.some((p) => p.data.portfolios.length > 1)).toBe(true)
+
+    // A long history, so the X axis has to thin its month ticks.
+    expect(withSnapshots.some((p) => (p.data.profile.snapshots ?? []).length >= 24)).toBe(true)
+  })
+
+  test('keeps the realistic sample profiles rather than EUR-only stand-ins', () => {
+    // The shipped samples are the reason non-EUR formatting, localized product
+    // names and age-windowed cash flows get exercised at all; replacing them
+    // with invented data would quietly drop that coverage.
+    const currencies = new Set(presets.map((p) => p.data.profile.currency).filter(Boolean))
+    expect(currencies).toContain('CZK')
+    expect(currencies).toContain('HUF')
+    expect(currencies).toContain('EUR')
+  })
+
+  test('at least one plan carries transfers, so thumbnails exercise that path', () => {
+    const transfers = presets
+      .flatMap((p) => p.data.portfolios)
+      .flatMap((plan) => plan.transfers ?? [])
+    expect(transfers.length).toBeGreaterThan(0)
+  })
+})

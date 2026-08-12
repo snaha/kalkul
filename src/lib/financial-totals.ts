@@ -92,6 +92,35 @@ export function getAnnualExpensesTotal(profile: Profile): number {
   )
 }
 
+export function getAnnualIncomeTotal(profile: Profile): number {
+  // ponytail: sums all incomes regardless of start/end windows, mirroring
+  // getAnnualExpensesTotal
+  return (profile.incomes ?? []).reduce(
+    (sum, i) => sum + i.amount * (PERIODS_PER_YEAR[i.frequency] ?? 1),
+    0,
+  )
+}
+
+export interface SavingsRate {
+  /** Share of income left after expenses and debt service, as a percentage. */
+  percent: number
+  /** The same figure in currency per year. Negative when outflows exceed income. */
+  annualAmount: number
+}
+
+/**
+ * What share of income survives the year's outflows. Debt service counts as an
+ * outflow alongside living expenses, matching FI % and runway.
+ *
+ * Undefined when there is no income to take a share of.
+ */
+export function getSavingsRate(profile: Profile): SavingsRate | undefined {
+  const income = getAnnualIncomeTotal(profile)
+  if (income <= 0) return undefined
+  const annualAmount = income - getAnnualExpensesTotal(profile) - getAnnualDebtServiceTotal(profile)
+  return { percent: (annualAmount / income) * 100, annualAmount }
+}
+
 // Annualized loan payments (standalone liabilities + financed assets). Debt
 // service is a non-optional outflow, so FI %/runway count it alongside
 // living expenses.

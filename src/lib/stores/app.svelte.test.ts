@@ -1,24 +1,27 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import storageKeys from '$lib/storage-keys'
+import { toDateOnlyString } from '$lib/utils'
 
 import { appStore } from './app.svelte'
 
-describe('appStore.clear', () => {
-  let backing: Map<string, string>
+let backing: Map<string, string>
 
-  beforeEach(() => {
-    backing = new Map<string, string>()
-    vi.stubGlobal('localStorage', {
-      getItem: (key: string) => (backing.has(key) ? backing.get(key) : undefined),
-      setItem: (key: string, value: string) => {
-        backing.set(key, value)
-      },
-      removeItem: (key: string) => {
-        backing.delete(key)
-      },
-    })
+function stubLocalStorage(): void {
+  backing = new Map<string, string>()
+  vi.stubGlobal('localStorage', {
+    getItem: (key: string) => (backing.has(key) ? backing.get(key) : undefined),
+    setItem: (key: string, value: string) => {
+      backing.set(key, value)
+    },
+    removeItem: (key: string) => {
+      backing.delete(key)
+    },
   })
+}
+
+describe('appStore.clear', () => {
+  beforeEach(stubLocalStorage)
 
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -37,5 +40,53 @@ describe('appStore.clear', () => {
     expect(appStore.portfolios).toEqual([])
     expect(appStore.loading).toBe(false)
     expect(backing.has(storageKeys.DATA)).toBe(false)
+  })
+})
+
+describe('appStore.updateProfile snapshot recording', () => {
+  const today = toDateOnlyString(new Date())
+
+  beforeEach(() => {
+    stubLocalStorage()
+    appStore.clear()
+  })
+
+  afterEach(() => {
+    appStore.clear()
+    vi.unstubAllGlobals()
+  })
+
+  it('records nothing while the profile has no financial data', () => {
+    appStore.updateProfile({ name: 'Jane Doe' })
+    expect(appStore.profile.snapshots).toBeUndefined()
+  })
+
+  it('records a snapshot dated today the first time balances are saved', () => {
+    appStore.updateProfile({ name: 'Jane Doe', cash_amount: 15_000 })
+    expect(appStore.profile.snapshots).toEqual([
+      { date: today, cash_amount: 15_000, investments: [], tangible_assets: [], liabilities: [] },
+    ])
+  })
+
+  it("replaces today's snapshot rather than appending a second one", () => {
+    appStore.updateProfile({ cash_amount: 15_000 })
+    appStore.updateProfile({ cash_amount: 16_000 })
+    expect(appStore.profile.snapshots).toHaveLength(1)
+    expect(appStore.profile.snapshots?.[0].cash_amount).toBe(16_000)
+  })
+
+  it('leaves history alone when an edit does not touch a balance', () => {
+    appStore.updateProfile({ cash_amount: 15_000 })
+    const recorded = appStore.profile.snapshots
+    appStore.updateProfile({ name: 'Renamed' })
+    expect(appStore.profile.snapshots).toEqual(recorded)
+  })
+
+  it('keeps an older snapshot when a new balance is saved on a later date', () => {
+    appStore.updateProfile({
+      cash_amount: 15_000,
+      snapshots: [{ date: '2020-01-01', cash_amount: 1 }],
+    })
+    expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual(['2020-01-01', today])
   })
 })

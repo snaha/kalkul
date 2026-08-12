@@ -155,44 +155,89 @@
     },
     "dashboard": {
       "finances": {
-        "title": "Actual finances",
+        "title": "Current finances",
+        "viewAllFinancialData": "View all financial data",
         "addData": "Add data",
         "illustrationAlt": "Financial data illustration",
         "emptyTitle": "Actual finances",
         "emptySubtitle": "Make your plans more accurate",
         "emptyDescription": "Add what you currently own",
         "addFinancialData": "Add your financial data",
-        "viewDetails": "View details",
-        "netWorthSummary": "Your current total net worth is {total}",
-        "lastUpdated": "Last updated today",
-        "lastUpdatedOn": "Last updated {date}",
-        "lastUpdatedNever": "Not updated yet",
-        "keepUpToDate": "Keep it up-to-date for accurate planning",
-        "viewAll": "View all financial data",
+        "noExpensesHint": "Add your expenses to see this",
+        "stale": {
+          "title": "Last updated {date}",
+          "description": "All figures projected from your last update — review for more accuracy.",
+          "quickUpdate": "Quick update"
+        },
         "netWorthCard": {
           "title": "Net worth",
-          "description": "Total value of your assets minus your liabilities"
+          "help": "Total value of your assets minus your liabilities",
+          "actual": "Actual data, based on your last update today.",
+          "projected": "Projected from your last update on {date}",
+          "totalAssets": "Total assets",
+          "totalNetWorth": "Total net worth"
         },
-        "fiCard": {
-          "title": "Financial independence",
-          "description": "Estimated progress toward living off your investments"
+        "savingsRateCard": {
+          "title": "Savings rate",
+          "help": "Share of your income left after expenses and loan payments",
+          "periodLabel": "Savings rate period",
+          "monthly": "Monthly",
+          "yearly": "Yearly",
+          "perPeriod": "{amount} / {period}",
+          "totalIncome": "Total income",
+          "totalExpenses": "Total expenses",
+          "noIncomeHint": "Add your income to see this"
         },
         "runwayCard": {
           "title": "Runway",
-          "description": "Estimated time you could live off your current savings",
+          "help": "Estimated time you could live off your current savings",
+          "settings": "Runway settings",
           "value": "{years} years"
         },
-        "noExpensesHint": "Add your expenses to see this"
+        "fiCard": {
+          "title": "Financial independence",
+          "help": "Estimated progress toward living off your investments",
+          "settings": "Financial independence settings"
+        },
+        "history": {
+          "title": "History",
+          "viewDetails": "View details",
+          "chartLabel": "Net worth over time",
+          "now": "Now"
+        }
       },
-      "plans": {
-        "title": "Plans",
-        "addPlan": "Add plan",
+      "projections": {
+        "title": "Projections",
+        "addProjection": "Add projection",
+        "noNotes": "No description",
+        "planChartLabel": "Projected net worth for {name}",
         "illustrationAlt": "Plans illustration",
         "emptyTitle": "Ready to explore your future(s)?",
         "emptySubtitle": "See where your money can take you",
         "emptyDescription": "Map your assets, define your cash flows, see what's possible",
-        "makeFirstPlan": "Make your first plan",
-        "noNotes": "No description"
+        "makeFirstProjection": "Make your first projection",
+        "current": {
+          "title": "Current projection",
+          "badge": "Auto",
+          "description": "View your financial future if nothing changes, based on your current finances.",
+          "chartLabel": "Projected net worth if nothing changes"
+        },
+        "explore": {
+          "title": "Want to explore different futures?",
+          "description": "Model 'what-if' scenarios and see the impact on your future"
+        }
+      },
+      "quickUpdate": {
+        "title": "Quick update",
+        "description": "Today’s default values are projected from your last update — review and correct anything that has changed.",
+        "hint": "To edit income, expenses, transfers, or asset parameters, go to your financial data.",
+        "item": "Item",
+        "lastUpdatedValue": "Last updated value",
+        "today": "Today",
+        "currentValue": "Current value",
+        "currentValueFor": "Current value for {name}",
+        "resetValues": "Reset values",
+        "confirm": "Confirm"
       }
     },
     "financialData": {
@@ -287,12 +332,12 @@
         "immediately": "When plan starts",
         "now": "Now",
         "atSpecificDate": "On specific time",
-        "whenAgeIs": "When your age is\u2026",
+        "whenAgeIs": "When your age is…",
         "yearsOld": "Years old",
         "never": "When plan ends",
         "none": "None",
-        "increaseYearlyBy": "Increase yearly by\u2026",
-        "decreaseYearlyBy": "Decrease yearly by\u2026",
+        "increaseYearlyBy": "Increase yearly by…",
+        "decreaseYearlyBy": "Decrease yearly by…",
         "monthly": "Monthly",
         "yearly": "Yearly",
         "weekly": "Weekly",

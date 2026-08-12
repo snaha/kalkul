@@ -4,6 +4,7 @@ import { CATEGORY_COLORS } from './chart-colors'
 import {
   getAnnualDebtServiceTotal,
   getAnnualExpensesTotal,
+  getAnnualIncomeTotal,
   getCashTotal,
   getFiPercent,
   getFinancedAssetsDebtTotal,
@@ -13,11 +14,12 @@ import {
   getNetWorth,
   getOverviewSegments,
   getRunwayYears,
+  getSavingsRate,
   getTangibleAssetsTotal,
   getTotalAssets,
   hasAnyFinancialData,
 } from './financial-totals'
-import type { Expense, Profile } from './schemas'
+import type { Expense, Income, Profile } from './schemas'
 
 const EMPTY_PROFILE: Profile = {
   name: '',
@@ -259,6 +261,83 @@ describe('getAnnualDebtServiceTotal', () => {
   test('includes financed tangible asset installments', () => {
     // Standalone mortgage 800/month + financed house 790/month
     expect(getAnnualDebtServiceTotal(FINANCED_PROFILE)).toBe((800 + 790) * 12)
+  })
+})
+
+function income(amount: number, frequency: Income['frequency']): Income {
+  return {
+    id: `i-${amount}-${frequency}`,
+    name: 'Income',
+    amount,
+    frequency,
+    withhold_taxes: false,
+    start: 'now',
+    end: 'never',
+    change_over_time: 'none',
+  }
+}
+
+describe('getAnnualIncomeTotal', () => {
+  test('returns 0 when incomes is undefined', () => {
+    expect(getAnnualIncomeTotal(EMPTY_PROFILE)).toBe(0)
+  })
+
+  test('annualizes each frequency', () => {
+    const profile: Profile = {
+      ...EMPTY_PROFILE,
+      incomes: [income(100, 'weekly'), income(100, 'monthly'), income(100, 'yearly')],
+    }
+    expect(getAnnualIncomeTotal(profile)).toBeCloseTo(100 * (365.25 / 7) + 1_200 + 100, 6)
+  })
+})
+
+describe('getSavingsRate', () => {
+  // 4,200/month in, 3,200/month of expenses and a 200/month loan payment
+  // leaves 800/month — the dashboard's headline case.
+  const SAVER: Profile = {
+    ...EMPTY_PROFILE,
+    incomes: [income(4_200, 'monthly')],
+    expenses: [expense(3_200, 'monthly')],
+    liabilities: [
+      {
+        id: 'l1',
+        name: 'Car loan',
+        outstanding_balance: 6_000,
+        installment_frequency: 'monthly',
+        annual_rate: 5,
+        installment_amount: 200,
+        remaining_term: 3,
+      },
+    ],
+  }
+
+  test('is the share of income left after expenses and debt service', () => {
+    const rate = getSavingsRate(SAVER)
+    expect(rate?.annualAmount).toBe(9_600)
+    expect(rate?.percent).toBeCloseTo(19.047619, 6)
+  })
+
+  test('is negative when outflows exceed income', () => {
+    const profile: Profile = {
+      ...EMPTY_PROFILE,
+      incomes: [income(1_000, 'monthly')],
+      expenses: [expense(1_500, 'monthly')],
+    }
+    const rate = getSavingsRate(profile)
+    expect(rate?.annualAmount).toBe(-6_000)
+    expect(rate?.percent).toBe(-50)
+  })
+
+  test('is 100% when there is nothing to spend', () => {
+    const profile: Profile = { ...EMPTY_PROFILE, incomes: [income(1_000, 'monthly')] }
+    expect(getSavingsRate(profile)?.percent).toBe(100)
+  })
+
+  test('is undefined without income', () => {
+    expect(getSavingsRate(EMPTY_PROFILE)).toBeUndefined()
+    expect(
+      getSavingsRate({ ...EMPTY_PROFILE, expenses: [expense(100, 'monthly')] }),
+    ).toBeUndefined()
   })
 })
 

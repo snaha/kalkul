@@ -1,2 +1,2 @@
 export * from './constants'
-export { formatDate } from './date'
+export { daysBetween, formatDate } from './date'

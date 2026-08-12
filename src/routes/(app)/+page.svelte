@@ -2,177 +2,141 @@
   import { _ } from 'svelte-i18n'
 
   import ArrowRight from '@lucide/svelte/icons/arrow-right'
-  import Calendar from '@lucide/svelte/icons/calendar'
-  import Plus from '@lucide/svelte/icons/plus'
   import SquarePen from '@lucide/svelte/icons/square-pen'
 
   import { resolve } from '$app/paths'
 
-  import { getFirstAddPlanStepUrl } from '$lib/add-plan-steps'
   import financesIllustration from '$lib/assets/finances-illustration.svg'
   import heroIllustration from '$lib/assets/hero-illustration.svg'
-  import plansIllustration from '$lib/assets/plans-illustration.svg'
-  import DonutChart from '$lib/components/donut-chart.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Progress } from '$lib/components/ui/progress'
   import { Separator } from '$lib/components/ui/separator'
-  import {
-    getFiPercent,
-    getNetWorth,
-    getOverviewSegments,
-    getRunwayYears,
-    hasAnyFinancialData,
-  } from '$lib/financial-totals'
+  import { getCurrentProfile } from '$lib/current-values'
+  import { getFiPercent, getRunwayYears, hasAnyFinancialData } from '$lib/financial-totals'
   import routes from '$lib/routes'
+  import { buildHistorySeries, latestSnapshot } from '$lib/snapshots'
   import { appStore } from '$lib/stores/app.svelte'
-  import { cn } from '$lib/utils'
+  import { notImplemented, toDateOnlyString } from '$lib/utils'
 
-  const addPlanUrl = $derived(getFirstAddPlanStepUrl(appStore.profile))
+  import HistorySection from './history-section.svelte'
+  import MetricCard from './metric-card.svelte'
+  import NetWorthCard from './net-worth-card.svelte'
+  import ProjectionsPanel from './projections-panel.svelte'
+  import QuickUpdateDialog from './quick-update-dialog.svelte'
+  import SavingsRateCard from './savings-rate-card.svelte'
+  import StaleDataAlert from './stale-data-alert.svelte'
 
   const hasData = $derived(!appStore.loading && !!appStore.profile.name)
   const hasFinancialData = $derived(hasData && hasAnyFinancialData(appStore.profile))
 
-  const chartSegments = $derived(getOverviewSegments(appStore.profile))
-  const totalNetWorth = $derived(getNetWorth(appStore.profile))
-  const fiPercent = $derived(getFiPercent(appStore.profile))
-  const runwayYears = $derived(getRunwayYears(appStore.profile))
+  // Read once per page render: every figure below has to agree on "today", and
+  // re-reading the clock mid-render could straddle midnight.
+  const today = new Date()
+  const todayDate = toDateOnlyString(today)
 
-  // "Last updated today" only when actually today; otherwise the real date,
-  // or a "not updated yet" state when nothing was ever saved.
-  const lastUpdatedLabel = $derived.by(() => {
-    if (appStore.lastUpdated <= 0) return $_('page.dashboard.finances.lastUpdatedNever')
-    const updated = new Date(appStore.lastUpdated)
-    const now = new Date()
-    const isToday =
-      updated.getFullYear() === now.getFullYear() &&
-      updated.getMonth() === now.getMonth() &&
-      updated.getDate() === now.getDate()
-    if (isToday) return $_('page.dashboard.finances.lastUpdated')
-    return $_('page.dashboard.finances.lastUpdatedOn', {
-      values: { date: appStore.formatDate(appStore.lastUpdated) },
-    })
-  })
+  const storedProfile = $derived(appStore.profile.toJSON())
+  // The stored balances are as of the last snapshot; everything on this page
+  // shows them carried forward to today.
+  const currentProfile = $derived(getCurrentProfile(storedProfile, today))
 
-  // Selects which chart is shown below once the snapshot-based charts exist.
-  type HeadlineCard = 'netWorth' | 'fi' | 'runway'
-  let selectedCard = $state<HeadlineCard>('netWorth')
+  const lastSnapshotDate = $derived(latestSnapshot(storedProfile.snapshots)?.date)
+  // Only stale once the balances predate today — a snapshot taken today needs
+  // no projection and no nudge to update.
+  const staleSince = $derived(
+    lastSnapshotDate && lastSnapshotDate < todayDate ? lastSnapshotDate : undefined,
+  )
 
-  const cardClass = (card: HeadlineCard) =>
-    cn(
-      'flex flex-1 cursor-pointer flex-col rounded-xl border p-4 text-left shadow-xs transition-colors',
-      selectedCard === card ? 'bg-accent' : 'bg-card hover:bg-accent/50',
-    )
+  const fiPercent = $derived(getFiPercent(currentProfile))
+  const runwayYears = $derived(getRunwayYears(currentProfile))
+  const historyPoints = $derived(buildHistorySeries(currentProfile, today))
+
+  let quickUpdateOpen = $state(false)
 </script>
 
 {#if hasData}
-  <div class="flex flex-1">
+  <div class="flex min-h-0 flex-1">
     <!-- Left panel: Current finances -->
-    <div class="flex flex-1 flex-col">
-      <div class="flex items-start gap-4 p-8">
+    <div class="flex min-w-0 flex-1 flex-col">
+      <div class="flex items-center gap-4 p-8">
         <h2 class="flex-1 text-2xl font-bold">{$_('page.dashboard.finances.title')}</h2>
         {#if hasFinancialData}
           <Button variant="outline" size="sm" href={resolve(routes.FINANCIAL_DATA)}>
-            {$_('page.dashboard.finances.viewDetails')}
-            <ArrowRight class="size-4" />
+            {$_('page.dashboard.finances.viewAllFinancialData')}
           </Button>
         {:else}
           <Button size="sm" href={resolve(routes.FINANCES_EDIT)}>
-            <SquarePen class="size-4" />
+            <SquarePen />
             {$_('page.dashboard.finances.addData')}
           </Button>
         {/if}
       </div>
 
       {#if hasFinancialData}
-        <div class="flex flex-1 flex-col items-center gap-8 px-8 pb-8">
-          <div class="flex w-full gap-2">
-            <button
-              type="button"
-              class={cardClass('netWorth')}
-              aria-pressed={selectedCard === 'netWorth'}
-              onclick={() => (selectedCard = 'netWorth')}
-            >
-              <p class="text-sm">{$_('page.dashboard.finances.netWorthCard.title')}</p>
-              <p class="text-xl font-extrabold">{appStore.formatCompactCurrency(totalNetWorth)}</p>
-              <p class="text-xs text-muted-foreground">
-                {$_('page.dashboard.finances.netWorthCard.description')}
-              </p>
-            </button>
-            <button
-              type="button"
-              class={cardClass('fi')}
-              aria-pressed={selectedCard === 'fi'}
-              onclick={() => (selectedCard = 'fi')}
-            >
-              <p class="text-sm">{$_('page.dashboard.finances.fiCard.title')}</p>
-              {#if fiPercent !== undefined}
-                <div class="flex items-center gap-2">
-                  <p class="text-xl font-extrabold">{Math.round(fiPercent)}%</p>
-                  <Progress value={Math.min(fiPercent, 100)} class="flex-1" />
-                </div>
-                <p class="text-xs text-muted-foreground">
-                  {$_('page.dashboard.finances.fiCard.description')}
-                </p>
-              {:else}
-                <p class="text-xl font-extrabold">—</p>
-                <p class="text-xs text-muted-foreground">
-                  {$_('page.dashboard.finances.noExpensesHint')}
-                </p>
-              {/if}
-            </button>
-            <button
-              type="button"
-              class={cardClass('runway')}
-              aria-pressed={selectedCard === 'runway'}
-              onclick={() => (selectedCard = 'runway')}
-            >
-              <p class="text-sm">{$_('page.dashboard.finances.runwayCard.title')}</p>
-              {#if runwayYears !== undefined}
-                <p class="text-xl font-extrabold">
-                  {$_('page.dashboard.finances.runwayCard.value', {
-                    values: {
-                      years: appStore.formatNumber(Math.round(runwayYears * 10) / 10),
-                    },
-                  })}
-                </p>
-                <p class="text-xs text-muted-foreground">
-                  {$_('page.dashboard.finances.runwayCard.description')}
-                </p>
-              {:else}
-                <p class="text-xl font-extrabold">—</p>
-                <p class="text-xs text-muted-foreground">
-                  {$_('page.dashboard.finances.noExpensesHint')}
-                </p>
-              {/if}
-            </button>
-          </div>
-          <DonutChart
-            segments={chartSegments}
-            centerLabel={appStore.formatCompactCurrency(totalNetWorth)}
-          />
-          <div class="flex w-full flex-col gap-2 text-center">
-            <h3 class="text-xl font-bold">
-              {$_('page.dashboard.finances.netWorthSummary', {
-                values: {
-                  total: appStore.formatCurrency(totalNetWorth),
-                },
-              })}
-            </h3>
-            <div class="flex flex-col gap-1">
-              <p class="text-base">{lastUpdatedLabel}</p>
-              <p class="text-sm text-muted-foreground">
-                {$_('page.dashboard.finances.keepUpToDate')}
-              </p>
+        <div class="flex min-h-0 flex-1 flex-col gap-8 px-8 pb-8">
+          <div class="flex flex-col gap-4">
+            {#if staleSince}
+              <StaleDataAlert
+                lastUpdated={staleSince}
+                onQuickUpdate={() => (quickUpdateOpen = true)}
+              />
+            {/if}
+
+            <div class="flex items-stretch gap-2">
+              <NetWorthCard profile={currentProfile} projectedFrom={staleSince} />
+
+              <div class="flex min-w-0 flex-1 flex-col justify-center gap-2">
+                <SavingsRateCard profile={currentProfile} />
+
+                <MetricCard
+                  title={$_('page.dashboard.finances.runwayCard.title')}
+                  help={$_('page.dashboard.finances.runwayCard.help')}
+                  settingsLabel={$_('page.dashboard.finances.runwayCard.settings')}
+                  onSettings={notImplemented}
+                >
+                  {#if runwayYears !== undefined}
+                    <p class="text-xl font-extrabold">
+                      {$_('page.dashboard.finances.runwayCard.value', {
+                        values: {
+                          years: appStore.formatNumber(Math.round(runwayYears * 10) / 10),
+                        },
+                      })}
+                    </p>
+                  {:else}
+                    <p class="text-xl font-extrabold">—</p>
+                    <p class="text-xs text-muted-foreground">
+                      {$_('page.dashboard.finances.noExpensesHint')}
+                    </p>
+                  {/if}
+                </MetricCard>
+
+                <MetricCard
+                  title={$_('page.dashboard.finances.fiCard.title')}
+                  help={$_('page.dashboard.finances.fiCard.help')}
+                  settingsLabel={$_('page.dashboard.finances.fiCard.settings')}
+                  onSettings={notImplemented}
+                >
+                  {#if fiPercent !== undefined}
+                    <div class="flex items-center gap-2">
+                      <p class="text-xl font-extrabold">{appStore.formatPercent(fiPercent, 0)}</p>
+                      <Progress value={Math.min(fiPercent, 100)} class="flex-1" />
+                    </div>
+                  {:else}
+                    <p class="text-xl font-extrabold">—</p>
+                    <p class="text-xs text-muted-foreground">
+                      {$_('page.dashboard.finances.noExpensesHint')}
+                    </p>
+                  {/if}
+                </MetricCard>
+              </div>
             </div>
           </div>
-          <div class="flex items-center justify-center gap-4">
-            <Button variant="secondary" size="sm" href={resolve(routes.FINANCIAL_DATA)}>
-              {$_('page.dashboard.finances.viewAll')}
-            </Button>
-          </div>
+
+          <HistorySection points={historyPoints} />
         </div>
       {:else}
-        <div class="flex flex-1 flex-col items-center gap-8 p-8">
+        <!-- Nothing entered yet. Not drawn in the spec, which only covers a
+             populated dashboard — kept from the previous page. -->
+        <div class="flex flex-1 flex-col items-center gap-8 p-8 pt-0">
           <img
             src={financesIllustration}
             alt={$_('page.dashboard.finances.illustrationAlt')}
@@ -196,65 +160,17 @@
 
     <Separator orientation="vertical" class="self-stretch data-[orientation=vertical]:h-auto" />
 
-    <!-- Right panel: Plans -->
-    <div class="flex flex-1 flex-col">
-      <div class="flex items-start gap-4 p-8">
-        <h2 class="flex-1 text-2xl font-bold">{$_('page.dashboard.plans.title')}</h2>
-        <Button size="sm" href={addPlanUrl}>
-          <Plus class="size-4" />
-          {$_('page.dashboard.plans.addPlan')}
-        </Button>
-      </div>
-
-      {#if appStore.portfolios.length > 0}
-        <!-- Plan cards list -->
-        <div class="flex flex-col gap-4 overflow-y-auto p-8 pt-0">
-          {#each appStore.portfolios as portfolio (portfolio.id)}
-            <a
-              href={resolve(`${routes.PLAN_VIEW}/${portfolio.id}`)}
-              class="flex items-center gap-4 rounded-xl border bg-card p-4 shadow-xs transition-colors hover:bg-accent"
-            >
-              <!-- Chart thumbnail placeholder -->
-              <div
-                class="flex h-[81px] w-[144px] shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted"
-              >
-                <Calendar class="size-8 text-muted-foreground" />
-              </div>
-
-              <!-- Text content -->
-              <div class="flex flex-1 flex-col gap-1">
-                <p class="font-bold">{portfolio.name}</p>
-                <p class="text-muted-foreground">
-                  {portfolio.notes || $_('page.dashboard.plans.noNotes')}
-                </p>
-              </div>
-            </a>
-          {/each}
-        </div>
-      {:else}
-        <!-- Empty state -->
-        <div class="flex flex-1 flex-col items-center gap-8 p-8">
-          <img
-            src={plansIllustration}
-            alt={$_('page.dashboard.plans.illustrationAlt')}
-            class="size-64"
-          />
-          <div class="flex w-full flex-col gap-2 text-center">
-            <h3 class="text-xl font-bold">{$_('page.dashboard.plans.emptyTitle')}</h3>
-            <div class="flex flex-col gap-1">
-              <p class="text-base">{$_('page.dashboard.plans.emptySubtitle')}</p>
-              <p class="text-sm text-muted-foreground">
-                {$_('page.dashboard.plans.emptyDescription')}
-              </p>
-            </div>
-          </div>
-          <Button variant="secondary" size="sm" href={addPlanUrl}>
-            {$_('page.dashboard.plans.makeFirstPlan')}
-          </Button>
-        </div>
-      {/if}
-    </div>
+    <ProjectionsPanel profile={currentProfile} {today} {hasFinancialData} />
   </div>
+
+  {#if staleSince}
+    <QuickUpdateDialog
+      bind:open={quickUpdateOpen}
+      {storedProfile}
+      projectedProfile={currentProfile}
+      lastUpdated={staleSince}
+    />
+  {/if}
 {:else if !appStore.loading}
   <div class="flex flex-1 flex-col items-center p-8">
     <div class="flex w-full max-w-[576px] flex-col items-center gap-4">
@@ -269,7 +185,7 @@
       </div>
       <Button href={resolve(routes.PROFILE)} size="lg">
         {$_('page.home.getStarted')}
-        <ArrowRight class="size-4" />
+        <ArrowRight />
       </Button>
     </div>
   </div>

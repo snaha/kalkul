@@ -416,6 +416,24 @@ export function yearOf(dateString: string): number {
   return Number(dateString.slice(0, 4))
 }
 
+/**
+ * Effective APY = APY − TER − ongoing portion of the entry fee. The ongoing
+ * entry-fee component models the year-after-year drag (whole fee for
+ * 'ongoing', 60% for 'forty-sixty', 0 for 'upfront'). Floored at −100% (a
+ * total loss) so the yearly multiplier bottoms out at 0 — fees exceeding
+ * 100 + APY would otherwise flip the multiplier negative and make the
+ * balance oscillate in sign.
+ */
+export function effectiveInvestmentApy(investment: ProfileInvestment): Decimal {
+  const apy = new Decimal(investment.apy)
+  const ter = new Decimal(investment.ter ?? 0)
+  const entryFee = new Decimal(investment.entry_fee ?? 0)
+  let ongoingDrag = DECIMAL_0
+  if (investment.entry_fee_type === 'ongoing') ongoingDrag = entryFee
+  else if (investment.entry_fee_type === 'forty-sixty') ongoingDrag = entryFee.mul(0.6)
+  return Decimal.max(apy.minus(ter).minus(ongoingDrag), DECIMAL_MINUS_100)
+}
+
 export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): YearlyProjection[] {
   const startYear = yearOf(plan.start_date)
   const endYear = yearOf(plan.end_date)
@@ -461,22 +479,8 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   // Per-investment lookup so the transfer loop can apply entry/exit fees by
   // asset id without re-scanning the array.
   const investmentsById = new Map<string, ProfileInvestment>(investments.map((i) => [i.id, i]))
-  // Effective APY = APY − TER − ongoing portion of the entry fee. The ongoing
-  // entry-fee component models the year-after-year drag (whole fee for
-  // 'ongoing', 60% for 'forty-sixty', 0 for 'upfront'). Floored at −100% (a
-  // total loss) so the yearly multiplier bottoms out at 0 — fees exceeding
-  // 100 + APY would otherwise flip the multiplier negative and make the
-  // balance oscillate in sign.
   const investmentApy = new Map<string, Decimal>(
-    investments.map((i) => {
-      const apy = new Decimal(i.apy)
-      const ter = new Decimal(i.ter ?? 0)
-      const entryFee = new Decimal(i.entry_fee ?? 0)
-      let ongoingDrag = DECIMAL_0
-      if (i.entry_fee_type === 'ongoing') ongoingDrag = entryFee
-      else if (i.entry_fee_type === 'forty-sixty') ongoingDrag = entryFee.mul(0.6)
-      return [i.id, Decimal.max(apy.minus(ter).minus(ongoingDrag), DECIMAL_MINUS_100)]
-    }),
+    investments.map((i) => [i.id, effectiveInvestmentApy(i)]),
   )
 
   // Only honor transfers whose endpoints are part of this plan; anything else

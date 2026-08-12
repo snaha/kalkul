@@ -1,3 +1,4 @@
+import { hasAnyFinancialData } from '$lib/financial-totals'
 import {
   type Portfolio,
   type Profile,
@@ -6,6 +7,13 @@ import {
   repairStoredCashFlowMonths,
   storedDataSchema,
 } from '$lib/schemas'
+import {
+  captureSnapshot,
+  hasSameBalances,
+  latestSnapshot,
+  upsertSnapshot,
+  withSeededSnapshot,
+} from '$lib/snapshots'
 import storageKeys from '$lib/storage-keys'
 import {
   DEFAULT_CURRENCY,
@@ -17,6 +25,7 @@ import {
   formatPercent,
   getFormattingLocale,
   parseDateOnly,
+  toDateOnlyString,
 } from '$lib/utils'
 
 import type { PortfolioStore } from './portfolio.svelte'
@@ -45,6 +54,7 @@ function enrichProfile({
   incomes,
   expenses,
   hide_plan_intro,
+  snapshots,
 }: Profile): ProfileStore {
   return {
     name,
@@ -62,6 +72,7 @@ function enrichProfile({
     incomes,
     expenses,
     hide_plan_intro,
+    snapshots,
     get birthDate() {
       return birth_date ? parseDateOnly(birth_date) : undefined
     },
@@ -85,9 +96,25 @@ function enrichProfile({
         incomes,
         expenses,
         hide_plan_intro,
+        snapshots,
       }
     },
   }
+}
+
+/**
+ * Records today's balances as a snapshot whenever they differ from the most
+ * recent one. Snapshots are the baseline the dashboard projects "today" from,
+ * so every confirmed change to a balance has to re-date that baseline —
+ * otherwise the projection keeps compounding from a value the user has already
+ * replaced. Edits that leave every balance alone (a rename, a new expense) add
+ * no snapshot, keeping the History chart to points that actually moved.
+ */
+function withRecordedSnapshot(profile: Profile, today: Date): Profile {
+  if (!hasAnyFinancialData(profile)) return profile
+  const snapshot = captureSnapshot(profile, toDateOnlyString(today))
+  if (hasSameBalances(latestSnapshot(profile.snapshots), snapshot)) return profile
+  return { ...profile, snapshots: upsertSnapshot(profile.snapshots, snapshot) }
 }
 
 const DEFAULT_PROFILE: Profile = {
@@ -210,9 +237,14 @@ function withAppStore() {
       const loc = getFormattingLocale(profile.location, browserLocale)
       return new Date(ms).toLocaleDateString(loc)
     },
-    formatPercent(value: number, digits = 1) {
+    /** Same, for a date-only ISO string (`YYYY-MM-DD`) such as a snapshot date. */
+    formatDateOnly(dateOnly: string) {
       const loc = getFormattingLocale(profile.location, browserLocale)
-      return formatPercent(value, digits, loc)
+      return parseDateOnly(dateOnly).toLocaleDateString(loc)
+    },
+    formatPercent(value: number, digits = 1, signed = false) {
+      const loc = getFormattingLocale(profile.location, browserLocale)
+      return formatPercent(value, digits, loc, signed)
     },
     /** Formatted lastUpdated date, or undefined when nothing was saved yet. */
     formatLastUpdated(): string | undefined {
@@ -225,7 +257,7 @@ function withAppStore() {
     updateProfile(updates: Partial<Profile>) {
       const merged = { ...profile.toJSON(), ...updates }
       const validated = profileSchema.parse(merged)
-      profile = enrichProfile(validated)
+      profile = enrichProfile(withRecordedSnapshot(validated, new Date()))
       persist()
     },
 
@@ -244,7 +276,14 @@ function withAppStore() {
 
     load(): void {
       const data = loadData()
-      profile = enrichProfile(data.profile)
+      // Data saved before snapshots existed gets its baseline from the last
+      // write. Derived on every load rather than written back, so opening the
+      // app never mutates stored data on its own.
+      profile = enrichProfile(
+        data.lastUpdated > 0
+          ? withSeededSnapshot(data.profile, new Date(data.lastUpdated))
+          : data.profile,
+      )
       portfolios = enrichAll(data.portfolios)
       lastUpdated = data.lastUpdated
       loading = false
@@ -289,7 +328,9 @@ function withAppStore() {
       // validation rules stay restorable.
       const parsed: unknown = repairStoredCashFlowMonths(JSON.parse(json))
       const validated = storedDataSchema.pick({ profile: true, portfolios: true }).parse(parsed)
-      profile = enrichProfile(validated.profile)
+      // A backup taken before snapshots existed carries no history; treat the
+      // restored balances as confirmed now rather than as indefinitely stale.
+      profile = enrichProfile(withSeededSnapshot(validated.profile, new Date()))
       portfolios = enrichAll(validated.portfolios)
       loading = false
       persist()

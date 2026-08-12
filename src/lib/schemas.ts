@@ -325,6 +325,31 @@ export const profileLiabilitySchema = z.object({
   compounding_frequency: compoundingFrequencySchema.optional(),
 })
 
+// --- Snapshots ---
+
+// A point-in-time record of every balance that makes up net worth. The profile
+// itself holds the balances as they stood on the most recent snapshot's date;
+// the dashboard projects them forward to today for display. Snapshots are what
+// the History chart plots and what Quick update diffs "today" against.
+export const snapshotSchema = z.object({
+  // Date-only ISO string (`YYYY-MM-DD`) the balances were recorded on.
+  date: z.string(),
+  cash_amount: z.number().optional(),
+  investments: z.array(z.object({ id: z.string(), balance: z.number() })).optional(),
+  // Financed assets carry their debt alongside the value so a snapshot's net
+  // worth can be computed without consulting the current profile.
+  tangible_assets: z
+    .array(
+      z.object({
+        id: z.string(),
+        value: z.number(),
+        outstanding_balance: z.number().optional(),
+      }),
+    )
+    .optional(),
+  liabilities: z.array(z.object({ id: z.string(), outstanding_balance: z.number() })).optional(),
+})
+
 export const profileSchema = z.object({
   name: z.string(),
   email: z.string(),
@@ -341,6 +366,7 @@ export const profileSchema = z.object({
   incomes: z.array(incomeSchema).optional(),
   expenses: z.array(expenseSchema).optional(),
   hide_plan_intro: z.boolean().optional(),
+  snapshots: z.array(snapshotSchema).optional(),
 })
 
 export const transferScheduleSchema = z.enum(['one_time', 'recurring'])
@@ -469,6 +495,7 @@ export type EntryFeeType = z.infer<typeof entryFeeTypeSchema>
 export type ExitFeeType = z.infer<typeof exitFeeTypeSchema>
 export type InterestType = z.infer<typeof interestTypeSchema>
 export type CompoundingFrequency = z.infer<typeof compoundingFrequencySchema>
+export type Snapshot = z.infer<typeof snapshotSchema>
 export type ProfileInvestment = z.infer<typeof profileInvestmentSchema>
 export type ProfileTangibleAsset = z.infer<typeof profileTangibleAssetSchema>
 export type ProfileLiability = z.infer<typeof profileLiabilitySchema>
