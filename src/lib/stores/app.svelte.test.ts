@@ -82,6 +82,18 @@ describe('appStore.updateProfile snapshot recording', () => {
     expect(appStore.profile.snapshots).toEqual(recorded)
   })
 
+  it('records the drop to zero once a profile that had balances spends them', () => {
+    appStore.updateProfile({
+      cash_amount: 15_000,
+      snapshots: [{ date: '2020-01-01', cash_amount: 15_000 }],
+    })
+    appStore.updateProfile({ cash_amount: 0 })
+    expect(appStore.profile.snapshots).toEqual([
+      { date: '2020-01-01', cash_amount: 15_000 },
+      { date: today, cash_amount: 0, investments: [], tangible_assets: [], liabilities: [] },
+    ])
+  })
+
   it('keeps an older snapshot when a new balance is saved on a later date', () => {
     appStore.updateProfile({
       cash_amount: 15_000,

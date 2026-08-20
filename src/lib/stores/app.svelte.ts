@@ -117,7 +117,11 @@ function enrichProfile({
  * banner.
  */
 function withRecordedSnapshot(profile: Profile, today: Date, force = false): Profile {
-  if (!hasAnyFinancialData(profile)) return profile
+  // Nothing to record for a profile that has never held a balance — that gate
+  // is there to keep all-zero snapshots out of an empty profile's history. Once
+  // a baseline exists, though, going to zero is a real move (the user spent
+  // their cash and owns nothing else) and has to be recorded like any other.
+  if (!hasAnyFinancialData(profile) && (profile.snapshots ?? []).length === 0) return profile
   const snapshot = captureSnapshot(profile, toDateOnlyString(today))
   if (!force && hasSameBalances(latestSnapshot(profile.snapshots), snapshot)) return profile
   return { ...profile, snapshots: upsertSnapshot(profile.snapshots, snapshot) }
