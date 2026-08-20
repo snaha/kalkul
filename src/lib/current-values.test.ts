@@ -117,14 +117,53 @@ describe('getCurrentProfile', () => {
     expect(current.investments?.[0].balance).toBe(104_863.78)
   })
 
-  test('leaves tangible assets and liabilities untouched', () => {
+  test('leaves a fully owned tangible asset untouched', () => {
     const profile: Profile = {
       ...PROFILE,
       tangible_assets: [{ id: 't1', name: 'Car', value: 20_000, status: 'fully_owned' }],
     }
+    expect(getCurrentProfile(profile, TODAY).tangible_assets).toEqual(profile.tangible_assets)
+  })
+
+  test('amortizes a liability over the whole installments elapsed', () => {
+    // 5 whole monthly installments fit in 182 days. Each one adds 5%/12 of
+    // interest and takes 200 off: 6,000 → 5,825 → 5,649.27 → 5,472.81 →
+    // 5,295.61 → 5,117.68.
+    const current = getCurrentProfile(PROFILE, TODAY)
+    expect(current.liabilities?.[0].outstanding_balance).toBe(5_117.68)
+    // Every other field survives.
+    expect(current.liabilities?.[0].name).toBe('Car loan')
+    expect(current.liabilities?.[0].remaining_term).toBe(3)
+  })
+
+  test("amortizes a financed asset's debt while leaving its value alone", () => {
+    const profile: Profile = {
+      ...PROFILE,
+      tangible_assets: [
+        {
+          id: 't1',
+          name: 'House',
+          value: 300_000,
+          status: 'financed',
+          outstanding_balance: 200_000,
+          installment_frequency: 'monthly',
+          annual_rate: 3,
+          installment_amount: 1_000,
+          remaining_term: 25,
+        },
+      ],
+    }
     const current = getCurrentProfile(profile, TODAY)
-    expect(current.tangible_assets).toEqual(profile.tangible_assets)
-    expect(current.liabilities).toEqual(profile.liabilities)
+    expect(current.tangible_assets?.[0].value).toBe(300_000)
+    expect(current.tangible_assets?.[0].outstanding_balance).toBe(197_487.47)
+  })
+
+  test('floors a liability that pays off inside the window at zero', () => {
+    const profile: Profile = {
+      ...PROFILE,
+      liabilities: [{ ...PROFILE.liabilities![0], outstanding_balance: 400 }],
+    }
+    expect(getCurrentProfile(profile, TODAY).liabilities?.[0].outstanding_balance).toBe(0)
   })
 
   test('returns the profile unchanged when the latest snapshot is today', () => {

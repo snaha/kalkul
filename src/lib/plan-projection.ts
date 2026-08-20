@@ -78,7 +78,7 @@ const FLOW_PERIODS_PER_YEAR: Record<Frequency, number> = {
 }
 
 // Liability amortization needs an integer count of installments per year.
-const INSTALLMENT_PERIODS_PER_YEAR: Record<Frequency, number> = {
+export const INSTALLMENT_PERIODS_PER_YEAR: Record<Frequency, number> = {
   weekly: 52,
   monthly: 12,
   yearly: 1,
@@ -222,33 +222,39 @@ const COMPOUNDING_PERIODS_PER_YEAR: Record<'daily' | 'monthly' | 'yearly', numbe
   yearly: 1,
 }
 
+/**
+ * Interest charged on one installment period. Two paths:
+ *  - 'simple' (or missing interest_type but compounding_frequency unset →
+ *    keep legacy behaviour): nominal rate divided across installments.
+ *  - 'compound': convert the nominal annual rate to an effective annual
+ *    rate using the chosen compounding frequency, then back out the
+ *    equivalent per-installment rate. Defaults to compounding at the
+ *    installment frequency so unconfigured liabilities behave identically
+ *    to the pre-advanced-options engine.
+ *
+ * Exported so `current-values.ts` can amortize a stored balance forward to
+ * today on exactly the terms the projection would use.
+ */
+export function installmentPeriodRate(liability: ProfileLiability): Decimal {
+  const periodsPerYear = INSTALLMENT_PERIODS_PER_YEAR[liability.installment_frequency]
+  const annualRate = new Decimal(liability.annual_rate).div(100)
+  if (liability.interest_type === 'simple') return annualRate.div(periodsPerYear)
+  const compFreqKey = liability.compounding_frequency
+  const compoundingPeriodsPerYear =
+    compFreqKey !== undefined ? COMPOUNDING_PERIODS_PER_YEAR[compFreqKey] : periodsPerYear
+  // EAR = (1 + r/n)^n − 1; installment rate = (1 + EAR)^(1/p) − 1
+  const periodicCompoundRate = annualRate.div(compoundingPeriodsPerYear)
+  const ear = DECIMAL_1.plus(periodicCompoundRate).pow(compoundingPeriodsPerYear).minus(DECIMAL_1)
+  return DECIMAL_1.plus(ear).pow(new Decimal(1).div(periodsPerYear)).minus(DECIMAL_1)
+}
+
 function simulateLiability(
   liability: ProfileLiability,
   startYear: number,
   endYear: number,
 ): LiabilitySchedule {
   const periodsPerYear = INSTALLMENT_PERIODS_PER_YEAR[liability.installment_frequency]
-  // Per-installment rate. Two paths:
-  //  - 'simple' (or missing interest_type but compounding_frequency unset →
-  //    keep legacy behaviour): nominal rate divided across installments.
-  //  - 'compound': convert the nominal annual rate to an effective annual
-  //    rate using the chosen compounding frequency, then back out the
-  //    equivalent per-installment rate. Defaults to compounding at the
-  //    installment frequency so unconfigured liabilities behave identically
-  //    to the pre-advanced-options engine.
-  const annualRate = new Decimal(liability.annual_rate).div(100)
-  let periodRate: Decimal
-  if (liability.interest_type === 'simple') {
-    periodRate = annualRate.div(periodsPerYear)
-  } else {
-    const compFreqKey = liability.compounding_frequency
-    const compoundingPeriodsPerYear =
-      compFreqKey !== undefined ? COMPOUNDING_PERIODS_PER_YEAR[compFreqKey] : periodsPerYear
-    // EAR = (1 + r/n)^n − 1; installment rate = (1 + EAR)^(1/p) − 1
-    const periodicCompoundRate = annualRate.div(compoundingPeriodsPerYear)
-    const ear = DECIMAL_1.plus(periodicCompoundRate).pow(compoundingPeriodsPerYear).minus(DECIMAL_1)
-    periodRate = DECIMAL_1.plus(ear).pow(new Decimal(1).div(periodsPerYear)).minus(DECIMAL_1)
-  }
+  const periodRate = installmentPeriodRate(liability)
   const installmentAmount = new Decimal(liability.installment_amount)
 
   let balance = new Decimal(liability.outstanding_balance)
@@ -280,7 +286,12 @@ function simulateLiability(
   return { outstandingByYear, paidByYear }
 }
 
-function financingToLiability(asset: ProfileTangibleAsset): ProfileLiability | undefined {
+/**
+ * The loan behind a financed tangible asset, as a standalone liability — or
+ * undefined when the asset is not financed or its financing terms are
+ * incomplete. Exported for reuse by the current-balance projection.
+ */
+export function financingToLiability(asset: ProfileTangibleAsset): ProfileLiability | undefined {
   if (
     asset.status !== 'financed' ||
     asset.outstanding_balance === undefined ||

@@ -1,8 +1,16 @@
 import Decimal from 'decimal.js'
 
 import { DECIMAL_0, daysBetween } from '$lib/@snaha/kalkul-maths'
-import { annualizedAmount, effectiveInvestmentApy, netIncome, yearOf } from '$lib/plan-projection'
-import type { CashFlowEnd, CashFlowStart, Profile } from '$lib/schemas'
+import {
+  INSTALLMENT_PERIODS_PER_YEAR,
+  annualizedAmount,
+  effectiveInvestmentApy,
+  financingToLiability,
+  installmentPeriodRate,
+  netIncome,
+  yearOf,
+} from '$lib/plan-projection'
+import type { CashFlowEnd, CashFlowStart, Profile, ProfileLiability } from '$lib/schemas'
 import { latestSnapshot } from '$lib/snapshots'
 import { toDateOnlyString } from '$lib/utils'
 
@@ -110,14 +118,49 @@ function netAnnualFlowOn(profile: Profile, asOf: Date): Decimal {
 }
 
 /**
+ * A liability's outstanding balance after `yearFraction` of a year of payments,
+ * amortized on the same terms `simulateLiability` uses in the projection: each
+ * whole installment period that fits in the window adds the period's interest
+ * and takes one installment off, floored at zero.
+ *
+ * Only whole periods count — a part-paid month leaves the balance where the
+ * last installment put it. The cash side, by contrast, charges debt service
+ * continuously over the window, so a loan that pays off partway through keeps
+ * draining cash to the end of it. That residual is small at this granularity
+ * and not worth threading a payoff date through the accrual for.
+ */
+function amortizedBalance(liability: ProfileLiability, yearFraction: Decimal): number {
+  const periodsPerYear = INSTALLMENT_PERIODS_PER_YEAR[liability.installment_frequency]
+  const periodRate = installmentPeriodRate(liability)
+  const installment = new Decimal(liability.installment_amount)
+  // Never pay past the end of the loan's own term.
+  const periods = Math.min(
+    Math.floor(yearFraction.mul(periodsPerYear).toNumber()),
+    liability.remaining_term * periodsPerYear,
+  )
+
+  let balance = new Decimal(liability.outstanding_balance)
+  for (let period = 0; period < periods; period++) {
+    if (balance.lessThanOrEqualTo(0)) break
+    const grossDue = balance.plus(balance.mul(periodRate))
+    balance = grossDue.minus(Decimal.min(installment, grossDue))
+    if (balance.lessThan(0)) balance = DECIMAL_0
+  }
+  return Decimal.max(balance, DECIMAL_0).toDecimalPlaces(MONEY_DECIMALS).toNumber()
+}
+
+/**
  * Balances as they stand *today*, projected forward from the most recent
  * snapshot. The stored profile holds the values the user last confirmed; this
- * grows investments at their effective APY and accrues cash at the net of
- * income, expenses and debt service over the elapsed time.
+ * grows investments at their effective APY, accrues cash at the net of income,
+ * expenses and debt service over the elapsed time, and pays down loan balances
+ * by the installments that fell due in it.
  *
- * Tangible assets and liabilities are returned untouched: their values only
- * change through an explicit edit in financial data, and Quick update does not
- * ask about them either.
+ * Tangible asset *values* are returned untouched: they only change through an
+ * explicit edit in financial data, and Quick update does not ask about them.
+ * The debt secured against a financed asset is amortized like any other loan —
+ * leaving it at the snapshot value while cash pays the installments would bias
+ * net worth down by every principal payment made since.
  *
  * Returns the profile unchanged when nothing has elapsed — no snapshots yet, or
  * the latest one is dated today (or, defensively, in the future).
@@ -152,6 +195,17 @@ export function getCurrentProfile(profile: Profile, today: Date): Profile {
         .toDecimalPlaces(MONEY_DECIMALS)
         .toNumber(),
     })),
+    liabilities: profile.liabilities?.map((liability) => ({
+      ...liability,
+      outstanding_balance: amortizedBalance(liability, yearFraction),
+    })),
+    tangible_assets: profile.tangible_assets?.map((asset) => {
+      // Undefined for a fully owned asset, or one whose financing terms are
+      // incomplete — nothing to amortize either way.
+      const financing = financingToLiability(asset)
+      if (!financing) return asset
+      return { ...asset, outstanding_balance: amortizedBalance(financing, yearFraction) }
+    }),
   }
 }
 
