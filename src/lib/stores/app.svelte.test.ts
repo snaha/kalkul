@@ -90,3 +90,48 @@ describe('appStore.updateProfile snapshot recording', () => {
     expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual(['2020-01-01', today])
   })
 })
+
+describe('appStore.confirmBalances', () => {
+  const today = toDateOnlyString(new Date())
+  // A stale baseline whose balances still match the profile: the case where
+  // `updateProfile` records nothing because no balance moved.
+  const STALE = {
+    date: '2020-01-01',
+    cash_amount: 15_000,
+    investments: [],
+    tangible_assets: [],
+    liabilities: [],
+  }
+
+  beforeEach(() => {
+    stubLocalStorage()
+    appStore.clear()
+  })
+
+  afterEach(() => {
+    appStore.clear()
+    vi.unstubAllGlobals()
+  })
+
+  it('re-dates the baseline to today even when no balance changed', () => {
+    appStore.updateProfile({ cash_amount: 15_000, snapshots: [STALE] })
+    // Nothing moved, so the plain update left the stale baseline alone.
+    expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual(['2020-01-01'])
+
+    appStore.confirmBalances({ cash_amount: 15_000 })
+
+    expect(appStore.profile.snapshots).toEqual([STALE, { ...STALE, date: today }])
+  })
+
+  it('records edited values under today, replacing an existing entry for today', () => {
+    appStore.updateProfile({ cash_amount: 15_000, snapshots: [STALE] })
+    appStore.confirmBalances({ cash_amount: 15_000 })
+    appStore.confirmBalances({ cash_amount: 16_000 })
+
+    expect(appStore.profile.snapshots).toEqual([
+      STALE,
+      { ...STALE, date: today, cash_amount: 16_000 },
+    ])
+    expect(appStore.profile.cash_amount).toBe(16_000)
+  })
+})

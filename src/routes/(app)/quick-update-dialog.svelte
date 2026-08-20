@@ -68,7 +68,9 @@
 
   function confirm(): void {
     const cashRow = rows.find((row) => row.id === 'cash')
-    appStore.updateProfile({
+    // confirmBalances, not updateProfile: confirming unchanged values is still a
+    // confirmation and has to re-date the baseline snapshot to today.
+    appStore.confirmBalances({
       cash_amount: cashRow ? valueOf(cashRow) : projectedProfile.cash_amount,
       investments: (storedProfile.investments ?? []).map((investment) => {
         const row = rows.find((r) => r.id === investment.id)

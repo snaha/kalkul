@@ -109,11 +109,17 @@ function enrichProfile({
  * otherwise the projection keeps compounding from a value the user has already
  * replaced. Edits that leave every balance alone (a rename, a new expense) add
  * no snapshot, keeping the History chart to points that actually moved.
+ *
+ * `force` overrides that skip for an explicit confirmation ("these balances are
+ * correct today", i.e. Quick update's Confirm): the point of the action is the
+ * new date, so it has to record even when every balance matches — otherwise a
+ * profile whose values legitimately did not move can never clear the staleness
+ * banner.
  */
-function withRecordedSnapshot(profile: Profile, today: Date): Profile {
+function withRecordedSnapshot(profile: Profile, today: Date, force = false): Profile {
   if (!hasAnyFinancialData(profile)) return profile
   const snapshot = captureSnapshot(profile, toDateOnlyString(today))
-  if (hasSameBalances(latestSnapshot(profile.snapshots), snapshot)) return profile
+  if (!force && hasSameBalances(latestSnapshot(profile.snapshots), snapshot)) return profile
   return { ...profile, snapshots: upsertSnapshot(profile.snapshots, snapshot) }
 }
 
@@ -161,6 +167,13 @@ function withAppStore() {
     }
     // Trigger reactivity: $state reassignment
     portfolios = [...portfolios]
+  }
+
+  function writeProfile(updates: Partial<Profile>, confirmed: boolean): void {
+    const merged = { ...profile.toJSON(), ...updates }
+    const validated = profileSchema.parse(merged)
+    profile = enrichProfile(withRecordedSnapshot(validated, new Date(), confirmed))
+    persist()
   }
 
   function deletePortfolio(id: string): void {
@@ -255,10 +268,17 @@ function withAppStore() {
     // --- Profile ---
 
     updateProfile(updates: Partial<Profile>) {
-      const merged = { ...profile.toJSON(), ...updates }
-      const validated = profileSchema.parse(merged)
-      profile = enrichProfile(withRecordedSnapshot(validated, new Date()))
-      persist()
+      writeProfile(updates, false)
+    },
+
+    /**
+     * Same as `updateProfile`, but for an explicit "these are my balances as of
+     * today" confirmation (Quick update's Confirm). Always stamps a snapshot
+     * dated today, even when the confirmed values equal the stored ones — the
+     * date is the whole point of the action.
+     */
+    confirmBalances(updates: Partial<Profile>) {
+      writeProfile(updates, true)
     },
 
     // --- Portfolios ---
