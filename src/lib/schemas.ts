@@ -332,8 +332,11 @@ export const profileLiabilitySchema = z.object({
 // the dashboard projects them forward to today for display. Snapshots are what
 // the History chart plots and what Quick update diffs "today" against.
 export const snapshotSchema = z.object({
-  // Date-only ISO string (`YYYY-MM-DD`) the balances were recorded on.
-  date: z.string(),
+  // Date-only ISO string (`YYYY-MM-DD`) the balances were recorded on. The
+  // format is enforced, not just documented: snapshot ordering, the staleness
+  // check and the elapsed-day count all compare these strings
+  // lexicographically, which only works for zero-padded date-only values.
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   cash_amount: z.number().optional(),
   investments: z.array(z.object({ id: z.string(), balance: z.number() })).optional(),
   // Financed assets carry their debt alongside the value so a snapshot's net

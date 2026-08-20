@@ -8,6 +8,7 @@ import {
   incomeSchema,
   profileTangibleAssetSchema,
   repairStoredCashFlowMonths,
+  snapshotSchema,
   storedDataSchema,
   timingComplete,
   transferSchema,
@@ -416,6 +417,21 @@ describe('transferSchema refinement', () => {
       expect(paths).toContainEqual(['start_year'])
       expect(paths).toContainEqual(['start_month'])
     }
+  })
+})
+
+describe('snapshotSchema date', () => {
+  it('accepts a date-only ISO string', () => {
+    expect(snapshotSchema.parse({ date: '2026-07-02' }).date).toBe('2026-07-02')
+  })
+
+  // Snapshot ordering, staleness and day counts all compare these strings
+  // lexicographically, which only holds for zero-padded YYYY-MM-DD.
+  it('rejects anything that is not a zero-padded YYYY-MM-DD', () => {
+    expect(snapshotSchema.safeParse({ date: '2026-7-2' }).success).toBe(false)
+    expect(snapshotSchema.safeParse({ date: '2026-07-02T10:00:00.000Z' }).success).toBe(false)
+    expect(snapshotSchema.safeParse({ date: '02/07/2026' }).success).toBe(false)
+    expect(snapshotSchema.safeParse({ date: '' }).success).toBe(false)
   })
 })
 

@@ -141,7 +141,13 @@
               <td
                 class={cn(
                   'py-2 pl-1 text-right text-sm',
-                  change !== undefined && change < 0 ? 'text-destructive' : 'text-success',
+                  // No change to report ("—") is neither good nor bad news, so
+                  // it stays neutral rather than rendering in the success green.
+                  change === undefined
+                    ? 'text-muted-foreground'
+                    : change < 0
+                      ? 'text-destructive'
+                      : 'text-success',
                 )}
               >
                 {change === undefined ? '—' : appStore.formatPercent(change, 2, true)}
