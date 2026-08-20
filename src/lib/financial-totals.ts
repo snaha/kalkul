@@ -1,5 +1,9 @@
+import Decimal from 'decimal.js'
+
+import { DECIMAL_0 } from '$lib/@snaha/kalkul-maths'
 import { CATEGORY_COLORS } from '$lib/chart-colors'
-import type { Profile } from '$lib/schemas'
+import { annualizedAmount, netIncome } from '$lib/plan-projection'
+import type { Frequency, Profile } from '$lib/schemas'
 
 export type CategoryLabel = 'cash' | 'investments' | 'tangible-assets' | 'liabilities'
 
@@ -76,29 +80,28 @@ export function getOverviewSegments(profile: Profile): OverviewSegment[] {
   return segments
 }
 
-// Mirrors FLOW_PERIODS_PER_YEAR in plan-projection.ts (Decimal-based, not exported)
-const PERIODS_PER_YEAR: Record<string, number> = {
-  weekly: 365.25 / 7,
-  monthly: 12,
-  yearly: 1,
-}
-
 export function getAnnualExpensesTotal(profile: Profile): number {
   // ponytail: sums all expenses regardless of start/end windows; filter to
   // currently-active flows if future-dated expenses become common
-  return (profile.expenses ?? []).reduce(
-    (sum, e) => sum + e.amount * (PERIODS_PER_YEAR[e.frequency] ?? 1),
-    0,
-  )
+  return (profile.expenses ?? [])
+    .reduce<Decimal>(
+      (sum, e) => sum.plus(annualizedAmount(new Decimal(e.amount), e.frequency)),
+      DECIMAL_0,
+    )
+    .toNumber()
 }
 
+/**
+ * Yearly take-home income. Withheld taxes come off the top via the projection
+ * engine's `netIncome`, so the dashboard's savings rate and the Current
+ * projection card agree on what the user actually receives.
+ */
 export function getAnnualIncomeTotal(profile: Profile): number {
   // ponytail: sums all incomes regardless of start/end windows, mirroring
   // getAnnualExpensesTotal
-  return (profile.incomes ?? []).reduce(
-    (sum, i) => sum + i.amount * (PERIODS_PER_YEAR[i.frequency] ?? 1),
-    0,
-  )
+  return (profile.incomes ?? [])
+    .reduce<Decimal>((sum, i) => sum.plus(annualizedAmount(netIncome(i), i.frequency)), DECIMAL_0)
+    .toNumber()
 }
 
 export interface SavingsRate {
@@ -125,17 +128,22 @@ export function getSavingsRate(profile: Profile): SavingsRate | undefined {
 // service is a non-optional outflow, so FI %/runway count it alongside
 // living expenses.
 export function getAnnualDebtServiceTotal(profile: Profile): number {
-  const annualize = (amount: number | undefined, frequency: string | undefined) =>
-    (amount ?? 0) * (PERIODS_PER_YEAR[frequency ?? 'monthly'] ?? 1)
-  return (
-    (profile.liabilities ?? []).reduce(
-      (sum, l) => sum + annualize(l.installment_amount, l.installment_frequency),
-      0,
-    ) +
-    (profile.tangible_assets ?? [])
-      .filter((a) => a.status === 'financed')
-      .reduce((sum, a) => sum + annualize(a.installment_amount, a.installment_frequency), 0)
-  )
+  const annualize = (amount: number | undefined, frequency: Frequency | undefined) =>
+    annualizedAmount(new Decimal(amount ?? 0), frequency ?? 'monthly')
+  return (profile.liabilities ?? [])
+    .reduce<Decimal>(
+      (sum, l) => sum.plus(annualize(l.installment_amount, l.installment_frequency)),
+      DECIMAL_0,
+    )
+    .plus(
+      (profile.tangible_assets ?? [])
+        .filter((a) => a.status === 'financed')
+        .reduce<Decimal>(
+          (sum, a) => sum.plus(annualize(a.installment_amount, a.installment_frequency)),
+          DECIMAL_0,
+        ),
+    )
+    .toNumber()
 }
 
 export function getInvestableNetWorth(profile: Profile): number {

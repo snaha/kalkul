@@ -289,6 +289,31 @@ describe('getAnnualIncomeTotal', () => {
     }
     expect(getAnnualIncomeTotal(profile)).toBeCloseTo(100 * (365.25 / 7) + 1_200 + 100, 6)
   })
+
+  test('counts income net of withheld taxes, like the projection engine does', () => {
+    const profile: Profile = {
+      ...EMPTY_PROFILE,
+      incomes: [{ ...income(5_000, 'monthly'), withhold_taxes: true, tax_percentage: 20 }],
+    }
+    // 5,000 × 12 × (1 − 20%)
+    expect(getAnnualIncomeTotal(profile)).toBe(48_000)
+  })
+
+  test('withholds nothing when the tax percentage is missing', () => {
+    const profile: Profile = {
+      ...EMPTY_PROFILE,
+      incomes: [{ ...income(1_000, 'monthly'), withhold_taxes: true }],
+    }
+    expect(getAnnualIncomeTotal(profile)).toBe(12_000)
+  })
+
+  test('leaves gross income alone when taxes are not withheld', () => {
+    const profile: Profile = {
+      ...EMPTY_PROFILE,
+      incomes: [{ ...income(1_000, 'monthly'), tax_percentage: 20 }],
+    }
+    expect(getAnnualIncomeTotal(profile)).toBe(12_000)
+  })
 })
 
 describe('getSavingsRate', () => {
@@ -315,6 +340,17 @@ describe('getSavingsRate', () => {
     const rate = getSavingsRate(SAVER)
     expect(rate?.annualAmount).toBe(9_600)
     expect(rate?.percent).toBeCloseTo(19.047619, 6)
+  })
+
+  test('rates savings against take-home pay, not gross', () => {
+    const profile: Profile = {
+      ...SAVER,
+      incomes: [{ ...income(4_200, 'monthly'), withhold_taxes: true, tax_percentage: 25 }],
+    }
+    const rate = getSavingsRate(profile)
+    // Net 3,150/month in, against 3,200 of expenses and a 200 loan payment.
+    expect(rate?.annualAmount).toBe(-3_000)
+    expect(rate?.percent).toBeCloseTo(-7.936508, 6)
   })
 
   test('is negative when outflows exceed income', () => {

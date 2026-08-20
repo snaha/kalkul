@@ -113,7 +113,12 @@ function resolveEndYear(cashFlow: CashFlowTemporal, birthYear: number | undefine
   return Number.POSITIVE_INFINITY
 }
 
-function annualizedAmount(amount: Decimal, frequency: Frequency): Decimal {
+/**
+ * A per-period amount as a yearly one. Exported so the dashboard totals in
+ * `financial-totals.ts` annualize exactly like the projection does instead of
+ * keeping their own copy of the periods-per-year table.
+ */
+export function annualizedAmount(amount: Decimal, frequency: Frequency): Decimal {
   return amount.mul(FLOW_PERIODS_PER_YEAR[frequency])
 }
 
@@ -190,7 +195,13 @@ function growthFactor(
   return inflationFactor.mul(changeFactor)
 }
 
-function netIncome(income: Income): Decimal {
+/**
+ * What actually lands in the user's account: the entered amount, less the
+ * withheld tax when the income is entered gross. Exported so dashboard totals
+ * apply the same rule as the projection — otherwise cash accrues at gross while
+ * the Current projection card shows net.
+ */
+export function netIncome(income: Income): Decimal {
   const amount = new Decimal(income.amount)
   if (!income.withhold_taxes) return amount
   const taxFraction = new Decimal(income.tax_percentage ?? 0).div(100)
