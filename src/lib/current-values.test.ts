@@ -65,6 +65,50 @@ describe('getCurrentProfile', () => {
     expect(getCurrentProfile(PROFILE, TODAY).cash_amount).toBeCloseTo(25_763.04, 2)
   })
 
+  test('does not accrue income that has not started yet', () => {
+    const profile: Profile = {
+      ...PROFILE,
+      cash_amount: 50_000,
+      incomes: [
+        { ...PROFILE.incomes![0], start: 'at_specific_date', start_year: 2027, start_month: 1 },
+      ],
+    }
+    // Only outflows are running: 50,000 − (36,000 + 2,400) × 0.4982888.
+    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(30_865.71)
+  })
+
+  test('stops accruing an expense whose window has already closed', () => {
+    const profile: Profile = {
+      ...PROFILE,
+      expenses: [
+        { ...PROFILE.expenses![0], end: 'at_specific_date', end_year: 2026, end_month: 5 },
+      ],
+    }
+    // 15,000 + (60,000 − 2,400) × 0.4982888.
+    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(43_701.44)
+  })
+
+  test('counts a flow whose start month has arrived', () => {
+    const profile: Profile = {
+      ...PROFILE,
+      incomes: [
+        { ...PROFILE.incomes![0], start: 'at_specific_date', start_year: 2026, start_month: 7 },
+      ],
+    }
+    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(25_763.04)
+  })
+
+  test('resolves age-based windows against the birth date', () => {
+    const profile: Profile = {
+      ...PROFILE,
+      cash_amount: 50_000,
+      // Turns 40 in 2030, so the income has not started.
+      birth_date: '1990-06-15',
+      incomes: [{ ...PROFILE.incomes![0], start: 'when_age_is', start_age: 40 }],
+    }
+    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(30_865.71)
+  })
+
   test('rounds projected balances to the cent', () => {
     // Compounding a fraction of a year otherwise leaves a long tail of digits
     // that would show up verbatim in the Quick update inputs.

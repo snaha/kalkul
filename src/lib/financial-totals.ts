@@ -80,9 +80,14 @@ export function getOverviewSegments(profile: Profile): OverviewSegment[] {
   return segments
 }
 
+/**
+ * Yearly living expenses at today's levels, counting every expense regardless
+ * of its start/end window. That is the convention the savings rate, FI % and
+ * runway are stated in. The dashboard's cash accrual asks a different question
+ * ("what is running right now") and uses its own window-aware totals in
+ * `current-values.ts`.
+ */
 export function getAnnualExpensesTotal(profile: Profile): number {
-  // ponytail: sums all expenses regardless of start/end windows; filter to
-  // currently-active flows if future-dated expenses become common
   return (profile.expenses ?? [])
     .reduce<Decimal>(
       (sum, e) => sum.plus(annualizedAmount(new Decimal(e.amount), e.frequency)),
@@ -95,10 +100,10 @@ export function getAnnualExpensesTotal(profile: Profile): number {
  * Yearly take-home income. Withheld taxes come off the top via the projection
  * engine's `netIncome`, so the dashboard's savings rate and the Current
  * projection card agree on what the user actually receives.
+ *
+ * Window-agnostic like `getAnnualExpensesTotal` — see the note there.
  */
 export function getAnnualIncomeTotal(profile: Profile): number {
-  // ponytail: sums all incomes regardless of start/end windows, mirroring
-  // getAnnualExpensesTotal
   return (profile.incomes ?? [])
     .reduce<Decimal>((sum, i) => sum.plus(annualizedAmount(netIncome(i), i.frequency)), DECIMAL_0)
     .toNumber()
