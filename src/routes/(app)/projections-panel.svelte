@@ -66,7 +66,10 @@
 <div class="flex min-w-0 flex-1 flex-col">
   <div class="flex items-center gap-4 p-8">
     <h2 class="flex-1 text-2xl font-bold">{$_('page.dashboard.projections.title')}</h2>
-    {#if hasFinancialData && hasPlans}
+    <!-- Shown for any profile with financial data, including one with no plans
+         yet: the explore card below carries its own CTA, and per the design the
+         header button stays put rather than appearing once a plan exists. -->
+    {#if hasFinancialData}
       <Button variant="outline" size="sm" href={addPlanUrl}>
         <Plus />
         {$_('page.dashboard.projections.addProjection')}
