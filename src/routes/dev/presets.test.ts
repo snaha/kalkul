@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
+import { hasAnyFinancialData } from '$lib/financial-totals'
 import { storedDataSchema } from '$lib/schemas'
 import { latestSnapshot, snapshotNetWorth } from '$lib/snapshots'
 import { toDateOnlyString } from '$lib/utils'
@@ -28,6 +29,21 @@ describe('dev presets', () => {
     for (const preset of presets) {
       const { location } = preset.data.profile
       if (location !== undefined) expect(VALID_LOCATIONS).toContain(location)
+    }
+  })
+
+  test('ships a pre-snapshot profile so the migration can be exercised by hand', () => {
+    // Data written before snapshots existed: balances but no history, restored
+    // to storage with the date it was last written. Loading it is the only way
+    // to see `withSeededSnapshot` derive a stale baseline from `lastUpdated` —
+    // going through importBackup would stamp the baseline as today instead.
+    const legacy = presets.filter((preset) => preset.storedAsOf !== undefined)
+    expect(legacy.length).toBeGreaterThan(0)
+
+    for (const preset of legacy) {
+      expect(preset.data.profile.snapshots).toBeUndefined()
+      expect(hasAnyFinancialData(preset.data.profile)).toBe(true)
+      expect(preset.storedAsOf?.getTime()).toBeLessThan(TODAY.getTime())
     }
   })
 

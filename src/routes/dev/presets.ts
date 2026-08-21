@@ -12,6 +12,14 @@ export interface DevPreset {
   name: string
   description: string
   data: { profile: Profile; portfolios: Portfolio[] }
+  /**
+   * When set, the preset is written straight to storage as data last saved on
+   * this date instead of being imported as a backup. That is the only way to
+   * reach the pre-snapshot migration path: `load()` seeds the baseline from
+   * `lastUpdated`, while `importBackup()` treats restored balances as
+   * confirmed now and would hide the very behaviour under test.
+   */
+  storedAsOf?: Date
 }
 
 /**
@@ -39,12 +47,19 @@ interface HistoryStep {
   factor: number
 }
 
+/**
+ * The 1st of the month `monthsAgo` before `today`. The 1st keeps generated
+ * dates in order regardless of today's day-of-month (subtracting a month from
+ * the 31st would otherwise roll forward).
+ */
+function monthsBefore(today: Date, monthsAgo: number): Date {
+  return new Date(today.getFullYear(), today.getMonth() - monthsAgo, 1)
+}
+
 /** Date-only string for a point `monthsAgo` before `today`. */
 function historyDate(today: Date, monthsAgo: number): string {
   if (monthsAgo === 0) return toDateOnlyString(today)
-  // The 1st keeps generated dates in order regardless of today's day-of-month
-  // (subtracting a month from the 31st would otherwise roll forward).
-  return toDateOnlyString(new Date(today.getFullYear(), today.getMonth() - monthsAgo, 1))
+  return toDateOnlyString(monthsBefore(today, monthsAgo))
 }
 
 function scaleSnapshot(snapshot: Snapshot, factor: number): Snapshot {
@@ -267,6 +282,15 @@ export function getDevPresets(today: Date): DevPreset[] {
           plan(today, 'plan-inflation', 'High inflation', 'Same plan at 6% inflation.', 40, 0.06),
         ],
       },
+    },
+    {
+      name: 'Claire, 40 — saved before snapshots',
+      description:
+        'Legacy data: balances but no history, last written four months ago. Written straight to storage, so the baseline is seeded from that date on load — staleness banner, projected figures, two-point History. Exercises the migration, tax-netted accrual and loan amortization together.',
+      // Deliberately the untouched sample: the shipped example files carry no
+      // snapshots, which is exactly the shape data had before they existed.
+      data: claireData,
+      storedAsOf: monthsBefore(today, 4),
     },
     {
       name: 'Underwater — negative net worth',

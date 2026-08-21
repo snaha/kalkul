@@ -11,6 +11,8 @@
   import { Button } from '$lib/components/ui/button'
   import * as Dialog from '$lib/components/ui/dialog'
   import routes from '$lib/routes'
+  import type { StoredData } from '$lib/schemas'
+  import storageKeys from '$lib/storage-keys'
   import { appStore } from '$lib/stores/app.svelte'
   import { slugify } from '$lib/utils'
 
@@ -54,7 +56,19 @@
   }
 
   function applyPreset(preset: DevPreset): void {
-    if (preset.data.profile.name === '') {
+    if (preset.storedAsOf) {
+      // Data as an older version would have left it: straight into storage with
+      // its original write date, then loaded the way a returning user's browser
+      // loads it. Going through importBackup would re-date the balances to now
+      // and skip the seeding path this preset exists to show.
+      const stored: StoredData = {
+        profile: preset.data.profile,
+        portfolios: preset.data.portfolios,
+        lastUpdated: preset.storedAsOf.getTime(),
+      }
+      localStorage.setItem(storageKeys.DATA, JSON.stringify(stored))
+      appStore.load()
+    } else if (preset.data.profile.name === '') {
       appStore.clear()
     } else {
       appStore.importBackup(JSON.stringify(preset.data))
