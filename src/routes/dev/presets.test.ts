@@ -17,6 +17,10 @@ const presets = getDevPresets(TODAY)
 // number formatting instead of the country's — the exact bug this guards.
 const VALID_LOCATIONS = new Set(['CZ', 'SK', 'HU', 'FR', 'other'])
 
+/** Days covered by a snapshot list. */
+const span = (snapshots: { date: string }[]): number =>
+  snapshots.length > 1 ? daysBetween(snapshots[0].date, snapshots[snapshots.length - 1].date) : 0
+
 describe('dev presets', () => {
   test('every preset is loadable data', () => {
     for (const preset of presets) {
@@ -105,6 +109,49 @@ describe('dev presets', () => {
     }
   })
 
+  test('records history at the irregular intervals people actually manage', () => {
+    // An evenly spaced history is the one shape real data never has: people
+    // record balances when they remember, after a raise, when a statement
+    // lands. Long histories should also be sparse — a point every month for
+    // years is nobody's habit, and it smears the chart into a band.
+    const longest = presets
+      .map((preset) => preset.data.profile.snapshots ?? [])
+      .reduce((a, b) => (b.length > 1 && span(b) > span(a) ? b : a), [])
+
+    const gaps = longest
+      .slice(1)
+      .map((snapshot, i) => daysBetween(longest[i].date, snapshot.date) / 30.44)
+
+    expect(new Set(gaps.map(Math.round)).size).toBeGreaterThan(2)
+    // Sparse: fewer than a third of the months in the span carry a point.
+    expect(longest.length).toBeLessThan((span(longest) / 30.44) * 0.3)
+  })
+
+  test('gives each profile its own recording pattern and some texture', () => {
+    const histories = presets
+      .map((preset) => preset.data.profile.snapshots ?? [])
+      .filter((snapshots) => snapshots.length >= 4)
+
+    // Two profiles recording on exactly the same rhythm is the tell of a
+    // generator, not of people.
+    const patterns = histories.map((snapshots) =>
+      snapshots
+        .slice(1)
+        .map((snapshot, i) => Math.round(daysBetween(snapshots[i].date, snapshot.date) / 30.44))
+        .join(','),
+    )
+    expect(new Set(patterns).size).toBeGreaterThan(1)
+
+    // Net worth that only ever rises, point after point, is a curve rather than
+    // a record: markets have bad quarters even in a good decade.
+    const dips = histories.some((snapshots) => {
+      const worths = snapshots.map(snapshotNetWorth)
+      const growing = worths[worths.length - 1] > worths[0]
+      return growing && worths.some((worth, i) => i > 0 && worth < worths[i - 1])
+    })
+    expect(dips).toBe(true)
+  })
+
   test('names are unique so the list keys stay stable', () => {
     expect(new Set(presets.map((p) => p.name)).size).toBe(presets.length)
   })
@@ -164,8 +211,9 @@ describe('dev presets', () => {
     // More than one saved plan, to fill the Projections list.
     expect(presets.some((p) => p.data.portfolios.length > 1)).toBe(true)
 
-    // A long history, so the X axis has to thin its month ticks.
-    expect(withSnapshots.some((p) => (p.data.profile.snapshots ?? []).length >= 24)).toBe(true)
+    // A long history, so the X axis has to thin its month ticks. Measured as
+    // elapsed time, not point count — the histories are deliberately sparse.
+    expect(withSnapshots.some((p) => span(p.data.profile.snapshots ?? []) >= 365)).toBe(true)
   })
 
   test('keeps the realistic sample profiles rather than EUR-only stand-ins', () => {

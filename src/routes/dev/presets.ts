@@ -168,11 +168,54 @@ function impliedLiquidGrowth(profile: Profile, today: Date, fallback = 0.06): nu
   return Math.max(growth, -0.5)
 }
 
+/**
+ * Relative sizes of the gaps between recorded points, cycled through as a
+ * history is built and then scaled to fit its span. An even cadence is the one
+ * shape real history never has: people record their balances when they
+ * remember, after a raise, when a statement lands — with long quiet stretches
+ * in between. Relative rather than absolute months so a short history and a
+ * six-year one both come out unevenly spaced instead of the short one
+ * collapsing to a couple of points.
+ */
+const GAP_WEIGHTS = [1, 3, 2, 7, 4, 11, 2, 5, 9]
+
+/** Roughly one recorded point per this many months, before the wobble. */
+const MONTHS_PER_POINT = 4
+/** Even a long history stays readable; beyond this the dots run together. */
+const MAX_POINTS = 17
+
+/**
+ * How far a recorded point strays from the smooth trend, as a fraction of the
+ * liquid balances. Real net worth does not glide up an exponential — markets
+ * have bad quarters, bonuses land, a holiday empties the current account.
+ */
+const WOBBLE = 0.08
+
+/**
+ * Deterministic pseudo-randomness in [-1, 1]. `Math.random` would reshuffle the
+ * fixtures on every load and make the tests meaningless, so this hashes the
+ * point's index into a repeatable value instead.
+ */
+function wobbleAt(seed: number): number {
+  const hashed = Math.sin(seed * 12.9898) * 43758.5453
+  return 2 * (hashed - Math.floor(hashed)) - 1
+}
+
+/**
+ * A number that differs from persona to persona, so no two presets record on
+ * the same rhythm or wobble the same way. Derived from the profile rather than
+ * passed in per preset, and mixed with the span so one persona's short and long
+ * histories differ too.
+ */
+function seedOf(profile: Profile, months: number): number {
+  return [...profile.name].reduce((sum, char) => sum + char.charCodeAt(0), months)
+}
+
 interface HistoryOptions {
   /** Where the history stops, in whole months before today. */
   latestMonthsAgo?: number
-  /** Months between recorded points. Years of monthly dots would be a smear. */
-  stepMonths?: number
+  /** Relative gap sizes to cycle through. Defaults to `GAP_WEIGHTS`. */
+  gaps?: number[]
 }
 
 /**
@@ -185,16 +228,40 @@ function withHistory(
   profile: Profile,
   today: Date,
   months: number,
-  { latestMonthsAgo = 0, stepMonths = 1 }: HistoryOptions = {},
+  { latestMonthsAgo = 0, gaps = GAP_WEIGHTS }: HistoryOptions = {},
 ): Profile {
   const growth = impliedLiquidGrowth(profile, today)
-  const steps: HistoryStep[] = []
-  for (let monthsAgo = latestMonthsAgo; monthsAgo <= months; monthsAgo += stepMonths) {
+  const seed = seedOf(profile, months)
+
+  // Weights are taken from a per-profile offset into the cycle, so two presets
+  // built from the same list still record on different rhythms, then scaled so
+  // the last one lands exactly on the far end of the span.
+  const reach = months - latestMonthsAgo
+  const count = Math.min(Math.max(Math.round(reach / MONTHS_PER_POINT), 2), MAX_POINTS)
+  const weights = Array.from({ length: count }, (_, i) => gaps[(i + seed) % gaps.length])
+  const total = weights.reduce((sum, weight) => sum + weight, 0)
+
+  const points = [latestMonthsAgo]
+  let walked = 0
+  for (const weight of weights) {
+    walked += weight
+    const monthsAgo = latestMonthsAgo + Math.round((walked / total) * reach)
+    // Rounding can land two weights on the same month; one point is enough.
+    if (monthsAgo > points[points.length - 1]) points.push(monthsAgo)
+  }
+
+  const steps: HistoryStep[] = points.map((monthsAgo, index) => {
     // Exactly 1 and 0 at the newest step, keeping it equal to the profile's
     // balances — the dashboard would otherwise jump the moment it loads.
     const years = (monthsAgo - latestMonthsAgo) / 12
-    steps.push({ monthsAgo, years, factor: 1 / (1 + growth) ** years })
-  }
+    const trend = 1 / (1 + growth) ** years
+    // Only the points in between wobble: the newest has to match the profile,
+    // and leaving the oldest on the trend keeps the history's overall rate
+    // exactly the one the projection continues at.
+    const interior = index > 0 && index < points.length - 1
+    const factor = interior ? trend * (1 + WOBBLE * wobbleAt(seed + index)) : trend
+    return { monthsAgo, years, factor }
+  })
 
   return {
     ...profile,
@@ -335,7 +402,7 @@ export function getDevPresets(today: Date): DevPreset[] {
         'No investments or property, income that starts on a future date. Single-segment pie; savings rate driven entirely by cash flows. Last confirmed a month ago, so Quick update is available.',
       data: {
         ...terezaData,
-        profile: withHistory(terezaData.profile, today, 5, { latestMonthsAgo: 1 }),
+        profile: withHistory(terezaData.profile, today, 11, { latestMonthsAgo: 1 }),
       },
     },
     {
@@ -347,7 +414,7 @@ export function getDevPresets(today: Date): DevPreset[] {
         // The deliberate exception: every other preset stops short of today so
         // recording a snapshot is something to try, but the confirmed-today
         // dashboard still needs a fixture of its own.
-        profile: withHistory(martinData.profile, today, 8),
+        profile: withHistory(martinData.profile, today, 15),
         portfolios: [
           plan(today, 'plan-1', 'Pay the house off early', 'Overpay the mortgage from year 3.', 35),
         ],
@@ -359,30 +426,25 @@ export function getDevPresets(today: Date): DevPreset[] {
         'HUF amounts, car loan and Diákhitel. Last confirmed three months ago: staleness banner, projected figures, dashed History tail.',
       data: {
         ...benceData,
-        profile: withHistory(benceData.profile, today, 9, { latestMonthsAgo: 3 }),
+        profile: withHistory(benceData.profile, today, 15, { latestMonthsAgo: 3 }),
       },
     },
     {
       name: 'Claire, 40 — two years of history',
       description:
-        'Three investments with entry/exit fees, two financed properties, one plan with a recurring transfer. Dense History chart crossing a year boundary, ending a month back so it can be extended.',
+        'Three investments with entry/exit fees, two financed properties, one plan with a recurring transfer. History crossing a year boundary at irregular intervals, ending a month back so it can be extended.',
       data: {
         ...claireData,
         profile: withHistory(claireData.profile, today, 24, { latestMonthsAgo: 1 }),
       },
     },
     {
-      name: 'Martin, 30 — six years of quarterly history',
+      name: 'Martin, 30 — six years of patchy history',
       description:
-        'A long-standing user: balances recorded every quarter since 2020, last confirmed two months ago. The X axis has to thin its month ticks down to a handful of years, and the chart spans several year boundaries.',
+        'A long-standing user: balances recorded on and off since 2020, last confirmed two months ago. Long quiet stretches between points, and the X axis has to thin its month ticks across several year boundaries.',
       data: {
         ...martinData,
-        // Quarterly rather than monthly — 70-odd monthly dots would smear into
-        // a band, and nobody records their balances every month for six years.
-        profile: withHistory(martinData.profile, today, 72, {
-          latestMonthsAgo: 2,
-          stepMonths: 3,
-        }),
+        profile: withHistory(martinData.profile, today, 72, { latestMonthsAgo: 2 }),
       },
     },
     {
@@ -390,7 +452,7 @@ export function getDevPresets(today: Date): DevPreset[] {
       description:
         'Large CZK portfolio and a retirement plan with transfers, plus two variants. Fills the Projections panel below the automatic one. Two months stale.',
       data: {
-        profile: withHistory(pavelData.profile, today, 12, { latestMonthsAgo: 2 }),
+        profile: withHistory(pavelData.profile, today, 20, { latestMonthsAgo: 2 }),
         portfolios: [
           ...pavelData.portfolios,
           plan(today, 'plan-early', 'Retire at 60', 'Five years earlier, same spending.', 40),
@@ -412,7 +474,7 @@ export function getDevPresets(today: Date): DevPreset[] {
       description:
         'Debts exceed assets. History axis extends below zero and financial independence sits at 0%. Two months stale, so a confirmation can push it further under.',
       data: {
-        profile: withHistory(UNDERWATER, today, 8, { latestMonthsAgo: 2 }),
+        profile: withHistory(UNDERWATER, today, 14, { latestMonthsAgo: 2 }),
         portfolios: [],
       },
     },
@@ -421,7 +483,7 @@ export function getDevPresets(today: Date): DevPreset[] {
       description:
         'Same portfolio with the income lines removed. Savings rate falls back to its "add your income" hint while runway and FI still compute. A month stale, so Quick update shows cash draining with nothing coming in.',
       data: {
-        profile: withHistory({ ...pavelData.profile, incomes: [] }, today, 10, {
+        profile: withHistory({ ...pavelData.profile, incomes: [] }, today, 16, {
           latestMonthsAgo: 1,
         }),
         portfolios: [],
