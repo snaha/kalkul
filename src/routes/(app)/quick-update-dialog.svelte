@@ -13,6 +13,8 @@
   import { appStore } from '$lib/stores/app.svelte'
   import { cn } from '$lib/utils'
 
+  import { buildConfirmUpdates } from './quick-update-confirm'
+
   interface Props {
     open: boolean
     /** Stored balances, as of the last snapshot — the "last updated" column. */
@@ -70,13 +72,13 @@
     const cashRow = rows.find((row) => row.id === 'cash')
     // confirmBalances, not updateProfile: confirming unchanged values is still a
     // confirmation and has to re-date the baseline snapshot to today.
-    appStore.confirmBalances({
-      cash_amount: cashRow ? valueOf(cashRow) : projectedProfile.cash_amount,
-      investments: (storedProfile.investments ?? []).map((investment) => {
-        const row = rows.find((r) => r.id === investment.id)
-        return { ...investment, balance: row ? valueOf(row) : investment.balance }
-      }),
-    })
+    appStore.confirmBalances(
+      buildConfirmUpdates(
+        projectedProfile,
+        cashRow ? valueOf(cashRow) : (projectedProfile.cash_amount ?? 0),
+        new Map(rows.filter((row) => row.id !== 'cash').map((row) => [row.id, valueOf(row)])),
+      ),
+    )
     open = false
   }
 </script>
