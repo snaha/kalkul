@@ -55,6 +55,9 @@
   ])
 
   // Edited values keyed by row id; a row with no entry uses its suggestion.
+  // Clearing a field stores `undefined`, not 0 — an empty box means "I haven't
+  // said", so it falls back to the suggestion. Confirming a zero balance is
+  // still possible by typing 0, which parses to the number.
   let edits = $state<Record<string, number | undefined>>({})
 
   const valueOf = (row: Row) => edits[row.id] ?? row.suggested
@@ -137,7 +140,7 @@
                     values: { name: row.label },
                   })}
                   formatNumber={appStore.formatNumber}
-                  onValueChange={(value) => (edits[row.id] = value ?? 0)}
+                  onValueChange={(value) => (edits[row.id] = value)}
                 />
               </td>
               <td

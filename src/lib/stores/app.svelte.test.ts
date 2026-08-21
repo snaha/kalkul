@@ -5,6 +5,12 @@ import { toDateOnlyString } from '$lib/utils'
 
 import { appStore } from './app.svelte'
 
+// The store stamps snapshots with its own `new Date()`, so a suite that read
+// the real clock could straddle midnight between the two reads and compare
+// against yesterday's date. Freezing it removes that race entirely.
+const NOW = new Date(2026, 5, 15, 12, 0, 0)
+const TODAY = toDateOnlyString(NOW)
+
 let backing: Map<string, string>
 
 function stubLocalStorage(): void {
@@ -44,9 +50,9 @@ describe('appStore.clear', () => {
 })
 
 describe('appStore.updateProfile snapshot recording', () => {
-  const today = toDateOnlyString(new Date())
-
   beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
     stubLocalStorage()
     appStore.clear()
   })
@@ -54,6 +60,7 @@ describe('appStore.updateProfile snapshot recording', () => {
   afterEach(() => {
     appStore.clear()
     vi.unstubAllGlobals()
+    vi.useRealTimers()
   })
 
   it('records nothing while the profile has no financial data', () => {
@@ -64,7 +71,7 @@ describe('appStore.updateProfile snapshot recording', () => {
   it('records a snapshot dated today the first time balances are saved', () => {
     appStore.updateProfile({ name: 'Jane Doe', cash_amount: 15_000 })
     expect(appStore.profile.snapshots).toEqual([
-      { date: today, cash_amount: 15_000, investments: [], tangible_assets: [], liabilities: [] },
+      { date: TODAY, cash_amount: 15_000, investments: [], tangible_assets: [], liabilities: [] },
     ])
   })
 
@@ -90,7 +97,7 @@ describe('appStore.updateProfile snapshot recording', () => {
     appStore.updateProfile({ cash_amount: 0 })
     expect(appStore.profile.snapshots).toEqual([
       { date: '2020-01-01', cash_amount: 15_000 },
-      { date: today, cash_amount: 0, investments: [], tangible_assets: [], liabilities: [] },
+      { date: TODAY, cash_amount: 0, investments: [], tangible_assets: [], liabilities: [] },
     ])
   })
 
@@ -99,12 +106,11 @@ describe('appStore.updateProfile snapshot recording', () => {
       cash_amount: 15_000,
       snapshots: [{ date: '2020-01-01', cash_amount: 1 }],
     })
-    expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual(['2020-01-01', today])
+    expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual(['2020-01-01', TODAY])
   })
 })
 
 describe('appStore.confirmBalances', () => {
-  const today = toDateOnlyString(new Date())
   // A stale baseline whose balances still match the profile: the case where
   // `updateProfile` records nothing because no balance moved.
   const STALE = {
@@ -116,6 +122,8 @@ describe('appStore.confirmBalances', () => {
   }
 
   beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
     stubLocalStorage()
     appStore.clear()
   })
@@ -123,6 +131,7 @@ describe('appStore.confirmBalances', () => {
   afterEach(() => {
     appStore.clear()
     vi.unstubAllGlobals()
+    vi.useRealTimers()
   })
 
   it('re-dates the baseline to today even when no balance changed', () => {
@@ -132,7 +141,7 @@ describe('appStore.confirmBalances', () => {
 
     appStore.confirmBalances({ cash_amount: 15_000 })
 
-    expect(appStore.profile.snapshots).toEqual([STALE, { ...STALE, date: today }])
+    expect(appStore.profile.snapshots).toEqual([STALE, { ...STALE, date: TODAY }])
   })
 
   it('records edited values under today, replacing an existing entry for today', () => {
@@ -142,7 +151,7 @@ describe('appStore.confirmBalances', () => {
 
     expect(appStore.profile.snapshots).toEqual([
       STALE,
-      { ...STALE, date: today, cash_amount: 16_000 },
+      { ...STALE, date: TODAY, cash_amount: 16_000 },
     ])
     expect(appStore.profile.cash_amount).toBe(16_000)
   })
