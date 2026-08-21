@@ -2,18 +2,6 @@ import { hasAnyFinancialData } from '$lib/financial-totals'
 import type { Profile, Snapshot } from '$lib/schemas'
 import { toDateOnlyString } from '$lib/utils'
 
-export interface HistoryPoint {
-  /** Date-only ISO string (`YYYY-MM-DD`). */
-  date: string
-  netWorth: number
-  /**
-   * True for the trailing "now" point when it was projected forward from the
-   * most recent snapshot rather than recorded by the user. The History chart
-   * draws projected segments dashed.
-   */
-  projected: boolean
-}
-
 /** Point-in-time record of every balance that makes up net worth. */
 export function captureSnapshot(profile: Profile, date: string): Snapshot {
   return {
@@ -82,33 +70,4 @@ export function withSeededSnapshot(profile: Profile, asOf: Date): Profile {
   if ((profile.snapshots ?? []).length > 0) return profile
   if (!hasAnyFinancialData(profile)) return profile
   return { ...profile, snapshots: [captureSnapshot(profile, toDateOnlyString(asOf))] }
-}
-
-/**
- * Net worth over time for the History chart: one point per recorded snapshot,
- * followed by a point for today.
- *
- * `currentProfile` must hold the balances as they stand *today* — pass the
- * result of `getCurrentProfile()` so the trailing point reflects growth since
- * the last snapshot. That point is flagged `projected` whenever it was derived
- * rather than recorded on the day.
- */
-export function buildHistorySeries(currentProfile: Profile, today: Date): HistoryPoint[] {
-  const snapshots = currentProfile.snapshots ?? []
-  if (snapshots.length === 0 && !hasAnyFinancialData(currentProfile)) return []
-
-  const todayDate = toDateOnlyString(today)
-  const points: HistoryPoint[] = snapshots
-    .filter((s) => s.date <= todayDate)
-    .map((s) => ({ date: s.date, netWorth: snapshotNetWorth(s), projected: false }))
-
-  // The last snapshot already describes today — nothing to project.
-  if (points.at(-1)?.date === todayDate) return points
-
-  points.push({
-    date: todayDate,
-    netWorth: snapshotNetWorth(captureSnapshot(currentProfile, todayDate)),
-    projected: points.length > 0,
-  })
-  return points
 }

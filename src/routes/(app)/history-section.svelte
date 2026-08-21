@@ -3,7 +3,7 @@
 
   import HistoryChart from '$lib/components/history-chart.svelte'
   import { Button } from '$lib/components/ui/button'
-  import type { HistoryPoint } from '$lib/snapshots'
+  import type { HistoryPoint } from '$lib/history-series'
   import { appStore } from '$lib/stores/app.svelte'
   import { notImplemented, parseDateOnly } from '$lib/utils'
 

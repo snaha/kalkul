@@ -13,8 +13,9 @@
   import { Separator } from '$lib/components/ui/separator'
   import { getCurrentProfile } from '$lib/current-values'
   import { getFiPercent, getRunwayYears, hasAnyFinancialData } from '$lib/financial-totals'
+  import { buildHistorySeries } from '$lib/history-series'
   import routes from '$lib/routes'
-  import { buildHistorySeries, latestSnapshot } from '$lib/snapshots'
+  import { latestSnapshot } from '$lib/snapshots'
   import { appStore } from '$lib/stores/app.svelte'
   import { notImplemented, toDateOnlyString } from '$lib/utils'
 
@@ -48,7 +49,9 @@
 
   const fiPercent = $derived(getFiPercent(currentProfile))
   const runwayYears = $derived(getRunwayYears(currentProfile))
-  const historyPoints = $derived(buildHistorySeries(currentProfile, today))
+  // The stored profile, not the projected one: the series carries the balances
+  // forward itself, sampling the tail so compounding reads as a curve.
+  const historyPoints = $derived(buildHistorySeries(storedProfile, today))
 
   let quickUpdateOpen = $state(false)
 </script>

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { daysBetween } from '$lib/@snaha/kalkul-maths'
   import { monthTicks, niceAxisBounds } from '$lib/chart-axis'
-  import type { HistoryPoint } from '$lib/snapshots'
+  import type { HistoryPoint } from '$lib/history-series'
   import { cn } from '$lib/utils'
 
   interface Props {
@@ -75,6 +75,13 @@
 
   const toLine = (segment: typeof plotted) =>
     segment.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
+
+  // Recorded points get a dot each, plus one for "now" at the end of the tail.
+  // The samples in between describe the curve's shape, not moments worth
+  // marking — a dot on each would read as eight more readings than were taken.
+  const dots = $derived(
+    plotted.filter((point, index) => !point.projected || index === plotted.length - 1),
+  )
 
   const actualLine = $derived(actualSegment.length > 1 ? toLine(actualSegment) : '')
   const projectedLine = $derived(projectedSegment.length > 1 ? toLine(projectedSegment) : '')
@@ -162,7 +169,7 @@
           {/if}
         </svg>
 
-        {#each plotted as point (point.date)}
+        {#each dots as point (point.date)}
           <!-- Recorded points are solid; the projected "now" point is hollow -->
           <div
             class={cn(

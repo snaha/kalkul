@@ -2,7 +2,6 @@ import { describe, expect, test } from 'vitest'
 
 import type { Profile, Snapshot } from './schemas'
 import {
-  buildHistorySeries,
   captureSnapshot,
   hasSameBalances,
   latestSnapshot,
@@ -176,47 +175,5 @@ describe('withSeededSnapshot', () => {
   test('records nothing for a profile with no balances', () => {
     const profile: Profile = { name: '', email: '' }
     expect(withSeededSnapshot(profile, asOf).snapshots).toBeUndefined()
-  })
-})
-
-describe('buildHistorySeries', () => {
-  const today = new Date(2026, 5, 20) // 2026-06-20
-
-  test('plots one point per snapshot plus a final "now" point', () => {
-    const profile: Profile = {
-      ...PROFILE,
-      snapshots: [
-        { date: '2026-04-27', cash_amount: 10_000 },
-        { date: '2026-05-27', cash_amount: 12_000 },
-      ],
-    }
-    const series = buildHistorySeries(profile, today)
-    expect(series.map((p) => p.date)).toEqual(['2026-04-27', '2026-05-27', '2026-06-20'])
-    expect(series.map((p) => p.netWorth)).toEqual([10_000, 12_000, 297_000])
-  })
-
-  test('marks the trailing point as projected when the last snapshot is older than today', () => {
-    const profile: Profile = {
-      ...PROFILE,
-      snapshots: [{ date: '2026-04-27', cash_amount: 10_000 }],
-    }
-    const series = buildHistorySeries(profile, today)
-    expect(series.map((p) => p.projected)).toEqual([false, true])
-  })
-
-  test('does not add a projected point when the last snapshot is today', () => {
-    const profile: Profile = { ...PROFILE, snapshots: [captureSnapshot(PROFILE, '2026-06-20')] }
-    const series = buildHistorySeries(profile, today)
-    expect(series).toHaveLength(1)
-    expect(series[0]).toEqual({ date: '2026-06-20', netWorth: 297_000, projected: false })
-  })
-
-  test('returns a single actual point when there are no snapshots yet', () => {
-    const series = buildHistorySeries(PROFILE, today)
-    expect(series).toEqual([{ date: '2026-06-20', netWorth: 297_000, projected: false }])
-  })
-
-  test('returns nothing for a profile with no financial data', () => {
-    expect(buildHistorySeries({ name: '', email: '' }, today)).toEqual([])
   })
 })
