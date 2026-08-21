@@ -22,7 +22,11 @@ export function getOnboardingSteps(profile: Profile): AppRoute[] {
   if (profile.has_liabilities || (profile.liabilities?.length ?? 0) > 0) {
     steps.push(routes.FINANCES_EDIT_LIABILITIES)
   }
-  steps.push(routes.FINANCES_EDIT_INCOME, routes.FINANCES_EDIT_EXPENSES)
+  steps.push(
+    routes.FINANCES_EDIT_INCOME,
+    routes.FINANCES_EDIT_EXPENSES,
+    routes.FINANCES_EDIT_TRANSFERS,
+  )
   return steps
 }
 
@@ -47,6 +51,8 @@ function resolveAppRoute(route: AppRoute): string {
       return resolve('/finances/edit/income')
     case '/finances/edit/expenses':
       return resolve('/finances/edit/expenses')
+    case '/finances/edit/transfers':
+      return resolve('/finances/edit/transfers')
     case '/dev':
       return resolve('/dev')
     case '/plan/add/intro':

@@ -5,7 +5,7 @@
 
   interface Props {
     value: number | undefined
-    suffix: string
+    suffix?: string
     placeholder?: string
     id?: string
     'aria-label'?: string
@@ -18,7 +18,7 @@
 
   let {
     value,
-    suffix,
+    suffix = '',
     placeholder = '0',
     id,
     'aria-label': ariaLabel,

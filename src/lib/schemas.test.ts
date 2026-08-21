@@ -6,7 +6,11 @@ import en from './locales/en.json'
 import {
   expenseSchema,
   incomeSchema,
+  migratePlanTransfersToProfile,
+  profileLiabilitySchema,
+  profileSchema,
   profileTangibleAssetSchema,
+  remainingTermUnitSchema,
   repairStoredCashFlowMonths,
   storedDataSchema,
   timingComplete,
@@ -264,10 +268,13 @@ describe('repairStoredCashFlowMonths', () => {
 
   it('swaps inverted same-year months everywhere so legacy stored data still parses', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const repaired = storedDataSchema.parse(repairStoredCashFlowMonths(storedWithInverted()))
+    const repaired = storedDataSchema.parse(
+      migratePlanTransfersToProfile(repairStoredCashFlowMonths(storedWithInverted())),
+    )
     expect(repaired.profile.incomes?.[0]).toMatchObject({ start_month: 3, end_month: 8 })
     expect(repaired.profile.expenses?.[0]).toMatchObject({ start_month: 3, end_month: 8 })
-    expect(repaired.portfolios[0].transfers?.[0]).toMatchObject({ start_month: 3, end_month: 8 })
+    // Portfolio transfers migrate into profile.transfers during repair.
+    expect(repaired.profile.transfers?.[0]).toMatchObject({ start_month: 3, end_month: 8 })
     expect(warn).toHaveBeenCalledTimes(3)
     warn.mockRestore()
   })
@@ -419,6 +426,238 @@ describe('transferSchema refinement', () => {
   })
 })
 
+describe('remainingTermUnitSchema', () => {
+  it('accepts years and months', () => {
+    expect(remainingTermUnitSchema.safeParse('years').success).toBe(true)
+    expect(remainingTermUnitSchema.safeParse('months').success).toBe(true)
+  })
+
+  it('rejects anything else', () => {
+    expect(remainingTermUnitSchema.safeParse('fortnights').success).toBe(false)
+    expect(remainingTermUnitSchema.safeParse(undefined).success).toBe(false)
+  })
+
+  it('accepts an explicit unit on a financed tangible asset', () => {
+    expect(
+      profileTangibleAssetSchema.safeParse({
+        id: 'asset-1',
+        name: 'House',
+        value: 1_000_000,
+        status: 'financed',
+        outstanding_balance: 500_000,
+        installment_frequency: 'monthly',
+        annual_rate: 4.5,
+        installment_amount: 2_500,
+        remaining_term: 180,
+        remaining_term_unit: 'months',
+      }).success,
+    ).toBe(true)
+  })
+
+  it('accepts an explicit unit on a liability', () => {
+    expect(
+      profileLiabilitySchema.safeParse({
+        id: 'liab-1',
+        name: 'Car loan',
+        outstanding_balance: 20_000,
+        installment_frequency: 'monthly',
+        annual_rate: 6,
+        installment_amount: 400,
+        remaining_term: 48,
+        remaining_term_unit: 'months',
+      }).success,
+    ).toBe(true)
+  })
+
+  it('treats an absent unit as valid (defaults to years for back-compat)', () => {
+    expect(
+      profileLiabilitySchema.safeParse({
+        id: 'liab-1',
+        name: 'Car loan',
+        outstanding_balance: 20_000,
+        installment_frequency: 'monthly',
+        annual_rate: 6,
+        installment_amount: 400,
+        remaining_term: 4,
+      }).success,
+    ).toBe(true)
+  })
+
+  it('rejects an invalid unit on a financed tangible asset', () => {
+    const result = profileTangibleAssetSchema.safeParse({
+      id: 'asset-1',
+      name: 'House',
+      value: 1_000_000,
+      status: 'financed',
+      outstanding_balance: 500_000,
+      installment_frequency: 'monthly',
+      annual_rate: 4.5,
+      installment_amount: 2_500,
+      remaining_term: 180,
+      remaining_term_unit: 'fortnights',
+    })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((i) => i.path)).toContainEqual(['remaining_term_unit'])
+    }
+  })
+})
+
+describe('profileSchema language', () => {
+  it('accepts a supported language', () => {
+    expect(profileSchema.safeParse({ name: 'A', email: 'a@b.c', language: 'cs' }).success).toBe(
+      true,
+    )
+    expect(profileSchema.safeParse({ name: 'A', email: 'a@b.c', language: 'en' }).success).toBe(
+      true,
+    )
+  })
+
+  it('rejects an unsupported language', () => {
+    const result = profileSchema.safeParse({ name: 'A', email: 'a@b.c', language: 'hu' })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((i) => i.path)).toContainEqual(['language'])
+    }
+  })
+
+  it('does not require a language (browser auto-detect remains the fallback)', () => {
+    expect(profileSchema.safeParse({ name: 'A', email: 'a@b.c' }).success).toBe(true)
+  })
+})
+
+describe('migratePlanTransfersToProfile', () => {
+  const recurring: Transfer = {
+    id: 't-1',
+    name: 'Monthly savings',
+    from_asset_id: 'cash',
+    to_asset_id: 'inv-1',
+    amount: 200,
+    schedule: 'recurring',
+    frequency: 'monthly',
+    start: 'immediately',
+    end: 'never',
+    change_over_time: 'none',
+  }
+
+  function stored(overrides = {}) {
+    return {
+      lastUpdated: 1,
+      profile: { name: 'Test', email: '' } as {
+        name: string
+        email: string
+        transfers?: unknown[]
+      },
+      portfolios: [
+        {
+          id: 'p-1',
+          name: 'Plan A',
+          start_date: '2026-01-01',
+          end_date: '2060-01-01',
+          inflation_rate: 2,
+          transfers: [{ ...recurring }],
+          ...overrides,
+        },
+      ],
+    }
+  }
+
+  it('moves portfolio transfers into profile.transfers', () => {
+    const data = stored()
+    expect(data.profile.transfers).toBeUndefined()
+    migratePlanTransfersToProfile(data)
+    expect(data.profile.transfers).toEqual([{ ...recurring }])
+    expect((data.portfolios[0] as Record<string, unknown>).transfers).toBeUndefined()
+  })
+
+  it('sets included_transfer_ids to the moved ids when it was undefined', () => {
+    const data = stored()
+    migratePlanTransfersToProfile(data)
+    expect(
+      (data.portfolios[0] as { included_transfer_ids?: string[] }).included_transfer_ids,
+    ).toEqual(['t-1'])
+  })
+
+  it('preserves an explicit included_transfer_ids list, intersected with moved ids', () => {
+    const data = stored({ included_transfer_ids: ['t-1'] })
+    migratePlanTransfersToProfile(data)
+    expect(
+      (data.portfolios[0] as { included_transfer_ids?: string[] }).included_transfer_ids,
+    ).toEqual(['t-1'])
+  })
+
+  it('does not let a plan inherit transfers it did not own', () => {
+    const data = stored()
+    // A second portfolio with its own transfer.
+    ;(data.portfolios as unknown[]).push({
+      id: 'p-2',
+      name: 'Plan B',
+      start_date: '2026-01-01',
+      end_date: '2060-01-01',
+      inflation_rate: 2,
+      transfers: [{ ...recurring, id: 't-2' }],
+    })
+    migratePlanTransfersToProfile(data)
+    // Plan A explicitly includes only its own transfer.
+    expect(
+      (data.portfolios[0] as { included_transfer_ids?: string[] }).included_transfer_ids,
+    ).toEqual(['t-1'])
+    expect(
+      (data.portfolios[1] as { included_transfer_ids?: string[] }).included_transfer_ids,
+    ).toEqual(['t-2'])
+    expect(data.profile.transfers).toHaveLength(2)
+  })
+
+  it('deduplicates shared transfer ids across portfolios', () => {
+    const p2 = {
+      id: 'p-2',
+      name: 'Plan B',
+      start_date: '2026-01-01',
+      end_date: '2060-01-01',
+      inflation_rate: 2,
+      transfers: [{ ...recurring }], // same id 't-1'
+    }
+    const data = stored()
+    ;(data.portfolios as unknown[]).push(p2)
+    migratePlanTransfersToProfile(data)
+    expect(data.profile.transfers).toHaveLength(1)
+  })
+
+  it('does not touch portfolios without a transfers array', () => {
+    const data = stored({ transfers: undefined })
+    delete (data.portfolios[0] as Record<string, unknown>).transfers
+    migratePlanTransfersToProfile(data)
+    expect(data.profile.transfers).toBeUndefined()
+    expect((data.portfolios[0] as Record<string, unknown>).transfers).toBeUndefined()
+  })
+
+  it('rewires a plan without transfers so it references nothing', () => {
+    const data = stored({ included_transfer_ids: ['t-1'] })
+    delete (data.portfolios[0] as Record<string, unknown>).transfers
+    migratePlanTransfersToProfile(data)
+    expect(
+      (data.portfolios[0] as { included_transfer_ids?: string[] }).included_transfer_ids,
+    ).toEqual([])
+  })
+
+  it('is idempotent on already-migrated data', () => {
+    const data = stored()
+    migratePlanTransfersToProfile(data)
+    const after = JSON.parse(JSON.stringify(data))
+    migratePlanTransfersToProfile(after)
+    expect(after.profile.transfers).toEqual(data.profile.transfers)
+  })
+
+  it('passes through data that is not a stored-data object', () => {
+    expect(migratePlanTransfersToProfile(undefined)).toBe(undefined)
+    expect(migratePlanTransfersToProfile('nope')).toBe('nope')
+    expect(migratePlanTransfersToProfile({ profile: 'malformed', portfolios: 42 })).toEqual({
+      profile: 'malformed',
+      portfolios: 42,
+    })
+  })
+})
+
 // The cheap regression guard against schema changes invalidating existing
 // localStorage: a realistic fully-populated payload must always parse. If a
 // stricter rule is ever added, this fixture fails first — BEFORE real users
@@ -507,6 +746,33 @@ describe('storedDataSchema golden fixture', () => {
             change_over_time: 'none',
           },
         ],
+        transfers: [
+          {
+            id: 'transfer-1',
+            name: 'Monthly investing',
+            from_asset_id: 'cash',
+            to_asset_id: 'inv-1',
+            amount: 10_000,
+            schedule: 'recurring',
+            frequency: 'monthly',
+            start: 'immediately',
+            end: 'when_age_is',
+            end_age: 60,
+            inflation_adjusted: true,
+            change_over_time: 'none',
+          },
+          {
+            id: 'transfer-2',
+            name: 'Sell the car',
+            from_asset_id: 'asset-2',
+            to_asset_id: 'cash',
+            amount: 0,
+            transfer_all: true,
+            schedule: 'one_time',
+            transaction_year: 2032,
+            transaction_month: 6,
+          },
+        ],
         hide_plan_intro: true,
       },
       portfolios: [
@@ -523,33 +789,6 @@ describe('storedDataSchema golden fixture', () => {
           included_liability_ids: ['liab-1'],
           included_income_ids: ['income-1'],
           included_expense_ids: ['expense-1'],
-          transfers: [
-            {
-              id: 'transfer-1',
-              name: 'Monthly investing',
-              from_asset_id: 'cash',
-              to_asset_id: 'inv-1',
-              amount: 10_000,
-              schedule: 'recurring',
-              frequency: 'monthly',
-              start: 'immediately',
-              end: 'when_age_is',
-              end_age: 60,
-              inflation_adjusted: true,
-              change_over_time: 'none',
-            },
-            {
-              id: 'transfer-2',
-              name: 'Sell the car',
-              from_asset_id: 'asset-2',
-              to_asset_id: 'cash',
-              amount: 0,
-              transfer_all: true,
-              schedule: 'one_time',
-              transaction_year: 2032,
-              transaction_month: 6,
-            },
-          ],
           included_transfer_ids: ['transfer-1', 'transfer-2'],
         },
       ],

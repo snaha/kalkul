@@ -5,6 +5,7 @@
   import ChangeOverTimeSelector from '$lib/components/change-over-time-selector.svelte'
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
   import EditableItemCard from '$lib/components/editable-item-card.svelte'
+  import InflationAdjustToggle from '$lib/components/inflation-adjust-toggle.svelte'
   import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Label } from '$lib/components/ui/label'
@@ -30,6 +31,7 @@
     end_age?: number
     change_over_time: ChangeOverTime
     change_percentage?: number
+    inflation_adjusted?: boolean
     editing: boolean
   }
 
@@ -42,8 +44,9 @@
     changeDescription: string
     years: string[]
     months: { value: string; label: string }[]
-    formatCurrency: (value: number) => string
+    formatCurrencyCode: (value: number) => string
     formatNumber: (value: number) => string
+    amountLabel?: string
     onToggleEditing: () => void
     onDuplicate: () => void
     onDelete: () => void
@@ -59,8 +62,9 @@
     changeDescription,
     years,
     months,
-    formatCurrency,
+    formatCurrencyCode,
     formatNumber,
+    amountLabel,
     onToggleEditing,
     onDuplicate,
     onDelete,
@@ -100,7 +104,7 @@
   let collapsedValueClass = $derived(sentiment === 'positive' ? 'text-success' : 'text-destructive')
   let formattedAmount = $derived.by(() => {
     if (item.amount === undefined || item.amount === 0) return ''
-    return `${sign}${formatCurrency(item.amount)} / ${getFrequencyShortLabel($_, item.frequency)}`
+    return `${sign}${formatCurrencyCode(item.amount)} / ${getFrequencyShortLabel($_, item.frequency)}`
   })
 </script>
 
@@ -116,7 +120,7 @@
     <!-- Amount and Frequency row -->
     <div class="flex items-center gap-2">
       <div class="flex flex-1 flex-col gap-2">
-        <Label for="amount-{item.id}">{$_('page.setup.common.amount')}</Label>
+        <Label for="amount-{item.id}">{amountLabel ?? $_('page.setup.common.amount')}</Label>
         <SuffixedInput
           id="amount-{item.id}"
           value={item.amount}
@@ -139,6 +143,14 @@
         />
       </div>
     </div>
+
+    <!-- Adjust for inflation toggle -->
+    <InflationAdjustToggle
+      checked={item.inflation_adjusted ?? false}
+      onCheckedChange={(v) => {
+        item.inflation_adjusted = v
+      }}
+    />
 
     <!-- Advanced options toggle -->
     <div class="flex cursor-pointer items-center gap-2">

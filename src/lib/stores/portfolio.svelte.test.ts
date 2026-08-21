@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { portfolioSchema } from '$lib/schemas'
-import type { Portfolio, Transfer } from '$lib/schemas'
+import type { Portfolio } from '$lib/schemas'
 
 import { withPortfolioStore } from './portfolio.svelte'
 
@@ -11,32 +11,6 @@ import { withPortfolioStore } from './portfolio.svelte'
 const app = {
   persist: () => {},
   deletePortfolio: () => {},
-}
-
-// A fully-populated transfer so the `transfers` array survives the
-// `length > 0` guard in `toJSON()`.
-const transfer: Transfer = {
-  id: 'transfer-1',
-  name: 'Rebalance',
-  from_asset_id: 'inv-1',
-  to_asset_id: 'inv-2',
-  amount: 500,
-  transfer_all: false,
-  inflation_adjusted: true,
-  schedule: 'recurring',
-  transaction_year: 2030,
-  transaction_month: 6,
-  frequency: 'yearly',
-  start: 'immediately',
-  start_year: 2030,
-  start_month: 1,
-  start_age: 40,
-  end: 'when_age_is',
-  end_year: 2050,
-  end_month: 12,
-  end_age: 65,
-  change_over_time: 'match_inflation',
-  change_percentage: 2,
 }
 
 // A fixture with EVERY key of `portfolioSchema` populated with a defined
@@ -55,7 +29,6 @@ const fixture: Portfolio = {
   included_liability_ids: ['liab-1'],
   included_income_ids: ['income-1'],
   included_expense_ids: ['expense-1'],
-  transfers: [transfer],
   included_transfer_ids: ['transfer-1'],
 }
 

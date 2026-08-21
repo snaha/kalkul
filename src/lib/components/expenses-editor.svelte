@@ -56,6 +56,9 @@
       end_age: currentAge,
       change_over_time: 'none',
       change_percentage: undefined,
+      // Default ON so new expenses keep their real value over time without the
+      // user having to flip it (mirrors the income/transfer default).
+      inflation_adjusted: true,
       editing: true,
     }),
     copyName: (name) => $_('page.setup.common.copySuffix', { values: { name } }),
@@ -78,6 +81,7 @@
         e.change_over_time === 'increase_yearly' || e.change_over_time === 'decrease_yearly'
           ? (e.change_percentage ?? 0)
           : undefined,
+      inflation_adjusted: e.inflation_adjusted ?? undefined,
     }),
     persist: (data) => appStore.updateProfile({ expenses: data }),
   })
@@ -102,7 +106,7 @@
         changeDescription={$_('page.setup.expenses.changeDescription')}
         {years}
         {months}
-        formatCurrency={appStore.formatCurrency}
+        formatCurrencyCode={appStore.formatCurrencyCode}
         formatNumber={appStore.formatNumber}
         onToggleEditing={() => {
           expense.editing = !expense.editing

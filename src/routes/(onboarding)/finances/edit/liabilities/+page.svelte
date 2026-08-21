@@ -16,11 +16,6 @@
     goto(getNextStepUrl(routes.FINANCES_EDIT_LIABILITIES, appStore.profile))
   }
 
-  function handleSkip() {
-    // eslint-disable-next-line svelte/no-navigation-without-resolve
-    goto(getNextStepUrl(routes.FINANCES_EDIT_LIABILITIES, appStore.profile))
-  }
-
   function handleBack() {
     // eslint-disable-next-line svelte/no-navigation-without-resolve
     goto(getPrevStepUrl(routes.FINANCES_EDIT_LIABILITIES, appStore.profile))
@@ -29,7 +24,7 @@
 
 <div class="flex w-full max-w-[576px] flex-col items-end gap-8">
   <div class="flex w-full flex-col gap-2 text-foreground">
-    <h1 class="text-2xl font-bold leading-8">
+    <h1 class="text-xl font-bold leading-7">
       {$_('page.setup.liabilities.title')}
     </h1>
     <p class="text-base">
@@ -39,10 +34,5 @@
 
   <LiabilitiesEditor onHasValueChange={(v) => (hasValue = v)} />
 
-  <OnboardingNav
-    canContinue={hasValue}
-    onBack={handleBack}
-    onSkip={handleSkip}
-    onContinue={handleContinue}
-  />
+  <OnboardingNav canContinue={hasValue} onBack={handleBack} onContinue={handleContinue} />
 </div>

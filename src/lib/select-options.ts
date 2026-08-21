@@ -1,8 +1,10 @@
 import type { SelectFieldItem } from '$lib/components/select-field.svelte'
 import {
   type Frequency,
+  type RemainingTermUnit,
   type TangibleAssetStatus,
   frequencySchema,
+  remainingTermUnitSchema,
   tangibleAssetStatusSchema,
 } from '$lib/schemas'
 
@@ -21,6 +23,14 @@ export function getFrequencyItems($_: Translator): SelectFieldItem<Frequency>[] 
     weekly: $_('page.setup.common.weekly'),
   } satisfies Record<Frequency, string>
   return frequencySchema.options.map((value) => ({ value, label: labels[value] }))
+}
+
+export function getRemainingTermUnitItems($_: Translator): SelectFieldItem<RemainingTermUnit>[] {
+  const labels = {
+    years: $_('page.setup.common.years'),
+    months: $_('page.setup.common.months'),
+  } satisfies Record<RemainingTermUnit, string>
+  return remainingTermUnitSchema.options.map((value) => ({ value, label: labels[value] }))
 }
 
 export function getFrequencyShortLabel($_: Translator, frequency: Frequency): string {

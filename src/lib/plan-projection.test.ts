@@ -205,6 +205,48 @@ describe('getYearlyPlanProjection', () => {
     expect(result[4].liabilities).toBeCloseTo(0, 6)
   })
 
+  it('treats remaining_term in months as the same total installments as years', () => {
+    // 18 months at a monthly cadence == 1.5 years * 12 periods/year = 18
+    // installments, so it must amortize identically to remaining_term 1.5 years.
+    const inMonths: ProfileLiability[] = [
+      {
+        id: 'l1',
+        name: 'Loan',
+        outstanding_balance: 1800,
+        installment_frequency: 'monthly',
+        annual_rate: 0,
+        installment_amount: 300,
+        remaining_term: 18,
+        remaining_term_unit: 'months',
+      },
+    ]
+    const inYears: ProfileLiability[] = [
+      {
+        id: 'l1',
+        name: 'Loan',
+        outstanding_balance: 1800,
+        installment_frequency: 'monthly',
+        annual_rate: 0,
+        installment_amount: 300,
+        remaining_term: 1.5,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ start_date: '2025-01-01', end_date: '2028-01-01' }),
+      makeProfile({ liabilities: inMonths, cash_amount: 2000 }),
+    )
+    const resultYears = getYearlyPlanProjection(
+      makePlan({ start_date: '2025-01-01', end_date: '2028-01-01' }),
+      makeProfile({ liabilities: inYears, cash_amount: 2000 }),
+    )
+    // 18 monthly installments: 300 * 6 = 1800 clears by mid-2026; both paths
+    // must agree on the liability balance and cash each year.
+    expect(result[0].liabilities).toBeCloseTo(resultYears[0].liabilities, 6)
+    expect(result[1].liabilities).toBeCloseTo(resultYears[1].liabilities, 6)
+    expect(result[2].liabilities).toBeCloseTo(resultYears[2].liabilities, 6)
+    expect(result[1].liabilities).toBeCloseTo(0, 6)
+  })
+
   it('clears an under-amortizing liability via a balloon on the final installment', () => {
     // Installment of 200 leaves 200 unpaid after 4 yearly installments at 0%
     // (1000 - 4*200 = 200). The final installment must balloon up to clear it.
@@ -630,6 +672,33 @@ describe('getYearlyPlanProjection', () => {
     expect(result[0].netWorth).toBeCloseTo(5_000_000 - 2_700_000, 6)
   })
 
+  it('honors remaining_term in months on a financed tangible asset', () => {
+    // 36 monthly installments == 3 years of yearly installments at the same
+    // 300_000/year total; the financing liability must pay off in both cases.
+    const inMonths: ProfileTangibleAsset[] = [
+      {
+        id: 't1',
+        name: 'House',
+        value: 5_000_000,
+        status: 'financed',
+        outstanding_balance: 900_000,
+        installment_frequency: 'monthly',
+        annual_rate: 0,
+        installment_amount: 25_000,
+        remaining_term: 36,
+        remaining_term_unit: 'months',
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ start_date: '2025-01-01', end_date: '2028-01-01' }),
+      makeProfile({ cash_amount: 2_000_000, tangible_assets: inMonths }),
+    )
+    // 36 * 25_000 = 900_000; at 25k/mo the balance clears within 2027.
+    expect(result[0].liabilities).toBeCloseTo(600_000, 6)
+    expect(result[1].liabilities).toBeCloseTo(300_000, 6)
+    expect(result[2].liabilities).toBeCloseTo(0, 6)
+  })
+
   it('amortizes a financed tangible asset year-by-year and draws payments from cash', () => {
     const tangible_assets: ProfileTangibleAsset[] = [
       {
@@ -1004,8 +1073,8 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ transfers }),
-      makeProfile({ cash_amount: 5000, investments }),
+      makePlan(),
+      makeProfile({ cash_amount: 5000, investments, transfers }),
     )
     // 2025, 2026 — no change
     expect(result[0].cash).toBeCloseTo(5000, 6)
@@ -1037,8 +1106,8 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ transfers }),
-      makeProfile({ cash_amount: 0, investments }),
+      makePlan(),
+      makeProfile({ cash_amount: 0, investments, transfers }),
     )
     // Year 0: starts at 1000, transfer at end of year leaves 500.
     expect(result[0].investments).toBeCloseTo(500, 6)
@@ -1066,8 +1135,8 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ transfers }),
-      makeProfile({ cash_amount: 100_000, investments }),
+      makePlan(),
+      makeProfile({ cash_amount: 100_000, investments, transfers }),
     )
     // 100/mo * 12 = 1200/year
     expect(result[0].investments).toBeCloseTo(1200, 6)
@@ -1095,8 +1164,8 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ transfers }),
-      makeProfile({ cash_amount: 100_000, investments }),
+      makePlan(),
+      makeProfile({ cash_amount: 100_000, investments, transfers }),
     )
     // Plan runs 2025-2030; transfer starts 2028, so nothing before then.
     expect(result[0].investments).toBeCloseTo(0, 6) // 2025
@@ -1124,8 +1193,8 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ transfers }),
-      makeProfile({ cash_amount: 100_000, investments, birth_date: '1980-01-01' }),
+      makePlan(),
+      makeProfile({ cash_amount: 100_000, investments, birth_date: '1980-01-01', transfers }),
     )
     expect(result[0].investments).toBeCloseTo(0, 6) // 2025
     expect(result[2].investments).toBeCloseTo(0, 6) // 2027
@@ -1152,8 +1221,8 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ transfers }),
-      makeProfile({ cash_amount: 100_000, investments }), // no birth_date
+      makePlan(),
+      makeProfile({ cash_amount: 100_000, investments, transfers }), // no birth_date
     )
     expect(result[0].investments).toBeCloseTo(1200, 6) // fires from year 1
   })
@@ -1179,8 +1248,8 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ transfers }),
-      makeProfile({ cash_amount: 100_000, investments }),
+      makePlan(),
+      makeProfile({ cash_amount: 100_000, investments, transfers }),
     )
     expect(result[0].investments).toBeCloseTo(1000, 6)
     expect(result[1].investments).toBeCloseTo(2100, 6)
@@ -1204,8 +1273,8 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ transfers }),
-      makeProfile({ cash_amount: 0, tangible_assets }),
+      makePlan(),
+      makeProfile({ cash_amount: 0, tangible_assets, transfers }),
     )
     // Year 0: untouched
     expect(result[0].tangibleAssets).toBeCloseTo(5_000_000, 6)
@@ -1230,8 +1299,8 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ transfers }),
-      makeProfile({ cash_amount: 0, investments }),
+      makePlan(),
+      makeProfile({ cash_amount: 0, investments, transfers }),
     )
     // Source untouched, destination not credited.
     expect(result[0].investments).toBeCloseTo(100, 6)
@@ -1256,8 +1325,8 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ transfers }),
-      makeProfile({ cash_amount: 7500, investments }),
+      makePlan(),
+      makeProfile({ cash_amount: 7500, investments, transfers }),
     )
     // 2025 (year 0): untouched
     expect(result[0].cash).toBeCloseTo(7500, 6)
@@ -1283,8 +1352,8 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ transfers }),
-      makeProfile({ cash_amount: 0, investments }),
+      makePlan(),
+      makeProfile({ cash_amount: 0, investments, transfers }),
     )
     expect(result[0].cash).toBeCloseTo(0, 6)
     expect(result[0].investments).toBeCloseTo(0, 6)
@@ -1323,8 +1392,8 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ transfers }),
-      makeProfile({ cash_amount: 0, incomes, investments }),
+      makePlan(),
+      makeProfile({ cash_amount: 0, incomes, investments, transfers }),
     )
     // Each year: 1000 lands in cash, sweep drains it. Investments accumulate.
     expect(result[0].cash).toBeCloseTo(0, 6)
@@ -1358,8 +1427,8 @@ describe('getYearlyPlanProjection', () => {
     ]
     const investments: ProfileInvestment[] = [{ id: 'inv1', name: 'Stocks', balance: 0, apy: 0 }]
     const result = getYearlyPlanProjection(
-      makePlan({ transfers }),
-      makeProfile({ cash_amount: 1000, investments }),
+      makePlan(),
+      makeProfile({ cash_amount: 1000, investments, transfers }),
     )
     // Only the first transfer applies: cash 1000 -> 400, inv 0 -> 600.
     expect(result[0].cash).toBeCloseTo(400, 6)
@@ -1391,8 +1460,8 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ transfers, included_transfer_ids: ['t1'] }),
-      makeProfile({ cash_amount: 1000, investments }),
+      makePlan({ included_transfer_ids: ['t1'] }),
+      makeProfile({ cash_amount: 1000, investments, transfers }),
     )
     // Only t1 applies: 100 from cash to inv1; t2 is excluded.
     expect(result[0].cash).toBeCloseTo(900, 6)
@@ -1417,8 +1486,8 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ included_investment_ids: ['inv1'], transfers }),
-      makeProfile({ investments }),
+      makePlan({ included_investment_ids: ['inv1'] }),
+      makeProfile({ investments, transfers }),
     )
     // inv1 unchanged (transfer ignored)
     expect(result[0].investments).toBeCloseTo(1000, 6)
@@ -1535,8 +1604,8 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ inflation_rate: 0.05, transfers }),
-      makeProfile({ cash_amount: 10_000, investments }),
+      makePlan({ inflation_rate: 0.05 }),
+      makeProfile({ cash_amount: 10_000, investments, transfers }),
     )
     // Nominal transfer in 2028 = 1000 * 1.05^3 ≈ 1157.625, then deflated by
     // 1.05^3 back to the plan-start (real) units used by the projection.
@@ -1559,8 +1628,8 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ inflation_rate: 0.05, transfers }),
-      makeProfile({ cash_amount: 10_000, investments }),
+      makePlan({ inflation_rate: 0.05 }),
+      makeProfile({ cash_amount: 10_000, investments, transfers }),
     )
     // Without the toggle the nominal 1000 stays at 1000; in real terms after
     // 3 years of 5% inflation that's 1000 / 1.05^3 ≈ 863.84.
@@ -1731,8 +1800,8 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ transfers }),
-      makeProfile({ cash_amount: 1000, investments }),
+      makePlan(),
+      makeProfile({ cash_amount: 1000, investments, transfers }),
     )
     // 40 % of 5 % = 2 % upfront cut → 1000 → 980 lands in the investment.
     // Source loses the full 1000; the broker pockets the missing 20.
@@ -1757,8 +1826,8 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ transfers }),
-      makeProfile({ cash_amount: 1000, investments }),
+      makePlan(),
+      makeProfile({ cash_amount: 1000, investments, transfers }),
     )
     // 2 % of 1000 = 20 deducted → 980 invested.
     expect(result[0].investments).toBeCloseTo(980, 6)
@@ -1782,8 +1851,8 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ transfers }),
-      makeProfile({ cash_amount: 0, investments }),
+      makePlan(),
+      makeProfile({ cash_amount: 0, investments, transfers }),
     )
     // Source loses 500. 1 % of 500 = 5 fee → 495 lands in cash.
     expect(result[0].investments).toBeCloseTo(500, 6)
@@ -1807,8 +1876,8 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ transfers }),
-      makeProfile({ cash_amount: 0, investments }),
+      makePlan(),
+      makeProfile({ cash_amount: 0, investments, transfers }),
     )
     expect(result[0].investments).toBeCloseTo(500, 6)
     expect(result[0].cash).toBeCloseTo(490, 6)
@@ -1831,8 +1900,8 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ transfers }),
-      makeProfile({ cash_amount: 0, investments }),
+      makePlan(),
+      makeProfile({ cash_amount: 0, investments, transfers }),
     )
     expect(result[0].cash).toBeCloseTo(0, 6)
   })
@@ -1906,8 +1975,8 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ transfers }),
-      makeProfile({ cash_amount: 0, incomes, investments }),
+      makePlan(),
+      makeProfile({ cash_amount: 0, incomes, investments, transfers }),
     )
     // 2025, 2026: income covers transfer → no warning.
     expect(result[0].insufficientFundTransferIds).toEqual([])
@@ -1946,8 +2015,8 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ transfers }),
-      makeProfile({ cash_amount: 0, investments }),
+      makePlan(),
+      makeProfile({ cash_amount: 0, investments, transfers }),
     )
     // Year 0: drain succeeds, second hasn't fired yet.
     expect(result[0].insufficientFundTransferIds).toEqual([])
@@ -2007,9 +2076,8 @@ describe('getYearlyPlanProjection', () => {
         start_date: '2026-01-01',
         end_date: '2046-01-01',
         inflation_rate: 0.05,
-        transfers,
       }),
-      makeProfile({ cash_amount: 1_000_000, expenses, investments }),
+      makeProfile({ cash_amount: 1_000_000, expenses, investments, transfers }),
     )
     // From 2035 (year 9) onward the transfer covers the expense in real
     // terms — no expense should ever be flagged.
@@ -2052,8 +2120,8 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ transfers }),
-      makeProfile({ cash_amount: 0, expenses, investments }),
+      makePlan(),
+      makeProfile({ cash_amount: 0, expenses, investments, transfers }),
     )
     for (const entry of result) {
       expect(entry.insufficientFundExpenseIds).toEqual([])
@@ -2261,8 +2329,8 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ inflation_rate: 0.02, transfers }),
-      makeProfile({ cash_amount: 0, tangible_assets }),
+      makePlan({ inflation_rate: 0.02 }),
+      makeProfile({ cash_amount: 0, tangible_assets, transfers }),
     )
     const before = result.find((r) => r.year === 2026)
     const saleYear = result.find((r) => r.year === 2027)
@@ -2290,8 +2358,8 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ inflation_rate: 0.02, transfers }),
-      makeProfile({ cash_amount: 600_000, tangible_assets }),
+      makePlan({ inflation_rate: 0.02 }),
+      makeProfile({ cash_amount: 600_000, tangible_assets, transfers }),
     )
     const saleYear = result.find((r) => r.year === 2027)
     // An internal move must not change total net worth: cash held nominal, so

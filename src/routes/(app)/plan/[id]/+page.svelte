@@ -168,7 +168,7 @@
   }
 
   function reopenTransferDialog(id: string) {
-    const item = (plan?.transfers ?? []).find((t) => t.id === id)
+    const item = (appStore.profile.transfers ?? []).find((t) => t.id === id)
     if (!item) return
     setTimeout(() => openTransferDialog(item), REOPEN_DELAY_MS)
   }
@@ -218,7 +218,7 @@
   })
 
   // Category counts from profile data
-  const transfersCount = $derived((plan?.transfers ?? []).length)
+  const transfersCount = $derived((appStore.profile.transfers ?? []).length)
 
   function transferValueSuffix(t: Transfer): string {
     if (t.schedule === 'one_time') return `(${$_('page.plan.scheduleOneTime').toLowerCase()})`
@@ -287,7 +287,7 @@
       id: 'transfers',
       label: $_('page.plan.transfers'),
       count: transfersCount,
-      items: (plan?.transfers ?? [])
+      items: (appStore.profile.transfers ?? [])
         .filter((t) => matchesSearch(t.name, searchQuery))
         .map((t) => ({
           id: t.id,

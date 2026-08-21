@@ -61,6 +61,9 @@
       end_age: currentAge,
       change_over_time: 'none',
       change_percentage: undefined,
+      // Default ON so new income keeps its real value over time without the
+      // user having to flip it (mirrors the transfer/expense default).
+      inflation_adjusted: true,
       editing: true,
     }),
     copyName: (name) => $_('page.setup.common.copySuffix', { values: { name } }),
@@ -85,6 +88,7 @@
         i.change_over_time === 'increase_yearly' || i.change_over_time === 'decrease_yearly'
           ? (i.change_percentage ?? 0)
           : undefined,
+      inflation_adjusted: i.inflation_adjusted ?? undefined,
     }),
     persist: (data) => appStore.updateProfile({ incomes: data }),
   })
@@ -109,8 +113,9 @@
         changeDescription={$_('page.setup.income.changeDescription')}
         {years}
         {months}
-        formatCurrency={appStore.formatCurrency}
+        formatCurrencyCode={appStore.formatCurrencyCode}
         formatNumber={appStore.formatNumber}
+        amountLabel={$_('page.setup.income.netAmount')}
         onToggleEditing={() => {
           income.editing = !income.editing
         }}

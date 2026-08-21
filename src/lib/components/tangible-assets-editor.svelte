@@ -2,9 +2,9 @@
   import { onDestroy } from 'svelte'
   import { _ } from 'svelte-i18n'
 
+  import ArrowLeftRight from '@lucide/svelte/icons/arrow-left-right'
   import Plus from '@lucide/svelte/icons/plus'
 
-  import { CATEGORY_COLORS } from '$lib/chart-colors'
   import EditableItemCard from '$lib/components/editable-item-card.svelte'
   import EditorItemErrors from '$lib/components/editor-item-errors.svelte'
   import SelectField from '$lib/components/select-field.svelte'
@@ -12,8 +12,17 @@
   import { Button } from '$lib/components/ui/button'
   import { Label } from '$lib/components/ui/label'
   import { createListEditor } from '$lib/list-editor.svelte'
-  import type { Frequency, ProfileTangibleAsset, TangibleAssetStatus } from '$lib/schemas'
-  import { getFrequencyItems, getTangibleAssetStatusItems } from '$lib/select-options'
+  import type {
+    Frequency,
+    ProfileTangibleAsset,
+    RemainingTermUnit,
+    TangibleAssetStatus,
+  } from '$lib/schemas'
+  import {
+    getFrequencyItems,
+    getRemainingTermUnitItems,
+    getTangibleAssetStatusItems,
+  } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
 
   interface AssetUI {
@@ -26,6 +35,7 @@
     annual_rate: number | undefined
     installment_amount: number | undefined
     remaining_term: number | undefined
+    remaining_term_unit: RemainingTermUnit
     editing: boolean
   }
 
@@ -54,6 +64,7 @@
           : undefined,
       remaining_term:
         a.remaining_term !== undefined && a.remaining_term > 0 ? a.remaining_term : undefined,
+      remaining_term_unit: a.remaining_term_unit ?? 'years',
       editing: false,
     }),
     makeBlank: (index) => ({
@@ -66,6 +77,7 @@
       annual_rate: undefined,
       installment_amount: undefined,
       remaining_term: undefined,
+      remaining_term_unit: 'years',
       editing: true,
     }),
     copyName: (name) => $_('page.setup.common.copySuffix', { values: { name } }),
@@ -80,6 +92,7 @@
       annual_rate: a.status === 'financed' ? (a.annual_rate ?? 0) : undefined,
       installment_amount: a.status === 'financed' ? (a.installment_amount ?? 0) : undefined,
       remaining_term: a.status === 'financed' ? (a.remaining_term ?? 0) : undefined,
+      remaining_term_unit: a.remaining_term_unit,
     }),
     persist: (data) =>
       appStore.updateProfile({
@@ -99,19 +112,21 @@
 
   let frequencyItems = $derived(getFrequencyItems($_))
 
+  let remainingTermUnitItems = $derived(getRemainingTermUnitItems($_))
+
   function formatValue(val: number | undefined): string {
     if (val === undefined || val === 0) return ''
-    return appStore.formatCurrency(val)
+    return appStore.formatCurrencyCode(val)
   }
 </script>
 
 <div class="flex w-full flex-col gap-4">
-  {#each editor.items as asset, idx (asset.id)}
+  {#each editor.items as asset (asset.id)}
     <div class="flex flex-col gap-1">
       <EditableItemCard
         item={asset}
         collapsedValue={formatValue(asset.value)}
-        dotColor={CATEGORY_COLORS.tangibleAssets[idx % CATEGORY_COLORS.tangibleAssets.length]}
+        badge={asset.status === 'financed' ? $_('page.setup.tangibleAssets.financed') : undefined}
         onToggleEditing={() => {
           asset.editing = !asset.editing
         }}
@@ -206,21 +221,32 @@
                   }}
                 />
               </div>
+              <span class="inline-flex h-8 items-center text-muted-foreground">
+                <ArrowLeftRight class="size-4" />
+              </span>
               <div class="flex flex-1 flex-col gap-2">
                 <Label for="remainingTerm-{asset.id}"
                   >{$_('page.setup.tangibleAssets.remainingTerm')}</Label
                 >
-                <SuffixedInput
-                  id="remainingTerm-{asset.id}"
-                  value={asset.remaining_term}
-                  suffix={$_('page.setup.tangibleAssets.years', {
-                    values: { count: asset.remaining_term ?? 0 },
-                  })}
-                  formatNumber={appStore.formatNumber}
-                  onValueChange={(v) => {
-                    asset.remaining_term = v
-                  }}
-                />
+                <div class="flex items-center gap-2">
+                  <SuffixedInput
+                    id="remainingTerm-{asset.id}"
+                    value={asset.remaining_term}
+                    formatNumber={appStore.formatNumber}
+                    class="w-24"
+                    onValueChange={(v) => {
+                      asset.remaining_term = v
+                    }}
+                  />
+                  <SelectField
+                    id="remainingTermUnit-{asset.id}"
+                    value={asset.remaining_term_unit}
+                    items={remainingTermUnitItems}
+                    onValueChange={(v) => {
+                      if (v) asset.remaining_term_unit = v
+                    }}
+                  />
+                </div>
               </div>
             </div>
           {/if}

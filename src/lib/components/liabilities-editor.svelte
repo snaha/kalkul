@@ -2,9 +2,9 @@
   import { onDestroy } from 'svelte'
   import { _ } from 'svelte-i18n'
 
+  import ArrowLeftRight from '@lucide/svelte/icons/arrow-left-right'
   import Plus from '@lucide/svelte/icons/plus'
 
-  import { CATEGORY_COLORS } from '$lib/chart-colors'
   import EditableItemCard from '$lib/components/editable-item-card.svelte'
   import EditorItemErrors from '$lib/components/editor-item-errors.svelte'
   import SelectField from '$lib/components/select-field.svelte'
@@ -12,8 +12,8 @@
   import { Button } from '$lib/components/ui/button'
   import { Label } from '$lib/components/ui/label'
   import { createListEditor } from '$lib/list-editor.svelte'
-  import type { Frequency, ProfileLiability } from '$lib/schemas'
-  import { getFrequencyItems } from '$lib/select-options'
+  import type { Frequency, ProfileLiability, RemainingTermUnit } from '$lib/schemas'
+  import { getFrequencyItems, getRemainingTermUnitItems } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
 
   interface LiabilityUI {
@@ -24,6 +24,7 @@
     annual_rate: number | undefined
     installment_amount: number | undefined
     remaining_term: number | undefined
+    remaining_term_unit: RemainingTermUnit
     editing: boolean
   }
 
@@ -43,6 +44,7 @@
       annual_rate: l.annual_rate > 0 ? l.annual_rate : undefined,
       installment_amount: l.installment_amount > 0 ? l.installment_amount : undefined,
       remaining_term: l.remaining_term > 0 ? l.remaining_term : undefined,
+      remaining_term_unit: l.remaining_term_unit ?? 'years',
       editing: false,
     }),
     makeBlank: (index) => ({
@@ -53,6 +55,7 @@
       annual_rate: undefined,
       installment_amount: undefined,
       remaining_term: undefined,
+      remaining_term_unit: 'years',
       editing: true,
     }),
     copyName: (name) => $_('page.setup.common.copySuffix', { values: { name } }),
@@ -65,6 +68,7 @@
       annual_rate: l.annual_rate ?? 0,
       installment_amount: l.installment_amount ?? 0,
       remaining_term: l.remaining_term ?? 0,
+      remaining_term_unit: l.remaining_term_unit,
     }),
     persist: (data) =>
       appStore.updateProfile({
@@ -82,19 +86,20 @@
 
   let frequencyItems = $derived(getFrequencyItems($_))
 
+  let remainingTermUnitItems = $derived(getRemainingTermUnitItems($_))
+
   function formatBalance(val: number | undefined): string {
     if (val === undefined || val === 0) return ''
-    return appStore.formatCurrency(val)
+    return appStore.formatCurrencyCode(val)
   }
 </script>
 
 <div class="flex w-full flex-col gap-4">
-  {#each editor.items as liability, idx (liability.id)}
+  {#each editor.items as liability (liability.id)}
     <div class="flex flex-col gap-1">
       <EditableItemCard
         item={liability}
         collapsedValue={formatBalance(liability.outstanding_balance)}
-        dotColor={CATEGORY_COLORS.liabilities[idx % CATEGORY_COLORS.liabilities.length]}
         onToggleEditing={() => {
           liability.editing = !liability.editing
         }}
@@ -162,21 +167,32 @@
                 }}
               />
             </div>
+            <span class="inline-flex h-8 items-center text-muted-foreground">
+              <ArrowLeftRight class="size-4" />
+            </span>
             <div class="flex flex-1 flex-col gap-2">
               <Label for="remainingTerm-{liability.id}"
                 >{$_('page.setup.liabilities.remainingTerm')}</Label
               >
-              <SuffixedInput
-                id="remainingTerm-{liability.id}"
-                value={liability.remaining_term}
-                suffix={$_('page.setup.liabilities.years', {
-                  values: { count: liability.remaining_term ?? 0 },
-                })}
-                formatNumber={appStore.formatNumber}
-                onValueChange={(v) => {
-                  liability.remaining_term = v
-                }}
-              />
+              <div class="flex items-center gap-2">
+                <SuffixedInput
+                  id="remainingTerm-{liability.id}"
+                  value={liability.remaining_term}
+                  formatNumber={appStore.formatNumber}
+                  class="w-24"
+                  onValueChange={(v) => {
+                    liability.remaining_term = v
+                  }}
+                />
+                <SelectField
+                  id="remainingTermUnit-{liability.id}"
+                  value={liability.remaining_term_unit}
+                  items={remainingTermUnitItems}
+                  onValueChange={(v) => {
+                    if (v) liability.remaining_term_unit = v
+                  }}
+                />
+              </div>
             </div>
           </div>
         {/snippet}

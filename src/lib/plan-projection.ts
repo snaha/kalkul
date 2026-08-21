@@ -211,6 +211,29 @@ const COMPOUNDING_PERIODS_PER_YEAR: Record<'daily' | 'monthly' | 'yearly', numbe
   yearly: 1,
 }
 
+/**
+ * Total number of installments covered by a `remaining_term` expressed in the
+ * given unit. `remaining_term` was historically always in years (multiplied by
+ * installments-per-year); `months` divides accordingly so an 18-month, monthly
+ * loan pays off 18 times rather than 216.
+ *
+ * The result may be fractional (e.g. 18 months of monthly = 1.5 years) — the
+ * caller's per-period loop already handles a fractional period count by
+ * stopping when `periodsRemaining <= 0` and issuing a final balloon.
+ */
+function remainingTermPeriods(
+  remainingTerm: number,
+  unit: string | undefined,
+  periodsPerYear: number,
+): number {
+  if (unit === 'months') {
+    const years = remainingTerm / 12
+    return years * periodsPerYear
+  }
+  // Absent unit defaults to years (legacy behaviour).
+  return remainingTerm * periodsPerYear
+}
+
 function simulateLiability(
   liability: ProfileLiability,
   startYear: number,
@@ -241,7 +264,11 @@ function simulateLiability(
   const installmentAmount = new Decimal(liability.installment_amount)
 
   let balance = new Decimal(liability.outstanding_balance)
-  let periodsRemaining = liability.remaining_term * periodsPerYear
+  let periodsRemaining = remainingTermPeriods(
+    liability.remaining_term,
+    liability.remaining_term_unit,
+    periodsPerYear,
+  )
 
   const outstandingByYear = new Map<number, Decimal>()
   const paidByYear = new Map<number, Decimal>()
@@ -287,6 +314,7 @@ function financingToLiability(asset: ProfileTangibleAsset): ProfileLiability | u
     annual_rate: asset.annual_rate,
     installment_amount: asset.installment_amount,
     remaining_term: asset.remaining_term,
+    remaining_term_unit: asset.remaining_term_unit,
   }
 }
 
@@ -481,13 +509,15 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
 
   // Only honor transfers whose endpoints are part of this plan; anything else
   // is ignored (e.g. a transfer referencing an investment that was excluded).
-  // Also honor the plan's `included_transfer_ids` whitelist when set.
+  // Also honor the plan's `included_transfer_ids` whitelist when set. Transfers
+  // live on the profile and are referenced by the plan by id, mirroring how
+  // incomes and expenses behave.
   const knownAssetIds = new Set<string>([
     'cash',
     ...investments.map((i) => i.id),
     ...tangibleAssets.map((a) => a.id),
   ])
-  const planTransfers = filterById(plan.transfers, plan.included_transfer_ids).filter(
+  const planTransfers = filterById(profile.transfers, plan.included_transfer_ids).filter(
     (t) => knownAssetIds.has(t.from_asset_id) && knownAssetIds.has(t.to_asset_id),
   )
 

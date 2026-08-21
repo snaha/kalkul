@@ -4,7 +4,6 @@
 
   import Plus from '@lucide/svelte/icons/plus'
 
-  import { CATEGORY_COLORS } from '$lib/chart-colors'
   import EditableItemCard from '$lib/components/editable-item-card.svelte'
   import EditorItemErrors from '$lib/components/editor-item-errors.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
@@ -68,17 +67,16 @@
 
   function formatBalance(balance: number | undefined): string {
     if (balance === undefined || balance === 0) return ''
-    return appStore.formatCurrency(balance)
+    return appStore.formatCurrencyCode(balance)
   }
 </script>
 
 <div class="flex w-full flex-col gap-4">
-  {#each editor.items as investment, idx (investment.id)}
+  {#each editor.items as investment (investment.id)}
     <div class="flex flex-col gap-1">
       <EditableItemCard
         item={investment}
         collapsedValue={formatBalance(investment.balance)}
-        dotColor={CATEGORY_COLORS.investments[idx % CATEGORY_COLORS.investments.length]}
         onToggleEditing={() => {
           investment.editing = !investment.editing
         }}

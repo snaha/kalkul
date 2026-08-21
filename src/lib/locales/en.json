@@ -247,33 +247,41 @@
       }
     },
     "setup": {
-      "title": "Initial setup",
+      "title": "Get started",
       "continue": "Continue",
       "back": "Back",
-      "skip": "Skip",
       "aboutYou": {
-        "title": "About you",
-        "description": "Tell us a bit about yourself. We'll use your age to make projections meaningful to you.",
+        "title": "The basics",
         "name": "Name",
         "namePlaceholder": "What should we call you?",
-        "birthdate": "Birthdate",
-        "selectYear": "Select year",
-        "selectMonth": "Select month",
+        "birthdate": "Date of birth",
+        "selectYear": "Year",
+        "selectMonth": "Month",
         "location": "Location",
-        "selectCountry": "Select country"
+        "selectCountry": "Select country",
+        "descriptionPrefix": "Fill in a few details about yourself or ",
+        "importFile": "import an existing Kalkul file",
+        "descriptionSuffix": ".",
+        "ageHelper": "Used to calculate your age",
+        "age": "{age} years old",
+        "language": "Language",
+        "languageEnglish": "English",
+        "languageCzech": "Čeština",
+        "termsPrefix": "I agree to the ",
+        "termsLink": "Usage and license terms"
       },
       "finances": {
-        "title": "Current financial situation",
-        "description": "Add your current finances to see realistic projections based on your actual situation. You can skip or adjust details later.",
+        "title": "Current finances",
+        "description": "Add your current finances to see realistic projections.",
         "cashLabel": "How much cash do you have?",
-        "cashDescription": "Total amount of immediately available funds across all accounts",
+        "cashDescription": "Total available cash across all bank and savings accounts.",
         "whichDoYouHave": "Which of these do you currently have?",
         "investments": "Investments",
-        "investmentsDescription": "Stocks, bonds, mutual funds, ETFs, and other securities",
+        "investmentsDescription": "Stocks, bonds, ETFs, funds, crypto, and other securities.",
         "tangibleAssets": "Tangible assets",
-        "tangibleAssetsDescription": "Real estate, vehicles, and other assets (even if financed)",
+        "tangibleAssetsDescription": "Real estate, vehicles, and other assets — even if currently financed.",
         "liabilities": "Liabilities",
-        "liabilitiesDescription": "Loans or other obligations (not linked to an asset above)"
+        "liabilitiesDescription": "Financial obligations — loans and debts not attached to a tangible asset."
       },
       "common": {
         "amount": "Amount",
@@ -287,12 +295,12 @@
         "immediately": "When plan starts",
         "now": "Now",
         "atSpecificDate": "On specific time",
-        "whenAgeIs": "When your age is\u2026",
+        "whenAgeIs": "When your age is…",
         "yearsOld": "Years old",
         "never": "When plan ends",
         "none": "None",
-        "increaseYearlyBy": "Increase yearly by\u2026",
-        "decreaseYearlyBy": "Decrease yearly by\u2026",
+        "increaseYearlyBy": "Increase yearly by…",
+        "decreaseYearlyBy": "Decrease yearly by…",
         "monthly": "Monthly",
         "yearly": "Yearly",
         "weekly": "Weekly",
@@ -302,11 +310,14 @@
         "immediatelyDescription": "Starts from the beginning of the plan",
         "nowDescription": "Starts from the current month",
         "neverDescription": "Runs for the entire plan duration",
-        "noneDescription": "Amount remains the same for the entire plan duration"
+        "noneDescription": "Amount remains the same for the entire plan duration",
+        "rename": "Rename",
+        "years": "Years",
+        "months": "Months"
       },
       "tangibleAssets": {
         "title": "Tangible assets",
-        "description": "Real estate, vehicles, and other valuable property you own.",
+        "description": "Real estate, vehicles, and other assets — even if currently financed.",
         "addAsset": "Add tangible asset",
         "currentValue": "Current value",
         "status": "Status",
@@ -322,7 +333,7 @@
       },
       "liabilities": {
         "title": "Liabilities",
-        "description": "Financial obligations not linked a specific asset.",
+        "description": "Financial obligations — loans and debts not attached to a tangible asset.",
         "addLiability": "Add liability",
         "outstandingBalance": "Outstanding balance",
         "installmentFrequency": "Installment frequency",
@@ -334,14 +345,14 @@
       },
       "investments": {
         "title": "Investments",
-        "description": "Investment accounts holding securities like stocks, bonds, etc.",
+        "description": "Stocks, bonds, ETFs, funds, crypto, and other securities.",
         "addInvestment": "Add investment",
         "currentBalance": "Current balance",
-        "apy": "APY",
+        "apy": "Annual return",
         "defaultName": "Investment {index}"
       },
       "income": {
-        "title": "Incomes",
+        "title": "Recurring income",
         "description": "Salary, business income, and other regular earnings.",
         "addIncome": "Add income",
         "withholdTaxes": "Withhold taxes on this income",
@@ -349,16 +360,28 @@
         "startDescription": "Income will automatically start from the beginning of your plan",
         "endDescription": "Income will automatically last for the entire period of your plan",
         "changeDescription": "Income amount will remain the same for the entire period of your plan",
-        "defaultName": "Income {index}"
+        "defaultName": "Income {index}",
+        "netAmount": "Net amount"
       },
       "expenses": {
-        "title": "Expenses",
+        "title": "Recurring expenses",
         "description": "Living costs, recurring bills, and regular financial commitments.",
         "addExpense": "Add expense",
         "startDescription": "Expense will automatically start from the beginning of your plan",
         "endDescription": "Expense will automatically last for the entire period of your plan",
         "changeDescription": "Expense amount will remain the same for the entire period of your plan",
         "defaultName": "Expense {index}"
+      },
+      "done": "Done",
+      "transfers": {
+        "defaultName": "Transfer {index}",
+        "amount": "Amount",
+        "frequency": "Frequency",
+        "from": "From",
+        "to": "To",
+        "addTransfer": "Add transfer",
+        "title": "Recurring transfers",
+        "description": "Regular deposits or withdrawals between your accounts and assets — like monthly investment contributions."
       }
     }
   },

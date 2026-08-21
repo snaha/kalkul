@@ -20,6 +20,11 @@ export const changeOverTimeSchema = z.enum([
 
 export const tangibleAssetStatusSchema = z.enum(['fully_owned', 'financed'])
 
+// Unit of `remaining_term` on financed tangible assets and liabilities.
+// Absent values are interpreted as `years` (the pre-unit behaviour), so all
+// stored data stays valid without a migration.
+export const remainingTermUnitSchema = z.enum(['years', 'months'])
+
 export const planStartTypeSchema = z.enum(['now', 'at_specific_date'])
 
 export const planEndTypeSchema = z.enum(['when_age_is', 'at_specific_date'])
@@ -180,6 +185,80 @@ export function repairStoredCashFlowMonths(data: unknown): unknown {
   return data
 }
 
+/**
+ * Transfers used to be owned by individual portfolios (`portfolio.transfers`).
+ * They now live on the profile (`profile.transfers`), with each portfolio
+ * referencing them through `included_transfer_ids` — mirroring how incomes and
+ * expenses have always worked. Run this on raw parsed JSON before schema
+ * validation (composed with `repairStoredCashFlowMonths`): it moves every
+ * portfolio's transfers into `profile.transfers` and rewires the portfolio's
+ * include list so the plan's transfer behaviour is preserved exactly:
+ *
+ * - If the portfolio already had an explicit `included_transfer_ids` list, it
+ *   is kept (intersected with the moved ids, so an id that only ever existed
+ *   inside another portfolio's list can't suddenly become included).
+ * - If it was `undefined` (meaning "include all my transfers"), it is set to
+ *   the full list of moved ids so the plan still includes exactly the ones it
+ *   previously owned — NOT every transfer across all portfolios.
+ *
+ * Portfolios without a `transfers` array are left untouched.
+ */
+export function migratePlanTransfersToProfile(data: unknown): unknown {
+  if (!isRecord(data)) return data
+  if (!isRecord(data.profile)) return data
+  if (!Array.isArray(data.portfolios)) return data
+
+  const profileTransfers = Array.isArray(data.profile.transfers)
+    ? (data.profile.transfers as unknown[])
+    : []
+  const knownIds = new Set<string>()
+  const removedIds = new Set<string>()
+
+  for (const portfolio of data.portfolios) {
+    if (!isRecord(portfolio) || !Array.isArray(portfolio.transfers)) {
+      // A plan with no transfers must not end up referencing transfers that
+      // other portfolios migrated into the profile.
+      if (Array.isArray(portfolio.included_transfer_ids)) {
+        portfolio.included_transfer_ids = []
+      }
+      continue
+    }
+    // Swapped via repairStoredCashFlowMonths before this runs when composed,
+    // but a defensive repair guard beats a silent drop.
+    for (const transfer of portfolio.transfers) repairCashFlowMonths(transfer)
+
+    const moved = portfolio.transfers as unknown[]
+    const movedIds = moved
+      .map((t) => (isRecord(t) && typeof t.id === 'string' ? t.id : undefined))
+      .filter((id): id is string => id !== undefined)
+
+    for (const transfer of moved) {
+      const id = isRecord(transfer) && typeof transfer.id === 'string' ? transfer.id : undefined
+      if (id && !knownIds.has(id)) {
+        profileTransfers.push(transfer)
+        knownIds.add(id)
+      }
+      if (id) removedIds.add(id)
+    }
+
+    // Preserve the pre-migration include semantics exactly.
+    if (Array.isArray(portfolio.included_transfer_ids)) {
+      const intersection = (portfolio.included_transfer_ids as string[]).filter((id) =>
+        movedIds.includes(id),
+      )
+      portfolio.included_transfer_ids = intersection
+    } else {
+      portfolio.included_transfer_ids = movedIds
+    }
+
+    delete portfolio.transfers
+  }
+
+  if (profileTransfers.length > 0) data.profile.transfers = profileTransfers
+
+  return data
+}
+
 // A timing edge ('start' or 'end') is complete only once the mode-specific
 // field is filled — otherwise the projection would silently fall back to the
 // plan's first year. Mirrors cashFlowTemporalRefinement above; forms use it
@@ -272,6 +351,7 @@ export const profileTangibleAssetSchema = z
     annual_rate: z.number().optional(),
     installment_amount: z.number().optional(),
     remaining_term: z.number().optional(),
+    remaining_term_unit: remainingTermUnitSchema.optional(),
   })
   .superRefine((obj, ctx) => {
     if (obj.status === 'financed') {
@@ -319,28 +399,11 @@ export const profileLiabilitySchema = z.object({
   annual_rate: z.number(),
   installment_amount: z.number(),
   remaining_term: z.number(),
+  remaining_term_unit: remainingTermUnitSchema.optional(),
   // Advanced options. Defaults preserve the existing behaviour when omitted:
   // compound interest at the installment frequency.
   interest_type: interestTypeSchema.optional(),
   compounding_frequency: compoundingFrequencySchema.optional(),
-})
-
-export const profileSchema = z.object({
-  name: z.string(),
-  email: z.string(),
-  birth_date: z.string().optional(),
-  location: z.string().optional(),
-  currency: z.string().optional(),
-  cash_amount: z.number().optional(),
-  has_investments: z.boolean().optional(),
-  has_tangible_assets: z.boolean().optional(),
-  has_liabilities: z.boolean().optional(),
-  investments: z.array(profileInvestmentSchema).optional(),
-  tangible_assets: z.array(profileTangibleAssetSchema).optional(),
-  liabilities: z.array(profileLiabilitySchema).optional(),
-  incomes: z.array(incomeSchema).optional(),
-  expenses: z.array(expenseSchema).optional(),
-  hide_plan_intro: z.boolean().optional(),
 })
 
 export const transferScheduleSchema = z.enum(['one_time', 'recurring'])
@@ -440,6 +503,28 @@ export const transferSchema = z
     }
   })
 
+export const profileSchema = z.object({
+  name: z.string(),
+  email: z.string(),
+  birth_date: z.string().optional(),
+  location: z.string().optional(),
+  currency: z.string().optional(),
+  // UI language preference. Mirrors the supported locales in
+  // `src/lib/locales/index.ts` — keep the two lists in sync.
+  language: z.enum(['en', 'cs']).optional(),
+  cash_amount: z.number().optional(),
+  has_investments: z.boolean().optional(),
+  has_tangible_assets: z.boolean().optional(),
+  has_liabilities: z.boolean().optional(),
+  investments: z.array(profileInvestmentSchema).optional(),
+  tangible_assets: z.array(profileTangibleAssetSchema).optional(),
+  liabilities: z.array(profileLiabilitySchema).optional(),
+  incomes: z.array(incomeSchema).optional(),
+  expenses: z.array(expenseSchema).optional(),
+  transfers: z.array(transferSchema).optional(),
+  hide_plan_intro: z.boolean().optional(),
+})
+
 export const portfolioSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -453,7 +538,6 @@ export const portfolioSchema = z.object({
   included_liability_ids: z.array(z.string()).optional(),
   included_income_ids: z.array(z.string()).optional(),
   included_expense_ids: z.array(z.string()).optional(),
-  transfers: z.array(transferSchema).optional(),
   included_transfer_ids: z.array(z.string()).optional(),
 })
 
@@ -484,5 +568,6 @@ export type CashFlowStart = z.infer<typeof cashFlowStartSchema>
 export type CashFlowEnd = z.infer<typeof cashFlowEndSchema>
 export type ChangeOverTime = z.infer<typeof changeOverTimeSchema>
 export type TangibleAssetStatus = z.infer<typeof tangibleAssetStatusSchema>
+export type RemainingTermUnit = z.infer<typeof remainingTermUnitSchema>
 export type PlanStartType = z.infer<typeof planStartTypeSchema>
 export type PlanEndType = z.infer<typeof planEndTypeSchema>
