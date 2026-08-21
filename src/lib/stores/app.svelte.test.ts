@@ -72,7 +72,15 @@ describe('appStore.updateProfile snapshot recording', () => {
   it('records a snapshot dated today the first time balances are saved', () => {
     appStore.updateProfile({ name: 'Jane Doe', cash_amount: 15_000 })
     expect(appStore.profile.snapshots).toEqual([
-      { date: TODAY, cash_amount: 15_000, investments: [], tangible_assets: [], liabilities: [] },
+      {
+        date: TODAY,
+        cash_amount: 15_000,
+        investments: [],
+        tangible_assets: [],
+        liabilities: [],
+        incomes: [],
+        expenses: [],
+      },
     ])
   })
 
@@ -98,7 +106,15 @@ describe('appStore.updateProfile snapshot recording', () => {
     appStore.updateProfile({ cash_amount: 0 })
     expect(appStore.profile.snapshots).toEqual([
       { date: '2020-01-01', cash_amount: 15_000 },
-      { date: TODAY, cash_amount: 0, investments: [], tangible_assets: [], liabilities: [] },
+      {
+        date: TODAY,
+        cash_amount: 0,
+        investments: [],
+        tangible_assets: [],
+        liabilities: [],
+        incomes: [],
+        expenses: [],
+      },
     ])
   })
 
@@ -120,6 +136,8 @@ describe('appStore.confirmBalances', () => {
     investments: [],
     tangible_assets: [],
     liabilities: [],
+    incomes: [],
+    expenses: [],
   }
 
   beforeEach(() => {
@@ -255,6 +273,10 @@ describe('appStore.updateProfile on a stale profile', () => {
       investments: [{ id: 'inv1', balance: 104_399.63 }],
       tangible_assets: [],
       liabilities: [{ id: 'l1', outstanding_balance: 5_117.68 }],
+      // Cash flows are recorded alongside the balances, untouched by the
+      // carry-forward — they are rates, not values that accrue.
+      incomes: [{ id: 'i1', amount: 5_000, frequency: 'monthly' }],
+      expenses: [{ id: 'e1', amount: 3_000, frequency: 'monthly' }],
     })
   })
 
@@ -267,5 +289,62 @@ describe('appStore.updateProfile on a stale profile', () => {
     expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual(['2026-01-01'])
     expect(appStore.profile.cash_amount).toBe(15_000)
     expect(appStore.profile.investments?.[0].balance).toBe(100_000)
+  })
+})
+
+describe('appStore snapshot editing', () => {
+  const JAN = {
+    date: '2026-01-01',
+    cash_amount: 1_000,
+    investments: [],
+    tangible_assets: [],
+    liabilities: [],
+    incomes: [],
+    expenses: [],
+  }
+  const JUN = { ...JAN, date: '2026-06-01', cash_amount: 9_000 }
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
+    stubLocalStorage()
+    appStore.clear()
+    appStore.updateProfile({ cash_amount: 9_000, snapshots: [JAN, JUN] })
+  })
+
+  afterEach(() => {
+    appStore.clear()
+    vi.unstubAllGlobals()
+    vi.useRealTimers()
+  })
+
+  it('saves an edited snapshot without stamping a second one for today', () => {
+    appStore.saveSnapshot({ ...JAN, cash_amount: 2_000 })
+    expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual(['2026-01-01', '2026-06-01'])
+    expect(appStore.profile.snapshots?.[0].cash_amount).toBe(2_000)
+  })
+
+  it('moves a snapshot to a new date', () => {
+    appStore.saveSnapshot({ ...JAN, date: '2026-02-01' }, '2026-01-01')
+    expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual(['2026-02-01', '2026-06-01'])
+  })
+
+  it("carries the newest snapshot's figures onto the profile", () => {
+    appStore.saveSnapshot({ ...JUN, cash_amount: 12_345 })
+    expect(appStore.profile.cash_amount).toBe(12_345)
+  })
+
+  it('deletes a snapshot and rewinds the profile when it was the newest', () => {
+    appStore.deleteSnapshot('2026-06-01')
+    expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual(['2026-01-01'])
+    expect(appStore.profile.cash_amount).toBe(1_000)
+  })
+
+  it('persists the edited history', () => {
+    appStore.saveSnapshot({ ...JAN, cash_amount: 2_000 })
+    const stored: unknown = JSON.parse(backing.get(storageKeys.DATA) ?? '{}')
+    expect(
+      (stored as { profile: { snapshots: { cash_amount: number }[] } }).profile.snapshots[0],
+    ).toMatchObject({ cash_amount: 2_000 })
   })
 })

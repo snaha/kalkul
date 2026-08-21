@@ -8,11 +8,14 @@ import {
   repairStoredCashFlowMonths,
   storedDataSchema,
 } from '$lib/schemas'
+import type { Snapshot } from '$lib/schemas'
 import {
   captureSnapshot,
-  hasSameBalances,
+  hasSameValues,
   latestSnapshot,
   upsertSnapshot,
+  withDeletedSnapshot,
+  withSavedSnapshot,
   withSeededSnapshot,
 } from '$lib/snapshots'
 import storageKeys from '$lib/storage-keys'
@@ -125,7 +128,7 @@ function shouldRecordSnapshot(profile: Profile, todayDate: string, force: boolea
   // their cash and owns nothing else) and has to be recorded like any other.
   if (!hasAnyFinancialData(profile) && (profile.snapshots ?? []).length === 0) return false
   if (force) return true
-  return !hasSameBalances(latestSnapshot(profile.snapshots), captureSnapshot(profile, todayDate))
+  return !hasSameValues(latestSnapshot(profile.snapshots), captureSnapshot(profile, todayDate))
 }
 
 const DEFAULT_PROFILE: Profile = {
@@ -174,16 +177,33 @@ function withAppStore() {
     portfolios = [...portfolios]
   }
 
-  function writeProfile(updates: Partial<Profile>, confirmed: boolean): void {
+  /**
+   * How a write treats history. 'auto' records today's figures when they moved,
+   * 'confirm' always records them, and 'manage' leaves history exactly as the
+   * caller supplied it — the History page settles the snapshot list itself, and
+   * an automatic entry for today would fight every edit it makes.
+   */
+  type HistoryMode = 'auto' | 'confirm' | 'manage'
+
+  function writeProfile(updates: Partial<Profile>, history: HistoryMode): void {
     const today = new Date()
     const todayDate = toDateOnlyString(today)
     const stored = profile.toJSON()
     const next = { ...stored, ...updates }
 
+    // The History page hands over a profile whose snapshots it has already
+    // settled, balances re-baselined and all. Nothing to record, and nothing to
+    // carry forward — the figures it supplies are the ones to keep.
+    if (history === 'manage') {
+      profile = enrichProfile(profileSchema.parse(next))
+      persist()
+      return
+    }
+
     // Asked against the stored balances, which the latest snapshot matches by
     // construction — so the only differences it can see are the ones `updates`
     // introduces.
-    const recording = shouldRecordSnapshot(next, todayDate, confirmed)
+    const recording = shouldRecordSnapshot(next, todayDate, history === 'confirm')
 
     // Recording re-dates the baseline the dashboard projects from, so balances
     // the edit left alone have to reach today before that happens. An edit that
@@ -296,7 +316,7 @@ function withAppStore() {
     // --- Profile ---
 
     updateProfile(updates: Partial<Profile>) {
-      writeProfile(updates, false)
+      writeProfile(updates, 'auto')
     },
 
     /**
@@ -306,7 +326,22 @@ function withAppStore() {
      * date is the whole point of the action.
      */
     confirmBalances(updates: Partial<Profile>) {
-      writeProfile(updates, true)
+      writeProfile(updates, 'confirm')
+    },
+
+    // --- History ---
+
+    /**
+     * Adds or replaces a snapshot from the History page. Pass `originalDate`
+     * when editing one whose date the user changed, so the entry does not
+     * survive at both dates.
+     */
+    saveSnapshot(snapshot: Snapshot, originalDate?: string) {
+      writeProfile(withSavedSnapshot(profile.toJSON(), snapshot, originalDate), 'manage')
+    },
+
+    deleteSnapshot(date: string) {
+      writeProfile(withDeletedSnapshot(profile.toJSON(), date), 'manage')
     },
 
     // --- Portfolios ---

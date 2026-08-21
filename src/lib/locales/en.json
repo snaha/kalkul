@@ -240,6 +240,63 @@
         "confirm": "Confirm"
       }
     },
+    "history": {
+      "title": "History",
+      "close": "Close history",
+      "heading": "See how your finances evolve over time",
+      "description": "A snapshot is saved each time you update your finances. Review and edit past snapshots in the table below.",
+      "chartLabel": "Net worth over time",
+      "now": "Now",
+      "snapshots": "Snapshots",
+      "addSnapshot": "Add snapshot",
+      "emptyTitle": "No snapshots yet",
+      "emptyDescription": "Your first snapshot is recorded as soon as you save your financial data.",
+      "table": {
+        "date": "Date",
+        "totalAssets": "Total assets",
+        "liabilities": "Liabilities",
+        "netWorth": "Net worth",
+        "fi": "Financial independence",
+        "actions": "Actions",
+        "rowActions": "Actions for the snapshot from {date}"
+      },
+      "row": {
+        "edit": "Edit",
+        "duplicate": "Duplicate",
+        "delete": "Delete",
+        "deleteConfirm": "Delete the snapshot from {date}? This cannot be undone."
+      },
+      "dialog": {
+        "editTitle": "Edit snapshot data",
+        "addTitle": "Add snapshot data",
+        "description": "Record the figures your finances stood at on a chosen date.",
+        "date": "Date",
+        "dateDescription": "The date this financial snapshot reflects.",
+        "dateTaken": "A snapshot already exists for this date.",
+        "dateInFuture": "A snapshot cannot be dated in the future.",
+        "cash": "Cash",
+        "cashDescription": "Total available cash across all bank and savings accounts.",
+        "cashLabel": "Cash balance",
+        "investments": "Investments",
+        "investmentsDescription": "Stocks, bonds, ETFs, funds, crypto, and other securities.",
+        "tangibleAssets": "Tangible assets",
+        "tangibleAssetsDescription": "Real estate, vehicles, and other assets — even if currently financed.",
+        "liabilities": "Liabilities",
+        "liabilitiesDescription": "Financial obligations — loans and debts not attached to a tangible asset.",
+        "incomes": "Recurring income",
+        "incomesDescription": "Salary, business income, and other regular earnings.",
+        "expenses": "Recurring expenses",
+        "expensesDescription": "Living costs, recurring bills, and regular financial commitments.",
+        "valueFor": "Value of {name}",
+        "balanceFor": "Balance of {name}",
+        "debtFor": "Outstanding debt on {name}",
+        "amountFor": "Amount of {name}",
+        "debtSubLabel": "Outstanding debt",
+        "sectionEmpty": "Nothing to record here — add items in your financial data first.",
+        "confirm": "Confirm",
+        "resetValues": "Reset values"
+      }
+    },
     "financialData": {
       "title": "Financial data",
       "nav": {

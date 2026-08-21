@@ -7,6 +7,7 @@ export default {
   FINANCES_EDIT_LIABILITIES: '/finances/edit/liabilities',
   FINANCES_EDIT_INCOME: '/finances/edit/income',
   FINANCES_EDIT_EXPENSES: '/finances/edit/expenses',
+  HISTORY: '/history',
   FINANCIAL_DATA: '/financial-data',
   FINANCIAL_DATA_CASH: '/financial-data/cash',
   FINANCIAL_DATA_INVESTMENTS: '/financial-data/investments',
