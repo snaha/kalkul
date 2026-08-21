@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'vitest'
 
-import { hasAnyFinancialData } from '$lib/financial-totals'
+import { daysBetween } from '$lib/@snaha/kalkul-maths'
+import { getCurrentProfile } from '$lib/current-values'
+import { getNetWorth, hasAnyFinancialData } from '$lib/financial-totals'
 import { storedDataSchema } from '$lib/schemas'
-import { latestSnapshot, snapshotNetWorth } from '$lib/snapshots'
+import { captureSnapshot, latestSnapshot, snapshotNetWorth } from '$lib/snapshots'
 import { toDateOnlyString } from '$lib/utils'
 
 import { getDevPresets } from './presets'
@@ -55,6 +57,52 @@ describe('dev presets', () => {
       (preset) => latestSnapshot(preset.data.profile.snapshots)?.date === toDateOnlyString(TODAY),
     )
     expect(endsToday.map((preset) => preset.name)).toEqual(['Martin, 30 — updated today'])
+  })
+
+  test('covers a profile with years of history behind it', () => {
+    // Long histories are their own case: the X axis has to thin month ticks
+    // down to years, and the chart crosses several year boundaries.
+    const spans = presets.map((preset) => {
+      const dates = (preset.data.profile.snapshots ?? []).map((snapshot) => snapshot.date)
+      return dates.length > 0 ? daysBetween(dates[0], dates[dates.length - 1]) / 365.25 : 0
+    })
+    expect(Math.max(...spans)).toBeGreaterThanOrEqual(3)
+  })
+
+  test('recorded history grows at the rate the projection continues at', () => {
+    // The dashboard draws a projected tail off the last snapshot. History
+    // fabricated at some other rate would kink at the join — growth appearing
+    // to change pace on the day the last snapshot happens to fall.
+    for (const preset of presets) {
+      const profile = preset.data.profile
+      const snapshots = profile.snapshots ?? []
+      const current = getNetWorth(profile)
+      if (snapshots.length < 2 || current <= 0) continue
+
+      const years = daysBetween(snapshots[0].date, snapshots[snapshots.length - 1].date) / 365.25
+      const recorded =
+        (snapshotNetWorth(snapshots[snapshots.length - 1]) / snapshotNetWorth(snapshots[0])) **
+          (1 / years) -
+        1
+
+      const aYearOn = new Date(TODAY.getFullYear() + 1, TODAY.getMonth(), TODAY.getDate())
+      const projected =
+        getNetWorth(
+          getCurrentProfile(
+            { ...profile, snapshots: [captureSnapshot(profile, toDateOnlyString(TODAY))] },
+            aYearOn,
+          ),
+        ) /
+          current -
+        1
+
+      // A percentage point, or a quarter of the rate for fast-growing profiles:
+      // a loan reaching payoff is floored going forward but not winding back,
+      // so a small gap survives where debt drives most of the movement. This
+      // guards the order-of-magnitude mismatch, not the last decimal.
+      const tolerance = Math.max(0.01, Math.abs(projected) / 4)
+      expect(Math.abs(recorded - projected)).toBeLessThan(tolerance)
+    }
   })
 
   test('names are unique so the list keys stay stable', () => {

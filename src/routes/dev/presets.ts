@@ -3,8 +3,21 @@ import claire from '$examples/claire-moreau-fr-40yo.kalkul.json'
 import martin from '$examples/martin-kovac-sk-30yo.kalkul.json'
 import pavel from '$examples/pavel-dvorak-cz-50yo.kalkul.json'
 import tereza from '$examples/tereza-svobodova-cz-20yo.kalkul.json'
+import Decimal from 'decimal.js'
 
-import { type Portfolio, type Profile, type Snapshot, storedDataSchema } from '$lib/schemas'
+import { getCurrentProfile } from '$lib/current-values'
+import {
+  INSTALLMENT_PERIODS_PER_YEAR,
+  financingToLiability,
+  installmentPeriodRate,
+} from '$lib/plan-projection'
+import {
+  type Portfolio,
+  type Profile,
+  type ProfileLiability,
+  type Snapshot,
+  storedDataSchema,
+} from '$lib/schemas'
 import { captureSnapshot } from '$lib/snapshots'
 import { toDateOnlyString } from '$lib/utils'
 
@@ -39,11 +52,9 @@ function sample(json: unknown): { profile: Profile; portfolios: Portfolio[] } {
 interface HistoryStep {
   /** Whole months before the reference date. 0 means the reference date itself. */
   monthsAgo: number
-  /**
-   * Liquid balances at that point as a fraction of today's. The newest step is
-   * always 1: the profile holds the balances as of its latest snapshot, and the
-   * dashboard would otherwise show a jump the moment it loads.
-   */
+  /** Years between this point and the newest one, for winding loans back. */
+  years: number
+  /** Liquid balances at that point as a fraction of the newest point's. */
   factor: number
 }
 
@@ -62,60 +73,137 @@ function historyDate(today: Date, monthsAgo: number): string {
   return toDateOnlyString(monthsBefore(today, monthsAgo))
 }
 
-function scaleSnapshot(snapshot: Snapshot, factor: number): Snapshot {
-  // Property values drift far more slowly than portfolios, and debts run the
-  // other way — they were larger before this year's installments.
-  const slow = 0.7 + 0.3 * factor
+/**
+ * A loan's balance `years` before its current one, undoing the amortization the
+ * projection applies going forward: each installment period adds interest and
+ * takes a payment off, so running it backwards divides the interest out and
+ * puts the payment back.
+ */
+function unamortized(liability: ProfileLiability, years: number): number {
+  const periods = Math.round(years * INSTALLMENT_PERIODS_PER_YEAR[liability.installment_frequency])
+  const rate = installmentPeriodRate(liability).plus(1)
+  let balance = new Decimal(liability.outstanding_balance)
+  for (let period = 0; period < periods; period++) {
+    balance = balance.plus(liability.installment_amount).div(rate)
+  }
+  return balance.toDecimalPlaces(2).toNumber()
+}
+
+/**
+ * The balances `years` before today's, wound back the way the projection winds
+ * them forward: liquid balances scaled by `liquidFactor`, loans un-amortized,
+ * and property values left alone — the projection holds those flat, so moving
+ * them here would put a step in the chart at the last snapshot.
+ */
+function rewoundSnapshot(
+  profile: Profile,
+  date: string,
+  years: number,
+  liquidFactor: number,
+): Snapshot {
   const round = (value: number) => Math.round(value)
+  const snapshot = captureSnapshot(profile, date)
+  const financingFor = (id: string) => {
+    const asset = (profile.tangible_assets ?? []).find((candidate) => candidate.id === id)
+    return asset ? financingToLiability(asset) : undefined
+  }
+
   return {
     ...snapshot,
-    cash_amount: round((snapshot.cash_amount ?? 0) * factor),
-    investments: snapshot.investments?.map((i) => ({ ...i, balance: round(i.balance * factor) })),
-    tangible_assets: snapshot.tangible_assets?.map((a) => ({
-      ...a,
-      value: round(a.value * slow),
-      outstanding_balance:
-        a.outstanding_balance === undefined ? undefined : round(a.outstanding_balance / slow),
+    cash_amount: round((snapshot.cash_amount ?? 0) * liquidFactor),
+    investments: snapshot.investments?.map((investment) => ({
+      ...investment,
+      balance: round(investment.balance * liquidFactor),
     })),
-    liabilities: snapshot.liabilities?.map((l) => ({
-      ...l,
-      outstanding_balance: round(l.outstanding_balance / slow),
-    })),
+    tangible_assets: snapshot.tangible_assets?.map((asset) => {
+      const financing = financingFor(asset.id)
+      return {
+        ...asset,
+        outstanding_balance: financing
+          ? round(unamortized(financing, years))
+          : asset.outstanding_balance,
+      }
+    }),
+    liabilities: snapshot.liabilities?.map((entry) => {
+      const liability = (profile.liabilities ?? []).find((l) => l.id === entry.id)
+      return {
+        ...entry,
+        outstanding_balance: liability
+          ? round(unamortized(liability, years))
+          : entry.outstanding_balance,
+      }
+    }),
   }
 }
 
+/** Cash plus investments — the balances that move on their own year to year. */
+function liquidTotal(profile: Profile): number {
+  return (
+    (profile.cash_amount ?? 0) +
+    (profile.investments ?? []).reduce((sum, investment) => sum + investment.balance, 0)
+  )
+}
+
 /**
- * Back-fills a snapshot history by scaling today's balances into the past.
- * Cheaper than hand-writing every point, and it keeps the invariant the
- * dashboard relies on: the newest snapshot matches the profile exactly.
+ * The yearly change this profile's own projection produces in its liquid
+ * balances — investments compounding at their effective APY, cash accruing what
+ * income leaves after expenses and debt service.
+ *
+ * History is wound back at exactly this rate so the recorded line runs into the
+ * projected tail without a kink. The dashboard continues the chart with this
+ * model, so any other rate would show growth changing pace on the day the last
+ * snapshot happens to fall.
  */
-function withHistory(profile: Profile, today: Date, steps: HistoryStep[]): Profile {
-  const ordered = [...steps].sort((a, b) => b.monthsAgo - a.monthsAgo)
+function impliedLiquidGrowth(profile: Profile, today: Date, fallback = 0.06): number {
+  const current = liquidTotal(profile)
+  if (current <= 0) return fallback
+
+  const seeded: Profile = {
+    ...profile,
+    snapshots: [captureSnapshot(profile, toDateOnlyString(today))],
+  }
+  const aYearOn = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate())
+  const growth = liquidTotal(getCurrentProfile(seeded, aYearOn)) / current - 1
+  // A shrinking profile is fine to draw; a factor at or below zero is not.
+  return Math.max(growth, -0.5)
+}
+
+interface HistoryOptions {
+  /** Where the history stops, in whole months before today. */
+  latestMonthsAgo?: number
+  /** Months between recorded points. Years of monthly dots would be a smear. */
+  stepMonths?: number
+}
+
+/**
+ * Back-fills a snapshot history by winding today's balances back at the rate
+ * this profile actually grows at. Cheaper than hand-writing every point, and it
+ * keeps the invariant the dashboard relies on: the newest snapshot matches the
+ * profile exactly.
+ */
+function withHistory(
+  profile: Profile,
+  today: Date,
+  months: number,
+  { latestMonthsAgo = 0, stepMonths = 1 }: HistoryOptions = {},
+): Profile {
+  const growth = impliedLiquidGrowth(profile, today)
+  const steps: HistoryStep[] = []
+  for (let monthsAgo = latestMonthsAgo; monthsAgo <= months; monthsAgo += stepMonths) {
+    // Exactly 1 and 0 at the newest step, keeping it equal to the profile's
+    // balances — the dashboard would otherwise jump the moment it loads.
+    const years = (monthsAgo - latestMonthsAgo) / 12
+    steps.push({ monthsAgo, years, factor: 1 / (1 + growth) ** years })
+  }
+
   return {
     ...profile,
-    snapshots: ordered.map((step) =>
-      scaleSnapshot(captureSnapshot(profile, historyDate(today, step.monthsAgo)), step.factor),
-    ),
+    snapshots: steps
+      .sort((a, b) => b.monthsAgo - a.monthsAgo)
+      .map((step) =>
+        rewoundSnapshot(profile, historyDate(today, step.monthsAgo), step.years, step.factor),
+      ),
   }
-}
-
-/**
- * Evenly spaced monthly history from `months` ago up to `latestMonthsAgo`,
- * worked backwards from today's balances at `annualGrowth` a year.
- *
- * The rate matters for more than realism: the dashboard continues the History
- * chart with a projected tail growing at the profile's own APY and savings. A
- * fabricated past that climbed several times faster than that makes the tail
- * read as a flat line — the growth has not stopped, the recorded slope was
- * never achievable.
- */
-function steadyGrowth(months: number, latestMonthsAgo = 0, annualGrowth = 0.08): HistoryStep[] {
-  const count = months - latestMonthsAgo
-  return Array.from({ length: count + 1 }, (_, i) => {
-    const monthsAgo = months - i
-    // Exactly 1 at the newest step, keeping it equal to the profile's balances.
-    return { monthsAgo, factor: 1 / (1 + annualGrowth) ** ((monthsAgo - latestMonthsAgo) / 12) }
-  })
 }
 
 function plan(
@@ -247,7 +335,7 @@ export function getDevPresets(today: Date): DevPreset[] {
         'No investments or property, income that starts on a future date. Single-segment pie; savings rate driven entirely by cash flows. Last confirmed a month ago, so Quick update is available.',
       data: {
         ...terezaData,
-        profile: withHistory(terezaData.profile, today, steadyGrowth(5, 1, 0.5)),
+        profile: withHistory(terezaData.profile, today, 5, { latestMonthsAgo: 1 }),
       },
     },
     {
@@ -259,7 +347,7 @@ export function getDevPresets(today: Date): DevPreset[] {
         // The deliberate exception: every other preset stops short of today so
         // recording a snapshot is something to try, but the confirmed-today
         // dashboard still needs a fixture of its own.
-        profile: withHistory(martinData.profile, today, steadyGrowth(8, 0, 0.12)),
+        profile: withHistory(martinData.profile, today, 8),
         portfolios: [
           plan(today, 'plan-1', 'Pay the house off early', 'Overpay the mortgage from year 3.', 35),
         ],
@@ -271,7 +359,7 @@ export function getDevPresets(today: Date): DevPreset[] {
         'HUF amounts, car loan and Diákhitel. Last confirmed three months ago: staleness banner, projected figures, dashed History tail.',
       data: {
         ...benceData,
-        profile: withHistory(benceData.profile, today, steadyGrowth(9, 3, 0.18)),
+        profile: withHistory(benceData.profile, today, 9, { latestMonthsAgo: 3 }),
       },
     },
     {
@@ -280,7 +368,21 @@ export function getDevPresets(today: Date): DevPreset[] {
         'Three investments with entry/exit fees, two financed properties, one plan with a recurring transfer. Dense History chart crossing a year boundary, ending a month back so it can be extended.',
       data: {
         ...claireData,
-        profile: withHistory(claireData.profile, today, steadyGrowth(24, 1, 0.09)),
+        profile: withHistory(claireData.profile, today, 24, { latestMonthsAgo: 1 }),
+      },
+    },
+    {
+      name: 'Martin, 30 — six years of quarterly history',
+      description:
+        'A long-standing user: balances recorded every quarter since 2020, last confirmed two months ago. The X axis has to thin its month ticks down to a handful of years, and the chart spans several year boundaries.',
+      data: {
+        ...martinData,
+        // Quarterly rather than monthly — 70-odd monthly dots would smear into
+        // a band, and nobody records their balances every month for six years.
+        profile: withHistory(martinData.profile, today, 72, {
+          latestMonthsAgo: 2,
+          stepMonths: 3,
+        }),
       },
     },
     {
@@ -288,7 +390,7 @@ export function getDevPresets(today: Date): DevPreset[] {
       description:
         'Large CZK portfolio and a retirement plan with transfers, plus two variants. Fills the Projections panel below the automatic one. Two months stale.',
       data: {
-        profile: withHistory(pavelData.profile, today, steadyGrowth(12, 2, 0.06)),
+        profile: withHistory(pavelData.profile, today, 12, { latestMonthsAgo: 2 }),
         portfolios: [
           ...pavelData.portfolios,
           plan(today, 'plan-early', 'Retire at 60', 'Five years earlier, same spending.', 40),
@@ -310,7 +412,7 @@ export function getDevPresets(today: Date): DevPreset[] {
       description:
         'Debts exceed assets. History axis extends below zero and financial independence sits at 0%. Two months stale, so a confirmation can push it further under.',
       data: {
-        profile: withHistory(UNDERWATER, today, steadyGrowth(8, 2, 0.25)),
+        profile: withHistory(UNDERWATER, today, 8, { latestMonthsAgo: 2 }),
         portfolios: [],
       },
     },
@@ -319,11 +421,9 @@ export function getDevPresets(today: Date): DevPreset[] {
       description:
         'Same portfolio with the income lines removed. Savings rate falls back to its "add your income" hint while runway and FI still compute. A month stale, so Quick update shows cash draining with nothing coming in.',
       data: {
-        profile: withHistory(
-          { ...pavelData.profile, incomes: [] },
-          today,
-          steadyGrowth(10, 1, 0.04),
-        ),
+        profile: withHistory({ ...pavelData.profile, incomes: [] }, today, 10, {
+          latestMonthsAgo: 1,
+        }),
         portfolios: [],
       },
     },
