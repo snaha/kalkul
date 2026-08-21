@@ -209,6 +209,88 @@ export function getCurrentProfile(profile: Profile, today: Date): Profile {
   }
 }
 
+/** Each item's balance, by id, for comparing two versions of the same list. */
+function balanceIndex<T extends { id: string }>(
+  items: T[] | undefined,
+  balanceOf: (item: T) => number | undefined,
+): Map<string, number | undefined> {
+  return new Map((items ?? []).map((item) => [item.id, balanceOf(item)]))
+}
+
+/**
+ * The value a balance has today, when the edit left it at the stored one.
+ * A balance the edit did change is the user's word on what it is now, and
+ * stands exactly as given.
+ */
+function carried(
+  next: number | undefined,
+  stored: number | undefined,
+  current: number | undefined,
+): number | undefined {
+  return next === stored ? current : next
+}
+
+/**
+ * `next` with every balance the edit left untouched replaced by the value it
+ * has grown, accrued or amortized to today.
+ *
+ * Saving a balance re-dates the snapshot baseline, and the editors hand back
+ * whole lists rebuilt from the *stored* values — so without this, changing one
+ * investment would stamp every other balance's months-old figure as
+ * confirmed-today and give back all the drift since. Matched by id: an item the
+ * profile did not hold before has no history to carry forward.
+ *
+ * Tangible asset values are left alone, as they are everywhere else — only the
+ * debt secured against them moves on its own.
+ */
+export function withBalancesCarriedForward(stored: Profile, next: Profile, today: Date): Profile {
+  const current = getCurrentProfile(stored, today)
+  // Nothing has elapsed since the last snapshot, so nothing to carry.
+  if (current === stored) return next
+
+  const investmentBalance = (i: { balance: number }) => i.balance
+  const loanBalance = (l: { outstanding_balance?: number }) => l.outstanding_balance
+  const index = {
+    storedInvestments: balanceIndex(stored.investments, investmentBalance),
+    currentInvestments: balanceIndex(current.investments, investmentBalance),
+    storedLiabilities: balanceIndex(stored.liabilities, loanBalance),
+    currentLiabilities: balanceIndex(current.liabilities, loanBalance),
+    storedAssets: balanceIndex(stored.tangible_assets, loanBalance),
+    currentAssets: balanceIndex(current.tangible_assets, loanBalance),
+  }
+
+  return {
+    ...next,
+    cash_amount: carried(next.cash_amount, stored.cash_amount, current.cash_amount),
+    investments: next.investments?.map((investment) => ({
+      ...investment,
+      balance:
+        carried(
+          investment.balance,
+          index.storedInvestments.get(investment.id),
+          index.currentInvestments.get(investment.id),
+        ) ?? investment.balance,
+    })),
+    liabilities: next.liabilities?.map((liability) => ({
+      ...liability,
+      outstanding_balance:
+        carried(
+          liability.outstanding_balance,
+          index.storedLiabilities.get(liability.id),
+          index.currentLiabilities.get(liability.id),
+        ) ?? liability.outstanding_balance,
+    })),
+    tangible_assets: next.tangible_assets?.map((asset) => ({
+      ...asset,
+      outstanding_balance: carried(
+        asset.outstanding_balance,
+        index.storedAssets.get(asset.id),
+        index.currentAssets.get(asset.id),
+      ),
+    })),
+  }
+}
+
 /**
  * Change from `previous` to `current` as a percentage, or undefined when there
  * is no baseline to compare against.

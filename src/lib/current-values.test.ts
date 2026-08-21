@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import { getCurrentProfile, percentChange } from './current-values'
+import { getCurrentProfile, percentChange, withBalancesCarriedForward } from './current-values'
 import type { Profile } from './schemas'
 
 // Snapshot on 2026-01-01, read on 2026-07-02 — 182 days, 0.4982888 of a year.
@@ -206,5 +206,73 @@ describe('percentChange', () => {
 
   test('is undefined when there is nothing to compare against', () => {
     expect(percentChange(0, 500)).toBeUndefined()
+  })
+})
+
+describe('withBalancesCarriedForward', () => {
+  test('carries a balance the edit left alone forward to today', () => {
+    // Renaming one investment must not freeze the other balances at the values
+    // they had on the snapshot date.
+    const next: Profile = {
+      ...PROFILE,
+      investments: [{ ...PROFILE.investments![0], name: 'Renamed ETF' }, PROFILE.investments![1]],
+    }
+    const merged = withBalancesCarriedForward(PROFILE, next, TODAY)
+
+    expect(merged.cash_amount).toBe(25_763.04)
+    expect(merged.investments?.[0].balance).toBe(104_863.78)
+    expect(merged.investments?.[0].name).toBe('Renamed ETF')
+    expect(merged.investments?.[1].balance).toBe(51_834.69)
+    expect(merged.liabilities?.[0].outstanding_balance).toBe(5_117.68)
+  })
+
+  test('keeps a balance the edit changed exactly as given', () => {
+    const next: Profile = {
+      ...PROFILE,
+      cash_amount: 1_000,
+      investments: [{ ...PROFILE.investments![0], balance: 42 }, PROFILE.investments![1]],
+    }
+    const merged = withBalancesCarriedForward(PROFILE, next, TODAY)
+
+    expect(merged.cash_amount).toBe(1_000)
+    expect(merged.investments?.[0].balance).toBe(42)
+    // The one it did not touch still arrives at today's value.
+    expect(merged.investments?.[1].balance).toBe(51_834.69)
+  })
+
+  test('leaves an item the profile did not hold before untouched', () => {
+    const next: Profile = {
+      ...PROFILE,
+      investments: [
+        ...(PROFILE.investments ?? []),
+        { id: 'inv3', name: 'Bonds', balance: 5_000, apy: 3 },
+      ],
+    }
+    expect(withBalancesCarriedForward(PROFILE, next, TODAY).investments?.[2].balance).toBe(5_000)
+  })
+
+  test("carries a financed asset's debt forward but not its value", () => {
+    const asset = {
+      id: 't1',
+      name: 'House',
+      value: 300_000,
+      status: 'financed' as const,
+      outstanding_balance: 200_000,
+      installment_frequency: 'monthly' as const,
+      annual_rate: 3,
+      installment_amount: 1_000,
+      remaining_term: 25,
+    }
+    const stored: Profile = { ...PROFILE, tangible_assets: [asset] }
+    const merged = withBalancesCarriedForward(stored, { ...stored }, TODAY)
+
+    expect(merged.tangible_assets?.[0].value).toBe(300_000)
+    expect(merged.tangible_assets?.[0].outstanding_balance).toBe(197_487.47)
+  })
+
+  test('returns the edit untouched when nothing has elapsed', () => {
+    const stored: Profile = { ...PROFILE, snapshots: [{ date: '2026-07-02' }] }
+    const next: Profile = { ...stored, cash_amount: 99 }
+    expect(withBalancesCarriedForward(stored, next, TODAY)).toBe(next)
   })
 })

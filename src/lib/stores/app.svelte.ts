@@ -1,3 +1,4 @@
+import { withBalancesCarriedForward } from '$lib/current-values'
 import { hasAnyFinancialData } from '$lib/financial-totals'
 import {
   type Portfolio,
@@ -103,12 +104,13 @@ function enrichProfile({
 }
 
 /**
- * Records today's balances as a snapshot whenever they differ from the most
- * recent one. Snapshots are the baseline the dashboard projects "today" from,
- * so every confirmed change to a balance has to re-date that baseline —
- * otherwise the projection keeps compounding from a value the user has already
- * replaced. Edits that leave every balance alone (a rename, a new expense) add
- * no snapshot, keeping the History chart to points that actually moved.
+ * Whether saving `profile` should record its balances as today's snapshot.
+ *
+ * Snapshots are the baseline the dashboard projects "today" from, so every
+ * confirmed change to a balance has to re-date that baseline — otherwise the
+ * projection keeps compounding from a value the user has already replaced.
+ * Edits that leave every balance alone (a rename, a new expense) record
+ * nothing, keeping the History chart to points that actually moved.
  *
  * `force` overrides that skip for an explicit confirmation ("these balances are
  * correct today", i.e. Quick update's Confirm): the point of the action is the
@@ -116,15 +118,14 @@ function enrichProfile({
  * profile whose values legitimately did not move can never clear the staleness
  * banner.
  */
-function withRecordedSnapshot(profile: Profile, today: Date, force = false): Profile {
+function shouldRecordSnapshot(profile: Profile, todayDate: string, force: boolean): boolean {
   // Nothing to record for a profile that has never held a balance — that gate
   // is there to keep all-zero snapshots out of an empty profile's history. Once
   // a baseline exists, though, going to zero is a real move (the user spent
   // their cash and owns nothing else) and has to be recorded like any other.
-  if (!hasAnyFinancialData(profile) && (profile.snapshots ?? []).length === 0) return profile
-  const snapshot = captureSnapshot(profile, toDateOnlyString(today))
-  if (!force && hasSameBalances(latestSnapshot(profile.snapshots), snapshot)) return profile
-  return { ...profile, snapshots: upsertSnapshot(profile.snapshots, snapshot) }
+  if (!hasAnyFinancialData(profile) && (profile.snapshots ?? []).length === 0) return false
+  if (force) return true
+  return !hasSameBalances(latestSnapshot(profile.snapshots), captureSnapshot(profile, todayDate))
 }
 
 const DEFAULT_PROFILE: Profile = {
@@ -174,9 +175,32 @@ function withAppStore() {
   }
 
   function writeProfile(updates: Partial<Profile>, confirmed: boolean): void {
-    const merged = { ...profile.toJSON(), ...updates }
-    const validated = profileSchema.parse(merged)
-    profile = enrichProfile(withRecordedSnapshot(validated, new Date(), confirmed))
+    const today = new Date()
+    const todayDate = toDateOnlyString(today)
+    const stored = profile.toJSON()
+    const next = { ...stored, ...updates }
+
+    // Asked against the stored balances, which the latest snapshot matches by
+    // construction — so the only differences it can see are the ones `updates`
+    // introduces.
+    const recording = shouldRecordSnapshot(next, todayDate, confirmed)
+
+    // Recording re-dates the baseline the dashboard projects from, so balances
+    // the edit left alone have to reach today before that happens. An edit that
+    // records nothing keeps the old baseline, and so has to keep the stored
+    // balances matching it.
+    const validated = profileSchema.parse(
+      recording ? withBalancesCarriedForward(stored, next, today) : next,
+    )
+
+    profile = enrichProfile(
+      recording
+        ? {
+            ...validated,
+            snapshots: upsertSnapshot(validated.snapshots, captureSnapshot(validated, todayDate)),
+          }
+        : validated,
+    )
     persist()
   }
 
