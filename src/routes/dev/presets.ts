@@ -99,13 +99,23 @@ function withHistory(profile: Profile, today: Date, steps: HistoryStep[]): Profi
   }
 }
 
-/** Evenly spaced history from `months` ago to `latestMonthsAgo`, growing to today's balances. */
-function steadyGrowth(months: number, latestMonthsAgo = 0, startFactor = 0.55): HistoryStep[] {
+/**
+ * Evenly spaced monthly history from `months` ago up to `latestMonthsAgo`,
+ * worked backwards from today's balances at `annualGrowth` a year.
+ *
+ * The rate matters for more than realism: the dashboard continues the History
+ * chart with a projected tail growing at the profile's own APY and savings. A
+ * fabricated past that climbed several times faster than that makes the tail
+ * read as a flat line — the growth has not stopped, the recorded slope was
+ * never achievable.
+ */
+function steadyGrowth(months: number, latestMonthsAgo = 0, annualGrowth = 0.08): HistoryStep[] {
   const count = months - latestMonthsAgo
-  return Array.from({ length: count + 1 }, (_, i) => ({
-    monthsAgo: months - i,
-    factor: startFactor + ((1 - startFactor) * i) / count,
-  }))
+  return Array.from({ length: count + 1 }, (_, i) => {
+    const monthsAgo = months - i
+    // Exactly 1 at the newest step, keeping it equal to the profile's balances.
+    return { monthsAgo, factor: 1 / (1 + annualGrowth) ** ((monthsAgo - latestMonthsAgo) / 12) }
+  })
 }
 
 function plan(
@@ -237,7 +247,7 @@ export function getDevPresets(today: Date): DevPreset[] {
         'No investments or property, income that starts on a future date. Single-segment pie; savings rate driven entirely by cash flows. Last confirmed a month ago, so Quick update is available.',
       data: {
         ...terezaData,
-        profile: withHistory(terezaData.profile, today, steadyGrowth(5, 1, 0.7)),
+        profile: withHistory(terezaData.profile, today, steadyGrowth(5, 1, 0.5)),
       },
     },
     {
@@ -249,7 +259,7 @@ export function getDevPresets(today: Date): DevPreset[] {
         // The deliberate exception: every other preset stops short of today so
         // recording a snapshot is something to try, but the confirmed-today
         // dashboard still needs a fixture of its own.
-        profile: withHistory(martinData.profile, today, steadyGrowth(8)),
+        profile: withHistory(martinData.profile, today, steadyGrowth(8, 0, 0.12)),
         portfolios: [
           plan(today, 'plan-1', 'Pay the house off early', 'Overpay the mortgage from year 3.', 35),
         ],
@@ -261,7 +271,7 @@ export function getDevPresets(today: Date): DevPreset[] {
         'HUF amounts, car loan and Diákhitel. Last confirmed three months ago: staleness banner, projected figures, dashed History tail.',
       data: {
         ...benceData,
-        profile: withHistory(benceData.profile, today, steadyGrowth(9, 3, 0.45)),
+        profile: withHistory(benceData.profile, today, steadyGrowth(9, 3, 0.18)),
       },
     },
     {
@@ -270,7 +280,7 @@ export function getDevPresets(today: Date): DevPreset[] {
         'Three investments with entry/exit fees, two financed properties, one plan with a recurring transfer. Dense History chart crossing a year boundary, ending a month back so it can be extended.',
       data: {
         ...claireData,
-        profile: withHistory(claireData.profile, today, steadyGrowth(24, 1, 0.4)),
+        profile: withHistory(claireData.profile, today, steadyGrowth(24, 1, 0.09)),
       },
     },
     {
@@ -278,7 +288,7 @@ export function getDevPresets(today: Date): DevPreset[] {
       description:
         'Large CZK portfolio and a retirement plan with transfers, plus two variants. Fills the Projections panel below the automatic one. Two months stale.',
       data: {
-        profile: withHistory(pavelData.profile, today, steadyGrowth(12, 2)),
+        profile: withHistory(pavelData.profile, today, steadyGrowth(12, 2, 0.06)),
         portfolios: [
           ...pavelData.portfolios,
           plan(today, 'plan-early', 'Retire at 60', 'Five years earlier, same spending.', 40),
@@ -300,7 +310,7 @@ export function getDevPresets(today: Date): DevPreset[] {
       description:
         'Debts exceed assets. History axis extends below zero and financial independence sits at 0%. Two months stale, so a confirmation can push it further under.',
       data: {
-        profile: withHistory(UNDERWATER, today, steadyGrowth(8, 2)),
+        profile: withHistory(UNDERWATER, today, steadyGrowth(8, 2, 0.25)),
         portfolios: [],
       },
     },
@@ -312,7 +322,7 @@ export function getDevPresets(today: Date): DevPreset[] {
         profile: withHistory(
           { ...pavelData.profile, incomes: [] },
           today,
-          steadyGrowth(10, 1, 0.85),
+          steadyGrowth(10, 1, 0.04),
         ),
         portfolios: [],
       },
