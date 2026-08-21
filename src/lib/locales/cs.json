@@ -258,6 +258,63 @@
         "confirm": "Potvrdit"
       }
     },
+    "history": {
+      "title": "Historie",
+      "close": "Zavřít historii",
+      "heading": "Sledujte, jak se vaše finance vyvíjejí v čase",
+      "description": "Snímek se uloží pokaždé, když aktualizujete své finance. Minulé snímky si můžete prohlédnout a upravit v tabulce níže.",
+      "chartLabel": "Čisté jmění v čase",
+      "now": "Nyní",
+      "snapshots": "Snímky",
+      "addSnapshot": "Přidat snímek",
+      "emptyTitle": "Zatím žádné snímky",
+      "emptyDescription": "První snímek se zaznamená, jakmile uložíte své finanční údaje.",
+      "table": {
+        "date": "Datum",
+        "totalAssets": "Celková aktiva",
+        "liabilities": "Závazky",
+        "netWorth": "Čisté jmění",
+        "fi": "Finanční nezávislost",
+        "actions": "Akce",
+        "rowActions": "Akce pro snímek z {date}"
+      },
+      "row": {
+        "edit": "Upravit",
+        "duplicate": "Duplikovat",
+        "delete": "Smazat",
+        "deleteConfirm": "Smazat snímek z {date}? Tuto akci nelze vrátit zpět."
+      },
+      "dialog": {
+        "editTitle": "Upravit údaje snímku",
+        "addTitle": "Přidat údaje snímku",
+        "description": "Zaznamenejte údaje, na kterých vaše finance ke zvolenému datu stály.",
+        "date": "Datum",
+        "dateDescription": "Datum, ke kterému se tento finanční snímek vztahuje.",
+        "dateTaken": "Snímek k tomuto datu už existuje.",
+        "dateInFuture": "Snímek nemůže mít datum v budoucnosti.",
+        "cash": "Hotovost",
+        "cashDescription": "Celková dostupná hotovost na všech běžných a spořicích účtech.",
+        "cashLabel": "Zůstatek hotovosti",
+        "investments": "Investice",
+        "investmentsDescription": "Akcie, dluhopisy, ETF, fondy, kryptoměny a další cenné papíry.",
+        "tangibleAssets": "Hmotný majetek",
+        "tangibleAssetsDescription": "Nemovitosti, vozidla a další majetek — i pokud je aktuálně financovaný.",
+        "liabilities": "Závazky",
+        "liabilitiesDescription": "Finanční závazky — půjčky a dluhy nevázané na hmotný majetek.",
+        "incomes": "Pravidelné příjmy",
+        "incomesDescription": "Mzda, příjmy z podnikání a další pravidelné výdělky.",
+        "expenses": "Pravidelné výdaje",
+        "expensesDescription": "Životní náklady, pravidelné účty a další finanční závazky.",
+        "valueFor": "Hodnota položky {name}",
+        "balanceFor": "Zůstatek položky {name}",
+        "debtFor": "Nesplacený dluh u položky {name}",
+        "amountFor": "Částka položky {name}",
+        "debtSubLabel": "Nesplacený dluh",
+        "sectionEmpty": "Není co zaznamenat — nejdřív přidejte položky ve svých finančních údajích.",
+        "confirm": "Potvrdit",
+        "resetValues": "Obnovit hodnoty"
+      }
+    },
     "financialData": {
       "title": "Finanční data",
       "nav": {
