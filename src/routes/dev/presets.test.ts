@@ -47,6 +47,16 @@ describe('dev presets', () => {
     }
   })
 
+  test("leaves today's snapshot to be added by hand, bar the one fresh fixture", () => {
+    // Quick update is only reachable while the balances are stale, so a preset
+    // whose history already ends today cannot exercise recording a snapshot.
+    // Exactly one preset keeps that state, to show the confirmed-today look.
+    const endsToday = presets.filter(
+      (preset) => latestSnapshot(preset.data.profile.snapshots)?.date === toDateOnlyString(TODAY),
+    )
+    expect(endsToday.map((preset) => preset.name)).toEqual(['Martin, 30 — updated today'])
+  })
+
   test('names are unique so the list keys stay stable', () => {
     expect(new Set(presets.map((p) => p.name)).size).toBe(presets.length)
   })

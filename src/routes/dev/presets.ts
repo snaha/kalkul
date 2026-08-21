@@ -234,18 +234,21 @@ export function getDevPresets(today: Date): DevPreset[] {
     {
       name: 'Tereza, 20 — student, cash only',
       description:
-        'No investments or property, income that starts on a future date. Single-segment pie; savings rate driven entirely by cash flows.',
+        'No investments or property, income that starts on a future date. Single-segment pie; savings rate driven entirely by cash flows. Last confirmed a month ago, so Quick update is available.',
       data: {
         ...terezaData,
-        profile: withHistory(terezaData.profile, today, steadyGrowth(5, 0, 0.7)),
+        profile: withHistory(terezaData.profile, today, steadyGrowth(5, 1, 0.7)),
       },
     },
     {
       name: 'Martin, 30 — updated today',
       description:
-        'Mortgage, ETF and pension savings, confirmed today. No staleness banner; History ends on a solid point.',
+        'Mortgage, ETF and pension savings, confirmed today. No staleness banner; History ends on a solid point. The only preset with nothing left to confirm — every other one is stale so Quick update can record a snapshot.',
       data: {
         ...martinData,
+        // The deliberate exception: every other preset stops short of today so
+        // recording a snapshot is something to try, but the confirmed-today
+        // dashboard still needs a fixture of its own.
         profile: withHistory(martinData.profile, today, steadyGrowth(8)),
         portfolios: [
           plan(today, 'plan-1', 'Pay the house off early', 'Overpay the mortgage from year 3.', 35),
@@ -264,18 +267,18 @@ export function getDevPresets(today: Date): DevPreset[] {
     {
       name: 'Claire, 40 — two years of history',
       description:
-        'Three investments with entry/exit fees, two financed properties, one plan with a recurring transfer. Dense History chart crossing a year boundary.',
+        'Three investments with entry/exit fees, two financed properties, one plan with a recurring transfer. Dense History chart crossing a year boundary, ending a month back so it can be extended.',
       data: {
         ...claireData,
-        profile: withHistory(claireData.profile, today, steadyGrowth(24, 0, 0.4)),
+        profile: withHistory(claireData.profile, today, steadyGrowth(24, 1, 0.4)),
       },
     },
     {
       name: 'Pavel, 50 — three projections',
       description:
-        'Large CZK portfolio and a retirement plan with transfers, plus two variants. Fills the Projections panel below the automatic one.',
+        'Large CZK portfolio and a retirement plan with transfers, plus two variants. Fills the Projections panel below the automatic one. Two months stale.',
       data: {
-        profile: withHistory(pavelData.profile, today, steadyGrowth(12)),
+        profile: withHistory(pavelData.profile, today, steadyGrowth(12, 2)),
         portfolios: [
           ...pavelData.portfolios,
           plan(today, 'plan-early', 'Retire at 60', 'Five years earlier, same spending.', 40),
@@ -295,21 +298,21 @@ export function getDevPresets(today: Date): DevPreset[] {
     {
       name: 'Underwater — negative net worth',
       description:
-        'Debts exceed assets. History axis extends below zero and financial independence sits at 0%.',
+        'Debts exceed assets. History axis extends below zero and financial independence sits at 0%. Two months stale, so a confirmation can push it further under.',
       data: {
-        profile: withHistory(UNDERWATER, today, steadyGrowth(8)),
+        profile: withHistory(UNDERWATER, today, steadyGrowth(8, 2)),
         portfolios: [],
       },
     },
     {
       name: 'Pavel, 50 — no income recorded',
       description:
-        'Same portfolio with the income lines removed. Savings rate falls back to its "add your income" hint while runway and FI still compute.',
+        'Same portfolio with the income lines removed. Savings rate falls back to its "add your income" hint while runway and FI still compute. A month stale, so Quick update shows cash draining with nothing coming in.',
       data: {
         profile: withHistory(
           { ...pavelData.profile, incomes: [] },
           today,
-          steadyGrowth(10, 0, 0.85),
+          steadyGrowth(10, 1, 0.85),
         ),
         portfolios: [],
       },
