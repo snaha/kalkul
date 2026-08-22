@@ -259,7 +259,7 @@
       "aboutYou": {
         "title": "The basics",
         "name": "Name",
-        "namePlaceholder": "What should we call you?",
+        "namePlaceholder": "Your name",
         "birthdate": "Date of birth",
         "selectYear": "Year",
         "selectMonth": "Month",

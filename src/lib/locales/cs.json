@@ -259,7 +259,7 @@
       "aboutYou": {
         "title": "Základy",
         "name": "Jméno",
-        "namePlaceholder": "Jak vám máme říkat?",
+        "namePlaceholder": "Vaše jméno",
         "birthdate": "Datum narození",
         "selectYear": "Rok",
         "selectMonth": "Měsíc",
