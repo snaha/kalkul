@@ -10,6 +10,7 @@ export type FinancialDataRoute =
   | typeof routes.FINANCIAL_DATA_LIABILITIES
   | typeof routes.FINANCIAL_DATA_INCOMES
   | typeof routes.FINANCIAL_DATA_EXPENSES
+  | typeof routes.FINANCIAL_DATA_TRANSFERS
 
 // `resolve()` is declared with per-literal overloads, so passing a union
 // breaks type inference. This switch maps each literal back onto its own
@@ -30,5 +31,7 @@ export function resolveFinancialDataRoute(route: FinancialDataRoute): string {
       return resolve(routes.FINANCIAL_DATA_INCOMES)
     case routes.FINANCIAL_DATA_EXPENSES:
       return resolve(routes.FINANCIAL_DATA_EXPENSES)
+    case routes.FINANCIAL_DATA_TRANSFERS:
+      return resolve(routes.FINANCIAL_DATA_TRANSFERS)
   }
 }

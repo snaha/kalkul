@@ -35,6 +35,7 @@
         "includeLiabilities": "Zahrnout všechny závazky",
         "includeIncomes": "Zahrnout všechny příjmy",
         "includeExpenses": "Zahrnout všechny výdaje",
+        "includeTransfers": "Zahrnout všechny převody",
         "selectAll": "Vybrat vše",
         "deselectAll": "Zrušit výběr"
       },
@@ -204,7 +205,8 @@
         "tangibleAssets": "Hmotná aktiva",
         "liabilities": "Závazky",
         "incomes": "Příjmy",
-        "expenses": "Výdaje"
+        "expenses": "Výdaje",
+        "transfers": "Převody"
       },
       "overview": {
         "netWorthLabel": "Aktuální čisté jmění",
@@ -237,6 +239,10 @@
         "title": "Výdaje",
         "description": "Životní náklady, opakující se účty a pravidelné finanční závazky.",
         "installmentsCaption": "Splátky úvěrů — spravují se v sekcích Hmotná aktiva a Závazky"
+      },
+      "transfers": {
+        "title": "Převody",
+        "description": "Pravidelné vklady nebo výběry mezi vašimi účty a aktivy — jako měsíční investiční příspěvky."
       },
       "frequency": {
         "short": {

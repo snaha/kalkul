@@ -15,6 +15,7 @@ export default {
   FINANCIAL_DATA_LIABILITIES: '/financial-data/liabilities',
   FINANCIAL_DATA_INCOMES: '/financial-data/incomes',
   FINANCIAL_DATA_EXPENSES: '/financial-data/expenses',
+  FINANCIAL_DATA_TRANSFERS: '/financial-data/transfers',
   PLAN_ADD_INTRO: '/plan/add/intro',
   PLAN_ADD_DETAILS: '/plan/add/details',
   PLAN_ADD_DATA: '/plan/add/data',
