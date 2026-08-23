@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Snippet } from 'svelte'
+  import { type Snippet, tick } from 'svelte'
   import { _ } from 'svelte-i18n'
 
   import ChevronsUpDown from '@lucide/svelte/icons/chevrons-up-down'
@@ -46,17 +46,25 @@
   // button). Separate from the card's collapsed/expanded state.
   let renaming = $state(false)
 
-  // Snapshot for Escape-to-revert; edits commit live via oninput.
+  // Snapshot for Escape-to-revert; inputs commit live via oninput.
   let nameBeforeEdit = ''
+
+  // Focus and select all text as soon as the rename input is revealed by the
+  // edit button. Awaits tick() so the conditionally-rendered input is mounted
+  // before we focus it.
+  let nameInputRef: HTMLInputElement | undefined = $state()
 
   // Close the rename input whenever the card collapses.
   $effect(() => {
     if (!item.editing) renaming = false
   })
 
-  function startRename() {
+  async function startRename() {
     nameBeforeEdit = item.name
     renaming = true
+    await tick()
+    nameInputRef?.focus()
+    nameInputRef?.select()
   }
 </script>
 
@@ -71,6 +79,7 @@
           </Button>
           {#if renaming}
             <Input
+              bind:ref={nameInputRef}
               value={item.name}
               oninput={(e) => {
                 item.name = (e.target as HTMLInputElement).value
@@ -81,6 +90,9 @@
                   ;(e.target as HTMLInputElement).blur()
                   renaming = false
                 }
+              }}
+              onblur={() => {
+                renaming = false
               }}
               class="min-w-0 flex-1"
             />
