@@ -1,8 +1,12 @@
 import type { SelectFieldItem } from '$lib/components/select-field.svelte'
 import {
+  type EntryFeeType,
+  type ExitFeeType,
   type Frequency,
   type RemainingTermUnit,
   type TangibleAssetStatus,
+  entryFeeTypeSchema,
+  exitFeeTypeSchema,
   frequencySchema,
   remainingTermUnitSchema,
   tangibleAssetStatusSchema,
@@ -37,6 +41,23 @@ export function getFrequencyShortLabel($_: Translator, frequency: Frequency): st
   if (frequency === 'monthly') return $_('page.financialData.frequency.short.monthly')
   if (frequency === 'weekly') return $_('page.financialData.frequency.short.weekly')
   return $_('page.financialData.frequency.short.yearly')
+}
+
+export function getEntryFeeTypeItems($_: Translator): SelectFieldItem<EntryFeeType>[] {
+  const labels = {
+    ongoing: $_('page.plan.entryFeeOngoing'),
+    upfront: $_('page.plan.entryFeeUpfront'),
+    'forty-sixty': $_('page.plan.entryFeeFortySixty'),
+  } satisfies Record<EntryFeeType, string>
+  return entryFeeTypeSchema.options.map((value) => ({ value, label: labels[value] }))
+}
+
+export function getExitFeeTypeItems($_: Translator): SelectFieldItem<ExitFeeType>[] {
+  const labels = {
+    percentage: $_('page.plan.exitFeePercentage'),
+    fixed: $_('page.plan.exitFeeFixed'),
+  } satisfies Record<ExitFeeType, string>
+  return exitFeeTypeSchema.options.map((value) => ({ value, label: labels[value] }))
 }
 
 export function getTangibleAssetStatusItems(

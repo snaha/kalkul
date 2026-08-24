@@ -25,6 +25,9 @@
     collapsedValueClass?: string
     /** Optional label (e.g. "Financed") shown next to the name when collapsed. */
     badge?: string
+    /** When `onAdvancedChange` is given, the menu gets an "Advanced options" toggle. */
+    advancedChecked?: boolean
+    onAdvancedChange?: (checked: boolean) => void
     onToggleEditing: () => void
     onDuplicate: () => void
     onDelete: () => void
@@ -36,6 +39,8 @@
     collapsedValue,
     collapsedValueClass,
     badge,
+    advancedChecked,
+    onAdvancedChange,
     onToggleEditing,
     onDuplicate,
     onDelete,
@@ -118,6 +123,15 @@
               {/snippet}
             </DropdownMenu.Trigger>
             <DropdownMenu.Content align="end">
+              {#if onAdvancedChange}
+                <DropdownMenu.CheckboxItem
+                  checked={advancedChecked ?? false}
+                  onCheckedChange={onAdvancedChange}
+                >
+                  {$_('page.setup.common.advancedOptions')}
+                </DropdownMenu.CheckboxItem>
+                <DropdownMenu.Separator />
+              {/if}
               <DropdownMenu.Item onclick={onDuplicate}>
                 <Copy class="size-4" />
                 {$_('page.setup.common.duplicate')}

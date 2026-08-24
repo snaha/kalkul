@@ -21,7 +21,12 @@
     ProfileTangibleAsset,
     TangibleAssetStatus,
   } from '$lib/schemas'
-  import { getFrequencyItems, getTangibleAssetStatusItems } from '$lib/select-options'
+  import {
+    getEntryFeeTypeItems,
+    getExitFeeTypeItems,
+    getFrequencyItems,
+    getTangibleAssetStatusItems,
+  } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
 
@@ -194,16 +199,9 @@
 
   const isIncluded = $derived(isNew ? true : isIncludedInPlan(listConfig, form.id, plan))
 
-  let entryFeeTypeItems: SelectFieldItem<EntryFeeType>[] = $derived([
-    { value: 'ongoing', label: $_('page.plan.entryFeeOngoing') },
-    { value: 'upfront', label: $_('page.plan.entryFeeUpfront') },
-    { value: 'forty-sixty', label: $_('page.plan.entryFeeFortySixty') },
-  ])
+  let entryFeeTypeItems = $derived(getEntryFeeTypeItems($_))
 
-  let exitFeeTypeItems: SelectFieldItem<ExitFeeType>[] = $derived([
-    { value: 'percentage', label: $_('page.plan.exitFeePercentage') },
-    { value: 'fixed', label: $_('page.plan.exitFeeFixed') },
-  ])
+  let exitFeeTypeItems = $derived(getExitFeeTypeItems($_))
 
   let tangibleAssetStatusItems = $derived(getTangibleAssetStatusItems($_))
 
