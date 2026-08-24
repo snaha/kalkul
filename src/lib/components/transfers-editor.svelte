@@ -27,12 +27,6 @@
     editing: boolean
   }
 
-  interface Props {
-    onHasValueChange?: (hasValue: boolean) => void
-  }
-
-  let { onHasValueChange }: Props = $props()
-
   const editor = createListEditor<TransferData, TransferUI>({
     load: () => appStore.profile.transfers,
     toUI: (t) => ({
@@ -81,10 +75,6 @@
     persist: (data) => appStore.updateProfile({ transfers: data }),
   })
   onDestroy(editor.flushSave)
-
-  $effect(() => {
-    onHasValueChange?.(editor.hasAnyValue)
-  })
 
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 

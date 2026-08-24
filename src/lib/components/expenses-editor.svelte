@@ -18,12 +18,6 @@
     editing: boolean
   }
 
-  interface Props {
-    onHasValueChange?: (hasValue: boolean) => void
-  }
-
-  let { onHasValueChange }: Props = $props()
-
   const currentYear = new Date().getFullYear()
   const currentMonth = new Date().getMonth()
   let currentAge = $derived(
@@ -86,10 +80,6 @@
     persist: (data) => appStore.updateProfile({ expenses: data }),
   })
   onDestroy(editor.flushSave)
-
-  $effect(() => {
-    onHasValueChange?.(editor.hasAnyValue)
-  })
 
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 </script>

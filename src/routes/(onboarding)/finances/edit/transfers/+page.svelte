@@ -9,8 +9,6 @@
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
 
-  let hasValue = $state(false)
-
   function handleFinish() {
     // Transfers is the final onboarding step; the next step is the home page.
     // eslint-disable-next-line svelte/no-navigation-without-resolve
@@ -33,7 +31,7 @@
     </p>
   </div>
 
-  <TransfersEditor onHasValueChange={(v) => (hasValue = v)} />
+  <TransfersEditor />
 
-  <OnboardingNav done canContinue={hasValue} onBack={handleBack} onContinue={handleFinish} />
+  <OnboardingNav done onBack={handleBack} onContinue={handleFinish} />
 </div>

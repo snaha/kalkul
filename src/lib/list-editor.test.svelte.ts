@@ -74,6 +74,39 @@ describe('createListEditor', () => {
     cleanup()
   })
 
+  it('seeds one editing blank when there is nothing stored, so the user can type without pressing Add', () => {
+    const { editor, cleanup } = setup()
+    expect(editor.items).toEqual([{ id: 'new-1', name: 'Item 1', value: undefined, editing: true }])
+    cleanup()
+  })
+
+  it('does not seed a blank when items already exist', () => {
+    const { editor, cleanup } = setup({ initial: [one] })
+    expect(editor.items).toHaveLength(1)
+    cleanup()
+  })
+
+  it('numbers the first added item after the seeded blank', () => {
+    const { editor, cleanup } = setup()
+    editor.add()
+    expect(editor.items.map((i) => i.name)).toEqual(['Item 1', 'Item 2'])
+    cleanup()
+  })
+
+  it('does not persist the seeded blank until it has a value', () => {
+    const { editor, persisted, cleanup } = setup()
+    // Collapsing the untouched card is an edit that triggers autosave.
+    editor.items[0].editing = false
+    flushSync()
+    vi.advanceTimersByTime(300)
+    expect(persisted).toEqual([[]])
+    editor.items[0].value = 5
+    flushSync()
+    vi.advanceTimersByTime(300)
+    expect(persisted.at(-1)).toEqual([{ id: 'new-1', name: 'Item 1', value: 5 }])
+    cleanup()
+  })
+
   it('does not persist on mount — merely viewing must not rewrite the profile', () => {
     const { persisted, cleanup } = setup({ initial: [one] })
     vi.advanceTimersByTime(1000)
@@ -180,14 +213,6 @@ describe('createListEditor', () => {
     const stale: ThingUI = { id: 'gone', name: 'Stale', value: 1, editing: false }
     editor.duplicate(stale)
     expect(editor.items.map((i) => i.name)).toEqual(['Existing'])
-    cleanup()
-  })
-
-  it('exposes hasAnyValue for the onHasValueChange callbacks', () => {
-    const { editor, cleanup } = setup({ initial: [one] })
-    expect(editor.hasAnyValue).toBe(true)
-    editor.items[0].value = undefined
-    expect(editor.hasAnyValue).toBe(false)
     cleanup()
   })
 

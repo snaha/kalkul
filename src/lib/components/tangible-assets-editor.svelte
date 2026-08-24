@@ -39,12 +39,6 @@
     editing: boolean
   }
 
-  interface Props {
-    onHasValueChange?: (hasValue: boolean) => void
-  }
-
-  let { onHasValueChange }: Props = $props()
-
   const editor = createListEditor<ProfileTangibleAsset, AssetUI>({
     load: () => appStore.profile.tangible_assets,
     toUI: (a) => ({
@@ -101,10 +95,6 @@
       }),
   })
   onDestroy(editor.flushSave)
-
-  $effect(() => {
-    onHasValueChange?.(editor.hasAnyValue)
-  })
 
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 

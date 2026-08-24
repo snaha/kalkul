@@ -15,7 +15,7 @@ export interface ListEditorConfig<TStored, TUI extends ListEditorItem> {
   makeBlank: (index: number) => TUI
   /** Localized copy name for duplicated items. */
   copyName: (name: string) => string
-  /** Whether the item carries a meaningful value (drives hasAnyValue). */
+  /** Whether the item carries a meaningful value (gates persistence of the seeded blank). */
   hasValue: (item: TUI) => boolean
   /** Map one UI item back to its stored shape. */
   toStored: (item: TUI) => TStored
@@ -25,7 +25,6 @@ export interface ListEditorConfig<TStored, TUI extends ListEditorItem> {
 
 export interface ListEditor<TUI extends ListEditorItem> {
   readonly items: TUI[]
-  readonly hasAnyValue: boolean
   /** Localized validation messages per item id from the last failed save. */
   readonly errors: Record<string, string[]>
   add(): void
@@ -49,14 +48,23 @@ export interface ListEditor<TUI extends ListEditorItem> {
 export function createListEditor<TStored, TUI extends ListEditorItem>(
   config: ListEditorConfig<TStored, TUI>,
 ): ListEditor<TUI> {
-  const initial = (config.load() ?? []).map(config.toUI)
+  const stored = config.load() ?? []
+  // An empty list opens with one expanded card so the user can start typing
+  // without pressing "Add" first. It stays out of the profile until it has a
+  // value — see the `placeholderId` check in save().
+  const initial = stored.length > 0 ? stored.map(config.toUI) : [config.makeBlank(1)]
+  const placeholderId = stored.length > 0 ? undefined : initial[0].id
   const items = $state<TUI[]>(initial)
   let counter = $state(initial.length)
   let errors = $state<Record<string, string[]>>({})
 
   /** Returns whether the write actually landed, so callers can retry later. */
   function save(): boolean {
-    const persisted = items.filter((item) => item.name.trim().length > 0 || config.hasValue(item))
+    const persisted = items.filter(
+      (item) =>
+        (item.id !== placeholderId || config.hasValue(item)) &&
+        (item.name.trim().length > 0 || config.hasValue(item)),
+    )
     try {
       config.persist(persisted.map(config.toStored))
       errors = {}
@@ -117,9 +125,6 @@ export function createListEditor<TStored, TUI extends ListEditorItem>(
   return {
     get items() {
       return items
-    },
-    get hasAnyValue() {
-      return items.some(config.hasValue)
     },
     get errors() {
       return errors

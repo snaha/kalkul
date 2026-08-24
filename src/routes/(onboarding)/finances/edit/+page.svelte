@@ -20,10 +20,6 @@
   let hasTangibleAssets = $state(p.has_tangible_assets ?? false)
   let hasLiabilities = $state(p.has_liabilities ?? false)
 
-  let canContinue = $derived(
-    (cashAmount ?? 0) > 0 || hasInvestments || hasTangibleAssets || hasLiabilities,
-  )
-
   function saveData() {
     appStore.updateProfile({
       cash_amount: cashAmount,
@@ -103,5 +99,5 @@
     />
   </div>
 
-  <OnboardingNav {canContinue} onBack={handleBack} onContinue={handleContinue} />
+  <OnboardingNav onBack={handleBack} onContinue={handleContinue} />
 </div>

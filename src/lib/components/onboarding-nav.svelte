@@ -7,14 +7,13 @@
   import { Button } from '$lib/components/ui/button'
 
   interface Props {
-    canContinue: boolean
     onBack: () => void
     onContinue: () => void
     /** When true, the primary button reads "Done" with a check icon (last step). */
     done?: boolean
   }
 
-  let { canContinue, onBack, onContinue, done = false }: Props = $props()
+  let { onBack, onContinue, done = false }: Props = $props()
 </script>
 
 <div class="flex w-full items-center gap-4">
@@ -22,7 +21,7 @@
     {$_('page.setup.back')}
   </Button>
   <div class="flex flex-1 items-center justify-end gap-2">
-    <Button disabled={!canContinue} onclick={onContinue}>
+    <Button onclick={onContinue}>
       {done ? $_('page.setup.done') : $_('page.setup.continue')}
       {#if done}
         <Check class="size-4" />

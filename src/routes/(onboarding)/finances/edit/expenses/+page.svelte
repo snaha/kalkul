@@ -9,8 +9,6 @@
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
 
-  let hasValue = $state(false)
-
   function handleContinue() {
     // eslint-disable-next-line svelte/no-navigation-without-resolve
     goto(getNextStepUrl(routes.FINANCES_EDIT_EXPENSES, appStore.profile))
@@ -32,7 +30,7 @@
     </p>
   </div>
 
-  <ExpensesEditor onHasValueChange={(v) => (hasValue = v)} />
+  <ExpensesEditor />
 
-  <OnboardingNav canContinue={hasValue} onBack={handleBack} onContinue={handleContinue} />
+  <OnboardingNav onBack={handleBack} onContinue={handleContinue} />
 </div>
