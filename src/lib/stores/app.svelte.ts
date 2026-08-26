@@ -46,7 +46,6 @@ function enrichProfile({
   incomes,
   expenses,
   transfers,
-  hide_plan_intro,
 }: Profile): ProfileStore {
   return {
     name,
@@ -65,7 +64,6 @@ function enrichProfile({
     incomes,
     expenses,
     transfers,
-    hide_plan_intro,
     get birthDate() {
       return birth_date ? parseDateOnly(birth_date) : undefined
     },
@@ -90,7 +88,6 @@ function enrichProfile({
         incomes,
         expenses,
         transfers,
-        hide_plan_intro,
       }
     },
   }

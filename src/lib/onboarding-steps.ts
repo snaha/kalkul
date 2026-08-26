@@ -55,12 +55,6 @@ function resolveAppRoute(route: AppRoute): string {
       return resolve('/finances/edit/transfers')
     case '/dev':
       return resolve('/dev')
-    case '/plan/add/intro':
-      return resolve('/plan/add/intro')
-    case '/plan/add/details':
-      return resolve('/plan/add/details')
-    case '/plan/add/data':
-      return resolve('/plan/add/data')
     default:
       return resolve('/')
   }

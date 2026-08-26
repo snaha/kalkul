@@ -14,7 +14,6 @@ export default {
   /** localStorage — persisted app data (profile, portfolios, plans). */
   DATA: 'kalkul-data',
   /** sessionStorage — in-progress add-plan wizard draft. */
-  PLAN_DRAFT: 'kalkul-plan-draft',
   /** localStorage — selected color theme ('light' | 'dark' | 'system'). */
   THEME: 'theme',
   /** localStorage — selected UI language override. */

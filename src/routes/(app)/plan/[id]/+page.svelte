@@ -667,7 +667,12 @@
           </Button>
           <h2 class="text-xl font-bold">{plan?.name ?? ''}</h2>
         </div>
-        <Button variant="ghost" size="icon" onclick={notImplemented}>
+        <Button
+          variant="ghost"
+          size="icon"
+          href={resolve(`${routes.PLAN_VIEW}/${planId}/settings`)}
+          aria-label={$_('page.planSettings.title')}
+        >
           <Settings2 class="size-4" />
         </Button>
       </div>
