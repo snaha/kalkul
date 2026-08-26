@@ -6,15 +6,16 @@
 
   import EditableItemCard from '$lib/components/editable-item-card.svelte'
   import EditorItemErrors from '$lib/components/editor-item-errors.svelte'
-  import HelpTooltip from '$lib/components/help-tooltip.svelte'
-  import SelectField from '$lib/components/select-field.svelte'
-  import SuffixedInput from '$lib/components/suffixed-input.svelte'
+  import InvestmentFields from '$lib/components/investment-fields.svelte'
   import { Button } from '$lib/components/ui/button'
-  import { Label } from '$lib/components/ui/label'
-  import { Separator } from '$lib/components/ui/separator'
   import { createListEditor } from '$lib/list-editor.svelte'
-  import type { EntryFeeType, ExitFeeType, ProfileInvestment } from '$lib/schemas'
-  import { getEntryFeeTypeItems, getExitFeeTypeItems } from '$lib/select-options'
+  import type {
+    CashFlowEnd,
+    CashFlowStart,
+    EntryFeeType,
+    ExitFeeType,
+    ProfileInvestment,
+  } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
 
   interface InvestmentUI {
@@ -27,6 +28,16 @@
     entry_fee_type: EntryFeeType
     exit_fee: number | undefined
     exit_fee_type: ExitFeeType
+    // Not editable here (the setup card has no timing controls, per its
+    // Figma) but carried so editing a card cannot wipe a plan's timing.
+    start: CashFlowStart
+    start_year: number | undefined
+    start_month: number | undefined
+    start_age: number | undefined
+    exit: CashFlowEnd
+    exit_year: number | undefined
+    exit_month: number | undefined
+    exit_age: number | undefined
     // UI-only: whether the fee fields are revealed, toggled from the card menu.
     showAdvanced: boolean
     editing: boolean
@@ -50,6 +61,14 @@
       entry_fee_type: inv.entry_fee_type ?? 'ongoing',
       exit_fee: positive(inv.exit_fee),
       exit_fee_type: inv.exit_fee_type ?? 'percentage',
+      start: inv.start ?? 'immediately',
+      start_year: inv.start_year,
+      start_month: inv.start_month,
+      start_age: inv.start_age,
+      exit: inv.exit ?? 'never',
+      exit_year: inv.exit_year,
+      exit_month: inv.exit_month,
+      exit_age: inv.exit_age,
       // Reveal the fees when the investment already has some, so values set in
       // the plan dialog are not hidden here.
       showAdvanced:
@@ -68,6 +87,14 @@
       entry_fee_type: 'ongoing',
       exit_fee: undefined,
       exit_fee_type: 'percentage',
+      start: 'immediately',
+      start_year: undefined,
+      start_month: undefined,
+      start_age: undefined,
+      exit: 'never',
+      exit_year: undefined,
+      exit_month: undefined,
+      exit_age: undefined,
       showAdvanced: false,
       editing: true,
     }),
@@ -90,6 +117,16 @@
         positive(i.exit_fee) !== undefined && i.exit_fee_type !== 'percentage'
           ? i.exit_fee_type
           : undefined,
+      // Defaults collapse to undefined so an untouched investment stays as it
+      // was stored.
+      start: i.start !== 'immediately' ? i.start : undefined,
+      start_year: i.start_year,
+      start_month: i.start_month,
+      start_age: i.start_age,
+      exit: i.exit !== 'never' ? i.exit : undefined,
+      exit_year: i.exit_year,
+      exit_month: i.exit_month,
+      exit_age: i.exit_age,
     }),
     persist: (data) =>
       appStore.updateProfile({
@@ -101,10 +138,6 @@
 
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
-  let entryFeeTypeItems = $derived(getEntryFeeTypeItems($_))
-
-  let exitFeeTypeItems = $derived(getExitFeeTypeItems($_))
-
   function formatBalance(balance: number | undefined): string {
     if (balance === undefined || balance === 0) return ''
     return appStore.formatCurrencyCode(balance)
@@ -112,7 +145,7 @@
 </script>
 
 <div class="flex w-full flex-col gap-4">
-  {#each editor.items as investment (investment.id)}
+  {#each editor.items as investment, i (investment.id)}
     <div class="flex flex-col gap-1">
       <EditableItemCard
         item={investment}
@@ -128,112 +161,14 @@
         onDelete={() => editor.remove(investment)}
       >
         {#snippet expandedContent()}
-          <div class="flex items-center gap-2">
-            <div class="flex flex-1 flex-col gap-2">
-              <Label for="currentBalance-{investment.id}"
-                >{$_('page.setup.investments.currentBalance')}</Label
-              >
-              <SuffixedInput
-                id="currentBalance-{investment.id}"
-                value={investment.balance}
-                suffix={currencyLabel}
-                formatNumber={appStore.formatNumber}
-                onValueChange={(v) => {
-                  investment.balance = v
-                }}
-              />
-            </div>
-            <div class="flex w-32 flex-col gap-2">
-              <Label for="apy-{investment.id}">{$_('page.setup.investments.apy')}</Label>
-              <SuffixedInput
-                id="apy-{investment.id}"
-                value={investment.apy}
-                suffix="%"
-                formatNumber={appStore.formatNumber}
-                onValueChange={(v) => {
-                  investment.apy = v
-                }}
-              />
-            </div>
-          </div>
-
-          {#if investment.showAdvanced}
-            <Separator />
-
-            <!-- Total expense ratio -->
-            <div class="flex items-end gap-2">
-              <div class="flex flex-1 flex-col gap-2">
-                <Label for="ter-{investment.id}">{$_('page.plan.totalExpenseRatio')}</Label>
-                <SuffixedInput
-                  id="ter-{investment.id}"
-                  value={investment.ter}
-                  suffix="%"
-                  formatNumber={appStore.formatNumber}
-                  onValueChange={(v) => {
-                    investment.ter = v
-                  }}
-                />
-              </div>
-              <HelpTooltip text={$_('page.plan.totalExpenseRatioDescription')} class="mb-2" />
-            </div>
-
-            <!-- Entry fee + payment type -->
-            <div class="flex items-end gap-2">
-              <div class="flex flex-1 flex-col gap-2">
-                <Label for="entryFee-{investment.id}">{$_('page.plan.entryFee')}</Label>
-                <SuffixedInput
-                  id="entryFee-{investment.id}"
-                  value={investment.entry_fee}
-                  suffix="%"
-                  formatNumber={appStore.formatNumber}
-                  onValueChange={(v) => {
-                    investment.entry_fee = v
-                  }}
-                />
-              </div>
-              <div class="flex flex-1 flex-col gap-2">
-                <Label for="entryFeeType-{investment.id}">
-                  {$_('page.plan.entryFeePaymentType')}
-                </Label>
-                <SelectField
-                  id="entryFeeType-{investment.id}"
-                  value={investment.entry_fee_type}
-                  items={entryFeeTypeItems}
-                  onValueChange={(v) => {
-                    if (v) investment.entry_fee_type = v
-                  }}
-                />
-              </div>
-              <HelpTooltip text={$_('page.plan.entryFeeDescription')} class="mb-2" />
-            </div>
-
-            <!-- Exit fee type + value -->
-            <div class="flex items-end gap-2">
-              <div class="flex flex-1 flex-col gap-2">
-                <Label for="exitFeeType-{investment.id}">{$_('page.plan.exitFee')}</Label>
-                <SelectField
-                  id="exitFeeType-{investment.id}"
-                  value={investment.exit_fee_type}
-                  items={exitFeeTypeItems}
-                  onValueChange={(v) => {
-                    if (v) investment.exit_fee_type = v
-                  }}
-                />
-              </div>
-              <div class="flex flex-1 flex-col gap-2">
-                <SuffixedInput
-                  value={investment.exit_fee}
-                  aria-label={$_('page.plan.exitFee')}
-                  suffix={investment.exit_fee_type === 'fixed' ? currencyLabel : '%'}
-                  formatNumber={appStore.formatNumber}
-                  onValueChange={(v) => {
-                    investment.exit_fee = v
-                  }}
-                />
-              </div>
-              <HelpTooltip text={$_('page.plan.exitFeeDescription')} class="mb-2" />
-            </div>
-          {/if}
+          <InvestmentFields
+            bind:item={editor.items[i]}
+            idPrefix={investment.id}
+            amountLabel={$_('page.setup.investments.currentBalance')}
+            showAdvanced={investment.showAdvanced}
+            {currencyLabel}
+            formatNumber={appStore.formatNumber}
+          />
         {/snippet}
       </EditableItemCard>
       <EditorItemErrors messages={editor.errors[investment.id]} />

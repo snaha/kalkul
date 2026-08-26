@@ -689,6 +689,11 @@ describe('storedDataSchema golden fixture', () => {
             entry_fee_type: 'forty-sixty',
             exit_fee: 0.5,
             exit_fee_type: 'percentage',
+            start: 'at_specific_date',
+            start_year: 2030,
+            start_month: 5,
+            exit: 'when_age_is',
+            exit_age: 65,
           },
         ],
         tangible_assets: [
@@ -702,6 +707,16 @@ describe('storedDataSchema golden fixture', () => {
             annual_rate: 4.79,
             installment_amount: 18_500,
             remaining_term: 22,
+            interest_type: 'compound',
+            compounding_frequency: 'monthly',
+            purchase: 'at_specific_date',
+            purchase_year: 2029,
+            purchase_month: 3,
+            sale: 'when_age_is',
+            sale_age: 70,
+            value_over_time: 'appreciate',
+            value_rate: 1.5,
+            property_tax_rate: 0.2,
           },
           { id: 'asset-2', name: 'Car', value: 250_000, status: 'fully_owned' },
         ],
@@ -795,5 +810,24 @@ describe('storedDataSchema golden fixture', () => {
     }
     const result = storedDataSchema.safeParse(golden)
     expect(result.success).toBe(true)
+    // Zod strips unknown keys, so parse success alone would not catch a field
+    // missing from the schema — assert the financing interest options survive.
+    expect(result.data?.profile.tangible_assets?.[0]).toMatchObject({
+      interest_type: 'compound',
+      compounding_frequency: 'monthly',
+      purchase: 'at_specific_date',
+      purchase_year: 2029,
+      sale: 'when_age_is',
+      sale_age: 70,
+      value_over_time: 'appreciate',
+      value_rate: 1.5,
+      property_tax_rate: 0.2,
+    })
+    expect(result.data?.profile.investments?.[0]).toMatchObject({
+      start: 'at_specific_date',
+      start_year: 2030,
+      exit: 'when_age_is',
+      exit_age: 65,
+    })
   })
 })

@@ -338,7 +338,24 @@ export const profileInvestmentSchema = z.object({
   // be a percentage of the withdrawal or a fixed currency amount.
   exit_fee: z.number().optional(),
   exit_fee_type: exitFeeTypeSchema.optional(),
+  // Planned timing. An absent start means the investment is already held from
+  // the plan's first year; an absent exit means it is held for the whole plan.
+  // When the start is in the future the initial amount is bought out of cash;
+  // an exit liquidates the balance back into cash.
+  start: cashFlowStartSchema.optional(),
+  start_year: z.number().optional(),
+  start_month: z.number().optional(),
+  start_age: z.number().optional(),
+  exit: cashFlowEndSchema.optional(),
+  exit_year: z.number().optional(),
+  exit_month: z.number().optional(),
+  exit_age: z.number().optional(),
 })
+
+export const valueOverTimeSchema = z.enum(['appreciate', 'depreciate'])
+
+export const interestTypeSchema = z.enum(['compound', 'simple'])
+export const compoundingFrequencySchema = z.enum(['daily', 'monthly', 'yearly'])
 
 export const profileTangibleAssetSchema = z
   .object({
@@ -352,6 +369,30 @@ export const profileTangibleAssetSchema = z
     installment_amount: z.number().optional(),
     remaining_term: z.number().optional(),
     remaining_term_unit: remainingTermUnitSchema.optional(),
+    // Advanced options for the financing, which is simulated as a synthetic
+    // liability. Defaults preserve the existing behaviour when omitted:
+    // compound interest at the installment frequency.
+    interest_type: interestTypeSchema.optional(),
+    compounding_frequency: compoundingFrequencySchema.optional(),
+    // Planned timing. An absent purchase means the asset is already owned from
+    // the plan's first year; an absent sale means it is kept for the whole
+    // plan. A future purchase is paid out of cash (the down payment only when
+    // financed); a sale puts the asset's value into cash and settles the loan.
+    purchase: cashFlowStartSchema.optional(),
+    purchase_year: z.number().optional(),
+    purchase_month: z.number().optional(),
+    purchase_age: z.number().optional(),
+    sale: cashFlowEndSchema.optional(),
+    sale_year: z.number().optional(),
+    sale_month: z.number().optional(),
+    sale_age: z.number().optional(),
+    // Nominal annual change of the asset's value, replacing the default
+    // inflation tracking when set.
+    value_over_time: valueOverTimeSchema.optional(),
+    value_rate: z.number().optional(),
+    // Annual tax on the asset, as a percentage of its purchase price, paid
+    // from cash every year the asset is held.
+    property_tax_rate: z.number().optional(),
   })
   .superRefine((obj, ctx) => {
     if (obj.status === 'financed') {
@@ -387,9 +428,6 @@ export const profileTangibleAssetSchema = z
         })
     }
   })
-
-export const interestTypeSchema = z.enum(['compound', 'simple'])
-export const compoundingFrequencySchema = z.enum(['daily', 'monthly', 'yearly'])
 
 export const profileLiabilitySchema = z.object({
   id: z.string(),
@@ -549,6 +587,7 @@ export const storedDataSchema = z.object({
 
 // --- Derived types ---
 
+export type ValueOverTime = z.infer<typeof valueOverTimeSchema>
 export type EntryFeeType = z.infer<typeof entryFeeTypeSchema>
 export type ExitFeeType = z.infer<typeof exitFeeTypeSchema>
 export type InterestType = z.infer<typeof interestTypeSchema>

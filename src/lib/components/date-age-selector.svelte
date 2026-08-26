@@ -22,6 +22,10 @@
      * is false to avoid a transfer/cash-flow silently starting at plan year 1.
      */
     birthDateSet?: boolean
+    /** Overrides the field label ("Start"/"End"), e.g. "Exit" on investments. */
+    label?: string
+    /** Overrides the 'never' option label, e.g. "Hold — no planned exit". */
+    neverLabel?: string
     /**
      * Overrides the option-aware description. When omitted, the description
      * derives from the selected option using shared i18n keys (matches the
@@ -52,6 +56,8 @@
     years,
     months,
     birthDateSet = true,
+    label: labelOverride,
+    neverLabel,
     description,
     minMonth,
     onValueChange,
@@ -62,7 +68,8 @@
   }: Props = $props()
 
   let label = $derived(
-    mode === 'start' ? $_('page.setup.common.start') : $_('page.setup.common.end'),
+    labelOverride ??
+      (mode === 'start' ? $_('page.setup.common.start') : $_('page.setup.common.end')),
   )
 
   // Option-aware description: shown next to the dropdown when the selected
@@ -98,7 +105,7 @@
           whenAgeIsItem,
         ]
       : [
-          { value: 'never', label: $_('page.setup.common.never') },
+          { value: 'never', label: neverLabel ?? $_('page.setup.common.never') },
           { value: 'at_specific_date', label: $_('page.setup.common.atSpecificDate') },
           whenAgeIsItem,
         ]) as SelectFieldItem<T>[],

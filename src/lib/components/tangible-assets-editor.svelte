@@ -7,19 +7,25 @@
 
   import EditableItemCard from '$lib/components/editable-item-card.svelte'
   import EditorItemErrors from '$lib/components/editor-item-errors.svelte'
+  import HelpTooltip from '$lib/components/help-tooltip.svelte'
   import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Label } from '$lib/components/ui/label'
+  import { Separator } from '$lib/components/ui/separator'
   import { createListEditor } from '$lib/list-editor.svelte'
   import type {
+    CompoundingFrequency,
     Frequency,
+    InterestType,
     ProfileTangibleAsset,
     RemainingTermUnit,
     TangibleAssetStatus,
   } from '$lib/schemas'
   import {
+    getCompoundingFrequencyItems,
     getFrequencyItems,
+    getInterestTypeItems,
     getRemainingTermUnitItems,
     getTangibleAssetStatusItems,
   } from '$lib/select-options'
@@ -36,7 +42,18 @@
     installment_amount: number | undefined
     remaining_term: number | undefined
     remaining_term_unit: RemainingTermUnit
+    interest_type: InterestType
+    compounding_frequency: CompoundingFrequency
+    // UI-only: whether the financing's interest options are revealed, toggled
+    // from the card menu.
+    showAdvanced: boolean
     editing: boolean
+  }
+
+  // The interest options belong to the financing and only exist while the
+  // advanced block is visible.
+  function isFinancedAdvanced(a: AssetUI): boolean {
+    return a.status === 'financed' && a.showAdvanced
   }
 
   const editor = createListEditor<ProfileTangibleAsset, AssetUI>({
@@ -59,6 +76,11 @@
       remaining_term:
         a.remaining_term !== undefined && a.remaining_term > 0 ? a.remaining_term : undefined,
       remaining_term_unit: a.remaining_term_unit ?? 'years',
+      interest_type: a.interest_type ?? 'compound',
+      compounding_frequency: a.compounding_frequency ?? 'monthly',
+      // Reveal the options when the financing already has them, so values set
+      // in the plan dialog are not hidden here.
+      showAdvanced: a.interest_type !== undefined || a.compounding_frequency !== undefined,
       editing: false,
     }),
     makeBlank: (index) => ({
@@ -72,6 +94,9 @@
       installment_amount: undefined,
       remaining_term: undefined,
       remaining_term_unit: 'years',
+      interest_type: 'compound',
+      compounding_frequency: 'monthly',
+      showAdvanced: false,
       editing: true,
     }),
     copyName: (name) => $_('page.setup.common.copySuffix', { values: { name } }),
@@ -87,6 +112,13 @@
       installment_amount: a.status === 'financed' ? (a.installment_amount ?? 0) : undefined,
       remaining_term: a.status === 'financed' ? (a.remaining_term ?? 0) : undefined,
       remaining_term_unit: a.remaining_term_unit,
+      // Financing-only, like the fields above, and stored only while the
+      // advanced options are shown so an untouched asset keeps the legacy
+      // default (compounding at the installment frequency). 'compound' is the
+      // calculation default so it collapses to undefined.
+      interest_type:
+        isFinancedAdvanced(a) && a.interest_type !== 'compound' ? a.interest_type : undefined,
+      compounding_frequency: isFinancedAdvanced(a) ? a.compounding_frequency : undefined,
     }),
     persist: (data) =>
       appStore.updateProfile({
@@ -104,6 +136,10 @@
 
   let remainingTermUnitItems = $derived(getRemainingTermUnitItems($_))
 
+  let interestTypeItems = $derived(getInterestTypeItems($_))
+
+  let compoundingFrequencyItems = $derived(getCompoundingFrequencyItems($_))
+
   function formatValue(val: number | undefined): string {
     if (val === undefined || val === 0) return ''
     return appStore.formatCurrencyCode(val)
@@ -117,6 +153,12 @@
         item={asset}
         collapsedValue={formatValue(asset.value)}
         badge={asset.status === 'financed' ? $_('page.setup.tangibleAssets.financed') : undefined}
+        advancedChecked={asset.showAdvanced}
+        onAdvancedChange={asset.status === 'financed'
+          ? (checked) => {
+              asset.showAdvanced = checked
+            }
+          : undefined}
         onToggleEditing={() => {
           asset.editing = !asset.editing
         }}
@@ -239,6 +281,42 @@
                 </div>
               </div>
             </div>
+
+            {#if asset.showAdvanced}
+              <Separator />
+
+              <div class="flex items-end gap-2">
+                <div class="flex flex-1 flex-col gap-2">
+                  <Label for="interestType-{asset.id}">{$_('page.plan.interestType')}</Label>
+                  <SelectField
+                    id="interestType-{asset.id}"
+                    value={asset.interest_type}
+                    items={interestTypeItems}
+                    onValueChange={(v) => {
+                      if (v) asset.interest_type = v
+                    }}
+                  />
+                </div>
+                {#if asset.interest_type === 'compound'}
+                  <div class="flex flex-1 flex-col gap-2">
+                    <Label for="compoundingFrequency-{asset.id}">
+                      {$_('page.plan.compoundingFrequency')}
+                    </Label>
+                    <SelectField
+                      id="compoundingFrequency-{asset.id}"
+                      value={asset.compounding_frequency}
+                      items={compoundingFrequencyItems}
+                      onValueChange={(v) => {
+                        if (v) asset.compounding_frequency = v
+                      }}
+                    />
+                  </div>
+                {:else}
+                  <div class="flex-1"></div>
+                {/if}
+                <HelpTooltip text={$_('page.plan.interestDescription')} class="mb-2" />
+              </div>
+            {/if}
           {/if}
         {/snippet}
       </EditableItemCard>

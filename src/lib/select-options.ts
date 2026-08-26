@@ -1,15 +1,21 @@
 import type { SelectFieldItem } from '$lib/components/select-field.svelte'
 import {
+  type CompoundingFrequency,
   type EntryFeeType,
   type ExitFeeType,
   type Frequency,
+  type InterestType,
   type RemainingTermUnit,
   type TangibleAssetStatus,
+  type ValueOverTime,
+  compoundingFrequencySchema,
   entryFeeTypeSchema,
   exitFeeTypeSchema,
   frequencySchema,
+  interestTypeSchema,
   remainingTermUnitSchema,
   tangibleAssetStatusSchema,
+  valueOverTimeSchema,
 } from '$lib/schemas'
 
 // Translator function compatible with svelte-i18n's `$_`. Call sites pass `$_`
@@ -58,6 +64,43 @@ export function getExitFeeTypeItems($_: Translator): SelectFieldItem<ExitFeeType
     fixed: $_('page.plan.exitFeeFixed'),
   } satisfies Record<ExitFeeType, string>
   return exitFeeTypeSchema.options.map((value) => ({ value, label: labels[value] }))
+}
+
+export function getInterestTypeItems($_: Translator): SelectFieldItem<InterestType>[] {
+  const labels = {
+    compound: $_('page.plan.interestCompound'),
+    simple: $_('page.plan.interestSimple'),
+  } satisfies Record<InterestType, string>
+  return interestTypeSchema.options.map((value) => ({ value, label: labels[value] }))
+}
+
+export function getCompoundingFrequencyItems(
+  $_: Translator,
+): SelectFieldItem<CompoundingFrequency>[] {
+  const labels = {
+    daily: $_('page.plan.compoundingDaily'),
+    monthly: $_('page.setup.common.monthly'),
+    yearly: $_('page.setup.common.yearly'),
+  } satisfies Record<CompoundingFrequency, string>
+  return compoundingFrequencySchema.options.map((value) => ({ value, label: labels[value] }))
+}
+
+// The plan dialog frames it as how the asset is paid for rather than what its
+// current status is, so the same enum gets Upfront / Financed labels there.
+export function getPaymentMethodItems($_: Translator): SelectFieldItem<TangibleAssetStatus>[] {
+  const labels = {
+    fully_owned: $_('page.plan.paymentUpfront'),
+    financed: $_('page.plan.paymentFinanced'),
+  } satisfies Record<TangibleAssetStatus, string>
+  return tangibleAssetStatusSchema.options.map((value) => ({ value, label: labels[value] }))
+}
+
+export function getValueOverTimeItems($_: Translator): SelectFieldItem<ValueOverTime>[] {
+  const labels = {
+    appreciate: $_('page.plan.valueAppreciate'),
+    depreciate: $_('page.plan.valueDepreciate'),
+  } satisfies Record<ValueOverTime, string>
+  return valueOverTimeSchema.options.map((value) => ({ value, label: labels[value] }))
 }
 
 export function getTangibleAssetStatusItems(

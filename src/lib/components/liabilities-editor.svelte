@@ -7,13 +7,26 @@
 
   import EditableItemCard from '$lib/components/editable-item-card.svelte'
   import EditorItemErrors from '$lib/components/editor-item-errors.svelte'
+  import HelpTooltip from '$lib/components/help-tooltip.svelte'
   import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Label } from '$lib/components/ui/label'
+  import { Separator } from '$lib/components/ui/separator'
   import { createListEditor } from '$lib/list-editor.svelte'
-  import type { Frequency, ProfileLiability, RemainingTermUnit } from '$lib/schemas'
-  import { getFrequencyItems, getRemainingTermUnitItems } from '$lib/select-options'
+  import type {
+    CompoundingFrequency,
+    Frequency,
+    InterestType,
+    ProfileLiability,
+    RemainingTermUnit,
+  } from '$lib/schemas'
+  import {
+    getCompoundingFrequencyItems,
+    getFrequencyItems,
+    getInterestTypeItems,
+    getRemainingTermUnitItems,
+  } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
 
   interface LiabilityUI {
@@ -25,6 +38,11 @@
     installment_amount: number | undefined
     remaining_term: number | undefined
     remaining_term_unit: RemainingTermUnit
+    interest_type: InterestType
+    compounding_frequency: CompoundingFrequency
+    // UI-only: whether the interest options are revealed, toggled from the
+    // card menu.
+    showAdvanced: boolean
     editing: boolean
   }
 
@@ -39,6 +57,11 @@
       installment_amount: l.installment_amount > 0 ? l.installment_amount : undefined,
       remaining_term: l.remaining_term > 0 ? l.remaining_term : undefined,
       remaining_term_unit: l.remaining_term_unit ?? 'years',
+      interest_type: l.interest_type ?? 'compound',
+      compounding_frequency: l.compounding_frequency ?? 'monthly',
+      // Reveal the options when the liability already has them, so values set
+      // in the plan dialog are not hidden here.
+      showAdvanced: l.interest_type !== undefined || l.compounding_frequency !== undefined,
       editing: false,
     }),
     makeBlank: (index) => ({
@@ -50,6 +73,9 @@
       installment_amount: undefined,
       remaining_term: undefined,
       remaining_term_unit: 'years',
+      interest_type: 'compound',
+      compounding_frequency: 'monthly',
+      showAdvanced: false,
       editing: true,
     }),
     copyName: (name) => $_('page.setup.common.copySuffix', { values: { name } }),
@@ -63,6 +89,13 @@
       installment_amount: l.installment_amount ?? 0,
       remaining_term: l.remaining_term ?? 0,
       remaining_term_unit: l.remaining_term_unit,
+      // Both are stored only while the advanced options are shown, so an
+      // untouched liability keeps the legacy defaults (compounding at the
+      // installment frequency) instead of silently gaining a monthly one.
+      // 'compound' is the calculation default, so it collapses to undefined;
+      // the frequency is kept as chosen — 'daily' must not fall back.
+      interest_type: l.showAdvanced && l.interest_type !== 'compound' ? l.interest_type : undefined,
+      compounding_frequency: l.showAdvanced ? l.compounding_frequency : undefined,
     }),
     persist: (data) =>
       appStore.updateProfile({
@@ -78,6 +111,10 @@
 
   let remainingTermUnitItems = $derived(getRemainingTermUnitItems($_))
 
+  let interestTypeItems = $derived(getInterestTypeItems($_))
+
+  let compoundingFrequencyItems = $derived(getCompoundingFrequencyItems($_))
+
   function formatBalance(val: number | undefined): string {
     if (val === undefined || val === 0) return ''
     return appStore.formatCurrencyCode(val)
@@ -90,6 +127,10 @@
       <EditableItemCard
         item={liability}
         collapsedValue={formatBalance(liability.outstanding_balance)}
+        advancedChecked={liability.showAdvanced}
+        onAdvancedChange={(checked) => {
+          liability.showAdvanced = checked
+        }}
         onToggleEditing={() => {
           liability.editing = !liability.editing
         }}
@@ -185,6 +226,42 @@
               </div>
             </div>
           </div>
+
+          {#if liability.showAdvanced}
+            <Separator />
+
+            <div class="flex items-end gap-2">
+              <div class="flex flex-1 flex-col gap-2">
+                <Label for="interestType-{liability.id}">{$_('page.plan.interestType')}</Label>
+                <SelectField
+                  id="interestType-{liability.id}"
+                  value={liability.interest_type}
+                  items={interestTypeItems}
+                  onValueChange={(v) => {
+                    if (v) liability.interest_type = v
+                  }}
+                />
+              </div>
+              {#if liability.interest_type === 'compound'}
+                <div class="flex flex-1 flex-col gap-2">
+                  <Label for="compoundingFrequency-{liability.id}">
+                    {$_('page.plan.compoundingFrequency')}
+                  </Label>
+                  <SelectField
+                    id="compoundingFrequency-{liability.id}"
+                    value={liability.compounding_frequency}
+                    items={compoundingFrequencyItems}
+                    onValueChange={(v) => {
+                      if (v) liability.compounding_frequency = v
+                    }}
+                  />
+                </div>
+              {:else}
+                <div class="flex-1"></div>
+              {/if}
+              <HelpTooltip text={$_('page.plan.interestDescription')} class="mb-2" />
+            </div>
+          {/if}
         {/snippet}
       </EditableItemCard>
       <EditorItemErrors messages={editor.errors[liability.id]} />

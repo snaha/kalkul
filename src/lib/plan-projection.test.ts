@@ -1732,6 +1732,422 @@ describe('getYearlyPlanProjection', () => {
     expect(simple[0].liabilities).toBeCloseTo(compoundMonthly[0].liabilities, 6)
   })
 
+  it('applies interest options to a financed tangible asset like a standalone liability', () => {
+    // A financed asset is simulated as a synthetic liability, so its interest
+    // options must reach the same code path: same numbers as the equivalent
+    // standalone loan, and 'simple' must differ from the compound default.
+    const financing = {
+      outstanding_balance: 10_000,
+      installment_frequency: 'monthly',
+      annual_rate: 12,
+      installment_amount: 200,
+      remaining_term: 10,
+    } as const
+    const asAsset = (
+      options: Pick<ProfileTangibleAsset, 'interest_type' | 'compounding_frequency'>,
+    ): ProfileTangibleAsset[] => [
+      { id: 't1', name: 'House', value: 50_000, status: 'financed', ...financing, ...options },
+    ]
+    const asLiability = (
+      options: Pick<ProfileLiability, 'interest_type' | 'compounding_frequency'>,
+    ): ProfileLiability[] => [{ id: 'l1', name: 'Loan', ...financing, ...options }]
+
+    const daily = { compounding_frequency: 'daily' } as const
+    const dailyOnAsset = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ tangible_assets: asAsset(daily) }),
+    )[0].liabilities
+    expect(dailyOnAsset).toBeCloseTo(
+      getYearlyPlanProjection(makePlan(), makeProfile({ liabilities: asLiability(daily) }))[0]
+        .liabilities,
+      6,
+    )
+
+    const simple = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ tangible_assets: asAsset({ interest_type: 'simple' }) }),
+    )[0].liabilities
+    const legacy = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ tangible_assets: asAsset({}) }),
+    )[0].liabilities
+    expect(simple).toBeCloseTo(
+      getYearlyPlanProjection(
+        makePlan(),
+        makeProfile({ liabilities: asLiability({ interest_type: 'simple' }) }),
+      )[0].liabilities,
+      6,
+    )
+    // Legacy (no options) keeps compounding at the installment frequency, so
+    // daily compounding must still cost more than an unconfigured asset.
+    expect(dailyOnAsset).toBeGreaterThan(legacy)
+  })
+
+  // --- Investment start / exit ---
+
+  it('holds a future-start investment out of the projection until its start year', () => {
+    const investments: ProfileInvestment[] = [
+      {
+        id: 'i1',
+        name: 'Planned ETF',
+        balance: 1000,
+        apy: 10,
+        start: 'at_specific_date',
+        start_year: 2027,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ cash_amount: 5000, investments }),
+    )
+    // 2025, 2026: nothing invested yet, cash untouched.
+    expect(result[0].investments).toBeCloseTo(0, 6)
+    expect(result[1].investments).toBeCloseTo(0, 6)
+    expect(result[1].cash).toBeCloseTo(5000, 6)
+    // 2027: bought out of cash, then compounding starts the year after.
+    expect(result[2].investments).toBeCloseTo(1000, 6)
+    expect(result[2].cash).toBeCloseTo(4000, 6)
+    expect(result[3].investments).toBeCloseTo(1100, 6)
+    // Net worth is unchanged by the purchase itself.
+    expect(result[2].netWorth).toBeCloseTo(5000, 6)
+  })
+
+  it('charges the entry fee on a future-start purchase', () => {
+    const investments: ProfileInvestment[] = [
+      {
+        id: 'i1',
+        name: 'Planned ETF',
+        balance: 1000,
+        apy: 0,
+        entry_fee: 10,
+        entry_fee_type: 'upfront',
+        start: 'at_specific_date',
+        start_year: 2026,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ cash_amount: 5000, investments }),
+    )
+    // Cash loses the full 1000; 10 % upfront fee means 900 lands in the fund.
+    expect(result[1].cash).toBeCloseTo(4000, 6)
+    expect(result[1].investments).toBeCloseTo(900, 6)
+  })
+
+  it('liquidates an investment into cash at its exit year, minus the exit fee', () => {
+    const investments: ProfileInvestment[] = [
+      {
+        id: 'i1',
+        name: 'ETF',
+        balance: 1000,
+        apy: 0,
+        exit_fee: 5,
+        exit_fee_type: 'percentage',
+        exit: 'at_specific_date',
+        exit_year: 2027,
+      },
+    ]
+    const result = getYearlyPlanProjection(makePlan(), makeProfile({ investments }))
+    expect(result[1].investments).toBeCloseTo(1000, 6)
+    // 2027: swept out — 5 % of the 1000 is lost to the broker.
+    expect(result[2].investments).toBeCloseTo(0, 6)
+    expect(result[2].cash).toBeCloseTo(950, 6)
+    expect(result[3].investments).toBeCloseTo(0, 6)
+  })
+
+  it('leaves an investment without timing fields exactly as before', () => {
+    const investments: ProfileInvestment[] = [{ id: 'i1', name: 'ETF', balance: 1000, apy: 10 }]
+    const withoutTiming = getYearlyPlanProjection(makePlan(), makeProfile({ investments }))
+    const immediately = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ investments: [{ ...investments[0], start: 'immediately', exit: 'never' }] }),
+    )
+    expect(withoutTiming.map((r) => r.investments)).toEqual(immediately.map((r) => r.investments))
+    expect(withoutTiming[1].investments).toBeCloseTo(1100, 6)
+  })
+
+  it('flags a planned investment the plan cannot afford', () => {
+    const investments: ProfileInvestment[] = [
+      {
+        id: 'i1',
+        name: 'Planned ETF',
+        balance: 1000,
+        apy: 0,
+        start: 'at_specific_date',
+        start_year: 2026,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ cash_amount: 10, investments }),
+    )
+    // Reported against the investment, not as a transfer id the sidebar has no
+    // row for.
+    expect(result[1].insufficientFundAssetIds).toContain('i1')
+    expect(result[1].insufficientFundTransferIds).toEqual([])
+    expect(result[1].investments).toBeCloseTo(0, 6)
+    expect(result[1].cash).toBeCloseTo(10, 6)
+  })
+
+  it('ignores transfers into an investment that has not started or has exited', () => {
+    const investments: ProfileInvestment[] = [
+      {
+        id: 'i1',
+        name: 'Planned ETF',
+        balance: 0,
+        apy: 0,
+        start: 'at_specific_date',
+        start_year: 2028,
+        exit: 'at_specific_date',
+        exit_year: 2029,
+      },
+    ]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'Monthly buy',
+        from_asset_id: 'cash',
+        to_asset_id: 'i1',
+        amount: 100,
+        schedule: 'recurring',
+        frequency: 'yearly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ cash_amount: 10_000, investments, transfers }),
+    )
+    // 2025-2027: dormant, the money stays in cash.
+    expect(result[0].investments).toBeCloseTo(0, 6)
+    expect(result[0].cash).toBeCloseTo(10_000, 6)
+    expect(result[2].cash).toBeCloseTo(10_000, 6)
+    // 2028: active, one yearly contribution lands.
+    expect(result[3].investments).toBeCloseTo(100, 6)
+    // 2029: exited — the sweep takes the balance and later years add nothing.
+    expect(result[4].investments).toBeCloseTo(0, 6)
+    expect(result[5].investments).toBeCloseTo(0, 6)
+    expect(result[5].cash).toBeCloseTo(10_000, 6)
+  })
+
+  it('sweeps a same-year contribution out with the exit', () => {
+    const investments: ProfileInvestment[] = [
+      { id: 'i1', name: 'ETF', balance: 1000, apy: 0, exit: 'at_specific_date', exit_year: 2026 },
+    ]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'Yearly buy',
+        from_asset_id: 'cash',
+        to_asset_id: 'i1',
+        amount: 500,
+        schedule: 'one_time',
+        transaction_year: 2026,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ cash_amount: 500, investments, transfers }),
+    )
+    // The 2026 contribution goes in, then the exit sweeps the lot back to cash.
+    expect(result[1].investments).toBeCloseTo(0, 6)
+    expect(result[1].cash).toBeCloseTo(1500, 6)
+  })
+
+  // --- Tangible asset purchase / sale ---
+
+  it('holds a future-purchase tangible asset out of the projection and buys it from cash', () => {
+    const tangible_assets: ProfileTangibleAsset[] = [
+      {
+        id: 't1',
+        name: 'Cottage',
+        value: 1000,
+        status: 'fully_owned',
+        purchase: 'at_specific_date',
+        purchase_year: 2027,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ cash_amount: 5000, tangible_assets }),
+    )
+    expect(result[0].tangibleAssets).toBeCloseTo(0, 6)
+    expect(result[1].cash).toBeCloseTo(5000, 6)
+    expect(result[2].tangibleAssets).toBeCloseTo(1000, 6)
+    expect(result[2].cash).toBeCloseTo(4000, 6)
+    // Buying does not change net worth, only its composition.
+    expect(result[2].netWorth).toBeCloseTo(5000, 6)
+  })
+
+  it('pays only the down payment from cash on a financed purchase and starts the loan then', () => {
+    const tangible_assets: ProfileTangibleAsset[] = [
+      {
+        id: 't1',
+        name: 'House',
+        value: 1000,
+        status: 'financed',
+        // 200 down, 800 financed at 0 % over 8 yearly installments of 100.
+        outstanding_balance: 800,
+        installment_frequency: 'yearly',
+        annual_rate: 0,
+        installment_amount: 100,
+        remaining_term: 8,
+        purchase: 'at_specific_date',
+        purchase_year: 2027,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ cash_amount: 5000, tangible_assets }),
+    )
+    // Before the purchase neither the asset nor its mortgage exists.
+    expect(result[1].tangibleAssets).toBeCloseTo(0, 6)
+    expect(result[1].liabilities).toBeCloseTo(0, 6)
+    expect(result[1].cash).toBeCloseTo(5000, 6)
+    // Purchase year: 200 leaves cash, the asset is worth the full 1000, and
+    // 800 of debt appears — less the first installment paid that year.
+    expect(result[2].tangibleAssets).toBeCloseTo(1000, 6)
+    expect(result[2].liabilities).toBeCloseTo(700, 6)
+    expect(result[2].cash).toBeCloseTo(4700, 6)
+    expect(result[2].netWorth).toBeCloseTo(5000, 6)
+  })
+
+  it('sells a tangible asset into cash at its sale year', () => {
+    const tangible_assets: ProfileTangibleAsset[] = [
+      {
+        id: 't1',
+        name: 'Cottage',
+        value: 1000,
+        status: 'fully_owned',
+        sale: 'at_specific_date',
+        sale_year: 2027,
+      },
+    ]
+    const result = getYearlyPlanProjection(makePlan(), makeProfile({ tangible_assets }))
+    expect(result[1].tangibleAssets).toBeCloseTo(1000, 6)
+    expect(result[2].tangibleAssets).toBeCloseTo(0, 6)
+    expect(result[2].cash).toBeCloseTo(1000, 6)
+    expect(result[3].tangibleAssets).toBeCloseTo(0, 6)
+    expect(result[3].cash).toBeCloseTo(1000, 6)
+  })
+
+  it('settles the remaining loan out of the sale proceeds and stops the installments', () => {
+    const tangible_assets: ProfileTangibleAsset[] = [
+      {
+        id: 't1',
+        name: 'House',
+        value: 1000,
+        status: 'financed',
+        outstanding_balance: 800,
+        installment_frequency: 'yearly',
+        annual_rate: 0,
+        installment_amount: 100,
+        remaining_term: 8,
+        sale: 'at_specific_date',
+        sale_year: 2027,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ cash_amount: 1000, tangible_assets }),
+    )
+    // 2025-2026: two installments paid, 600 still owed.
+    expect(result[1].liabilities).toBeCloseTo(600, 6)
+    // 2027: sold. Proceeds 1000 in, the third installment plus the 500
+    // residual settled, so no debt remains and nothing is paid afterwards.
+    expect(result[2].liabilities).toBeCloseTo(0, 6)
+    expect(result[2].tangibleAssets).toBeCloseTo(0, 6)
+    expect(result[3].liabilities).toBeCloseTo(0, 6)
+    expect(result[3].cash).toBeCloseTo(result[2].cash, 6)
+  })
+
+  it('compounds a tangible asset at its own rate instead of inflation when set', () => {
+    const tangible_assets: ProfileTangibleAsset[] = [
+      {
+        id: 't1',
+        name: 'Car',
+        value: 1000,
+        status: 'fully_owned',
+        value_over_time: 'depreciate',
+        value_rate: 10,
+      },
+    ]
+    // Zero inflation keeps real == nominal, so the 10 % drop is visible directly.
+    const result = getYearlyPlanProjection(makePlan(), makeProfile({ tangible_assets }))
+    expect(result[0].tangibleAssets).toBeCloseTo(1000, 6)
+    expect(result[1].tangibleAssets).toBeCloseTo(900, 6)
+    expect(result[2].tangibleAssets).toBeCloseTo(810, 6)
+
+    const appreciating = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({
+        tangible_assets: [{ ...tangible_assets[0], value_over_time: 'appreciate', value_rate: 10 }],
+      }),
+    )
+    expect(appreciating[1].tangibleAssets).toBeCloseTo(1100, 6)
+  })
+
+  it('charges the yearly property tax to cash while the asset is held', () => {
+    const tangible_assets: ProfileTangibleAsset[] = [
+      {
+        id: 't1',
+        name: 'House',
+        value: 1000,
+        status: 'fully_owned',
+        property_tax_rate: 2,
+        sale: 'at_specific_date',
+        sale_year: 2026,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ cash_amount: 500, tangible_assets }),
+    )
+    // 2 % of the 1000 purchase price per held year.
+    expect(result[0].cash).toBeCloseTo(480, 6)
+    expect(result[0].totalExpenses).toBeCloseTo(20, 6)
+    // 2026 is the sale year — still held, still taxed, plus the 1000 proceeds.
+    expect(result[1].cash).toBeCloseTo(480 - 20 + 1000, 6)
+    // Sold: no more tax.
+    expect(result[2].cash).toBeCloseTo(result[1].cash, 6)
+    expect(result[2].totalExpenses).toBeCloseTo(0, 6)
+  })
+
+  it('flags a tangible asset purchase the plan cannot afford', () => {
+    const tangible_assets: ProfileTangibleAsset[] = [
+      {
+        id: 't1',
+        name: 'Cottage',
+        value: 1000,
+        status: 'fully_owned',
+        purchase: 'at_specific_date',
+        purchase_year: 2026,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ cash_amount: 10, tangible_assets }),
+    )
+    expect(result[1].insufficientFundAssetIds).toContain('t1')
+    expect(result[1].tangibleAssets).toBeCloseTo(0, 6)
+  })
+
+  it('leaves a tangible asset without timing or rate fields exactly as before', () => {
+    const tangible_assets: ProfileTangibleAsset[] = [
+      { id: 't1', name: 'House', value: 1000, status: 'fully_owned' },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ inflation_rate: 0.02 }),
+      makeProfile({ cash_amount: 100, tangible_assets }),
+    )
+    // Real value stays flat: nominal tracks inflation.
+    expect(result[0].tangibleAssets).toBeCloseTo(1000, 6)
+    expect(result[3].tangibleAssets).toBeCloseTo(1000, 6)
+    expect(result[0].totalExpenses).toBeCloseTo(0, 6)
+  })
+
   // --- Investment fees (TER, entry, exit) ---
 
   it('subtracts TER from APY when compounding investments', () => {
