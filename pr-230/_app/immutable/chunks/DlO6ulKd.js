@@ -1,0 +1,1 @@
+import{$ as e,A as t,Et as n,_t as r,a as i,k as a,vt as o,x as s}from"./BdrUI6bN.js";import"./CCi4sbZS.js";import{y as c}from"./CkbGoHBQ.js";import{i as l}from"./CaHCCDeT.js";function u(u,d){o(d,!0);let f=i(d,`tooltip`,3,!1);l.create({id:c(()=>d.id),virtualEl:c(()=>d.virtualEl),ref:d.ref},f());var p=t();s(e(p),()=>d.children??n),a(u,p),r()}export{u as t};
