@@ -1,0 +1,1 @@
+import{wt as e}from"./B2GOhj2Y.js";e();
