@@ -16,18 +16,51 @@ type PlanInclusions = Required<Omit<Portfolio, 'id' | 'name' | 'notes' | keyof P
  * only asks for a name and a note. Start is the first of the current month;
  * the plan runs until the user turns {@link DEFAULT_END_AGE}, or — with no
  * birth date on the profile — that many years from now.
+ *
+ * Someone already past that age would otherwise get an end before the start,
+ * and the dialog has no date fields to fix it with, so the end is clamped to
+ * one month after the start. The projection is then trivially short rather
+ * than silently inverted, which is visible in the plan-span hint.
  */
 export function getDefaultPlanDates(profile: Profile, today = new Date()): PlanDates {
   const birthDate = profile.birth_date ? parseDateOnly(profile.birth_date) : undefined
+  const start = new Date(today.getFullYear(), today.getMonth(), 1)
   const end = birthDate
     ? new Date(birthDate.getFullYear() + DEFAULT_END_AGE, birthDate.getMonth(), 1)
     : new Date(today.getFullYear() + DEFAULT_END_AGE, 0, 1)
+  const earliestEnd = new Date(start.getFullYear(), start.getMonth() + 1, 1)
 
   return {
-    start_date: formatDate(new Date(today.getFullYear(), today.getMonth(), 1)),
-    end_date: formatDate(end),
+    start_date: formatDate(start),
+    end_date: formatDate(end > earliestEnd ? end : earliestEnd),
     inflation_rate: DEFAULT_INFLATION_RATE,
   }
+}
+
+/**
+ * A default name for a new projection: the lowest index that is not already
+ * taken. Counting from the list length collided after a deletion — one plan
+ * left called "Alternative projection 2" produced that same name again.
+ */
+export function getDefaultPlanName(
+  existingNames: string[],
+  format: (index: number) => string,
+): string {
+  const used = new Set(existingNames)
+  let index = 1
+  while (used.has(format(index))) index++
+  return format(index)
+}
+
+/**
+ * A plan stores inflation as a rate; the settings form edits it as a
+ * percentage. The naive `rate * 100` leaks float artifacts (0.07 becomes
+ * 7.000000000000001), which a Done the user never edited would then store
+ * back as 0.07000000000000001. Dividing by 100 is exact enough to need no
+ * counterpart.
+ */
+export function toInflationPercent(rate: number): number {
+  return Number((rate * 100).toPrecision(12))
 }
 
 /**
@@ -79,6 +112,12 @@ export interface PlanTimelineForm {
  * so the "Now" and "When your age is" choices are inferred: a start on the
  * first of the current month reads back as "Now", and an end landing on the
  * profile's birth month reads back as that age.
+ *
+ * The age inference is a guess — a specific end date that happens to fall in
+ * the birth month is indistinguishable from an age. It is cosmetic: both
+ * choices collapse to the same stored date, so the round trip is lossless
+ * either way. Telling them apart would mean storing the choice on the plan,
+ * which is not worth a schema field for a label.
  */
 export function seedPlanTimeline(
   plan: Pick<Portfolio, 'start_date' | 'end_date'>,

@@ -20,6 +20,7 @@
     getPlanSpan,
     planTimelineToDates,
     seedPlanTimeline,
+    toInflationPercent,
   } from '$lib/plan-defaults'
   import routes from '$lib/routes'
   import type { PlanEndType, PlanStartType } from '$lib/schemas'
@@ -56,7 +57,7 @@
     return {
       name: plan.name,
       notes: plan.notes ?? '',
-      inflation: plan.inflation_rate * 100,
+      inflation: toInflationPercent(plan.inflation_rate),
       ...seedPlanTimeline(plan, appStore.profile),
     }
   }
@@ -72,8 +73,17 @@
     }
   })
 
-  const years = getYearOptions()
-  const yearItems = years.map((y) => ({ value: y, label: y }))
+  // getYearOptions() spans this year to +49, which cannot represent every
+  // stored year: an old plan's start can be in the past, and a plan created
+  // without a birth date ends 85 years out. Union in whatever the form
+  // actually holds so the trigger never renders blank and the stored year
+  // stays re-pickable.
+  const yearItems = $derived(
+    Array.from(new Set([...getYearOptions(), form.startYear, form.endYear]))
+      .filter((y) => y !== '')
+      .sort((a, b) => Number(a) - Number(b))
+      .map((y) => ({ value: y, label: y })),
+  )
   const months = $derived(getMonthOptions($locale ?? undefined))
 
   const startTypeItems: SelectFieldItem<PlanStartType>[] = $derived([
@@ -94,7 +104,10 @@
       form.inflation !== undefined &&
       (form.endType === 'when_age_is'
         ? form.endAge !== undefined
-        : form.endYear !== '' && form.endMonth !== ''),
+        : form.endYear !== '' && form.endMonth !== '') &&
+      // An end at or before the start would project nothing at all — the span
+      // hint already reads "0 years and 0 months", so block Done on it too.
+      dates.end_date > dates.start_date,
   )
 
   let deleteOpen = $state(false)

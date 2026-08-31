@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest'
 import {
   buildPlanInclusions,
   getDefaultPlanDates,
+  getDefaultPlanName,
   getPlanSpan,
   planTimelineToDates,
   seedPlanTimeline,
+  toInflationPercent,
 } from './plan-defaults'
 import type { Profile } from './schemas'
 
@@ -32,6 +34,82 @@ describe('getDefaultPlanDates', () => {
 
   it('defaults inflation to 2%', () => {
     expect(getDefaultPlanDates(emptyProfile, new Date(2026, 7, 26)).inflation_rate).toBe(0.02)
+  })
+
+  it('still ends after it starts for someone already past the default age', () => {
+    // Born 1938 -> age 85 was reached in 2023, before the plan even starts.
+    // The dialog has no date fields, so an inverted plan could only be fixed
+    // in settings — clamp it to a one-month span instead.
+    const dates = getDefaultPlanDates(
+      { ...emptyProfile, birth_date: '1938-03-15' },
+      new Date(2026, 7, 26),
+    )
+    expect(dates.start_date).toBe('2026-08-01')
+    expect(dates.end_date).toBe('2026-09-01')
+  })
+
+  it('clamps an end that lands in the start month itself', () => {
+    const dates = getDefaultPlanDates(
+      { ...emptyProfile, birth_date: '1941-08-15' },
+      new Date(2026, 7, 26),
+    )
+    expect(dates.end_date).toBe('2026-09-01')
+  })
+
+  it('rolls the clamped end into the next year from December', () => {
+    const dates = getDefaultPlanDates(
+      { ...emptyProfile, birth_date: '1938-03-15' },
+      new Date(2026, 11, 26),
+    )
+    expect(dates.start_date).toBe('2026-12-01')
+    expect(dates.end_date).toBe('2027-01-01')
+  })
+})
+
+describe('toInflationPercent', () => {
+  it('does not leak float artifacts into an untouched round trip', () => {
+    // 0.07 * 100 is 7.000000000000001, which saved back as /100 stored
+    // 0.07000000000000001 after a Done the user never edited.
+    expect(toInflationPercent(0.07)).toBe(7)
+    expect(toInflationPercent(0.07) / 100).toBe(0.07)
+    expect(toInflationPercent(0.29) / 100).toBe(0.29)
+  })
+
+  it('keeps a fractional percentage intact', () => {
+    expect(toInflationPercent(0.025)).toBe(2.5)
+    expect(toInflationPercent(0.0325)).toBe(3.25)
+  })
+
+  it('handles zero', () => {
+    expect(toInflationPercent(0)).toBe(0)
+  })
+})
+
+describe('getDefaultPlanName', () => {
+  const format = (index: number) => `Alternative projection ${index}`
+
+  it('numbers the first projection 1', () => {
+    expect(getDefaultPlanName([], format)).toBe('Alternative projection 1')
+  })
+
+  it('numbers past the existing projections', () => {
+    expect(getDefaultPlanName(['Alternative projection 1'], format)).toBe(
+      'Alternative projection 2',
+    )
+  })
+
+  it('reuses a number freed by a deletion instead of colliding', () => {
+    // Counting from the list length produced "Alternative projection 2" again
+    // once the first of two projections was deleted.
+    expect(getDefaultPlanName(['Alternative projection 2'], format)).toBe(
+      'Alternative projection 1',
+    )
+  })
+
+  it('ignores names the user chose themselves', () => {
+    expect(getDefaultPlanName(['Retirement', 'Alternative projection 1'], format)).toBe(
+      'Alternative projection 2',
+    )
   })
 })
 
@@ -148,6 +226,27 @@ describe('seedPlanTimeline', () => {
     const form = seedPlanTimeline({ start_date: '2026-08-01', end_date: '2070-03-01' }, {}, today)
     expect(form.startType).toBe('now')
     expect(form.startYear).toBe('2026')
+    expect(form.startMonth).toBe('7')
+  })
+
+  it('reads a January start in the current month as "now"', () => {
+    const form = seedPlanTimeline(
+      { start_date: '2026-01-01', end_date: '2070-03-01' },
+      emptyProfile,
+      new Date(2026, 0, 14),
+    )
+    expect(form.startType).toBe('now')
+    expect(form.startMonth).toBe('0')
+  })
+
+  it('reads the first of the current month in an earlier year as a specific date', () => {
+    const form = seedPlanTimeline(
+      { start_date: '2019-08-01', end_date: '2070-03-01' },
+      emptyProfile,
+      new Date(2026, 7, 26),
+    )
+    expect(form.startType).toBe('at_specific_date')
+    expect(form.startYear).toBe('2019')
     expect(form.startMonth).toBe('7')
   })
 

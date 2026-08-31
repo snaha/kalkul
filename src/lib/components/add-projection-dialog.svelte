@@ -13,7 +13,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
   import { Textarea } from '$lib/components/ui/textarea'
-  import { buildPlanInclusions, getDefaultPlanDates } from '$lib/plan-defaults'
+  import { buildPlanInclusions, getDefaultPlanDates, getDefaultPlanName } from '$lib/plan-defaults'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
 
@@ -27,9 +27,10 @@
   const uid = $props.id()
 
   function defaultName(): string {
-    return $_('page.addProjection.defaultName', {
-      values: { index: appStore.portfolios.length + 1 },
-    })
+    return getDefaultPlanName(
+      appStore.portfolios.map((p) => p.name),
+      (index) => $_('page.addProjection.defaultName', { values: { index } }),
+    )
   }
 
   // Initial value only matters before the first open — the $effect below
