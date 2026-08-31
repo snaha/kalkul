@@ -6,7 +6,7 @@ export interface ListEditorItem {
   editing: boolean
 }
 
-export interface ListEditorConfig<TStored, TUI extends ListEditorItem> {
+export interface ListEditorConfig<TStored extends { id: string }, TUI extends ListEditorItem> {
   /** Current stored items (the profile is loaded before render, see +layout.ts). */
   load: () => TStored[] | undefined
   /** Map one stored item into its editable UI shape. */
@@ -15,17 +15,21 @@ export interface ListEditorConfig<TStored, TUI extends ListEditorItem> {
   makeBlank: (index: number) => TUI
   /** Localized copy name for duplicated items. */
   copyName: (name: string) => string
-  /** Whether the item carries a meaningful value (drives hasAnyValue). */
+  /** Whether the item carries a meaningful value (gates persistence of the seeded blank). */
   hasValue: (item: TUI) => boolean
-  /** Map one UI item back to its stored shape. */
-  toStored: (item: TUI) => TStored
+  /**
+   * Map one UI item back to its stored shape. `stored` is the item as it was
+   * loaded (or the source item for a duplicate), so an editor can spread it
+   * and only override the fields its card actually renders — otherwise every
+   * save would wipe the fields that live in the plan dialogs.
+   */
+  toStored: (item: TUI, stored: TStored | undefined) => TStored
   /** Persist the mapped items — usually a single appStore.updateProfile call. */
   persist: (items: TStored[]) => void
 }
 
 export interface ListEditor<TUI extends ListEditorItem> {
   readonly items: TUI[]
-  readonly hasAnyValue: boolean
   /** Localized validation messages per item id from the last failed save. */
   readonly errors: Record<string, string[]>
   add(): void
@@ -46,19 +50,37 @@ export interface ListEditor<TUI extends ListEditorItem> {
  * `$effect`); pair it with `onDestroy(editor.flushSave)` in the component so
  * pending edits are saved on navigation.
  */
-export function createListEditor<TStored, TUI extends ListEditorItem>(
+export function createListEditor<TStored extends { id: string }, TUI extends ListEditorItem>(
   config: ListEditorConfig<TStored, TUI>,
 ): ListEditor<TUI> {
-  const initial = (config.load() ?? []).map(config.toUI)
+  const stored = config.load() ?? []
+  // An empty list opens with one expanded card so the user can start typing
+  // without pressing "Add" first. It stays out of the profile until it has a
+  // value — see the `placeholderId` check in save().
+  const initial = stored.length > 0 ? stored.map(config.toUI) : [config.makeBlank(1)]
+  // Stored shape by id, so toStored can carry through the fields no card
+  // renders (a transfer's schedule, a tangible asset's planned purchase).
+  // A plain record rather than a Map: nothing reads it reactively.
+  const originals: Record<string, TStored> = Object.fromEntries(
+    stored.map((item) => [item.id, item]),
+  )
+  const placeholderId = stored.length > 0 ? undefined : initial[0].id
+  // The seeded card only stays out of the profile while it is untouched:
+  // naming it is enough to make it worth keeping across a remount.
+  const placeholderName = placeholderId === undefined ? undefined : initial[0].name
   const items = $state<TUI[]>(initial)
   let counter = $state(initial.length)
   let errors = $state<Record<string, string[]>>({})
 
   /** Returns whether the write actually landed, so callers can retry later. */
   function save(): boolean {
-    const persisted = items.filter((item) => item.name.trim().length > 0 || config.hasValue(item))
+    const persisted = items.filter(
+      (item) =>
+        (item.id !== placeholderId || config.hasValue(item) || item.name !== placeholderName) &&
+        (item.name.trim().length > 0 || config.hasValue(item)),
+    )
     try {
-      config.persist(persisted.map(config.toStored))
+      config.persist(persisted.map((item) => config.toStored(item, originals[item.id])))
       errors = {}
       return true
     } catch (e) {
@@ -118,9 +140,6 @@ export function createListEditor<TStored, TUI extends ListEditorItem>(
     get items() {
       return items
     },
-    get hasAnyValue() {
-      return items.some(config.hasValue)
-    },
     get errors() {
       return errors
     },
@@ -135,9 +154,14 @@ export function createListEditor<TStored, TUI extends ListEditorItem>(
       const idx = items.indexOf(item)
       if (idx === -1) return
       counter++
+      const id = crypto.randomUUID()
+      // Carry the source's stored shape too, so the copy keeps the fields the
+      // card does not render instead of falling back to the blank defaults.
+      const source = originals[item.id]
+      if (source !== undefined) originals[id] = { ...source, id }
       items.splice(idx + 1, 0, {
         ...item,
-        id: crypto.randomUUID(),
+        id,
         name: config.copyName(item.name),
         editing: true,
       })

@@ -9,6 +9,7 @@ describe('routeFromId', () => {
     expect(routeFromId('/(onboarding)/finances/edit/investments')).toBe(
       routes.FINANCES_EDIT_INVESTMENTS,
     )
+    expect(routeFromId('/(app)/financial-data/transfers')).toBe(routes.FINANCIAL_DATA_TRANSFERS)
     expect(routeFromId('/(add-plan)/plan/add/details')).toBe(routes.PLAN_ADD_DETAILS)
   })
 

@@ -18,17 +18,9 @@
     editing: boolean
   }
 
-  interface Props {
-    onHasValueChange?: (hasValue: boolean) => void
-  }
-
-  let { onHasValueChange }: Props = $props()
-
   const currentYear = new Date().getFullYear()
   const currentMonth = new Date().getMonth()
-  let currentAge = $derived(
-    Number(calculateAge(appStore.profile.birthDate, currentYear, currentMonth)) || undefined,
-  )
+  let currentAge = $derived(calculateAge(appStore.profile.birthDate, currentYear, currentMonth))
   const years = getYearOptions()
   let months = $derived(getMonthOptions($locale ?? undefined))
 
@@ -56,6 +48,9 @@
       end_age: currentAge,
       change_over_time: 'none',
       change_percentage: undefined,
+      // Default ON so new expenses keep their real value over time without the
+      // user having to flip it (mirrors the income/transfer default).
+      inflation_adjusted: true,
       editing: true,
     }),
     copyName: (name) => $_('page.setup.common.copySuffix', { values: { name } }),
@@ -78,14 +73,11 @@
         e.change_over_time === 'increase_yearly' || e.change_over_time === 'decrease_yearly'
           ? (e.change_percentage ?? 0)
           : undefined,
+      inflation_adjusted: e.inflation_adjusted ?? undefined,
     }),
     persist: (data) => appStore.updateProfile({ expenses: data }),
   })
   onDestroy(editor.flushSave)
-
-  $effect(() => {
-    onHasValueChange?.(editor.hasAnyValue)
-  })
 
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 </script>
@@ -102,7 +94,7 @@
         changeDescription={$_('page.setup.expenses.changeDescription')}
         {years}
         {months}
-        formatCurrency={appStore.formatCurrency}
+        formatCurrencyCode={appStore.formatCurrencyCode}
         formatNumber={appStore.formatNumber}
         onToggleEditing={() => {
           expense.editing = !expense.editing

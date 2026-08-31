@@ -20,6 +20,11 @@ export const changeOverTimeSchema = z.enum([
 
 export const tangibleAssetStatusSchema = z.enum(['fully_owned', 'financed'])
 
+// Unit of `remaining_term` on financed tangible assets and liabilities.
+// Absent values are interpreted as `years` (the pre-unit behaviour), so all
+// stored data stays valid without a migration.
+export const remainingTermUnitSchema = z.enum(['years', 'months'])
+
 export const planStartTypeSchema = z.enum(['now', 'at_specific_date'])
 
 export const planEndTypeSchema = z.enum(['when_age_is', 'at_specific_date'])
@@ -159,22 +164,15 @@ function repairCashFlowMonths(flow: unknown): void {
  * persist. Run this on raw parsed JSON before schema validation: it swaps the
  * two months in place, so both user-entered values survive and the flow spans
  * the range the user visibly intended instead of silently contributing
- * nothing. Covers profile incomes/expenses and portfolio transfers — every
- * place cashFlowTemporalRefinement applies.
+ * nothing. Covers every profile list cashFlowTemporalRefinement applies to:
+ * incomes, expenses and transfers.
  */
 export function repairStoredCashFlowMonths(data: unknown): unknown {
   if (!isRecord(data)) return data
   if (isRecord(data.profile)) {
-    for (const key of ['incomes', 'expenses']) {
+    for (const key of ['incomes', 'expenses', 'transfers']) {
       const flows = data.profile[key]
       if (Array.isArray(flows)) for (const flow of flows) repairCashFlowMonths(flow)
-    }
-  }
-  if (Array.isArray(data.portfolios)) {
-    for (const portfolio of data.portfolios) {
-      if (isRecord(portfolio) && Array.isArray(portfolio.transfers)) {
-        for (const transfer of portfolio.transfers) repairCashFlowMonths(transfer)
-      }
     }
   }
   return data
@@ -240,26 +238,89 @@ export const expenseSchema = z
   })
   .superRefine(cashFlowTemporalRefinement)
 
+/**
+ * Planned-timing edge check for investments (`start`/`exit`) and tangible
+ * assets (`purchase`/`sale`). Same rule as cashFlowTemporalRefinement, but
+ * those lists use their own field prefixes, so the paths are passed in.
+ */
+function refineTimingEdge(
+  ctx: z.RefinementCtx,
+  edge: 'start' | 'end',
+  prefix: string,
+  mode: CashFlowStart | CashFlowEnd | undefined,
+  year: number | undefined,
+  month: number | undefined,
+  age: number | undefined,
+): void {
+  if (mode === 'at_specific_date') {
+    const message =
+      edge === 'start'
+        ? get(_)('validation.required_when_start_at_specific_date')
+        : get(_)('validation.required_when_end_at_specific_date')
+    if (year === undefined)
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [`${prefix}_year`], message })
+    if (month === undefined)
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [`${prefix}_month`], message })
+  }
+  if (mode === 'when_age_is' && age === undefined) {
+    const message =
+      edge === 'start'
+        ? get(_)('validation.required_when_start_when_age_is')
+        : get(_)('validation.required_when_end_when_age_is')
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: [`${prefix}_age`], message })
+  }
+}
+
 export const entryFeeTypeSchema = z.enum(['ongoing', 'upfront', 'forty-sixty'])
 export const exitFeeTypeSchema = z.enum(['percentage', 'fixed'])
 
-export const profileInvestmentSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  balance: z.number(),
-  apy: z.number(),
-  // Total expense ratio (annual %): drag on compounding APY.
-  ter: z.number().optional(),
-  // Entry fee charged when money is transferred INTO this investment. The
-  // payment type controls whether the fee is deducted up front from the
-  // deposit, spread out over the holding period (ongoing), or split 40/60.
-  entry_fee: z.number().optional(),
-  entry_fee_type: entryFeeTypeSchema.optional(),
-  // Exit fee charged when money is transferred OUT of this investment. Can
-  // be a percentage of the withdrawal or a fixed currency amount.
-  exit_fee: z.number().optional(),
-  exit_fee_type: exitFeeTypeSchema.optional(),
-})
+export const profileInvestmentSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    balance: z.number(),
+    apy: z.number(),
+    // Total expense ratio (annual %): drag on compounding APY.
+    ter: z.number().optional(),
+    // Entry fee charged when money is transferred INTO this investment. The
+    // payment type controls whether the fee is deducted up front from the
+    // deposit, spread out over the holding period (ongoing), or split 40/60.
+    entry_fee: z.number().optional(),
+    entry_fee_type: entryFeeTypeSchema.optional(),
+    // Exit fee charged when money is transferred OUT of this investment. Can
+    // be a percentage of the withdrawal or a fixed currency amount.
+    exit_fee: z.number().optional(),
+    exit_fee_type: exitFeeTypeSchema.optional(),
+    // Planned timing. An absent start means the investment is already held from
+    // the plan's first year; an absent exit means it is held for the whole plan.
+    // When the start is in the future the initial amount is bought out of cash;
+    // an exit liquidates the balance back into cash.
+    start: cashFlowStartSchema.optional(),
+    start_year: z.number().optional(),
+    start_month: z.number().optional(),
+    start_age: z.number().optional(),
+    exit: cashFlowEndSchema.optional(),
+    exit_year: z.number().optional(),
+    exit_month: z.number().optional(),
+    exit_age: z.number().optional(),
+  })
+  .superRefine((obj, ctx) => {
+    refineTimingEdge(
+      ctx,
+      'start',
+      'start',
+      obj.start,
+      obj.start_year,
+      obj.start_month,
+      obj.start_age,
+    )
+    refineTimingEdge(ctx, 'end', 'exit', obj.exit, obj.exit_year, obj.exit_month, obj.exit_age)
+  })
+
+export const valueOverTimeSchema = z.enum(['appreciate', 'depreciate'])
+
+export const interestTypeSchema = z.enum(['compound', 'simple'])
+export const compoundingFrequencySchema = z.enum(['daily', 'monthly', 'yearly'])
 
 export const profileTangibleAssetSchema = z
   .object({
@@ -272,8 +333,43 @@ export const profileTangibleAssetSchema = z
     annual_rate: z.number().optional(),
     installment_amount: z.number().optional(),
     remaining_term: z.number().optional(),
+    remaining_term_unit: remainingTermUnitSchema.optional(),
+    // Advanced options for the financing, which is simulated as a synthetic
+    // liability. Defaults preserve the existing behaviour when omitted:
+    // compound interest at the installment frequency.
+    interest_type: interestTypeSchema.optional(),
+    compounding_frequency: compoundingFrequencySchema.optional(),
+    // Planned timing. An absent purchase means the asset is already owned from
+    // the plan's first year; an absent sale means it is kept for the whole
+    // plan. A future purchase is paid out of cash (the down payment only when
+    // financed); a sale puts the asset's value into cash and settles the loan.
+    purchase: cashFlowStartSchema.optional(),
+    purchase_year: z.number().optional(),
+    purchase_month: z.number().optional(),
+    purchase_age: z.number().optional(),
+    sale: cashFlowEndSchema.optional(),
+    sale_year: z.number().optional(),
+    sale_month: z.number().optional(),
+    sale_age: z.number().optional(),
+    // Nominal annual change of the asset's value, replacing the default
+    // inflation tracking when set.
+    value_over_time: valueOverTimeSchema.optional(),
+    value_rate: z.number().optional(),
+    // Annual tax on the asset, as a percentage of its purchase price, paid
+    // from cash every year the asset is held.
+    property_tax_rate: z.number().optional(),
   })
   .superRefine((obj, ctx) => {
+    refineTimingEdge(
+      ctx,
+      'start',
+      'purchase',
+      obj.purchase,
+      obj.purchase_year,
+      obj.purchase_month,
+      obj.purchase_age,
+    )
+    refineTimingEdge(ctx, 'end', 'sale', obj.sale, obj.sale_year, obj.sale_month, obj.sale_age)
     if (obj.status === 'financed') {
       if (obj.outstanding_balance === undefined)
         ctx.addIssue({
@@ -308,9 +404,6 @@ export const profileTangibleAssetSchema = z
     }
   })
 
-export const interestTypeSchema = z.enum(['compound', 'simple'])
-export const compoundingFrequencySchema = z.enum(['daily', 'monthly', 'yearly'])
-
 export const profileLiabilitySchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -319,28 +412,11 @@ export const profileLiabilitySchema = z.object({
   annual_rate: z.number(),
   installment_amount: z.number(),
   remaining_term: z.number(),
+  remaining_term_unit: remainingTermUnitSchema.optional(),
   // Advanced options. Defaults preserve the existing behaviour when omitted:
   // compound interest at the installment frequency.
   interest_type: interestTypeSchema.optional(),
   compounding_frequency: compoundingFrequencySchema.optional(),
-})
-
-export const profileSchema = z.object({
-  name: z.string(),
-  email: z.string(),
-  birth_date: z.string().optional(),
-  location: z.string().optional(),
-  currency: z.string().optional(),
-  cash_amount: z.number().optional(),
-  has_investments: z.boolean().optional(),
-  has_tangible_assets: z.boolean().optional(),
-  has_liabilities: z.boolean().optional(),
-  investments: z.array(profileInvestmentSchema).optional(),
-  tangible_assets: z.array(profileTangibleAssetSchema).optional(),
-  liabilities: z.array(profileLiabilitySchema).optional(),
-  incomes: z.array(incomeSchema).optional(),
-  expenses: z.array(expenseSchema).optional(),
-  hide_plan_intro: z.boolean().optional(),
 })
 
 export const transferScheduleSchema = z.enum(['one_time', 'recurring'])
@@ -440,6 +516,31 @@ export const transferSchema = z
     }
   })
 
+export const profileSchema = z.object({
+  name: z.string(),
+  email: z.string(),
+  birth_date: z.string().optional(),
+  location: z.string().optional(),
+  currency: z.string().optional(),
+  // UI language preference. Mirrors the supported locales in
+  // `src/lib/locales/index.ts` — keep the two lists in sync.
+  language: z.enum(['en', 'cs']).optional(),
+  // Usage/license terms accepted in the first Get started step. Persisted so
+  // navigating Back does not force the user to accept them again.
+  terms_accepted: z.boolean().optional(),
+  cash_amount: z.number().optional(),
+  has_investments: z.boolean().optional(),
+  has_tangible_assets: z.boolean().optional(),
+  has_liabilities: z.boolean().optional(),
+  investments: z.array(profileInvestmentSchema).optional(),
+  tangible_assets: z.array(profileTangibleAssetSchema).optional(),
+  liabilities: z.array(profileLiabilitySchema).optional(),
+  incomes: z.array(incomeSchema).optional(),
+  expenses: z.array(expenseSchema).optional(),
+  transfers: z.array(transferSchema).optional(),
+  hide_plan_intro: z.boolean().optional(),
+})
+
 export const portfolioSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -453,7 +554,6 @@ export const portfolioSchema = z.object({
   included_liability_ids: z.array(z.string()).optional(),
   included_income_ids: z.array(z.string()).optional(),
   included_expense_ids: z.array(z.string()).optional(),
-  transfers: z.array(transferSchema).optional(),
   included_transfer_ids: z.array(z.string()).optional(),
 })
 
@@ -465,6 +565,7 @@ export const storedDataSchema = z.object({
 
 // --- Derived types ---
 
+export type ValueOverTime = z.infer<typeof valueOverTimeSchema>
 export type EntryFeeType = z.infer<typeof entryFeeTypeSchema>
 export type ExitFeeType = z.infer<typeof exitFeeTypeSchema>
 export type InterestType = z.infer<typeof interestTypeSchema>
@@ -484,5 +585,6 @@ export type CashFlowStart = z.infer<typeof cashFlowStartSchema>
 export type CashFlowEnd = z.infer<typeof cashFlowEndSchema>
 export type ChangeOverTime = z.infer<typeof changeOverTimeSchema>
 export type TangibleAssetStatus = z.infer<typeof tangibleAssetStatusSchema>
+export type RemainingTermUnit = z.infer<typeof remainingTermUnitSchema>
 export type PlanStartType = z.infer<typeof planStartTypeSchema>
 export type PlanEndType = z.infer<typeof planEndTypeSchema>

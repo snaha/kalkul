@@ -6,7 +6,11 @@ import en from './locales/en.json'
 import {
   expenseSchema,
   incomeSchema,
+  profileInvestmentSchema,
+  profileLiabilitySchema,
+  profileSchema,
   profileTangibleAssetSchema,
+  remainingTermUnitSchema,
   repairStoredCashFlowMonths,
   storedDataSchema,
   timingComplete,
@@ -248,6 +252,7 @@ describe('repairStoredCashFlowMonths', () => {
         email: '',
         incomes: [{ ...baseIncome, ...sameYearInverted }],
         expenses: [{ ...baseExpense, ...sameYearInverted }],
+        transfers: [{ ...baseTransfer, ...sameYearInverted }],
       },
       portfolios: [
         {
@@ -256,18 +261,17 @@ describe('repairStoredCashFlowMonths', () => {
           start_date: '2026-01-01',
           end_date: '2060-01-01',
           inflation_rate: 2,
-          transfers: [{ ...baseTransfer, ...sameYearInverted }],
         },
       ],
     }
   }
 
-  it('swaps inverted same-year months everywhere so legacy stored data still parses', () => {
+  it('swaps inverted same-year months everywhere so stored data still parses', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const repaired = storedDataSchema.parse(repairStoredCashFlowMonths(storedWithInverted()))
     expect(repaired.profile.incomes?.[0]).toMatchObject({ start_month: 3, end_month: 8 })
     expect(repaired.profile.expenses?.[0]).toMatchObject({ start_month: 3, end_month: 8 })
-    expect(repaired.portfolios[0].transfers?.[0]).toMatchObject({ start_month: 3, end_month: 8 })
+    expect(repaired.profile.transfers?.[0]).toMatchObject({ start_month: 3, end_month: 8 })
     expect(warn).toHaveBeenCalledTimes(3)
     warn.mockRestore()
   })
@@ -294,6 +298,74 @@ describe('repairStoredCashFlowMonths', () => {
       profile: 'malformed',
       portfolios: 42,
     })
+  })
+})
+
+describe('planned timing refinement', () => {
+  const investment = { id: 'i1', name: 'Fund', balance: 100, apy: 5 }
+  const asset = { id: 't1', name: 'House', value: 100, status: 'fully_owned' as const }
+
+  it('requires a year and month for an investment starting at a specific date', () => {
+    const result = profileInvestmentSchema.safeParse({ ...investment, start: 'at_specific_date' })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((i) => i.path)).toContainEqual(['start_year'])
+      expect(result.error.issues.map((i) => i.path)).toContainEqual(['start_month'])
+    }
+  })
+
+  it('requires an age for an investment exiting when age is', () => {
+    const result = profileInvestmentSchema.safeParse({ ...investment, exit: 'when_age_is' })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((i) => i.path)).toContainEqual(['exit_age'])
+    }
+  })
+
+  it('accepts an investment with complete timing, and one with none at all', () => {
+    expect(
+      profileInvestmentSchema.safeParse({
+        ...investment,
+        start: 'at_specific_date',
+        start_year: 2030,
+        start_month: 5,
+        exit: 'when_age_is',
+        exit_age: 65,
+      }).success,
+    ).toBe(true)
+    expect(profileInvestmentSchema.safeParse(investment).success).toBe(true)
+  })
+
+  it('requires a year and month for a purchase at a specific date', () => {
+    const result = profileTangibleAssetSchema.safeParse({ ...asset, purchase: 'at_specific_date' })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((i) => i.path)).toContainEqual(['purchase_year'])
+      expect(result.error.issues.map((i) => i.path)).toContainEqual(['purchase_month'])
+    }
+  })
+
+  it('requires an age for a sale when age is', () => {
+    const result = profileTangibleAssetSchema.safeParse({ ...asset, sale: 'when_age_is' })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((i) => i.path)).toContainEqual(['sale_age'])
+    }
+  })
+
+  it('accepts a tangible asset with complete timing, and one with none at all', () => {
+    expect(
+      profileTangibleAssetSchema.safeParse({
+        ...asset,
+        purchase: 'at_specific_date',
+        purchase_year: 2030,
+        purchase_month: 5,
+        sale: 'at_specific_date',
+        sale_year: 2040,
+        sale_month: 2,
+      }).success,
+    ).toBe(true)
+    expect(profileTangibleAssetSchema.safeParse(asset).success).toBe(true)
   })
 })
 
@@ -419,6 +491,106 @@ describe('transferSchema refinement', () => {
   })
 })
 
+describe('remainingTermUnitSchema', () => {
+  it('accepts years and months', () => {
+    expect(remainingTermUnitSchema.safeParse('years').success).toBe(true)
+    expect(remainingTermUnitSchema.safeParse('months').success).toBe(true)
+  })
+
+  it('rejects anything else', () => {
+    expect(remainingTermUnitSchema.safeParse('fortnights').success).toBe(false)
+    expect(remainingTermUnitSchema.safeParse(undefined).success).toBe(false)
+  })
+
+  it('accepts an explicit unit on a financed tangible asset', () => {
+    expect(
+      profileTangibleAssetSchema.safeParse({
+        id: 'asset-1',
+        name: 'House',
+        value: 1_000_000,
+        status: 'financed',
+        outstanding_balance: 500_000,
+        installment_frequency: 'monthly',
+        annual_rate: 4.5,
+        installment_amount: 2_500,
+        remaining_term: 180,
+        remaining_term_unit: 'months',
+      }).success,
+    ).toBe(true)
+  })
+
+  it('accepts an explicit unit on a liability', () => {
+    expect(
+      profileLiabilitySchema.safeParse({
+        id: 'liab-1',
+        name: 'Car loan',
+        outstanding_balance: 20_000,
+        installment_frequency: 'monthly',
+        annual_rate: 6,
+        installment_amount: 400,
+        remaining_term: 48,
+        remaining_term_unit: 'months',
+      }).success,
+    ).toBe(true)
+  })
+
+  it('treats an absent unit as valid (defaults to years for back-compat)', () => {
+    expect(
+      profileLiabilitySchema.safeParse({
+        id: 'liab-1',
+        name: 'Car loan',
+        outstanding_balance: 20_000,
+        installment_frequency: 'monthly',
+        annual_rate: 6,
+        installment_amount: 400,
+        remaining_term: 4,
+      }).success,
+    ).toBe(true)
+  })
+
+  it('rejects an invalid unit on a financed tangible asset', () => {
+    const result = profileTangibleAssetSchema.safeParse({
+      id: 'asset-1',
+      name: 'House',
+      value: 1_000_000,
+      status: 'financed',
+      outstanding_balance: 500_000,
+      installment_frequency: 'monthly',
+      annual_rate: 4.5,
+      installment_amount: 2_500,
+      remaining_term: 180,
+      remaining_term_unit: 'fortnights',
+    })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((i) => i.path)).toContainEqual(['remaining_term_unit'])
+    }
+  })
+})
+
+describe('profileSchema language', () => {
+  it('accepts a supported language', () => {
+    expect(profileSchema.safeParse({ name: 'A', email: 'a@b.c', language: 'cs' }).success).toBe(
+      true,
+    )
+    expect(profileSchema.safeParse({ name: 'A', email: 'a@b.c', language: 'en' }).success).toBe(
+      true,
+    )
+  })
+
+  it('rejects an unsupported language', () => {
+    const result = profileSchema.safeParse({ name: 'A', email: 'a@b.c', language: 'hu' })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((i) => i.path)).toContainEqual(['language'])
+    }
+  })
+
+  it('does not require a language (browser auto-detect remains the fallback)', () => {
+    expect(profileSchema.safeParse({ name: 'A', email: 'a@b.c' }).success).toBe(true)
+  })
+})
+
 // The cheap regression guard against schema changes invalidating existing
 // localStorage: a realistic fully-populated payload must always parse. If a
 // stricter rule is ever added, this fixture fails first — BEFORE real users
@@ -450,6 +622,11 @@ describe('storedDataSchema golden fixture', () => {
             entry_fee_type: 'forty-sixty',
             exit_fee: 0.5,
             exit_fee_type: 'percentage',
+            start: 'at_specific_date',
+            start_year: 2030,
+            start_month: 5,
+            exit: 'when_age_is',
+            exit_age: 65,
           },
         ],
         tangible_assets: [
@@ -463,6 +640,16 @@ describe('storedDataSchema golden fixture', () => {
             annual_rate: 4.79,
             installment_amount: 18_500,
             remaining_term: 22,
+            interest_type: 'compound',
+            compounding_frequency: 'monthly',
+            purchase: 'at_specific_date',
+            purchase_year: 2029,
+            purchase_month: 3,
+            sale: 'when_age_is',
+            sale_age: 70,
+            value_over_time: 'appreciate',
+            value_rate: 1.5,
+            property_tax_rate: 0.2,
           },
           { id: 'asset-2', name: 'Car', value: 250_000, status: 'fully_owned' },
         ],
@@ -507,6 +694,33 @@ describe('storedDataSchema golden fixture', () => {
             change_over_time: 'none',
           },
         ],
+        transfers: [
+          {
+            id: 'transfer-1',
+            name: 'Monthly investing',
+            from_asset_id: 'cash',
+            to_asset_id: 'inv-1',
+            amount: 10_000,
+            schedule: 'recurring',
+            frequency: 'monthly',
+            start: 'immediately',
+            end: 'when_age_is',
+            end_age: 60,
+            inflation_adjusted: true,
+            change_over_time: 'none',
+          },
+          {
+            id: 'transfer-2',
+            name: 'Sell the car',
+            from_asset_id: 'asset-2',
+            to_asset_id: 'cash',
+            amount: 0,
+            transfer_all: true,
+            schedule: 'one_time',
+            transaction_year: 2032,
+            transaction_month: 6,
+          },
+        ],
         hide_plan_intro: true,
       },
       portfolios: [
@@ -523,38 +737,30 @@ describe('storedDataSchema golden fixture', () => {
           included_liability_ids: ['liab-1'],
           included_income_ids: ['income-1'],
           included_expense_ids: ['expense-1'],
-          transfers: [
-            {
-              id: 'transfer-1',
-              name: 'Monthly investing',
-              from_asset_id: 'cash',
-              to_asset_id: 'inv-1',
-              amount: 10_000,
-              schedule: 'recurring',
-              frequency: 'monthly',
-              start: 'immediately',
-              end: 'when_age_is',
-              end_age: 60,
-              inflation_adjusted: true,
-              change_over_time: 'none',
-            },
-            {
-              id: 'transfer-2',
-              name: 'Sell the car',
-              from_asset_id: 'asset-2',
-              to_asset_id: 'cash',
-              amount: 0,
-              transfer_all: true,
-              schedule: 'one_time',
-              transaction_year: 2032,
-              transaction_month: 6,
-            },
-          ],
           included_transfer_ids: ['transfer-1', 'transfer-2'],
         },
       ],
     }
     const result = storedDataSchema.safeParse(golden)
     expect(result.success).toBe(true)
+    // Zod strips unknown keys, so parse success alone would not catch a field
+    // missing from the schema — assert the financing interest options survive.
+    expect(result.data?.profile.tangible_assets?.[0]).toMatchObject({
+      interest_type: 'compound',
+      compounding_frequency: 'monthly',
+      purchase: 'at_specific_date',
+      purchase_year: 2029,
+      sale: 'when_age_is',
+      sale_age: 70,
+      value_over_time: 'appreciate',
+      value_rate: 1.5,
+      property_tax_rate: 0.2,
+    })
+    expect(result.data?.profile.investments?.[0]).toMatchObject({
+      start: 'at_specific_date',
+      start_year: 2030,
+      exit: 'when_age_is',
+      exit_age: 65,
+    })
   })
 })

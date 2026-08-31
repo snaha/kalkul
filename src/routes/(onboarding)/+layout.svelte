@@ -6,7 +6,6 @@
   import { resolve } from '$app/paths'
   import { page } from '$app/state'
 
-  import ThemeSwitcher from '$lib/components/theme-switcher.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Progress } from '$lib/components/ui/progress'
   import { getOnboardingSteps } from '$lib/onboarding-steps'
@@ -27,6 +26,10 @@
   let progressValue = $derived(Math.round(((currentStepIndex + 1) / totalSteps) * 100))
 </script>
 
+<svelte:head>
+  <title>{$_('page.setup.title')} | Kalkul</title>
+</svelte:head>
+
 <div class="flex min-h-screen flex-col bg-background">
   <header class="flex items-center gap-4 overflow-clip p-8">
     <div class="flex flex-1 items-center gap-4">
@@ -35,7 +38,6 @@
       </span>
       <Progress value={progressValue} max={100} class="max-w-32" />
     </div>
-    <ThemeSwitcher />
     <Button variant="ghost" size="icon" href={resolve(routes.HOME)}>
       <X class="size-4" />
     </Button>

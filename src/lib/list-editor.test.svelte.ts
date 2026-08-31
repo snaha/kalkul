@@ -14,6 +14,8 @@ interface StoredThing {
   id: string
   name: string
   value: number
+  /** Never rendered by the fake editor — stands in for a plan-dialog-only field. */
+  note?: string
 }
 
 interface ThingUI {
@@ -49,7 +51,7 @@ function setup(options?: { initial?: StoredThing[]; persist?: (items: StoredThin
       }),
       copyName: (name) => `${name} copy`,
       hasValue: (i) => (i.value ?? 0) > 0,
-      toStored: (i) => ({ id: i.id, name: i.name, value: i.value ?? 0 }),
+      toStored: (i, stored) => ({ ...stored, id: i.id, name: i.name, value: i.value ?? 0 }),
       persist: options?.persist ?? ((items) => persisted.push(items)),
     })
   })
@@ -71,6 +73,76 @@ describe('createListEditor', () => {
   it('seeds items from load() through toUI()', () => {
     const { editor, cleanup } = setup({ initial: [one] })
     expect(editor.items).toEqual([{ id: 'a', name: 'Existing', value: 10, editing: false }])
+    cleanup()
+  })
+
+  it('seeds one editing blank when there is nothing stored, so the user can type without pressing Add', () => {
+    const { editor, cleanup } = setup()
+    expect(editor.items).toEqual([{ id: 'new-1', name: 'Item 1', value: undefined, editing: true }])
+    cleanup()
+  })
+
+  it('does not seed a blank when items already exist', () => {
+    const { editor, cleanup } = setup({ initial: [one] })
+    expect(editor.items).toHaveLength(1)
+    cleanup()
+  })
+
+  it('numbers the first added item after the seeded blank', () => {
+    const { editor, cleanup } = setup()
+    editor.add()
+    expect(editor.items.map((i) => i.name)).toEqual(['Item 1', 'Item 2'])
+    cleanup()
+  })
+
+  it('does not persist the seeded blank until it has a value', () => {
+    const { editor, persisted, cleanup } = setup()
+    // Collapsing the untouched card is an edit that triggers autosave.
+    editor.items[0].editing = false
+    flushSync()
+    vi.advanceTimersByTime(300)
+    expect(persisted).toEqual([[]])
+    editor.items[0].value = 5
+    flushSync()
+    vi.advanceTimersByTime(300)
+    expect(persisted.at(-1)).toEqual([{ id: 'new-1', name: 'Item 1', value: 5 }])
+    cleanup()
+  })
+
+  it('persists the seeded blank once it is renamed, so a typed name survives a remount', () => {
+    const { editor, persisted, cleanup } = setup()
+    editor.items[0].name = 'My thing'
+    flushSync()
+    vi.advanceTimersByTime(300)
+    expect(persisted.at(-1)).toEqual([{ id: 'new-1', name: 'My thing', value: 0 }])
+    cleanup()
+  })
+
+  it('carries stored fields the UI never renders through toStored()', () => {
+    const { editor, persisted, cleanup } = setup({
+      initial: [{ id: 'a', name: 'Existing', value: 10, note: 'set in the plan dialog' }],
+    })
+    editor.items[0].value = 20
+    flushSync()
+    vi.advanceTimersByTime(300)
+    expect(persisted.at(-1)).toEqual([
+      { id: 'a', name: 'Existing', value: 20, note: 'set in the plan dialog' },
+    ])
+    cleanup()
+  })
+
+  it('carries those fields into a duplicate too', () => {
+    const { editor, persisted, cleanup } = setup({
+      initial: [{ id: 'a', name: 'Existing', value: 10, note: 'set in the plan dialog' }],
+    })
+    editor.duplicate(editor.items[0])
+    flushSync()
+    vi.advanceTimersByTime(300)
+    expect(persisted.at(-1)?.[1]).toMatchObject({
+      name: 'Existing copy',
+      value: 10,
+      note: 'set in the plan dialog',
+    })
     cleanup()
   })
 
@@ -180,14 +252,6 @@ describe('createListEditor', () => {
     const stale: ThingUI = { id: 'gone', name: 'Stale', value: 1, editing: false }
     editor.duplicate(stale)
     expect(editor.items.map((i) => i.name)).toEqual(['Existing'])
-    cleanup()
-  })
-
-  it('exposes hasAnyValue for the onHasValueChange callbacks', () => {
-    const { editor, cleanup } = setup({ initial: [one] })
-    expect(editor.hasAnyValue).toBe(true)
-    editor.items[0].value = undefined
-    expect(editor.hasAnyValue).toBe(false)
     cleanup()
   })
 

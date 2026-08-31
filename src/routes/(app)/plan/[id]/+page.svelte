@@ -168,7 +168,7 @@
   }
 
   function reopenTransferDialog(id: string) {
-    const item = (plan?.transfers ?? []).find((t) => t.id === id)
+    const item = (appStore.profile.transfers ?? []).find((t) => t.id === id)
     if (!item) return
     setTimeout(() => openTransferDialog(item), REOPEN_DELAY_MS)
   }
@@ -218,7 +218,7 @@
   })
 
   // Category counts from profile data
-  const transfersCount = $derived((plan?.transfers ?? []).length)
+  const transfersCount = $derived((appStore.profile.transfers ?? []).length)
 
   function transferValueSuffix(t: Transfer): string {
     if (t.schedule === 'one_time') return `(${$_('page.plan.scheduleOneTime').toLowerCase()})`
@@ -243,13 +243,17 @@
   const failingExpenseIds = $derived(
     new Set(projection.flatMap((p) => p.insufficientFundExpenseIds)),
   )
+  const failingAssetIds = $derived(new Set(projection.flatMap((p) => p.insufficientFundAssetIds)))
 
   // First year with any insufficient-funds warning. The chart marks this year
   // with a destructive triangle so the user can jump to the source of the
   // problem instead of scrubbing year-by-year.
   const firstErrorYear = $derived(
     projection.find(
-      (p) => p.insufficientFundTransferIds.length > 0 || p.insufficientFundExpenseIds.length > 0,
+      (p) =>
+        p.insufficientFundTransferIds.length > 0 ||
+        p.insufficientFundExpenseIds.length > 0 ||
+        p.insufficientFundAssetIds.length > 0,
     )?.year,
   )
 
@@ -287,7 +291,7 @@
       id: 'transfers',
       label: $_('page.plan.transfers'),
       count: transfersCount,
-      items: (plan?.transfers ?? [])
+      items: (appStore.profile.transfers ?? [])
         .filter((t) => matchesSearch(t.name, searchQuery))
         .map((t) => ({
           id: t.id,
@@ -356,6 +360,7 @@
           id: inv.id,
           name: inv.name,
           value: appStore.formatCurrencyCode(inv.balance),
+          hasInsufficientFunds: failingAssetIds.has(inv.id),
           onClick: () => openAssetEditDialog({ kind: 'investment', initial: inv }),
         })),
     },
@@ -369,6 +374,7 @@
           id: a.id,
           name: a.name,
           value: appStore.formatCurrencyCode(a.value),
+          hasInsufficientFunds: failingAssetIds.has(a.id),
           onClick: () => openAssetEditDialog({ kind: 'tangibleAsset', initial: a }),
         })),
     },

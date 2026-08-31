@@ -23,6 +23,7 @@
   let includeLiabilities = $state(true)
   let includeIncomes = $state(true)
   let includeExpenses = $state(true)
+  let includeTransfers = $state(true)
 
   // Individual item selections (SvelteSet is already reactive, no $state needed)
   let selectedInvestmentIds = new SvelteSet((appStore.profile.investments ?? []).map((i) => i.id))
@@ -32,6 +33,7 @@
   let selectedLiabilityIds = new SvelteSet((appStore.profile.liabilities ?? []).map((l) => l.id))
   let selectedIncomeIds = new SvelteSet((appStore.profile.incomes ?? []).map((i) => i.id))
   let selectedExpenseIds = new SvelteSet((appStore.profile.expenses ?? []).map((e) => e.id))
+  let selectedTransferIds = new SvelteSet((appStore.profile.transfers ?? []).map((t) => t.id))
 
   // Helper to toggle individual item (mutates the set directly since SvelteSet is reactive)
   function toggleItem(set: SvelteSet<string>, id: string): void {
@@ -48,6 +50,7 @@
   const hasLiabilities = $derived((appStore.profile.liabilities ?? []).length > 0)
   const hasIncomes = $derived((appStore.profile.incomes ?? []).length > 0)
   const hasExpenses = $derived((appStore.profile.expenses ?? []).length > 0)
+  const hasTransfers = $derived((appStore.profile.transfers ?? []).length > 0)
   const hasCash = $derived((appStore.profile.cash_amount ?? 0) > 0)
 
   // Check if all items are selected
@@ -57,7 +60,8 @@
       includeTangibleAssets &&
       includeLiabilities &&
       includeIncomes &&
-      includeExpenses,
+      includeExpenses &&
+      includeTransfers,
   )
 
   function selectAll() {
@@ -67,6 +71,7 @@
     includeLiabilities = true
     includeIncomes = true
     includeExpenses = true
+    includeTransfers = true
     // Clear and refill SvelteSet (mutate in place)
     selectedInvestmentIds.clear()
     for (const i of appStore.profile.investments ?? []) selectedInvestmentIds.add(i.id)
@@ -78,6 +83,8 @@
     for (const i of appStore.profile.incomes ?? []) selectedIncomeIds.add(i.id)
     selectedExpenseIds.clear()
     for (const e of appStore.profile.expenses ?? []) selectedExpenseIds.add(e.id)
+    selectedTransferIds.clear()
+    for (const t of appStore.profile.transfers ?? []) selectedTransferIds.add(t.id)
   }
 
   function deselectAll() {
@@ -87,12 +94,14 @@
     includeLiabilities = false
     includeIncomes = false
     includeExpenses = false
+    includeTransfers = false
     // Clear all SvelteSet (mutate in place)
     selectedInvestmentIds.clear()
     selectedTangibleAssetIds.clear()
     selectedLiabilityIds.clear()
     selectedIncomeIds.clear()
     selectedExpenseIds.clear()
+    selectedTransferIds.clear()
   }
 
   function handleBack() {
@@ -142,6 +151,9 @@
       included_expense_ids: includeExpenses
         ? (appStore.profile.expenses ?? []).map((e) => e.id)
         : Array.from(selectedExpenseIds),
+      included_transfer_ids: includeTransfers
+        ? (appStore.profile.transfers ?? []).map((t) => t.id)
+        : Array.from(selectedTransferIds),
     })
 
     // Clean up
@@ -316,6 +328,36 @@
                   />
                   <Label for={`expense-${expense.id}`} class="cursor-pointer text-sm">
                     {expense.name}
+                  </Label>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+      </div>
+    {/if}
+    <!-- Include transfers -->
+    {#if hasTransfers}
+      <div class="flex flex-col gap-2">
+        <div class="flex items-center gap-2">
+          <Checkbox id="include-transfers" bind:checked={includeTransfers} />
+          <Label for="include-transfers" class="cursor-pointer text-sm font-medium">
+            {$_('page.addPlan.data.includeTransfers')}
+          </Label>
+        </div>
+        {#if !includeTransfers}
+          <div class="ml-2 flex gap-2">
+            <Separator orientation="vertical" class="h-auto" />
+            <div class="flex flex-col gap-2 py-1">
+              {#each appStore.profile.transfers ?? [] as transfer (transfer.id)}
+                <div class="flex items-center gap-2">
+                  <Checkbox
+                    id={`transfer-${transfer.id}`}
+                    checked={selectedTransferIds.has(transfer.id)}
+                    onCheckedChange={() => toggleItem(selectedTransferIds, transfer.id)}
+                  />
+                  <Label for={`transfer-${transfer.id}`} class="cursor-pointer text-sm">
+                    {transfer.name}
                   </Label>
                 </div>
               {/each}

@@ -1,4 +1,4 @@
-import type { Portfolio, Transfer } from '$lib/schemas'
+import type { Portfolio } from '$lib/schemas'
 
 type AppParent = {
   persist(): void
@@ -26,7 +26,6 @@ export function withPortfolioStore(portfolio: Portfolio, app: AppParent): Portfo
   let included_liability_ids = $state<string[] | undefined>(portfolio.included_liability_ids)
   let included_income_ids = $state<string[] | undefined>(portfolio.included_income_ids)
   let included_expense_ids = $state<string[] | undefined>(portfolio.included_expense_ids)
-  let transfers = $state<Transfer[]>(portfolio.transfers ?? [])
   let included_transfer_ids = $state<string[] | undefined>(portfolio.included_transfer_ids)
 
   return {
@@ -102,12 +101,6 @@ export function withPortfolioStore(portfolio: Portfolio, app: AppParent): Portfo
     set included_expense_ids(v) {
       included_expense_ids = v
     },
-    get transfers() {
-      return transfers
-    },
-    set transfers(v) {
-      transfers = v
-    },
     get included_transfer_ids() {
       return included_transfer_ids
     },
@@ -138,7 +131,6 @@ export function withPortfolioStore(portfolio: Portfolio, app: AppParent): Portfo
         ...(included_liability_ids !== undefined ? { included_liability_ids } : {}),
         ...(included_income_ids !== undefined ? { included_income_ids } : {}),
         ...(included_expense_ids !== undefined ? { included_expense_ids } : {}),
-        ...(transfers.length > 0 ? { transfers } : {}),
         ...(included_transfer_ids !== undefined ? { included_transfer_ids } : {}),
       }
     },

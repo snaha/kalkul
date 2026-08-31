@@ -1,12 +1,14 @@
 <script lang="ts">
-  import type { Snippet } from 'svelte'
+  import { type Snippet, tick } from 'svelte'
   import { _ } from 'svelte-i18n'
 
   import ChevronsUpDown from '@lucide/svelte/icons/chevrons-up-down'
   import Copy from '@lucide/svelte/icons/copy'
   import EllipsisVertical from '@lucide/svelte/icons/ellipsis-vertical'
+  import SquarePen from '@lucide/svelte/icons/square-pen'
   import Trash2 from '@lucide/svelte/icons/trash-2'
 
+  import { Badge } from '$lib/components/ui/badge'
   import { Button } from '$lib/components/ui/button'
   import { Card, CardContent } from '$lib/components/ui/card'
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
@@ -21,7 +23,11 @@
     item: EditableItem
     collapsedValue?: string
     collapsedValueClass?: string
-    dotColor?: string
+    /** Optional label (e.g. "Financed") shown next to the name when collapsed. */
+    badge?: string
+    /** When `onAdvancedChange` is given, the menu gets an "Advanced options" toggle. */
+    advancedChecked?: boolean
+    onAdvancedChange?: (checked: boolean) => void
     onToggleEditing: () => void
     onDuplicate: () => void
     onDelete: () => void
@@ -32,15 +38,39 @@
     item,
     collapsedValue,
     collapsedValueClass,
-    dotColor,
+    badge,
+    advancedChecked,
+    onAdvancedChange,
     onToggleEditing,
     onDuplicate,
     onDelete,
     expandedContent,
   }: Props = $props()
 
-  // Snapshot for Escape-to-revert; edits commit live via oninput.
+  // Whether the name is shown as an editable input (toggled by the SquarePen
+  // button). Separate from the card's collapsed/expanded state.
+  let renaming = $state(false)
+
+  // Snapshot for Escape-to-revert; inputs commit live via oninput.
   let nameBeforeEdit = ''
+
+  // Focus and select all text as soon as the rename input is revealed by the
+  // edit button. Awaits tick() so the conditionally-rendered input is mounted
+  // before we focus it.
+  let nameInputRef: HTMLInputElement | undefined = $state()
+
+  // Close the rename input whenever the card collapses.
+  $effect(() => {
+    if (!item.editing) renaming = false
+  })
+
+  async function startRename() {
+    nameBeforeEdit = item.name
+    renaming = true
+    await tick()
+    nameInputRef?.focus()
+    nameInputRef?.select()
+  }
 </script>
 
 <Card class="gap-0 py-0">
@@ -52,26 +82,38 @@
           <Button variant="ghost" size="icon" class="shrink-0" onclick={onToggleEditing}>
             <ChevronsUpDown class="size-4" />
           </Button>
-          {#if dotColor}
-            <div class="size-4 shrink-0 rounded-xs" style:background-color={dotColor}></div>
+          {#if renaming}
+            <Input
+              bind:ref={nameInputRef}
+              value={item.name}
+              oninput={(e) => {
+                item.name = (e.target as HTMLInputElement).value
+              }}
+              onkeydown={(e) => {
+                if (e.key === 'Enter' || e.key === 'Escape') {
+                  if (e.key === 'Escape') item.name = nameBeforeEdit
+                  ;(e.target as HTMLInputElement).blur()
+                  renaming = false
+                }
+              }}
+              onblur={() => {
+                renaming = false
+              }}
+              class="min-w-0 flex-1"
+            />
+          {:else}
+            <span class="min-w-0 flex-1 truncate text-base font-medium">{item.name}</span>
           {/if}
-          <Input
-            value={item.name}
-            oninput={(e) => {
-              item.name = (e.target as HTMLInputElement).value
-            }}
-            onfocus={() => {
-              nameBeforeEdit = item.name
-            }}
-            onkeydown={(e) => {
-              if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-              if (e.key === 'Escape') {
-                item.name = nameBeforeEdit
-                ;(e.target as HTMLInputElement).blur()
-              }
-            }}
-            class="flex-1"
-          />
+          <Button
+            variant="ghost"
+            size="icon"
+            class="shrink-0"
+            aria-label={$_('page.setup.common.rename')}
+            title={$_('page.setup.common.rename')}
+            onclick={startRename}
+          >
+            <SquarePen class="size-4" />
+          </Button>
           <DropdownMenu.Root>
             <DropdownMenu.Trigger>
               {#snippet child({ props })}
@@ -81,6 +123,15 @@
               {/snippet}
             </DropdownMenu.Trigger>
             <DropdownMenu.Content align="end">
+              {#if onAdvancedChange}
+                <DropdownMenu.CheckboxItem
+                  checked={advancedChecked ?? false}
+                  onCheckedChange={onAdvancedChange}
+                >
+                  {$_('page.setup.common.advancedOptions')}
+                </DropdownMenu.CheckboxItem>
+                <DropdownMenu.Separator />
+              {/if}
               <DropdownMenu.Item onclick={onDuplicate}>
                 <Copy class="size-4" />
                 {$_('page.setup.common.duplicate')}
@@ -119,11 +170,13 @@
         >
           <ChevronsUpDown class="size-4" />
         </span>
-        {#if dotColor}
-          <div class="size-4 shrink-0 rounded-xs" style:background-color={dotColor}></div>
-        {/if}
-        <span class="flex-1 truncate text-base font-medium">
-          {item.name}
+        <span class="flex min-w-0 flex-1 items-center gap-2">
+          <span class="truncate text-base font-medium">
+            {item.name}
+          </span>
+          {#if badge}
+            <Badge variant="secondary" class="shrink-0">{badge}</Badge>
+          {/if}
         </span>
         {#if collapsedValue}
           <span class="shrink-0 text-sm {collapsedValueClass ?? 'text-foreground'}">

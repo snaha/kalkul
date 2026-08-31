@@ -9,6 +9,7 @@
   import Trash2 from '@lucide/svelte/icons/trash-2'
   import X from '@lucide/svelte/icons/x'
 
+  import { Badge } from '$lib/components/ui/badge'
   import { Button } from '$lib/components/ui/button'
   import * as Dialog from '$lib/components/ui/dialog'
   import { Input } from '$lib/components/ui/input'
@@ -30,6 +31,16 @@
     renamable?: boolean
     /** Title shown while isNew when the name field lives in the body. */
     newTitle?: string
+    /**
+     * Whether the header carries the rename/duplicate/include/delete buttons.
+     * Dialogs that put those actions elsewhere (the investment dialog keeps
+     * only the close X, per its Figma) pass false.
+     */
+    toolbar?: boolean
+    /** Replaces the default Cancel/Save footer when given. */
+    footer?: Snippet
+    /** Optional label shown next to the title, e.g. "Financed". */
+    badge?: string
     saveDisabled?: boolean
     onSave: () => void
     onDuplicate: () => void
@@ -47,6 +58,9 @@
     isIncluded,
     renamable = true,
     newTitle,
+    toolbar = true,
+    footer,
+    badge,
     saveDisabled = false,
     onSave,
     onDuplicate,
@@ -96,6 +110,9 @@
       <Dialog.Title class={editingName ? 'sr-only' : 'flex-1 truncate text-lg font-semibold'}>
         {isNew && newTitle ? newTitle : name}
       </Dialog.Title>
+      {#if badge && !editingName}
+        <Badge variant="secondary" class="shrink-0">{badge}</Badge>
+      {/if}
       {#if editingName}
         <Input
           bind:ref={nameInputRef}
@@ -110,7 +127,7 @@
         />
       {/if}
 
-      {#if !isNew}
+      {#if !isNew && toolbar}
         {#if renamable}
           <Button
             variant="ghost"
@@ -161,8 +178,12 @@
     </div>
 
     <Dialog.Footer class="flex flex-row justify-end gap-2 border-t p-4">
-      <Button variant="secondary" onclick={close}>{$_('page.plan.cancel')}</Button>
-      <Button disabled={saveDisabled} onclick={onSave}>{$_('page.plan.saveChanges')}</Button>
+      {#if footer}
+        {@render footer()}
+      {:else}
+        <Button variant="secondary" onclick={close}>{$_('page.plan.cancel')}</Button>
+        <Button disabled={saveDisabled} onclick={onSave}>{$_('page.plan.saveChanges')}</Button>
+      {/if}
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>

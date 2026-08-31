@@ -26,6 +26,7 @@
     { route: routes.FINANCIAL_DATA_LIABILITIES, label: $_('page.financialData.nav.liabilities') },
     { route: routes.FINANCIAL_DATA_INCOMES, label: $_('page.financialData.nav.incomes') },
     { route: routes.FINANCIAL_DATA_EXPENSES, label: $_('page.financialData.nav.expenses') },
+    { route: routes.FINANCIAL_DATA_TRANSFERS, label: $_('page.financialData.nav.transfers') },
   ])
 
   // Compare route ids, not pathnames: the pathname carries the base path and

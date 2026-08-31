@@ -35,6 +35,7 @@ function enrichProfile({
   birth_date,
   location,
   currency,
+  language,
   cash_amount,
   has_investments,
   has_tangible_assets,
@@ -44,6 +45,7 @@ function enrichProfile({
   liabilities,
   incomes,
   expenses,
+  transfers,
   hide_plan_intro,
 }: Profile): ProfileStore {
   return {
@@ -52,6 +54,7 @@ function enrichProfile({
     birth_date,
     location,
     currency,
+    language,
     cash_amount,
     has_investments,
     has_tangible_assets,
@@ -61,6 +64,7 @@ function enrichProfile({
     liabilities,
     incomes,
     expenses,
+    transfers,
     hide_plan_intro,
     get birthDate() {
       return birth_date ? parseDateOnly(birth_date) : undefined
@@ -75,6 +79,7 @@ function enrichProfile({
         birth_date,
         location,
         currency,
+        language,
         cash_amount,
         has_investments,
         has_tangible_assets,
@@ -84,6 +89,7 @@ function enrichProfile({
         liabilities,
         incomes,
         expenses,
+        transfers,
         hide_plan_intro,
       }
     },

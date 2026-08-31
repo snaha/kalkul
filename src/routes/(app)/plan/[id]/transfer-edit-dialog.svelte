@@ -90,7 +90,7 @@
   ])
 
   function blankForm(): FormState {
-    const counter = (plan.transfers ?? []).length + 1
+    const counter = (appStore.profile.transfers ?? []).length + 1
     return {
       id: crypto.randomUUID(),
       name: $_('page.plan.defaultTransferName', { values: { index: counter } }),
@@ -243,18 +243,19 @@
   }
 
   function save() {
-    const existing = plan.transfers ?? []
+    const existing = appStore.profile.transfers ?? []
     const projected = projectTransfer(form)
     const idx = existing.findIndex((t) => t.id === form.id)
     const next =
       idx === -1 ? [...existing, projected] : existing.map((it, i) => (i === idx ? projected : it))
+    // Save the transfer first: updateProfile validates, so referencing the id
+    // from the plan before it lands could leave a dangling include entry.
+    appStore.updateProfile({ transfers: next })
     // If the plan has an explicit transfer include list, append the new id so
     // the new transfer is visible by default (mirrors income/expense flow).
-    const updates: Parameters<typeof plan.update>[0] = { transfers: next }
     if (idx === -1 && plan.included_transfer_ids !== undefined) {
-      updates.included_transfer_ids = [...plan.included_transfer_ids, form.id]
+      plan.update({ included_transfer_ids: [...plan.included_transfer_ids, form.id] })
     }
-    plan.update(updates)
     close()
   }
 
@@ -263,7 +264,7 @@
     // silently lost, so ask before discarding them (issue #65).
     const hasChanges = JSON.stringify(form) !== JSON.stringify(seedForm(initial))
     if (hasChanges && !window.confirm($_('page.plan.duplicateUnsavedConfirm'))) return
-    const existing = plan.transfers ?? []
+    const existing = appStore.profile.transfers ?? []
     const idx = existing.findIndex((t) => t.id === form.id)
     if (idx === -1) return
     const copy: Transfer = {
@@ -272,17 +273,16 @@
       name: $_('page.setup.common.copySuffix', { values: { name: existing[idx].name } }),
     }
     const next = [...existing.slice(0, idx + 1), copy, ...existing.slice(idx + 1)]
-    const updates: Parameters<typeof plan.update>[0] = { transfers: next }
+    appStore.updateProfile({ transfers: next })
     if (plan.included_transfer_ids !== undefined) {
-      updates.included_transfer_ids = [...plan.included_transfer_ids, copy.id]
+      plan.update({ included_transfer_ids: [...plan.included_transfer_ids, copy.id] })
     }
-    plan.update(updates)
     close()
     onDuplicated?.(copy.id)
   }
 
   function toggleExclude() {
-    const allIds = (plan.transfers ?? []).map((t) => t.id)
+    const allIds = (appStore.profile.transfers ?? []).map((t) => t.id)
     const seeded = plan.included_transfer_ids ?? allIds
     const nextIds = seeded.includes(form.id)
       ? seeded.filter((id) => id !== form.id)
@@ -293,8 +293,14 @@
 
   function remove() {
     if (!window.confirm($_('page.plan.deleteTransferConfirm'))) return
-    const next = (plan.transfers ?? []).filter((t) => t.id !== form.id)
-    plan.update({ transfers: next })
+    const next = (appStore.profile.transfers ?? []).filter((t) => t.id !== form.id)
+    appStore.updateProfile({ transfers: next })
+    // Drop the id from the plan's include list too, so it can't dangle.
+    if (plan.included_transfer_ids?.includes(form.id)) {
+      plan.update({
+        included_transfer_ids: plan.included_transfer_ids.filter((id) => id !== form.id),
+      })
+    }
     close()
   }
 

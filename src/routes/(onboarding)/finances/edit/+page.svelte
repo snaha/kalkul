@@ -1,14 +1,12 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import ArrowRight from '@lucide/svelte/icons/arrow-right'
-
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
 
   import CheckboxCard from '$lib/components/checkbox-card.svelte'
+  import OnboardingNav from '$lib/components/onboarding-nav.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
-  import { Button } from '$lib/components/ui/button'
   import { Label } from '$lib/components/ui/label'
   import { getNextStepUrl } from '$lib/onboarding-steps'
   import routes from '$lib/routes'
@@ -21,10 +19,6 @@
   let hasInvestments = $state(p.has_investments ?? false)
   let hasTangibleAssets = $state(p.has_tangible_assets ?? false)
   let hasLiabilities = $state(p.has_liabilities ?? false)
-
-  let canContinue = $derived(
-    (cashAmount ?? 0) > 0 || hasInvestments || hasTangibleAssets || hasLiabilities,
-  )
 
   function saveData() {
     appStore.updateProfile({
@@ -41,11 +35,6 @@
     goto(getNextStepUrl(routes.FINANCES_EDIT, appStore.profile))
   }
 
-  function handleSkip() {
-    // eslint-disable-next-line svelte/no-navigation-without-resolve
-    goto(getNextStepUrl(routes.FINANCES_EDIT, appStore.profile))
-  }
-
   function handleBack() {
     goto(resolve(routes.PROFILE))
   }
@@ -53,7 +42,7 @@
 
 <div class="flex w-full max-w-[576px] flex-col items-end gap-8">
   <div class="flex w-full flex-col gap-2 text-foreground">
-    <h1 class="text-2xl font-bold leading-8">
+    <h1 class="text-xl font-bold leading-7">
       {$_('page.setup.finances.title')}
     </h1>
     <p class="text-base">
@@ -110,18 +99,5 @@
     />
   </div>
 
-  <div class="flex w-full items-center gap-4">
-    <Button variant="ghost" onclick={handleBack}>
-      {$_('page.setup.back')}
-    </Button>
-    <div class="flex flex-1 items-center justify-end gap-2">
-      <Button variant="ghost" onclick={handleSkip}>
-        {$_('page.setup.skip')}
-      </Button>
-      <Button disabled={!canContinue} onclick={handleContinue}>
-        {$_('page.setup.continue')}
-        <ArrowRight class="size-4" />
-      </Button>
-    </div>
-  </div>
+  <OnboardingNav onBack={handleBack} onContinue={handleContinue} />
 </div>
