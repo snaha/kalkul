@@ -12,7 +12,7 @@
   import { Button } from '$lib/components/ui/button'
   import { Label } from '$lib/components/ui/label'
   import { createListEditor } from '$lib/list-editor.svelte'
-  import type { Frequency, Transfer as TransferData } from '$lib/schemas'
+  import type { Frequency, Transfer as TransferData, TransferSchedule } from '$lib/schemas'
   import { getFrequencyItems, getFrequencyShortLabel } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
 
@@ -24,6 +24,10 @@
     from_asset_id: string
     to_asset_id: string
     inflation_adjusted: boolean
+    // Not editable here (the setup card has no scheduling controls, per its
+    // Figma) but carried so editing a card cannot turn a one-time transfer
+    // created in the plan dialog into a recurring one.
+    schedule: TransferSchedule
     editing: boolean
   }
 
@@ -37,6 +41,7 @@
       from_asset_id: t.from_asset_id,
       to_asset_id: t.to_asset_id,
       inflation_adjusted: t.inflation_adjusted === true,
+      schedule: t.schedule,
       editing: false,
     }),
     makeBlank: (index) => ({
@@ -44,11 +49,15 @@
       name: $_('page.setup.transfers.defaultName', { values: { index } }),
       amount: undefined,
       frequency: 'monthly',
-      from_asset_id: '',
+      // Cash is the overwhelmingly common source, and seeding it keeps a
+      // named-but-unfinished card schema-valid (from !== to) so it survives
+      // a remount instead of being rejected as a self-transfer.
+      from_asset_id: 'cash',
       to_asset_id: '',
       // Default ON — mirrors the income/expense default so new transfers
       // keep their real value over time without the user having to flip it.
       inflation_adjusted: true,
+      schedule: 'recurring',
       editing: true,
     }),
     copyName: (name) => $_('page.setup.common.copySuffix', { values: { name } }),
@@ -59,17 +68,22 @@
       t.from_asset_id !== '' &&
       t.to_asset_id !== '' &&
       t.from_asset_id !== t.to_asset_id,
-    toStored: (t) => ({
+    // Spread the stored transfer first so everything this card does not show
+    // — one-time transaction dates, transfer_all, custom start/end, change
+    // over time — survives an edit here. Only the rendered fields override it.
+    toStored: (t, prev) => ({
+      schedule: 'recurring',
+      start: 'immediately',
+      end: 'never',
+      change_over_time: 'none',
+      ...prev,
       id: t.id,
       name: t.name,
       from_asset_id: t.from_asset_id,
       to_asset_id: t.to_asset_id,
       amount: t.amount ?? 0,
-      schedule: 'recurring',
-      frequency: t.frequency,
-      start: 'immediately',
-      end: 'never',
-      change_over_time: 'none',
+      // A one-time transfer has no frequency to set here.
+      frequency: t.schedule === 'one_time' ? prev?.frequency : t.frequency,
       inflation_adjusted: t.inflation_adjusted ? true : undefined,
     }),
     persist: (data) => appStore.updateProfile({ transfers: data }),
@@ -78,15 +92,25 @@
 
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
-  // From/To dropdown options: cash plus every investment on the profile. The
-  // mutually-exclusive endpoints are enforced per card by disabling the
-  // option already chosen in the sibling dropdown.
+  // From/To dropdown options: cash plus every investment on the profile.
+  // Transfers can only move between cash and investments — tangible assets
+  // and liabilities are intentionally excluded (selling/buying a house is
+  // more naturally modelled as a one-off expense/income), matching the plan's
+  // transfer dialog. The mutually-exclusive endpoints are enforced per card by
+  // disabling the option already chosen in the sibling dropdown.
   const assetOptions = $derived<{ id: string; name: string }[]>([
     { id: 'cash', name: $_('page.plan.cashItem') },
     ...(appStore.profile.investments ?? []).map((inv) => ({ id: inv.id, name: inv.name })),
   ])
 
   const frequencyItems: SelectFieldItem<Frequency>[] = $derived(getFrequencyItems($_))
+
+  function collapsedValue(transfer: TransferUI): string | undefined {
+    if (!transfer.amount) return undefined
+    const amount = appStore.formatCurrencyCode(transfer.amount)
+    if (transfer.schedule === 'one_time') return amount
+    return `${amount} / ${getFrequencyShortLabel($_, transfer.frequency)}`
+  }
 </script>
 
 <div class="flex w-full flex-col gap-4">
@@ -104,9 +128,7 @@
     <div class="flex flex-col gap-1">
       <EditableItemCard
         item={transfer}
-        collapsedValue={transfer.amount
-          ? `${appStore.formatCurrencyCode(transfer.amount)} / ${getFrequencyShortLabel($_, transfer.frequency)}`
-          : undefined}
+        collapsedValue={collapsedValue(transfer)}
         onToggleEditing={() => {
           transfer.editing = !transfer.editing
         }}

@@ -248,12 +248,14 @@
     const idx = existing.findIndex((t) => t.id === form.id)
     const next =
       idx === -1 ? [...existing, projected] : existing.map((it, i) => (i === idx ? projected : it))
+    // Save the transfer first: updateProfile validates, so referencing the id
+    // from the plan before it lands could leave a dangling include entry.
+    appStore.updateProfile({ transfers: next })
     // If the plan has an explicit transfer include list, append the new id so
     // the new transfer is visible by default (mirrors income/expense flow).
     if (idx === -1 && plan.included_transfer_ids !== undefined) {
       plan.update({ included_transfer_ids: [...plan.included_transfer_ids, form.id] })
     }
-    appStore.updateProfile({ transfers: next })
     close()
   }
 
@@ -271,10 +273,10 @@
       name: $_('page.setup.common.copySuffix', { values: { name: existing[idx].name } }),
     }
     const next = [...existing.slice(0, idx + 1), copy, ...existing.slice(idx + 1)]
+    appStore.updateProfile({ transfers: next })
     if (plan.included_transfer_ids !== undefined) {
       plan.update({ included_transfer_ids: [...plan.included_transfer_ids, copy.id] })
     }
-    appStore.updateProfile({ transfers: next })
     close()
     onDuplicated?.(copy.id)
   }
@@ -293,6 +295,12 @@
     if (!window.confirm($_('page.plan.deleteTransferConfirm'))) return
     const next = (appStore.profile.transfers ?? []).filter((t) => t.id !== form.id)
     appStore.updateProfile({ transfers: next })
+    // Drop the id from the plan's include list too, so it can't dangle.
+    if (plan.included_transfer_ids?.includes(form.id)) {
+      plan.update({
+        included_transfer_ids: plan.included_transfer_ids.filter((id) => id !== form.id),
+      })
+    }
     close()
   }
 

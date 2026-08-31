@@ -6,8 +6,8 @@
 
   import { Button } from '$lib/components/ui/button'
   import * as Dialog from '$lib/components/ui/dialog'
+  import downloadBackup from '$lib/download-backup'
   import { appStore } from '$lib/stores/app.svelte'
-  import { slugify } from '$lib/utils'
 
   interface Props {
     open: boolean
@@ -25,27 +25,12 @@
     if (!open) backupExported = false
   })
 
-  function exportData(): void {
-    const json = appStore.exportBackup()
-    const blob = new Blob([json], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    const nameSlug = slugify(appStore.profile.name)
-    a.download = `kalkul-backup-${nameSlug ? `${nameSlug}-` : ''}${new Date().toISOString().slice(0, 10)}.kalkul.json`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    // Delay revoke so the browser has time to start the download.
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
-  }
-
   function triggerFileSelect(): void {
     fileInput?.click()
   }
 
   function exportBeforeImporting(): void {
-    exportData()
+    downloadBackup()
     // Keep the dialog open and transition to the "ready to import" state.
     // The file picker needs its own user gesture, so we don't open it here.
     backupExported = true

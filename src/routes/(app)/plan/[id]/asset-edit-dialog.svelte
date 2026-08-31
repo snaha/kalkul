@@ -34,6 +34,7 @@
     getCompoundingFrequencyItems,
     getFrequencyItems,
     getInterestTypeItems,
+    getRemainingTermUnitItems,
   } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
@@ -115,9 +116,12 @@
     installment_amount: number | undefined
     remaining_term: number | undefined
     remaining_term_unit: RemainingTermUnit
-    // Advanced: liability, and the financing of a financed tangible asset
+    // Advanced: liability, and the financing of a financed tangible asset.
+    // The frequency is absent until the user picks one — the engine then
+    // compounds at the installment frequency, and merely opening this dialog
+    // must not switch the loan to another cadence.
     interest_type: InterestType
-    compounding_frequency: CompoundingFrequency
+    compounding_frequency: CompoundingFrequency | undefined
   }
 
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
@@ -177,7 +181,7 @@
       remaining_term: undefined,
       remaining_term_unit: 'years',
       interest_type: 'compound',
-      compounding_frequency: 'daily',
+      compounding_frequency: undefined,
     }
   }
 
@@ -221,7 +225,7 @@
         a.remaining_term !== undefined && a.remaining_term > 0 ? a.remaining_term : undefined
       f.remaining_term_unit = a.remaining_term_unit ?? 'years'
       f.interest_type = a.interest_type ?? 'compound'
-      f.compounding_frequency = a.compounding_frequency ?? 'daily'
+      f.compounding_frequency = a.compounding_frequency
       f.purchase = a.purchase ?? 'immediately'
       f.purchase_year = a.purchase_year
       f.purchase_month = a.purchase_month
@@ -240,8 +244,9 @@
       f.annual_rate = l.annual_rate > 0 ? l.annual_rate : undefined
       f.installment_amount = l.installment_amount > 0 ? l.installment_amount : undefined
       f.remaining_term = l.remaining_term > 0 ? l.remaining_term : undefined
+      f.remaining_term_unit = l.remaining_term_unit ?? 'years'
       f.interest_type = l.interest_type ?? 'compound'
-      f.compounding_frequency = l.compounding_frequency ?? 'daily'
+      f.compounding_frequency = l.compounding_frequency
     }
     return f
   }
@@ -288,6 +293,8 @@
   let interestTypeItems = $derived(getInterestTypeItems($_))
 
   let compoundingFrequencyItems = $derived(getCompoundingFrequencyItems($_))
+
+  let remainingTermUnitItems = $derived(getRemainingTermUnitItems($_))
 
   function projectInvestment(f: FormState): ProfileInvestment {
     // Persist only the fee fields that the user actually touched; default
@@ -355,9 +362,9 @@
 
   function projectLiability(f: FormState): ProfileLiability {
     // interest_type collapses to undefined when 'compound' (matches the
-    // calculation default). compounding_frequency is always persisted —
-    // 'daily' in the UI must produce daily compounding in the math, not
-    // silently fall back to the installment-frequency legacy default.
+    // calculation default); compounding_frequency is only stored once the
+    // user picks one, so an untouched liability keeps compounding at its
+    // installment frequency instead of silently switching to daily.
     return {
       id: f.id,
       name: f.name,
@@ -366,6 +373,7 @@
       annual_rate: f.annual_rate ?? 0,
       installment_amount: f.installment_amount ?? 0,
       remaining_term: f.remaining_term ?? 0,
+      remaining_term_unit: f.remaining_term_unit,
       interest_type: f.interest_type !== 'compound' ? f.interest_type : undefined,
       compounding_frequency: f.compounding_frequency,
     }
@@ -461,6 +469,7 @@
             id="{uid}-compoundingFrequency"
             value={form.compounding_frequency}
             items={compoundingFrequencyItems}
+            placeholder={$_('page.plan.compoundingDefault')}
             onValueChange={(v) => {
               if (v) form.compounding_frequency = v
             }}
@@ -627,15 +636,23 @@
       </div>
       <div class="flex flex-1 flex-col gap-2">
         <Label for="{uid}-remainingTerm2">{$_('page.setup.liabilities.remainingTerm')}</Label>
-        <SuffixedInput
-          id="{uid}-remainingTerm2"
-          value={form.remaining_term}
-          suffix={$_('page.setup.liabilities.years', {
-            values: { count: form.remaining_term ?? 0 },
-          })}
-          formatNumber={appStore.formatNumber}
-          onValueChange={(v) => (form.remaining_term = v)}
-        />
+        <div class="flex items-center gap-2">
+          <SuffixedInput
+            id="{uid}-remainingTerm2"
+            value={form.remaining_term}
+            formatNumber={appStore.formatNumber}
+            class="w-24"
+            onValueChange={(v) => (form.remaining_term = v)}
+          />
+          <SelectField
+            id="{uid}-remainingTermUnit2"
+            value={form.remaining_term_unit}
+            items={remainingTermUnitItems}
+            onValueChange={(v) => {
+              if (v) form.remaining_term_unit = v
+            }}
+          />
+        </div>
       </div>
     </div>
 

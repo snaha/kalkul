@@ -10,9 +10,9 @@
   import { CATEGORY_COLORS } from '$lib/chart-colors'
   import { Button } from '$lib/components/ui/button'
   import * as Dialog from '$lib/components/ui/dialog'
+  import downloadBackup from '$lib/download-backup'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
-  import { slugify } from '$lib/utils'
 
   const colorCategories = [
     { name: 'Cash', colors: [CATEGORY_COLORS.cash] },
@@ -424,22 +424,6 @@
   let confirmOpen = $state(false)
   let pendingPreset = $state<(typeof presets)[number] | undefined>(undefined)
 
-  // Mirrors the navbar export flow: download the current data as a JSON backup.
-  function exportData(): void {
-    const json = appStore.exportBackup()
-    const blob = new Blob([json], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    const nameSlug = slugify(appStore.profile.name)
-    a.download = `kalkul-backup-${nameSlug ? `${nameSlug}-` : ''}${new Date().toISOString().slice(0, 10)}.kalkul.json`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    // Delay revoke so the browser has time to start the download.
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
-  }
-
   function requestLoadPreset(preset: (typeof presets)[number]): void {
     pendingPreset = preset
     confirmOpen = true
@@ -458,7 +442,7 @@
   function confirmLoadPreset(): void {
     const preset = pendingPreset
     if (!preset) return
-    if (hasData) exportData()
+    if (hasData) downloadBackup()
     confirmOpen = false
     applyPreset(preset)
   }

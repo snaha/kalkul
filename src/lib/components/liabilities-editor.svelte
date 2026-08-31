@@ -39,7 +39,10 @@
     remaining_term: number | undefined
     remaining_term_unit: RemainingTermUnit
     interest_type: InterestType
-    compounding_frequency: CompoundingFrequency
+    // Absent until the user picks one: the engine's default is to compound at
+    // the installment frequency, and merely revealing the advanced block must
+    // not silently switch the loan to another cadence.
+    compounding_frequency: CompoundingFrequency | undefined
     // UI-only: whether the interest options are revealed, toggled from the
     // card menu.
     showAdvanced: boolean
@@ -58,7 +61,7 @@
       remaining_term: l.remaining_term > 0 ? l.remaining_term : undefined,
       remaining_term_unit: l.remaining_term_unit ?? 'years',
       interest_type: l.interest_type ?? 'compound',
-      compounding_frequency: l.compounding_frequency ?? 'monthly',
+      compounding_frequency: l.compounding_frequency,
       // Reveal the options when the liability already has them, so values set
       // in the plan dialog are not hidden here.
       showAdvanced: l.interest_type !== undefined || l.compounding_frequency !== undefined,
@@ -74,7 +77,7 @@
       remaining_term: undefined,
       remaining_term_unit: 'years',
       interest_type: 'compound',
-      compounding_frequency: 'monthly',
+      compounding_frequency: undefined,
       showAdvanced: false,
       editing: true,
     }),
@@ -89,19 +92,18 @@
       installment_amount: l.installment_amount ?? 0,
       remaining_term: l.remaining_term ?? 0,
       remaining_term_unit: l.remaining_term_unit,
-      // Both are stored only while the advanced options are shown, so an
-      // untouched liability keeps the legacy defaults (compounding at the
-      // installment frequency) instead of silently gaining a monthly one.
       // 'compound' is the calculation default, so it collapses to undefined;
-      // the frequency is kept as chosen — 'daily' must not fall back.
-      interest_type: l.showAdvanced && l.interest_type !== 'compound' ? l.interest_type : undefined,
-      compounding_frequency: l.showAdvanced ? l.compounding_frequency : undefined,
+      // the frequency is only stored once the user actually picks one, so an
+      // untouched liability keeps the legacy default (compounding at the
+      // installment frequency). Showing/hiding the advanced block is a display
+      // toggle and never changes what is stored.
+      interest_type: l.interest_type !== 'compound' ? l.interest_type : undefined,
+      compounding_frequency: l.compounding_frequency,
     }),
-    persist: (data) =>
-      appStore.updateProfile({
-        liabilities: data,
-        has_liabilities: data.length > 0,
-      }),
+    // has_liabilities belongs to the Get started checkbox, not to this list:
+    // re-deriving it here unchecked the box (and dropped the step from the
+    // flow) the moment a seeded card was collapsed without a value.
+    persist: (data) => appStore.updateProfile({ liabilities: data }),
   })
   onDestroy(editor.flushSave)
 
@@ -251,6 +253,7 @@
                     id="compoundingFrequency-{liability.id}"
                     value={liability.compounding_frequency}
                     items={compoundingFrequencyItems}
+                    placeholder={$_('page.plan.compoundingDefault')}
                     onValueChange={(v) => {
                       if (v) liability.compounding_frequency = v
                     }}

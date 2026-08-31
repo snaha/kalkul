@@ -14,6 +14,7 @@
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import routes from '$lib/routes'
+  import type { Profile } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
   import {
     CURRENCY_OPTIONS,
@@ -33,7 +34,9 @@
   let location = $state(p.location ?? '')
   let currency = $state(p.currency ?? '')
   let language = $state(p.language ?? 'en')
-  let termsAccepted = $state(false)
+  // Persisted, so navigating Back to this step does not force the user to
+  // accept the terms again.
+  let termsAccepted = $state(p.terms_accepted === true)
 
   const currentYear = new Date().getFullYear()
   const currentMonth = new Date().getMonth()
@@ -79,8 +82,8 @@
   }
 
   // Live age preview next to the date-of-birth fields ("42 years old").
-  let ageLabel = $derived.by(() => {
-    if (birthYear === '' || birthMonth === '') return ''
+  let age = $derived.by(() => {
+    if (birthYear === '' || birthMonth === '') return undefined
     const date = new Date(Number(birthYear), Number(birthMonth), 1)
     return calculateAge(date, currentYear, currentMonth)
   })
@@ -93,11 +96,12 @@
   let licenseOpen = $state(false)
 
   function handleContinue() {
-    const updates: Record<string, string | undefined> = {
+    const updates: Partial<Profile> = {
       name: name.trim(),
       location: location || undefined,
       currency: currency || undefined,
       language,
+      terms_accepted: termsAccepted,
     }
     if (birthYear !== '' && birthMonth !== '') {
       const date = new Date(Number(birthYear), Number(birthMonth), 1)
@@ -151,8 +155,8 @@
           />
         </div>
         <p class="mb-1.5 flex-1 text-sm text-muted-foreground">
-          {#if ageLabel}
-            {$_('page.setup.aboutYou.age', { values: { age: ageLabel } })}
+          {#if age !== undefined}
+            {$_('page.setup.aboutYou.age', { values: { age } })}
           {:else}
             {$_('page.setup.aboutYou.ageHelper')}
           {/if}

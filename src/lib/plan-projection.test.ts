@@ -247,6 +247,33 @@ describe('getYearlyPlanProjection', () => {
     expect(result[1].liabilities).toBeCloseTo(0, 6)
   })
 
+  it('balloons a fractional final period so a months term with yearly installments clears', () => {
+    // 18 months at a yearly cadence is 1.5 periods: the countdown goes
+    // 1.5 -> 0.5, so an `=== 1` balloon check would never fire and the
+    // balance would stick at 800 forever.
+    const liabilities: ProfileLiability[] = [
+      {
+        id: 'l1',
+        name: 'Loan',
+        outstanding_balance: 1000,
+        installment_frequency: 'yearly',
+        annual_rate: 0,
+        installment_amount: 200,
+        remaining_term: 18,
+        remaining_term_unit: 'months',
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ start_date: '2025-01-01', end_date: '2030-01-01' }),
+      makeProfile({ liabilities, cash_amount: 2000 }),
+    )
+    expect(result[0].liabilities).toBeCloseTo(800, 6)
+    // Year 1 is the fractional final period: it balloons to clear the rest.
+    expect(result[1].liabilities).toBeCloseTo(0, 6)
+    expect(result[2].liabilities).toBeCloseTo(0, 6)
+    expect(result[1].cash).toBeCloseTo(2000 - 1000, 6)
+  })
+
   it('clears an under-amortizing liability via a balloon on the final installment', () => {
     // Installment of 200 leaves 200 unpaid after 4 yearly installments at 0%
     // (1000 - 4*200 = 200). The final installment must balloon up to clear it.
@@ -2132,6 +2159,80 @@ describe('getYearlyPlanProjection', () => {
     )
     expect(result[1].insufficientFundAssetIds).toContain('t1')
     expect(result[1].tangibleAssets).toBeCloseTo(0, 6)
+  })
+
+  it('flags an unaffordable financed purchase and leaves the mortgage unstarted', () => {
+    // 1000 house, 800 from the lender, so the down payment is 200 — more cash
+    // than the plan has. The lender-funded 800 must not be booked, the loan
+    // must not amortize, and its installments must not drain cash later.
+    const tangible_assets: ProfileTangibleAsset[] = [
+      {
+        id: 't1',
+        name: 'House',
+        value: 1000,
+        status: 'financed',
+        outstanding_balance: 800,
+        installment_frequency: 'yearly',
+        annual_rate: 0,
+        installment_amount: 100,
+        remaining_term: 8,
+        purchase: 'at_specific_date',
+        purchase_year: 2026,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ cash_amount: 10, tangible_assets }),
+    )
+    expect(result[1].insufficientFundAssetIds).toContain('t1')
+    expect(result[1].tangibleAssets).toBeCloseTo(0, 6)
+    expect(result[1].liabilities).toBeCloseTo(0, 6)
+    // Cash is untouched in the purchase year and every year after it.
+    expect(result[1].cash).toBeCloseTo(10, 6)
+    expect(result[3].cash).toBeCloseTo(10, 6)
+    expect(result[3].tangibleAssets).toBeCloseTo(0, 6)
+    expect(result[3].liabilities).toBeCloseTo(0, 6)
+  })
+
+  it('charges no property tax on a purchase the plan could not afford', () => {
+    const tangible_assets: ProfileTangibleAsset[] = [
+      {
+        id: 't1',
+        name: 'Cottage',
+        value: 1000,
+        status: 'fully_owned',
+        purchase: 'at_specific_date',
+        purchase_year: 2026,
+        property_tax_rate: 1,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ cash_amount: 10, tangible_assets }),
+    )
+    expect(result[1].insufficientFundAssetIds).toContain('t1')
+    expect(result[1].totalExpenses).toBeCloseTo(0, 6)
+    expect(result[2].totalExpenses).toBeCloseTo(0, 6)
+  })
+
+  it('leaves out an asset whose sale year is before the plan starts', () => {
+    const tangible_assets: ProfileTangibleAsset[] = [
+      {
+        id: 't1',
+        name: 'Old car',
+        value: 1000,
+        status: 'fully_owned',
+        sale: 'at_specific_date',
+        sale_year: 2020,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ cash_amount: 100, tangible_assets }),
+    )
+    expect(result[0].tangibleAssets).toBeCloseTo(0, 6)
+    expect(result[3].tangibleAssets).toBeCloseTo(0, 6)
+    expect(result[0].cash).toBeCloseTo(100, 6)
   })
 
   it('leaves a tangible asset without timing or rate fields exactly as before', () => {

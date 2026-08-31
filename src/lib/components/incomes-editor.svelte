@@ -23,9 +23,7 @@
 
   const currentYear = new Date().getFullYear()
   const currentMonth = new Date().getMonth()
-  let currentAge = $derived(
-    Number(calculateAge(appStore.profile.birthDate, currentYear, currentMonth)) || undefined,
-  )
+  let currentAge = $derived(calculateAge(appStore.profile.birthDate, currentYear, currentMonth))
   const years = getYearOptions()
   let months = $derived(getMonthOptions($locale ?? undefined))
 

@@ -2,7 +2,6 @@ import {
   type Portfolio,
   type Profile,
   type StoredData,
-  migratePlanTransfersToProfile,
   profileSchema,
   repairStoredCashFlowMonths,
   storedDataSchema,
@@ -109,9 +108,7 @@ function loadData(): StoredData {
       // Repair before parsing: data stored before stricter validation rules
       // must keep loading, otherwise the whole dataset falls back to the
       // empty default and gets overwritten on the next persist.
-      return storedDataSchema.parse(
-        migratePlanTransfersToProfile(repairStoredCashFlowMonths(JSON.parse(raw))),
-      )
+      return storedDataSchema.parse(repairStoredCashFlowMonths(JSON.parse(raw)))
     }
   } catch (e) {
     console.error('Failed to load data from localStorage', e)
@@ -267,7 +264,7 @@ function withAppStore() {
           // Repaired like loadData so a tab still running an older app
           // version can't break sync by persisting since-invalidated data.
           const data = storedDataSchema.parse(
-            migratePlanTransfersToProfile(repairStoredCashFlowMonths(JSON.parse(event.newValue))),
+            repairStoredCashFlowMonths(JSON.parse(event.newValue)),
           )
           if (data.lastUpdated === lastUpdated) return
 
@@ -296,9 +293,7 @@ function withAppStore() {
     importBackup(json: string): void {
       // Repaired like loadData so backups exported before stricter
       // validation rules stay restorable.
-      const parsed: unknown = migratePlanTransfersToProfile(
-        repairStoredCashFlowMonths(JSON.parse(json)),
-      )
+      const parsed: unknown = repairStoredCashFlowMonths(JSON.parse(json))
       const validated = storedDataSchema.pick({ profile: true, portfolios: true }).parse(parsed)
       profile = enrichProfile(validated.profile)
       portfolios = enrichAll(validated.portfolios)

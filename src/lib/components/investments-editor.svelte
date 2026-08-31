@@ -100,7 +100,10 @@
     }),
     copyName: (name) => $_('page.setup.common.copySuffix', { values: { name } }),
     hasValue: (i) => (i.balance ?? 0) > 0,
-    toStored: (i) => ({
+    // Spread the stored investment first so anything this card does not
+    // render survives an edit here; only the rendered fields override it.
+    toStored: (i, prev) => ({
+      ...prev,
       id: i.id,
       name: i.name,
       balance: i.balance ?? 0,
@@ -128,11 +131,10 @@
       exit_month: i.exit_month,
       exit_age: i.exit_age,
     }),
-    persist: (data) =>
-      appStore.updateProfile({
-        investments: data,
-        has_investments: data.length > 0,
-      }),
+    // has_investments belongs to the Get started checkbox, not to this list:
+    // re-deriving it here unchecked the box (and dropped the step from the
+    // flow) the moment a seeded card was collapsed without a value.
+    persist: (data) => appStore.updateProfile({ investments: data }),
   })
   onDestroy(editor.flushSave)
 

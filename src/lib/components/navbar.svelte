@@ -14,31 +14,16 @@
   import { Button } from '$lib/components/ui/button'
   import * as Dialog from '$lib/components/ui/dialog'
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
+  import downloadBackup from '$lib/download-backup'
   import externalLinks from '$lib/external-links'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
-  import { slugify } from '$lib/utils'
 
   const hasData = $derived(!appStore.loading && !!appStore.profile.name)
 
   let importOpen = $state(false)
   let feedbackOpen = $state(false)
   let licenseOpen = $state(false)
-
-  function exportData(): void {
-    const json = appStore.exportBackup()
-    const blob = new Blob([json], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    const nameSlug = slugify(appStore.profile.name)
-    a.download = `kalkul-backup-${nameSlug ? `${nameSlug}-` : ''}${new Date().toISOString().slice(0, 10)}.kalkul.json`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    // Delay revoke so the browser has time to start the download.
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
-  }
 </script>
 
 <header class="flex items-center justify-between bg-neutral-950 p-2">
@@ -63,7 +48,7 @@
       <DropdownMenu.Content align="end">
         <DropdownMenu.Group>
           {#if hasData}
-            <DropdownMenu.Item onSelect={exportData}>
+            <DropdownMenu.Item onSelect={downloadBackup}>
               {$_('navbar.menu.exportData')}
             </DropdownMenu.Item>
           {/if}

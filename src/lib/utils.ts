@@ -185,11 +185,11 @@ export function calculateAge(
   birthDate: Date | undefined,
   currentYear: number,
   currentMonth: number,
-): string {
-  if (!birthDate) return ''
+): number | undefined {
+  if (!birthDate) return undefined
   let age = currentYear - birthDate.getFullYear()
   if (currentMonth < birthDate.getMonth()) age--
-  return String(age)
+  return age
 }
 
 /**

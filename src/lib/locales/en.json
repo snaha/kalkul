@@ -169,6 +169,7 @@
       "interestType": "Interest type",
       "interestCompound": "Compound",
       "interestSimple": "Simple",
+      "compoundingDefault": "Installment frequency",
       "compoundingFrequency": "Compounding frequency",
       "compoundingDaily": "Daily",
       "interestDescription": "Compound interest accrues on prior interest at the chosen frequency; Simple interest accrues only on the outstanding balance. Daily compounding gives the highest effective rate.",
@@ -296,7 +297,7 @@
         "importFile": "import an existing Kalkul file",
         "descriptionSuffix": ".",
         "ageHelper": "Used to calculate your age",
-        "age": "{age} years old",
+        "age": "{age, plural, one {# year old} other {# years old}}",
         "language": "Language",
         "languageEnglish": "English",
         "languageCzech": "Čeština",
@@ -373,7 +374,6 @@
         "annualRate": "Annual percentage rate",
         "installmentAmount": "Installment amount",
         "remainingTerm": "Remaining term",
-        "years": "{count, plural, one {year} other {years}}",
         "defaultName": "Liability {index}"
       },
       "investments": {

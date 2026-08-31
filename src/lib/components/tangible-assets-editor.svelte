@@ -43,17 +43,14 @@
     remaining_term: number | undefined
     remaining_term_unit: RemainingTermUnit
     interest_type: InterestType
-    compounding_frequency: CompoundingFrequency
+    // Absent until the user picks one: the engine's default is to compound at
+    // the installment frequency, and merely revealing the advanced block must
+    // not silently switch the loan to another cadence.
+    compounding_frequency: CompoundingFrequency | undefined
     // UI-only: whether the financing's interest options are revealed, toggled
     // from the card menu.
     showAdvanced: boolean
     editing: boolean
-  }
-
-  // The interest options belong to the financing and only exist while the
-  // advanced block is visible.
-  function isFinancedAdvanced(a: AssetUI): boolean {
-    return a.status === 'financed' && a.showAdvanced
   }
 
   const editor = createListEditor<ProfileTangibleAsset, AssetUI>({
@@ -77,7 +74,7 @@
         a.remaining_term !== undefined && a.remaining_term > 0 ? a.remaining_term : undefined,
       remaining_term_unit: a.remaining_term_unit ?? 'years',
       interest_type: a.interest_type ?? 'compound',
-      compounding_frequency: a.compounding_frequency ?? 'monthly',
+      compounding_frequency: a.compounding_frequency,
       // Reveal the options when the financing already has them, so values set
       // in the plan dialog are not hidden here.
       showAdvanced: a.interest_type !== undefined || a.compounding_frequency !== undefined,
@@ -95,13 +92,17 @@
       remaining_term: undefined,
       remaining_term_unit: 'years',
       interest_type: 'compound',
-      compounding_frequency: 'monthly',
+      compounding_frequency: undefined,
       showAdvanced: false,
       editing: true,
     }),
     copyName: (name) => $_('page.setup.common.copySuffix', { values: { name } }),
     hasValue: (a) => (a.value ?? 0) > 0,
-    toStored: (a) => ({
+    // Spread the stored asset first so the plan-dialog-only fields — planned
+    // purchase/sale, value_over_time, value_rate, property_tax_rate — survive
+    // an edit here. Only the rendered fields override it.
+    toStored: (a, prev) => ({
+      ...prev,
       id: a.id,
       name: a.name,
       value: a.value ?? 0,
@@ -112,19 +113,18 @@
       installment_amount: a.status === 'financed' ? (a.installment_amount ?? 0) : undefined,
       remaining_term: a.status === 'financed' ? (a.remaining_term ?? 0) : undefined,
       remaining_term_unit: a.remaining_term_unit,
-      // Financing-only, like the fields above, and stored only while the
-      // advanced options are shown so an untouched asset keeps the legacy
-      // default (compounding at the installment frequency). 'compound' is the
-      // calculation default so it collapses to undefined.
+      // Financing-only, like the fields above. 'compound' is the calculation
+      // default so it collapses to undefined; the frequency is only stored
+      // once the user actually picks one. Showing/hiding the advanced block
+      // is a display toggle and never changes what is stored.
       interest_type:
-        isFinancedAdvanced(a) && a.interest_type !== 'compound' ? a.interest_type : undefined,
-      compounding_frequency: isFinancedAdvanced(a) ? a.compounding_frequency : undefined,
+        a.status === 'financed' && a.interest_type !== 'compound' ? a.interest_type : undefined,
+      compounding_frequency: a.status === 'financed' ? a.compounding_frequency : undefined,
     }),
-    persist: (data) =>
-      appStore.updateProfile({
-        tangible_assets: data,
-        has_tangible_assets: data.length > 0,
-      }),
+    // has_tangible_assets belongs to the Get started checkbox, not to this
+    // list: re-deriving it here unchecked the box (and dropped the step from
+    // the flow) the moment a seeded card was collapsed without a value.
+    persist: (data) => appStore.updateProfile({ tangible_assets: data }),
   })
   onDestroy(editor.flushSave)
 
@@ -306,6 +306,7 @@
                       id="compoundingFrequency-{asset.id}"
                       value={asset.compounding_frequency}
                       items={compoundingFrequencyItems}
+                      placeholder={$_('page.plan.compoundingDefault')}
                       onValueChange={(v) => {
                         if (v) asset.compounding_frequency = v
                       }}

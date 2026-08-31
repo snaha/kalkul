@@ -6,7 +6,7 @@ import en from './locales/en.json'
 import {
   expenseSchema,
   incomeSchema,
-  migratePlanTransfersToProfile,
+  profileInvestmentSchema,
   profileLiabilitySchema,
   profileSchema,
   profileTangibleAssetSchema,
@@ -252,6 +252,7 @@ describe('repairStoredCashFlowMonths', () => {
         email: '',
         incomes: [{ ...baseIncome, ...sameYearInverted }],
         expenses: [{ ...baseExpense, ...sameYearInverted }],
+        transfers: [{ ...baseTransfer, ...sameYearInverted }],
       },
       portfolios: [
         {
@@ -260,20 +261,16 @@ describe('repairStoredCashFlowMonths', () => {
           start_date: '2026-01-01',
           end_date: '2060-01-01',
           inflation_rate: 2,
-          transfers: [{ ...baseTransfer, ...sameYearInverted }],
         },
       ],
     }
   }
 
-  it('swaps inverted same-year months everywhere so legacy stored data still parses', () => {
+  it('swaps inverted same-year months everywhere so stored data still parses', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const repaired = storedDataSchema.parse(
-      migratePlanTransfersToProfile(repairStoredCashFlowMonths(storedWithInverted())),
-    )
+    const repaired = storedDataSchema.parse(repairStoredCashFlowMonths(storedWithInverted()))
     expect(repaired.profile.incomes?.[0]).toMatchObject({ start_month: 3, end_month: 8 })
     expect(repaired.profile.expenses?.[0]).toMatchObject({ start_month: 3, end_month: 8 })
-    // Portfolio transfers migrate into profile.transfers during repair.
     expect(repaired.profile.transfers?.[0]).toMatchObject({ start_month: 3, end_month: 8 })
     expect(warn).toHaveBeenCalledTimes(3)
     warn.mockRestore()
@@ -301,6 +298,74 @@ describe('repairStoredCashFlowMonths', () => {
       profile: 'malformed',
       portfolios: 42,
     })
+  })
+})
+
+describe('planned timing refinement', () => {
+  const investment = { id: 'i1', name: 'Fund', balance: 100, apy: 5 }
+  const asset = { id: 't1', name: 'House', value: 100, status: 'fully_owned' as const }
+
+  it('requires a year and month for an investment starting at a specific date', () => {
+    const result = profileInvestmentSchema.safeParse({ ...investment, start: 'at_specific_date' })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((i) => i.path)).toContainEqual(['start_year'])
+      expect(result.error.issues.map((i) => i.path)).toContainEqual(['start_month'])
+    }
+  })
+
+  it('requires an age for an investment exiting when age is', () => {
+    const result = profileInvestmentSchema.safeParse({ ...investment, exit: 'when_age_is' })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((i) => i.path)).toContainEqual(['exit_age'])
+    }
+  })
+
+  it('accepts an investment with complete timing, and one with none at all', () => {
+    expect(
+      profileInvestmentSchema.safeParse({
+        ...investment,
+        start: 'at_specific_date',
+        start_year: 2030,
+        start_month: 5,
+        exit: 'when_age_is',
+        exit_age: 65,
+      }).success,
+    ).toBe(true)
+    expect(profileInvestmentSchema.safeParse(investment).success).toBe(true)
+  })
+
+  it('requires a year and month for a purchase at a specific date', () => {
+    const result = profileTangibleAssetSchema.safeParse({ ...asset, purchase: 'at_specific_date' })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((i) => i.path)).toContainEqual(['purchase_year'])
+      expect(result.error.issues.map((i) => i.path)).toContainEqual(['purchase_month'])
+    }
+  })
+
+  it('requires an age for a sale when age is', () => {
+    const result = profileTangibleAssetSchema.safeParse({ ...asset, sale: 'when_age_is' })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((i) => i.path)).toContainEqual(['sale_age'])
+    }
+  })
+
+  it('accepts a tangible asset with complete timing, and one with none at all', () => {
+    expect(
+      profileTangibleAssetSchema.safeParse({
+        ...asset,
+        purchase: 'at_specific_date',
+        purchase_year: 2030,
+        purchase_month: 5,
+        sale: 'at_specific_date',
+        sale_year: 2040,
+        sale_month: 2,
+      }).success,
+    ).toBe(true)
+    expect(profileTangibleAssetSchema.safeParse(asset).success).toBe(true)
   })
 })
 
@@ -523,138 +588,6 @@ describe('profileSchema language', () => {
 
   it('does not require a language (browser auto-detect remains the fallback)', () => {
     expect(profileSchema.safeParse({ name: 'A', email: 'a@b.c' }).success).toBe(true)
-  })
-})
-
-describe('migratePlanTransfersToProfile', () => {
-  const recurring: Transfer = {
-    id: 't-1',
-    name: 'Monthly savings',
-    from_asset_id: 'cash',
-    to_asset_id: 'inv-1',
-    amount: 200,
-    schedule: 'recurring',
-    frequency: 'monthly',
-    start: 'immediately',
-    end: 'never',
-    change_over_time: 'none',
-  }
-
-  function stored(overrides = {}) {
-    return {
-      lastUpdated: 1,
-      profile: { name: 'Test', email: '' } as {
-        name: string
-        email: string
-        transfers?: unknown[]
-      },
-      portfolios: [
-        {
-          id: 'p-1',
-          name: 'Plan A',
-          start_date: '2026-01-01',
-          end_date: '2060-01-01',
-          inflation_rate: 2,
-          transfers: [{ ...recurring }],
-          ...overrides,
-        },
-      ],
-    }
-  }
-
-  it('moves portfolio transfers into profile.transfers', () => {
-    const data = stored()
-    expect(data.profile.transfers).toBeUndefined()
-    migratePlanTransfersToProfile(data)
-    expect(data.profile.transfers).toEqual([{ ...recurring }])
-    expect((data.portfolios[0] as Record<string, unknown>).transfers).toBeUndefined()
-  })
-
-  it('sets included_transfer_ids to the moved ids when it was undefined', () => {
-    const data = stored()
-    migratePlanTransfersToProfile(data)
-    expect(
-      (data.portfolios[0] as { included_transfer_ids?: string[] }).included_transfer_ids,
-    ).toEqual(['t-1'])
-  })
-
-  it('preserves an explicit included_transfer_ids list, intersected with moved ids', () => {
-    const data = stored({ included_transfer_ids: ['t-1'] })
-    migratePlanTransfersToProfile(data)
-    expect(
-      (data.portfolios[0] as { included_transfer_ids?: string[] }).included_transfer_ids,
-    ).toEqual(['t-1'])
-  })
-
-  it('does not let a plan inherit transfers it did not own', () => {
-    const data = stored()
-    // A second portfolio with its own transfer.
-    ;(data.portfolios as unknown[]).push({
-      id: 'p-2',
-      name: 'Plan B',
-      start_date: '2026-01-01',
-      end_date: '2060-01-01',
-      inflation_rate: 2,
-      transfers: [{ ...recurring, id: 't-2' }],
-    })
-    migratePlanTransfersToProfile(data)
-    // Plan A explicitly includes only its own transfer.
-    expect(
-      (data.portfolios[0] as { included_transfer_ids?: string[] }).included_transfer_ids,
-    ).toEqual(['t-1'])
-    expect(
-      (data.portfolios[1] as { included_transfer_ids?: string[] }).included_transfer_ids,
-    ).toEqual(['t-2'])
-    expect(data.profile.transfers).toHaveLength(2)
-  })
-
-  it('deduplicates shared transfer ids across portfolios', () => {
-    const p2 = {
-      id: 'p-2',
-      name: 'Plan B',
-      start_date: '2026-01-01',
-      end_date: '2060-01-01',
-      inflation_rate: 2,
-      transfers: [{ ...recurring }], // same id 't-1'
-    }
-    const data = stored()
-    ;(data.portfolios as unknown[]).push(p2)
-    migratePlanTransfersToProfile(data)
-    expect(data.profile.transfers).toHaveLength(1)
-  })
-
-  it('does not touch portfolios without a transfers array', () => {
-    const data = stored({ transfers: undefined })
-    delete (data.portfolios[0] as Record<string, unknown>).transfers
-    migratePlanTransfersToProfile(data)
-    expect(data.profile.transfers).toBeUndefined()
-    expect((data.portfolios[0] as Record<string, unknown>).transfers).toBeUndefined()
-  })
-
-  it('rewires a plan without transfers so it references nothing', () => {
-    const data = stored({ included_transfer_ids: ['t-1'] })
-    delete (data.portfolios[0] as Record<string, unknown>).transfers
-    migratePlanTransfersToProfile(data)
-    expect(
-      (data.portfolios[0] as { included_transfer_ids?: string[] }).included_transfer_ids,
-    ).toEqual([])
-  })
-
-  it('is idempotent on already-migrated data', () => {
-    const data = stored()
-    migratePlanTransfersToProfile(data)
-    const after = JSON.parse(JSON.stringify(data))
-    migratePlanTransfersToProfile(after)
-    expect(after.profile.transfers).toEqual(data.profile.transfers)
-  })
-
-  it('passes through data that is not a stored-data object', () => {
-    expect(migratePlanTransfersToProfile(undefined)).toBe(undefined)
-    expect(migratePlanTransfersToProfile('nope')).toBe('nope')
-    expect(migratePlanTransfersToProfile({ profile: 'malformed', portfolios: 42 })).toEqual({
-      profile: 'malformed',
-      portfolios: 42,
-    })
   })
 })
 

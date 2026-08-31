@@ -164,98 +164,17 @@ function repairCashFlowMonths(flow: unknown): void {
  * persist. Run this on raw parsed JSON before schema validation: it swaps the
  * two months in place, so both user-entered values survive and the flow spans
  * the range the user visibly intended instead of silently contributing
- * nothing. Covers profile incomes/expenses and portfolio transfers — every
- * place cashFlowTemporalRefinement applies.
+ * nothing. Covers every profile list cashFlowTemporalRefinement applies to:
+ * incomes, expenses and transfers.
  */
 export function repairStoredCashFlowMonths(data: unknown): unknown {
   if (!isRecord(data)) return data
   if (isRecord(data.profile)) {
-    for (const key of ['incomes', 'expenses']) {
+    for (const key of ['incomes', 'expenses', 'transfers']) {
       const flows = data.profile[key]
       if (Array.isArray(flows)) for (const flow of flows) repairCashFlowMonths(flow)
     }
   }
-  if (Array.isArray(data.portfolios)) {
-    for (const portfolio of data.portfolios) {
-      if (isRecord(portfolio) && Array.isArray(portfolio.transfers)) {
-        for (const transfer of portfolio.transfers) repairCashFlowMonths(transfer)
-      }
-    }
-  }
-  return data
-}
-
-/**
- * Transfers used to be owned by individual portfolios (`portfolio.transfers`).
- * They now live on the profile (`profile.transfers`), with each portfolio
- * referencing them through `included_transfer_ids` — mirroring how incomes and
- * expenses have always worked. Run this on raw parsed JSON before schema
- * validation (composed with `repairStoredCashFlowMonths`): it moves every
- * portfolio's transfers into `profile.transfers` and rewires the portfolio's
- * include list so the plan's transfer behaviour is preserved exactly:
- *
- * - If the portfolio already had an explicit `included_transfer_ids` list, it
- *   is kept (intersected with the moved ids, so an id that only ever existed
- *   inside another portfolio's list can't suddenly become included).
- * - If it was `undefined` (meaning "include all my transfers"), it is set to
- *   the full list of moved ids so the plan still includes exactly the ones it
- *   previously owned — NOT every transfer across all portfolios.
- *
- * Portfolios without a `transfers` array are left untouched.
- */
-export function migratePlanTransfersToProfile(data: unknown): unknown {
-  if (!isRecord(data)) return data
-  if (!isRecord(data.profile)) return data
-  if (!Array.isArray(data.portfolios)) return data
-
-  const profileTransfers = Array.isArray(data.profile.transfers)
-    ? (data.profile.transfers as unknown[])
-    : []
-  const knownIds = new Set<string>()
-  const removedIds = new Set<string>()
-
-  for (const portfolio of data.portfolios) {
-    if (!isRecord(portfolio) || !Array.isArray(portfolio.transfers)) {
-      // A plan with no transfers must not end up referencing transfers that
-      // other portfolios migrated into the profile.
-      if (Array.isArray(portfolio.included_transfer_ids)) {
-        portfolio.included_transfer_ids = []
-      }
-      continue
-    }
-    // Swapped via repairStoredCashFlowMonths before this runs when composed,
-    // but a defensive repair guard beats a silent drop.
-    for (const transfer of portfolio.transfers) repairCashFlowMonths(transfer)
-
-    const moved = portfolio.transfers as unknown[]
-    const movedIds = moved
-      .map((t) => (isRecord(t) && typeof t.id === 'string' ? t.id : undefined))
-      .filter((id): id is string => id !== undefined)
-
-    for (const transfer of moved) {
-      const id = isRecord(transfer) && typeof transfer.id === 'string' ? transfer.id : undefined
-      if (id && !knownIds.has(id)) {
-        profileTransfers.push(transfer)
-        knownIds.add(id)
-      }
-      if (id) removedIds.add(id)
-    }
-
-    // Preserve the pre-migration include semantics exactly.
-    if (Array.isArray(portfolio.included_transfer_ids)) {
-      const intersection = (portfolio.included_transfer_ids as string[]).filter((id) =>
-        movedIds.includes(id),
-      )
-      portfolio.included_transfer_ids = intersection
-    } else {
-      portfolio.included_transfer_ids = movedIds
-    }
-
-    delete portfolio.transfers
-  }
-
-  if (profileTransfers.length > 0) data.profile.transfers = profileTransfers
-
   return data
 }
 
@@ -319,38 +238,84 @@ export const expenseSchema = z
   })
   .superRefine(cashFlowTemporalRefinement)
 
+/**
+ * Planned-timing edge check for investments (`start`/`exit`) and tangible
+ * assets (`purchase`/`sale`). Same rule as cashFlowTemporalRefinement, but
+ * those lists use their own field prefixes, so the paths are passed in.
+ */
+function refineTimingEdge(
+  ctx: z.RefinementCtx,
+  edge: 'start' | 'end',
+  prefix: string,
+  mode: CashFlowStart | CashFlowEnd | undefined,
+  year: number | undefined,
+  month: number | undefined,
+  age: number | undefined,
+): void {
+  if (mode === 'at_specific_date') {
+    const message =
+      edge === 'start'
+        ? get(_)('validation.required_when_start_at_specific_date')
+        : get(_)('validation.required_when_end_at_specific_date')
+    if (year === undefined)
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [`${prefix}_year`], message })
+    if (month === undefined)
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [`${prefix}_month`], message })
+  }
+  if (mode === 'when_age_is' && age === undefined) {
+    const message =
+      edge === 'start'
+        ? get(_)('validation.required_when_start_when_age_is')
+        : get(_)('validation.required_when_end_when_age_is')
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: [`${prefix}_age`], message })
+  }
+}
+
 export const entryFeeTypeSchema = z.enum(['ongoing', 'upfront', 'forty-sixty'])
 export const exitFeeTypeSchema = z.enum(['percentage', 'fixed'])
 
-export const profileInvestmentSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  balance: z.number(),
-  apy: z.number(),
-  // Total expense ratio (annual %): drag on compounding APY.
-  ter: z.number().optional(),
-  // Entry fee charged when money is transferred INTO this investment. The
-  // payment type controls whether the fee is deducted up front from the
-  // deposit, spread out over the holding period (ongoing), or split 40/60.
-  entry_fee: z.number().optional(),
-  entry_fee_type: entryFeeTypeSchema.optional(),
-  // Exit fee charged when money is transferred OUT of this investment. Can
-  // be a percentage of the withdrawal or a fixed currency amount.
-  exit_fee: z.number().optional(),
-  exit_fee_type: exitFeeTypeSchema.optional(),
-  // Planned timing. An absent start means the investment is already held from
-  // the plan's first year; an absent exit means it is held for the whole plan.
-  // When the start is in the future the initial amount is bought out of cash;
-  // an exit liquidates the balance back into cash.
-  start: cashFlowStartSchema.optional(),
-  start_year: z.number().optional(),
-  start_month: z.number().optional(),
-  start_age: z.number().optional(),
-  exit: cashFlowEndSchema.optional(),
-  exit_year: z.number().optional(),
-  exit_month: z.number().optional(),
-  exit_age: z.number().optional(),
-})
+export const profileInvestmentSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    balance: z.number(),
+    apy: z.number(),
+    // Total expense ratio (annual %): drag on compounding APY.
+    ter: z.number().optional(),
+    // Entry fee charged when money is transferred INTO this investment. The
+    // payment type controls whether the fee is deducted up front from the
+    // deposit, spread out over the holding period (ongoing), or split 40/60.
+    entry_fee: z.number().optional(),
+    entry_fee_type: entryFeeTypeSchema.optional(),
+    // Exit fee charged when money is transferred OUT of this investment. Can
+    // be a percentage of the withdrawal or a fixed currency amount.
+    exit_fee: z.number().optional(),
+    exit_fee_type: exitFeeTypeSchema.optional(),
+    // Planned timing. An absent start means the investment is already held from
+    // the plan's first year; an absent exit means it is held for the whole plan.
+    // When the start is in the future the initial amount is bought out of cash;
+    // an exit liquidates the balance back into cash.
+    start: cashFlowStartSchema.optional(),
+    start_year: z.number().optional(),
+    start_month: z.number().optional(),
+    start_age: z.number().optional(),
+    exit: cashFlowEndSchema.optional(),
+    exit_year: z.number().optional(),
+    exit_month: z.number().optional(),
+    exit_age: z.number().optional(),
+  })
+  .superRefine((obj, ctx) => {
+    refineTimingEdge(
+      ctx,
+      'start',
+      'start',
+      obj.start,
+      obj.start_year,
+      obj.start_month,
+      obj.start_age,
+    )
+    refineTimingEdge(ctx, 'end', 'exit', obj.exit, obj.exit_year, obj.exit_month, obj.exit_age)
+  })
 
 export const valueOverTimeSchema = z.enum(['appreciate', 'depreciate'])
 
@@ -395,6 +360,16 @@ export const profileTangibleAssetSchema = z
     property_tax_rate: z.number().optional(),
   })
   .superRefine((obj, ctx) => {
+    refineTimingEdge(
+      ctx,
+      'start',
+      'purchase',
+      obj.purchase,
+      obj.purchase_year,
+      obj.purchase_month,
+      obj.purchase_age,
+    )
+    refineTimingEdge(ctx, 'end', 'sale', obj.sale, obj.sale_year, obj.sale_month, obj.sale_age)
     if (obj.status === 'financed') {
       if (obj.outstanding_balance === undefined)
         ctx.addIssue({
@@ -550,6 +525,9 @@ export const profileSchema = z.object({
   // UI language preference. Mirrors the supported locales in
   // `src/lib/locales/index.ts` — keep the two lists in sync.
   language: z.enum(['en', 'cs']).optional(),
+  // Usage/license terms accepted in the first Get started step. Persisted so
+  // navigating Back does not force the user to accept them again.
+  terms_accepted: z.boolean().optional(),
   cash_amount: z.number().optional(),
   has_investments: z.boolean().optional(),
   has_tangible_assets: z.boolean().optional(),

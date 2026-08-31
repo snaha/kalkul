@@ -14,6 +14,8 @@ interface StoredThing {
   id: string
   name: string
   value: number
+  /** Never rendered by the fake editor — stands in for a plan-dialog-only field. */
+  note?: string
 }
 
 interface ThingUI {
@@ -49,7 +51,7 @@ function setup(options?: { initial?: StoredThing[]; persist?: (items: StoredThin
       }),
       copyName: (name) => `${name} copy`,
       hasValue: (i) => (i.value ?? 0) > 0,
-      toStored: (i) => ({ id: i.id, name: i.name, value: i.value ?? 0 }),
+      toStored: (i, stored) => ({ ...stored, id: i.id, name: i.name, value: i.value ?? 0 }),
       persist: options?.persist ?? ((items) => persisted.push(items)),
     })
   })
@@ -104,6 +106,43 @@ describe('createListEditor', () => {
     flushSync()
     vi.advanceTimersByTime(300)
     expect(persisted.at(-1)).toEqual([{ id: 'new-1', name: 'Item 1', value: 5 }])
+    cleanup()
+  })
+
+  it('persists the seeded blank once it is renamed, so a typed name survives a remount', () => {
+    const { editor, persisted, cleanup } = setup()
+    editor.items[0].name = 'My thing'
+    flushSync()
+    vi.advanceTimersByTime(300)
+    expect(persisted.at(-1)).toEqual([{ id: 'new-1', name: 'My thing', value: 0 }])
+    cleanup()
+  })
+
+  it('carries stored fields the UI never renders through toStored()', () => {
+    const { editor, persisted, cleanup } = setup({
+      initial: [{ id: 'a', name: 'Existing', value: 10, note: 'set in the plan dialog' }],
+    })
+    editor.items[0].value = 20
+    flushSync()
+    vi.advanceTimersByTime(300)
+    expect(persisted.at(-1)).toEqual([
+      { id: 'a', name: 'Existing', value: 20, note: 'set in the plan dialog' },
+    ])
+    cleanup()
+  })
+
+  it('carries those fields into a duplicate too', () => {
+    const { editor, persisted, cleanup } = setup({
+      initial: [{ id: 'a', name: 'Existing', value: 10, note: 'set in the plan dialog' }],
+    })
+    editor.duplicate(editor.items[0])
+    flushSync()
+    vi.advanceTimersByTime(300)
+    expect(persisted.at(-1)?.[1]).toMatchObject({
+      name: 'Existing copy',
+      value: 10,
+      note: 'set in the plan dialog',
+    })
     cleanup()
   })
 

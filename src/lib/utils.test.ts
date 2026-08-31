@@ -101,19 +101,19 @@ describe('calculateAge', () => {
   const birthDate = new Date(1990, 5, 1) // June 1990
 
   it('counts the age as already incremented during the birth month', () => {
-    expect(calculateAge(birthDate, 2026, 5)).toBe('36')
+    expect(calculateAge(birthDate, 2026, 5)).toBe(36)
   })
 
   it('is one lower in the month before the birth month', () => {
-    expect(calculateAge(birthDate, 2026, 4)).toBe('35')
+    expect(calculateAge(birthDate, 2026, 4)).toBe(35)
   })
 
   it('stays incremented for the rest of the year', () => {
-    expect(calculateAge(birthDate, 2026, 11)).toBe('36')
+    expect(calculateAge(birthDate, 2026, 11)).toBe(36)
   })
 
   it('returns an empty string without a birth date', () => {
-    expect(calculateAge(undefined, 2026, 5)).toBe('')
+    expect(calculateAge(undefined, 2026, 5)).toBe(undefined)
   })
 })
 

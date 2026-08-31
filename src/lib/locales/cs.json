@@ -169,6 +169,7 @@
       "interestType": "Typ úroku",
       "interestCompound": "Složený",
       "interestSimple": "Jednoduchý",
+      "compoundingDefault": "Frekvence splátek",
       "compoundingFrequency": "Frekvence úročení",
       "compoundingDaily": "Denně",
       "interestDescription": "Složený úrok se přičítá k předchozím úrokům podle zvolené frekvence; jednoduchý úrok se počítá pouze ze zůstatku jistiny. Denní úročení dává nejvyšší efektivní sazbu.",
@@ -296,7 +297,7 @@
         "importFile": "importujte existující soubor Kalkul",
         "descriptionSuffix": ".",
         "ageHelper": "Slouží k výpočtu vašeho věku",
-        "age": "{age} let",
+        "age": "{age, plural, one {# rok} few {# roky} other {# let}}",
         "language": "Jazyk",
         "languageEnglish": "English",
         "languageCzech": "Čeština",
@@ -373,7 +374,6 @@
         "annualRate": "Roční úroková sazba",
         "installmentAmount": "Výše splátky",
         "remainingTerm": "Zbývající doba",
-        "years": "{count, plural, one {rok} few {roky} many {roku} other {let}}",
         "defaultName": "Závazek {index}"
       },
       "investments": {
