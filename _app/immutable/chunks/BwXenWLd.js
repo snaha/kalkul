@@ -1,0 +1,1 @@
+import{J as e,U as t}from"./BdrUI6bN.js";function n(n){e(()=>t(()=>n()))}export{n as t};
