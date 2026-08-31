@@ -1,4 +1,6 @@
 <script lang="ts">
+  import type { Component } from 'svelte'
+
   import CircleHelp from '@lucide/svelte/icons/circle-help'
 
   import * as Tooltip from '$lib/components/ui/tooltip'
@@ -6,10 +8,13 @@
 
   interface Props {
     text: string
+    /** Glyph to show. The dashboard's metric cards use `Info` per the design. */
+    icon?: Component<{ class?: string }>
+    iconClass?: string
     class?: string
   }
 
-  let { text, class: className }: Props = $props()
+  let { text, icon: Icon = CircleHelp, iconClass = 'size-4', class: className }: Props = $props()
 
   let open = $state(false)
 </script>
@@ -22,7 +27,7 @@
       onclick={() => (open = !open)}
       class={cn('shrink-0 text-muted-foreground hover:text-foreground', className)}
     >
-      <CircleHelp class="size-4" />
+      <Icon class={iconClass} />
     </Tooltip.Trigger>
     <Tooltip.Content>{text}</Tooltip.Content>
   </Tooltip.Root>

@@ -1,3 +1,5 @@
+import { type ExplicitBalances, withBalancesCarriedForward } from '$lib/current-values'
+import { hasAnyFinancialData } from '$lib/financial-totals'
 import {
   type Portfolio,
   type Profile,
@@ -6,6 +8,13 @@ import {
   repairStoredCashFlowMonths,
   storedDataSchema,
 } from '$lib/schemas'
+import {
+  captureSnapshot,
+  hasSameBalances,
+  latestSnapshot,
+  upsertSnapshot,
+  withSeededSnapshot,
+} from '$lib/snapshots'
 import storageKeys from '$lib/storage-keys'
 import {
   DEFAULT_CURRENCY,
@@ -17,6 +26,7 @@ import {
   formatPercent,
   getFormattingLocale,
   parseDateOnly,
+  toDateOnlyString,
 } from '$lib/utils'
 
 import type { PortfolioStore } from './portfolio.svelte'
@@ -46,6 +56,7 @@ function enrichProfile({
   incomes,
   expenses,
   transfers,
+  snapshots,
 }: Profile): ProfileStore {
   return {
     name,
@@ -64,6 +75,7 @@ function enrichProfile({
     incomes,
     expenses,
     transfers,
+    snapshots,
     get birthDate() {
       return birth_date ? parseDateOnly(birth_date) : undefined
     },
@@ -88,9 +100,35 @@ function enrichProfile({
         incomes,
         expenses,
         transfers,
+        snapshots,
       }
     },
   }
+}
+
+/**
+ * Whether saving `profile` should record its balances as today's snapshot.
+ *
+ * Snapshots are the baseline the dashboard projects "today" from, so every
+ * confirmed change to a balance has to re-date that baseline — otherwise the
+ * projection keeps compounding from a value the user has already replaced.
+ * Edits that leave every balance alone (a rename, a new expense) record
+ * nothing, keeping the History chart to points that actually moved.
+ *
+ * `force` overrides that skip for an explicit confirmation ("these balances are
+ * correct today", i.e. Quick update's Confirm): the point of the action is the
+ * new date, so it has to record even when every balance matches — otherwise a
+ * profile whose values legitimately did not move can never clear the staleness
+ * banner.
+ */
+function shouldRecordSnapshot(profile: Profile, todayDate: string, force: boolean): boolean {
+  // Nothing to record for a profile that has never held a balance — that gate
+  // is there to keep all-zero snapshots out of an empty profile's history. Once
+  // a baseline exists, though, going to zero is a real move (the user spent
+  // their cash and owns nothing else) and has to be recorded like any other.
+  if (!hasAnyFinancialData(profile) && (profile.snapshots ?? []).length === 0) return false
+  if (force) return true
+  return !hasSameBalances(latestSnapshot(profile.snapshots), captureSnapshot(profile, todayDate))
 }
 
 const DEFAULT_PROFILE: Profile = {
@@ -137,6 +175,57 @@ function withAppStore() {
     }
     // Trigger reactivity: $state reassignment
     portfolios = [...portfolios]
+  }
+
+  /**
+   * The balances a confirmation states outright: everything Quick update's
+   * dialog puts in front of the user. They are persisted exactly as submitted,
+   * including a value typed back to the stored figure — that is a correction,
+   * not an untouched field. Everything the payload leaves out (loans, asset
+   * values) is carried forward by the clock read here rather than the page's.
+   */
+  function explicitBalancesOf(updates: Partial<Profile>): ExplicitBalances {
+    return {
+      cash: updates.cash_amount !== undefined,
+      investmentIds: new Set((updates.investments ?? []).map((i) => i.id)),
+    }
+  }
+
+  function writeProfile(updates: Partial<Profile>, confirmed: boolean): void {
+    const today = new Date()
+    const todayDate = toDateOnlyString(today)
+    const stored = profile.toJSON()
+    const next = { ...stored, ...updates }
+
+    // Asked against the stored balances, which the latest snapshot matches by
+    // construction — so the only differences it can see are the ones `updates`
+    // introduces.
+    const recording = shouldRecordSnapshot(next, todayDate, confirmed)
+
+    // Recording re-dates the baseline the dashboard projects from, so balances
+    // the edit left alone have to reach today before that happens. An edit that
+    // records nothing keeps the old baseline, and so has to keep the stored
+    // balances matching it.
+    const validated = profileSchema.parse(
+      recording
+        ? withBalancesCarriedForward(
+            stored,
+            next,
+            today,
+            confirmed ? explicitBalancesOf(updates) : undefined,
+          )
+        : next,
+    )
+
+    profile = enrichProfile(
+      recording
+        ? {
+            ...validated,
+            snapshots: upsertSnapshot(validated.snapshots, captureSnapshot(validated, todayDate)),
+          }
+        : validated,
+    )
+    persist()
   }
 
   function deletePortfolio(id: string): void {
@@ -213,9 +302,14 @@ function withAppStore() {
       const loc = getFormattingLocale(profile.location, browserLocale)
       return new Date(ms).toLocaleDateString(loc)
     },
-    formatPercent(value: number, digits = 1) {
+    /** Same, for a date-only ISO string (`YYYY-MM-DD`) such as a snapshot date. */
+    formatDateOnly(dateOnly: string) {
       const loc = getFormattingLocale(profile.location, browserLocale)
-      return formatPercent(value, digits, loc)
+      return parseDateOnly(dateOnly).toLocaleDateString(loc)
+    },
+    formatPercent(value: number, digits = 1, signed = false) {
+      const loc = getFormattingLocale(profile.location, browserLocale)
+      return formatPercent(value, digits, loc, signed)
     },
     /** Formatted lastUpdated date, or undefined when nothing was saved yet. */
     formatLastUpdated(): string | undefined {
@@ -226,10 +320,17 @@ function withAppStore() {
     // --- Profile ---
 
     updateProfile(updates: Partial<Profile>) {
-      const merged = { ...profile.toJSON(), ...updates }
-      const validated = profileSchema.parse(merged)
-      profile = enrichProfile(validated)
-      persist()
+      writeProfile(updates, false)
+    },
+
+    /**
+     * Same as `updateProfile`, but for an explicit "these are my balances as of
+     * today" confirmation (Quick update's Confirm). Always stamps a snapshot
+     * dated today, even when the confirmed values equal the stored ones — the
+     * date is the whole point of the action.
+     */
+    confirmBalances(updates: Partial<Profile>) {
+      writeProfile(updates, true)
     },
 
     // --- Portfolios ---
@@ -247,7 +348,14 @@ function withAppStore() {
 
     load(): void {
       const data = loadData()
-      profile = enrichProfile(data.profile)
+      // Data saved before snapshots existed gets its baseline from the last
+      // write. Derived on every load rather than written back, so opening the
+      // app never mutates stored data on its own.
+      profile = enrichProfile(
+        data.lastUpdated > 0
+          ? withSeededSnapshot(data.profile, new Date(data.lastUpdated))
+          : data.profile,
+      )
       portfolios = enrichAll(data.portfolios)
       lastUpdated = data.lastUpdated
       loading = false
@@ -292,7 +400,9 @@ function withAppStore() {
       // validation rules stay restorable.
       const parsed: unknown = repairStoredCashFlowMonths(JSON.parse(json))
       const validated = storedDataSchema.pick({ profile: true, portfolios: true }).parse(parsed)
-      profile = enrichProfile(validated.profile)
+      // A backup taken before snapshots existed carries no history; treat the
+      // restored balances as confirmed now rather than as indefinitely stale.
+      profile = enrichProfile(withSeededSnapshot(validated.profile, new Date()))
       portfolios = enrichAll(validated.portfolios)
       loading = false
       persist()

@@ -419,6 +419,50 @@ export const profileLiabilitySchema = z.object({
   compounding_frequency: compoundingFrequencySchema.optional(),
 })
 
+// --- Snapshots ---
+
+// A point-in-time record of every balance that makes up net worth. The profile
+// itself holds the balances as they stood on the most recent snapshot's date;
+// the dashboard projects them forward to today for display. Snapshots are what
+// the History chart plots and what Quick update diffs "today" against.
+export const snapshotSchema = z.object({
+  // Date-only ISO string (`YYYY-MM-DD`) the balances were recorded on. The
+  // format is enforced, not just documented: snapshot ordering, the staleness
+  // check and the elapsed-day count all compare these strings
+  // lexicographically, which only works for zero-padded date-only values.
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  cash_amount: z.number().optional(),
+  investments: z.array(z.object({ id: z.string(), balance: z.number() })).optional(),
+  // Financed assets carry their debt alongside the value so a snapshot's net
+  // worth can be computed without consulting the current profile.
+  tangible_assets: z
+    .array(
+      z.object({
+        id: z.string(),
+        value: z.number(),
+        outstanding_balance: z.number().optional(),
+      }),
+    )
+    .optional(),
+  liabilities: z.array(z.object({ id: z.string(), outstanding_balance: z.number() })).optional(),
+})
+
+/**
+ * Snapshots in the order everything downstream assumes: date-ascending, one
+ * entry per date. The history series takes the last point as the baseline its
+ * projected tail runs from, and the chart keys its dots by date — an unsorted
+ * or duplicated list (a hand-edited backup, a file from another tool) would
+ * project from the wrong point and crash the keyed `{#each}`.
+ *
+ * Later entries win, matching `upsertSnapshot`: a day's balances are recorded
+ * once, and the last word on a date is the current one.
+ */
+export function normalizeSnapshots(snapshots: Snapshot[]): Snapshot[] {
+  const byDate = new Map<string, Snapshot>()
+  for (const snapshot of snapshots) byDate.set(snapshot.date, snapshot)
+  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date))
+}
+
 export const transferScheduleSchema = z.enum(['one_time', 'recurring'])
 
 export const transferSchema = z
@@ -538,6 +582,10 @@ export const profileSchema = z.object({
   incomes: z.array(incomeSchema).optional(),
   expenses: z.array(expenseSchema).optional(),
   transfers: z.array(transferSchema).optional(),
+  // Normalized on the way in, so every entry point — a fresh load, a restored
+  // backup, cross-tab sync, a store write — hands the rest of the app a sorted,
+  // one-per-date list.
+  snapshots: z.array(snapshotSchema).transform(normalizeSnapshots).optional(),
 })
 
 export const portfolioSchema = z.object({
@@ -569,6 +617,7 @@ export type EntryFeeType = z.infer<typeof entryFeeTypeSchema>
 export type ExitFeeType = z.infer<typeof exitFeeTypeSchema>
 export type InterestType = z.infer<typeof interestTypeSchema>
 export type CompoundingFrequency = z.infer<typeof compoundingFrequencySchema>
+export type Snapshot = z.infer<typeof snapshotSchema>
 export type ProfileInvestment = z.infer<typeof profileInvestmentSchema>
 export type ProfileTangibleAsset = z.infer<typeof profileTangibleAssetSchema>
 export type ProfileLiability = z.infer<typeof profileLiabilitySchema>

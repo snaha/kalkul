@@ -1,5 +1,10 @@
+import Decimal from 'decimal.js'
+
+import { DECIMAL_0 } from '$lib/@snaha/kalkul-maths'
 import { CATEGORY_COLORS } from '$lib/chart-colors'
-import type { Profile } from '$lib/schemas'
+import { annualizedAmount, netIncome } from '$lib/plan-projection'
+import type { Frequency, Profile } from '$lib/schemas'
+import { hasAnyBalance, snapshotBalances, snapshotNetWorth } from '$lib/snapshots'
 
 export type CategoryLabel = 'cash' | 'investments' | 'tangible-assets' | 'liabilities'
 
@@ -39,8 +44,13 @@ export function getTotalAssets(profile: Profile): number {
   return getCashTotal(profile) + getInvestmentsTotal(profile) + getTangibleAssetsTotal(profile)
 }
 
+/**
+ * Assets less every debt. Delegated to `snapshotNetWorth` so the live profile
+ * and a recorded snapshot are summed by one definition — the History chart
+ * plots snapshots next to this figure and the two must agree.
+ */
 export function getNetWorth(profile: Profile): number {
-  return getTotalAssets(profile) - getLiabilitiesTotal(profile)
+  return snapshotNetWorth(snapshotBalances(profile))
 }
 
 export function getOverviewSegments(profile: Profile): OverviewSegment[] {
@@ -76,37 +86,81 @@ export function getOverviewSegments(profile: Profile): OverviewSegment[] {
   return segments
 }
 
-// Mirrors FLOW_PERIODS_PER_YEAR in plan-projection.ts (Decimal-based, not exported)
-const PERIODS_PER_YEAR: Record<string, number> = {
-  weekly: 365.25 / 7,
-  monthly: 12,
-  yearly: 1,
+/**
+ * Yearly living expenses at today's levels, counting every expense regardless
+ * of its start/end window. That is the convention the savings rate, FI % and
+ * runway are stated in. The dashboard's cash accrual asks a different question
+ * ("what is running right now") and uses its own window-aware totals in
+ * `current-values.ts`.
+ */
+export function getAnnualExpensesTotal(profile: Profile): number {
+  return (profile.expenses ?? [])
+    .reduce<Decimal>(
+      (sum, e) => sum.plus(annualizedAmount(new Decimal(e.amount), e.frequency)),
+      DECIMAL_0,
+    )
+    .toNumber()
 }
 
-export function getAnnualExpensesTotal(profile: Profile): number {
-  // ponytail: sums all expenses regardless of start/end windows; filter to
-  // currently-active flows if future-dated expenses become common
-  return (profile.expenses ?? []).reduce(
-    (sum, e) => sum + e.amount * (PERIODS_PER_YEAR[e.frequency] ?? 1),
-    0,
-  )
+/**
+ * Yearly take-home income. Withheld taxes come off the top via the projection
+ * engine's `netIncome`, so the dashboard's savings rate and the Current
+ * projection card agree on what the user actually receives.
+ *
+ * Window-agnostic like `getAnnualExpensesTotal` — see the note there.
+ */
+export function getAnnualIncomeTotal(profile: Profile): number {
+  return (profile.incomes ?? [])
+    .reduce<Decimal>((sum, i) => sum.plus(annualizedAmount(netIncome(i), i.frequency)), DECIMAL_0)
+    .toNumber()
+}
+
+export interface SavingsRate {
+  /** Share of income left after expenses and debt service, as a percentage. */
+  percent: number
+  /** The same figure in currency per year. Negative when outflows exceed income. */
+  annualAmount: number
+}
+
+/**
+ * What share of income survives the year's outflows. Debt service counts as an
+ * outflow alongside living expenses, matching FI % and runway.
+ *
+ * Undefined when there is no income to take a share of.
+ */
+export function getSavingsRate(profile: Profile): SavingsRate | undefined {
+  const income = getAnnualIncomeTotal(profile)
+  if (income <= 0) return undefined
+  const annualAmount = income - getAnnualExpensesTotal(profile) - getAnnualDebtServiceTotal(profile)
+  return { percent: (annualAmount / income) * 100, annualAmount }
 }
 
 // Annualized loan payments (standalone liabilities + financed assets). Debt
 // service is a non-optional outflow, so FI %/runway count it alongside
 // living expenses.
+//
+// A loan is only serviced while it still has a balance — the same gate the
+// dashboard's cash accrual applies in `current-values.ts`. A paid-off loan whose
+// installment was never cleared out would otherwise drain phantom money from
+// the savings rate, FI % and runway.
 export function getAnnualDebtServiceTotal(profile: Profile): number {
-  const annualize = (amount: number | undefined, frequency: string | undefined) =>
-    (amount ?? 0) * (PERIODS_PER_YEAR[frequency ?? 'monthly'] ?? 1)
-  return (
-    (profile.liabilities ?? []).reduce(
-      (sum, l) => sum + annualize(l.installment_amount, l.installment_frequency),
-      0,
-    ) +
-    (profile.tangible_assets ?? [])
-      .filter((a) => a.status === 'financed')
-      .reduce((sum, a) => sum + annualize(a.installment_amount, a.installment_frequency), 0)
-  )
+  const annualize = (amount: number | undefined, frequency: Frequency | undefined) =>
+    annualizedAmount(new Decimal(amount ?? 0), frequency ?? 'monthly')
+  return (profile.liabilities ?? [])
+    .filter((l) => (l.outstanding_balance ?? 0) > 0)
+    .reduce<Decimal>(
+      (sum, l) => sum.plus(annualize(l.installment_amount, l.installment_frequency)),
+      DECIMAL_0,
+    )
+    .plus(
+      (profile.tangible_assets ?? [])
+        .filter((a) => a.status === 'financed' && (a.outstanding_balance ?? 0) > 0)
+        .reduce<Decimal>(
+          (sum, a) => sum.plus(annualize(a.installment_amount, a.installment_frequency)),
+          DECIMAL_0,
+        ),
+    )
+    .toNumber()
 }
 
 export function getInvestableNetWorth(profile: Profile): number {
@@ -130,9 +184,5 @@ export function getRunwayYears(profile: Profile): number | undefined {
 }
 
 export function hasAnyFinancialData(profile: Profile): boolean {
-  if ((profile.cash_amount ?? 0) > 0) return true
-  if ((profile.investments ?? []).some((i) => i.balance > 0)) return true
-  if ((profile.tangible_assets ?? []).some((a) => a.value > 0)) return true
-  if ((profile.liabilities ?? []).some((l) => l.outstanding_balance > 0)) return true
-  return false
+  return hasAnyBalance(snapshotBalances(profile))
 }

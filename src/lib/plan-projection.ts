@@ -82,7 +82,7 @@ const FLOW_PERIODS_PER_YEAR: Record<Frequency, number> = {
 }
 
 // Liability amortization needs an integer count of installments per year.
-const INSTALLMENT_PERIODS_PER_YEAR: Record<Frequency, number> = {
+export const INSTALLMENT_PERIODS_PER_YEAR: Record<Frequency, number> = {
   weekly: 52,
   monthly: 12,
   yearly: 1,
@@ -117,7 +117,12 @@ function resolveEndYear(cashFlow: CashFlowTemporal, birthYear: number | undefine
   return Number.POSITIVE_INFINITY
 }
 
-function annualizedAmount(amount: Decimal, frequency: Frequency): Decimal {
+/**
+ * A per-period amount as a yearly one. Exported so the dashboard totals in
+ * `financial-totals.ts` annualize exactly like the projection does instead of
+ * keeping their own copy of the periods-per-year table.
+ */
+export function annualizedAmount(amount: Decimal, frequency: Frequency): Decimal {
   return amount.mul(FLOW_PERIODS_PER_YEAR[frequency])
 }
 
@@ -194,7 +199,13 @@ function growthFactor(
   return inflationFactor.mul(changeFactor)
 }
 
-function netIncome(income: Income): Decimal {
+/**
+ * What actually lands in the user's account: the entered amount, less the
+ * withheld tax when the income is entered gross. Exported so dashboard totals
+ * apply the same rule as the projection — otherwise cash accrues at gross while
+ * the Current projection card shows net.
+ */
+export function netIncome(income: Income): Decimal {
   const amount = new Decimal(income.amount)
   if (!income.withhold_taxes) return amount
   const taxFraction = new Decimal(income.tax_percentage ?? 0).div(100)
@@ -238,6 +249,54 @@ function remainingTermPeriods(
   return remainingTerm * periodsPerYear
 }
 
+/**
+ * Interest charged on one installment period. Two paths:
+ *  - 'simple' (or missing interest_type but compounding_frequency unset →
+ *    keep legacy behaviour): nominal rate divided across installments.
+ *  - 'compound': convert the nominal annual rate to an effective annual
+ *    rate using the chosen compounding frequency, then back out the
+ *    equivalent per-installment rate. Defaults to compounding at the
+ *    installment frequency so unconfigured liabilities behave identically
+ *    to the pre-advanced-options engine.
+ *
+ * Exported so `current-values.ts` can amortize a stored balance forward to
+ * today on exactly the terms the projection would use.
+ */
+export function installmentPeriodRate(liability: ProfileLiability): Decimal {
+  const periodsPerYear = INSTALLMENT_PERIODS_PER_YEAR[liability.installment_frequency]
+  const annualRate = new Decimal(liability.annual_rate).div(100)
+  if (liability.interest_type === 'simple') return annualRate.div(periodsPerYear)
+  const compFreqKey = liability.compounding_frequency
+  const compoundingPeriodsPerYear =
+    compFreqKey !== undefined ? COMPOUNDING_PERIODS_PER_YEAR[compFreqKey] : periodsPerYear
+  // EAR = (1 + r/n)^n − 1; installment rate = (1 + EAR)^(1/p) − 1
+  const periodicCompoundRate = annualRate.div(compoundingPeriodsPerYear)
+  const ear = DECIMAL_1.plus(periodicCompoundRate).pow(compoundingPeriodsPerYear).minus(DECIMAL_1)
+  return DECIMAL_1.plus(ear).pow(new Decimal(1).div(periodsPerYear)).minus(DECIMAL_1)
+}
+
+/**
+ * How many whole scheduled installments a loan has left, in the unit its term
+ * is stated in. Rounded because carrying a loan forward writes the term back as
+ * a fraction of a year (whole installments over the periods per year), and
+ * binary floating point leaves that a hair either side of the whole period
+ * count it stands for.
+ *
+ * Exported so `current-values.ts` counts the same periods the projection does.
+ * `simulateLiability` keeps the unrounded count: a term of 18 months on a
+ * yearly cadence is a genuine 1.5 periods there, cleared by a balloon on the
+ * fractional final period.
+ */
+export function remainingInstallmentPeriods(liability: ProfileLiability): number {
+  return Math.round(
+    remainingTermPeriods(
+      liability.remaining_term,
+      liability.remaining_term_unit,
+      INSTALLMENT_PERIODS_PER_YEAR[liability.installment_frequency],
+    ),
+  )
+}
+
 function simulateLiability(
   liability: ProfileLiability,
   startYear: number,
@@ -250,27 +309,7 @@ function simulateLiability(
   window?: { firstYear: number; lastYear: number },
 ): LiabilitySchedule {
   const periodsPerYear = INSTALLMENT_PERIODS_PER_YEAR[liability.installment_frequency]
-  // Per-installment rate. Two paths:
-  //  - 'simple' (or missing interest_type but compounding_frequency unset →
-  //    keep legacy behaviour): nominal rate divided across installments.
-  //  - 'compound': convert the nominal annual rate to an effective annual
-  //    rate using the chosen compounding frequency, then back out the
-  //    equivalent per-installment rate. Defaults to compounding at the
-  //    installment frequency so unconfigured liabilities behave identically
-  //    to the pre-advanced-options engine.
-  const annualRate = new Decimal(liability.annual_rate).div(100)
-  let periodRate: Decimal
-  if (liability.interest_type === 'simple') {
-    periodRate = annualRate.div(periodsPerYear)
-  } else {
-    const compFreqKey = liability.compounding_frequency
-    const compoundingPeriodsPerYear =
-      compFreqKey !== undefined ? COMPOUNDING_PERIODS_PER_YEAR[compFreqKey] : periodsPerYear
-    // EAR = (1 + r/n)^n − 1; installment rate = (1 + EAR)^(1/p) − 1
-    const periodicCompoundRate = annualRate.div(compoundingPeriodsPerYear)
-    const ear = DECIMAL_1.plus(periodicCompoundRate).pow(compoundingPeriodsPerYear).minus(DECIMAL_1)
-    periodRate = DECIMAL_1.plus(ear).pow(new Decimal(1).div(periodsPerYear)).minus(DECIMAL_1)
-  }
+  const periodRate = installmentPeriodRate(liability)
   const installmentAmount = new Decimal(liability.installment_amount)
 
   let balance = new Decimal(liability.outstanding_balance)
@@ -321,7 +360,12 @@ function simulateLiability(
   return { outstandingByYear, paidByYear }
 }
 
-function financingToLiability(asset: ProfileTangibleAsset): ProfileLiability | undefined {
+/**
+ * The loan behind a financed tangible asset, as a standalone liability — or
+ * undefined when the asset is not financed or its financing terms are
+ * incomplete. Exported for reuse by the current-balance projection.
+ */
+export function financingToLiability(asset: ProfileTangibleAsset): ProfileLiability | undefined {
   if (
     asset.status !== 'financed' ||
     asset.outstanding_balance === undefined ||
@@ -603,6 +647,24 @@ export function yearOf(dateString: string): number {
   return Number(dateString.slice(0, 4))
 }
 
+/**
+ * Effective APY = APY − TER − ongoing portion of the entry fee. The ongoing
+ * entry-fee component models the year-after-year drag (whole fee for
+ * 'ongoing', 60% for 'forty-sixty', 0 for 'upfront'). Floored at −100% (a
+ * total loss) so the yearly multiplier bottoms out at 0 — fees exceeding
+ * 100 + APY would otherwise flip the multiplier negative and make the
+ * balance oscillate in sign.
+ */
+export function effectiveInvestmentApy(investment: ProfileInvestment): Decimal {
+  const apy = new Decimal(investment.apy)
+  const ter = new Decimal(investment.ter ?? 0)
+  const entryFee = new Decimal(investment.entry_fee ?? 0)
+  let ongoingDrag = DECIMAL_0
+  if (investment.entry_fee_type === 'ongoing') ongoingDrag = entryFee
+  else if (investment.entry_fee_type === 'forty-sixty') ongoingDrag = entryFee.mul(0.6)
+  return Decimal.max(apy.minus(ter).minus(ongoingDrag), DECIMAL_MINUS_100)
+}
+
 export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): YearlyProjection[] {
   const startYear = yearOf(plan.start_date)
   const endYear = yearOf(plan.end_date)
@@ -698,22 +760,8 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   // Per-investment lookup so the transfer loop can apply entry/exit fees by
   // asset id without re-scanning the array.
   const investmentsById = new Map<string, ProfileInvestment>(investments.map((i) => [i.id, i]))
-  // Effective APY = APY − TER − ongoing portion of the entry fee. The ongoing
-  // entry-fee component models the year-after-year drag (whole fee for
-  // 'ongoing', 60% for 'forty-sixty', 0 for 'upfront'). Floored at −100% (a
-  // total loss) so the yearly multiplier bottoms out at 0 — fees exceeding
-  // 100 + APY would otherwise flip the multiplier negative and make the
-  // balance oscillate in sign.
   const investmentApy = new Map<string, Decimal>(
-    investments.map((i) => {
-      const apy = new Decimal(i.apy)
-      const ter = new Decimal(i.ter ?? 0)
-      const entryFee = new Decimal(i.entry_fee ?? 0)
-      let ongoingDrag = DECIMAL_0
-      if (i.entry_fee_type === 'ongoing') ongoingDrag = entryFee
-      else if (i.entry_fee_type === 'forty-sixty') ongoingDrag = entryFee.mul(0.6)
-      return [i.id, Decimal.max(apy.minus(ter).minus(ongoingDrag), DECIMAL_MINUS_100)]
-    }),
+    investments.map((i) => [i.id, effectiveInvestmentApy(i)]),
   )
 
   // Nominal yearly multiplier per tangible asset. Absent value_over_time it

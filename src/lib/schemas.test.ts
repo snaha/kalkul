@@ -12,6 +12,7 @@ import {
   profileTangibleAssetSchema,
   remainingTermUnitSchema,
   repairStoredCashFlowMonths,
+  snapshotSchema,
   storedDataSchema,
   timingComplete,
   transferSchema,
@@ -588,6 +589,75 @@ describe('profileSchema language', () => {
 
   it('does not require a language (browser auto-detect remains the fallback)', () => {
     expect(profileSchema.safeParse({ name: 'A', email: 'a@b.c' }).success).toBe(true)
+  })
+})
+
+describe('snapshotSchema date', () => {
+  it('accepts a date-only ISO string', () => {
+    expect(snapshotSchema.parse({ date: '2026-07-02' }).date).toBe('2026-07-02')
+  })
+
+  // Snapshot ordering, staleness and day counts all compare these strings
+  // lexicographically, which only holds for zero-padded YYYY-MM-DD.
+  it('rejects anything that is not a zero-padded YYYY-MM-DD', () => {
+    expect(snapshotSchema.safeParse({ date: '2026-7-2' }).success).toBe(false)
+    expect(snapshotSchema.safeParse({ date: '2026-07-02T10:00:00.000Z' }).success).toBe(false)
+    expect(snapshotSchema.safeParse({ date: '02/07/2026' }).success).toBe(false)
+    expect(snapshotSchema.safeParse({ date: '' }).success).toBe(false)
+  })
+})
+
+// Everything downstream of the profile treats the snapshot list as sorted and
+// one-entry-per-date: the history series takes the last point as the projection
+// baseline, and the chart keys its dots by date. Only the write path used to
+// normalize, so a hand-edited or imported backup could break both.
+describe('profileSchema snapshot normalization', () => {
+  const profile = { name: 'Alice', email: 'a@example.com' }
+
+  it('sorts snapshots by date ascending', () => {
+    const parsed = profileSchema.parse({
+      ...profile,
+      snapshots: [
+        { date: '2026-03-01', cash_amount: 300 },
+        { date: '2026-01-01', cash_amount: 100 },
+        { date: '2026-02-01', cash_amount: 200 },
+      ],
+    })
+    expect(parsed.snapshots?.map((s) => s.date)).toEqual(['2026-01-01', '2026-02-01', '2026-03-01'])
+  })
+
+  it('keeps the last of several snapshots sharing a date', () => {
+    const parsed = profileSchema.parse({
+      ...profile,
+      snapshots: [
+        { date: '2026-01-01', cash_amount: 100 },
+        { date: '2026-01-01', cash_amount: 999 },
+      ],
+    })
+    expect(parsed.snapshots).toEqual([{ date: '2026-01-01', cash_amount: 999 }])
+  })
+
+  it('normalizes the profile inside a stored payload too', () => {
+    const parsed = storedDataSchema.parse({
+      lastUpdated: 1,
+      profile: {
+        ...profile,
+        snapshots: [
+          { date: '2026-02-01', cash_amount: 2 },
+          { date: '2026-01-01', cash_amount: 1 },
+          { date: '2026-02-01', cash_amount: 3 },
+        ],
+      },
+      portfolios: [],
+    })
+    expect(parsed.profile.snapshots).toEqual([
+      { date: '2026-01-01', cash_amount: 1 },
+      { date: '2026-02-01', cash_amount: 3 },
+    ])
+  })
+
+  it('leaves a profile without snapshots alone', () => {
+    expect(profileSchema.parse(profile).snapshots).toBeUndefined()
   })
 })
 
