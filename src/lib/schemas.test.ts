@@ -721,7 +721,6 @@ describe('storedDataSchema golden fixture', () => {
             transaction_month: 6,
           },
         ],
-        hide_plan_intro: true,
       },
       portfolios: [
         {

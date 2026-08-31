@@ -1,47 +1,36 @@
 {
   "page": {
-    "addPlan": {
-      "title": "Přidat plán",
-      "whatIsAPlan": {
-        "title": "Co je plán?",
-        "description1": "Plán je časová osa vašich aktiv a peněžních toků, která vám umožňuje zkoumat různé finanční budoucnosti na základě vaší aktuální situace a rozhodnutí, která uděláte.",
-        "description2": "Spojuje vše, co vlastníte nebo dlužíte - hotovost, investice, hmotný majetek a závazky - spolu s penězi, které přitékají, odtékají a pohybují se mezi nimi.",
-        "description3": "Můžete importovat svá stávající finanční data jako výchozí bod a poté upravit aktiva a peněžní toky tak, aby odpovídaly konkrétnímu scénáři, který chcete prozkoumat."
-      },
-      "dontShowNextTime": "Příště nezobrazovat",
-      "details": {
-        "title": "Podrobnosti plánu",
-        "description": "Zadejte základní informace o tomto plánu.",
-        "planName": "Název plánu",
-        "notes": "Poznámky",
-        "notesPlaceholder": "Napište něco o tomto plánu",
-        "start": "Začátek",
-        "startNow": "Nyní",
-        "startAtDate": "K určitému datu...",
-        "end": "Konec",
-        "endWhenAgeIs": "Když vám bude",
-        "endAtDate": "K určitému datu...",
-        "yearsOld": "Let",
-        "inflation": "Inflace",
-        "defaultName": "Plán {index}"
-      },
-      "data": {
-        "title": "Finanční data",
-        "description": "Ve výchozím nastavení jsou zahrnuta všechna vaše aktuální finanční data, aby měl váš plán přesný výchozí bod.",
-        "subDescription": "Můžete odebrat cokoli, co se na tento plán nevztahuje, a upravit jakékoli hodnoty, nastavení nebo částky tak, aby odpovídaly scénáři, který chcete prozkoumat. Nová aktiva nebo peněžní toky lze také přidat přímo v plánu.",
-        "includeCash": "Zahrnout aktuální hotovost",
-        "includeInvestments": "Zahrnout všechny investice",
-        "includeTangibleAssets": "Zahrnout veškerý hmotný majetek",
-        "includeLiabilities": "Zahrnout všechny závazky",
-        "includeIncomes": "Zahrnout všechny příjmy",
-        "includeExpenses": "Zahrnout všechny výdaje",
-        "includeTransfers": "Zahrnout všechny převody",
-        "selectAll": "Vybrat vše",
-        "deselectAll": "Zrušit výběr"
-      },
-      "back": "Zpět",
-      "continue": "Pokračovat",
-      "createPlan": "Vytvořit plán"
+    "addProjection": {
+      "title": "Přidat projekci",
+      "name": "Název",
+      "defaultName": "Alternativní projekce {index}",
+      "exploring": "Co chcete prozkoumat?",
+      "exploringPlaceholder": "např. koupě domu za 3 roky, přechod na částečný úvazek, předčasný odchod do důchodu...",
+      "startFromCurrentFinances": "Začít od vašich aktuálních financí",
+      "startFromCurrentFinancesHelp": "Udržte svou projekci ukotvenou v realitě. Vaše současná aktiva a peněžní toky jsou zahrnuty jako výchozí bod — cokoli můžete upravit nebo přidat. Vypnutím začnete od nuly.",
+      "create": "Vytvořit projekci"
+    },
+    "planSettings": {
+      "title": "Nastavení projekce",
+      "name": "Název",
+      "inflation": "Inflace {currency}",
+      "inflationHint": "Očekávaný roční růst cen.",
+      "start": "Začátek",
+      "startNow": "Nyní",
+      "startAtDate": "K určitému datu",
+      "end": "Konec",
+      "endWhenAgeIs": "Když vám bude",
+      "endAtDate": "K určitému datu",
+      "yearsOld": "Let",
+      "span": "Váš plán trvá {years, plural, one {# rok} few {# roky} other {# let}} a {months, plural, one {# měsíc} few {# měsíce} other {# měsíců}}",
+      "notes": "Poznámky",
+      "done": "Hotovo",
+      "reset": "Obnovit",
+      "deleteTitle": "Smazat plán",
+      "deleteDescription": "Tento plán a vše, co v něm bylo vytvořeno, bude trvale smazáno.",
+      "deleteWarning": "Tuto akci nelze vrátit zpět.",
+      "deleteConfirm": "Smazat plán",
+      "deleteCancel": "Nemazat"
     },
     "plan": {
       "notFound": "Plán nenalezen",

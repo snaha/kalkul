@@ -8,10 +8,10 @@
 
   import { resolve } from '$app/paths'
 
-  import { getFirstAddPlanStepUrl } from '$lib/add-plan-steps'
   import financesIllustration from '$lib/assets/finances-illustration.svg'
   import heroIllustration from '$lib/assets/hero-illustration.svg'
   import plansIllustration from '$lib/assets/plans-illustration.svg'
+  import AddProjectionDialog from '$lib/components/add-projection-dialog.svelte'
   import DonutChart from '$lib/components/donut-chart.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Progress } from '$lib/components/ui/progress'
@@ -27,7 +27,7 @@
   import { appStore } from '$lib/stores/app.svelte'
   import { cn } from '$lib/utils'
 
-  const addPlanUrl = $derived(getFirstAddPlanStepUrl(appStore.profile))
+  let addProjectionOpen = $state(false)
 
   const hasData = $derived(!appStore.loading && !!appStore.profile.name)
   const hasFinancialData = $derived(hasData && hasAnyFinancialData(appStore.profile))
@@ -200,7 +200,7 @@
     <div class="flex flex-1 flex-col">
       <div class="flex items-start gap-4 p-8">
         <h2 class="flex-1 text-2xl font-bold">{$_('page.dashboard.plans.title')}</h2>
-        <Button size="sm" href={addPlanUrl}>
+        <Button size="sm" onclick={() => (addProjectionOpen = true)}>
           <Plus class="size-4" />
           {$_('page.dashboard.plans.addPlan')}
         </Button>
@@ -248,7 +248,7 @@
               </p>
             </div>
           </div>
-          <Button variant="secondary" size="sm" href={addPlanUrl}>
+          <Button variant="secondary" size="sm" onclick={() => (addProjectionOpen = true)}>
             {$_('page.dashboard.plans.makeFirstPlan')}
           </Button>
         </div>
@@ -274,3 +274,5 @@
     </div>
   </div>
 {/if}
+
+<AddProjectionDialog bind:open={addProjectionOpen} onOpenChange={(v) => (addProjectionOpen = v)} />

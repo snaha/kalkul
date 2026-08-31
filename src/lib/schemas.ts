@@ -538,7 +538,6 @@ export const profileSchema = z.object({
   incomes: z.array(incomeSchema).optional(),
   expenses: z.array(expenseSchema).optional(),
   transfers: z.array(transferSchema).optional(),
-  hide_plan_intro: z.boolean().optional(),
 })
 
 export const portfolioSchema = z.object({

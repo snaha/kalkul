@@ -10,7 +10,6 @@ describe('routeFromId', () => {
       routes.FINANCES_EDIT_INVESTMENTS,
     )
     expect(routeFromId('/(app)/financial-data/transfers')).toBe(routes.FINANCIAL_DATA_TRANSFERS)
-    expect(routeFromId('/(add-plan)/plan/add/details')).toBe(routes.PLAN_ADD_DETAILS)
   })
 
   it('maps a group-only id to the root route', () => {
