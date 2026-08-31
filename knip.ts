@@ -28,6 +28,7 @@ const config: KnipConfig = {
     '$app/*': ['node_modules/@sveltejs/kit/src/runtime/app/*'],
     '$env/*': ['.svelte-kit/ambient.d.ts'],
     '$lib/*': ['src/lib/*'],
+    '$examples/*': ['examples/*'],
   },
   ignore: ['scripts/test-locales-examples.svelte'],
   ignoreExportsUsedInFile: true,

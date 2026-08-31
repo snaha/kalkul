@@ -6,6 +6,11 @@ const config = {
   preprocess: vitePreprocess(),
 
   kit: {
+    // The curated sample profiles double as the dev page's realistic presets,
+    // so they need to be importable from src/ without a ../../.. climb.
+    alias: {
+      $examples: 'examples',
+    },
     router: {
       type: process.env.VITE_ROUTER,
     },
