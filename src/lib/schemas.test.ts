@@ -605,6 +605,19 @@ describe('snapshotSchema date', () => {
     expect(snapshotSchema.safeParse({ date: '02/07/2026' }).success).toBe(false)
     expect(snapshotSchema.safeParse({ date: '' }).success).toBe(false)
   })
+
+  // A well-shaped but impossible date would sort past December lexicographically
+  // and roll into a different month once parsed, silently shifting history.
+  it('rejects a well-formed string that is not a real calendar date', () => {
+    expect(snapshotSchema.safeParse({ date: '2026-13-40' }).success).toBe(false)
+    expect(snapshotSchema.safeParse({ date: '2026-00-10' }).success).toBe(false)
+    expect(snapshotSchema.safeParse({ date: '2026-02-30' }).success).toBe(false)
+    expect(snapshotSchema.safeParse({ date: '2025-02-29' }).success).toBe(false)
+  })
+
+  it('accepts a leap day in a leap year', () => {
+    expect(snapshotSchema.parse({ date: '2024-02-29' }).date).toBe('2024-02-29')
+  })
 })
 
 // Everything downstream of the profile treats the snapshot list as sorted and

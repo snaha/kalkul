@@ -38,8 +38,11 @@
   const firstDate = $derived(points[0]?.date ?? '')
   const lastDate = $derived(points.at(-1)?.date ?? '')
   // A single point (or several recorded on one day) has no span to scale
-  // against; pin it to the right edge where "Now" sits.
-  const spanDays = $derived(Math.max(daysBetween(firstDate, lastDate), 0))
+  // against; pin it to the right edge where "Now" sits. The length guard keeps
+  // an empty series out of `daysBetween`, whose NaN would poison every
+  // position — the dashboard never passes one, but the component shouldn't
+  // rely on that.
+  const spanDays = $derived(points.length < 2 ? 0 : Math.max(daysBetween(firstDate, lastDate), 0))
 
   /** Horizontal position of a date as a fraction of the plot width. */
   function xFraction(date: string): number {
