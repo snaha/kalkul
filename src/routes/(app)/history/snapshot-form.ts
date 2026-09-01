@@ -156,8 +156,8 @@ function merged<T extends { id: string }>(base: T[] | undefined, written: T[]): 
  *
  * `edits` holds only what the user typed, keyed by field key. A key that is
  * missing or cleared falls back to the field's seeded value — an empty box
- * means "I have not said", the same convention Quick update uses. Confirming a
- * zero is still possible by typing one.
+ * means "I have not said", the same convention Quick update uses. Recording a
+ * balance of zero therefore takes a typed `0`; clearing the box does not do it.
  */
 export function snapshotFromFields(
   base: Snapshot,

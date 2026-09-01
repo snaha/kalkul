@@ -106,6 +106,24 @@ describe('buildHistorySeries', () => {
     ])
   })
 
+  test('plots an unsorted history in date order', () => {
+    // Only the schema sorts what it stores, so a hand-edited backup can arrive
+    // out of order. The last point is the baseline the tail projects from, and
+    // the chart draws the points in the order it gets them.
+    const profile: Profile = {
+      ...GROWING,
+      snapshots: [
+        { date: '2026-03-01', cash_amount: 12_000 },
+        { date: '2026-01-01', cash_amount: 10_000 },
+      ],
+    }
+    const recorded = buildHistorySeries(profile, TODAY).filter((point) => !point.projected)
+    expect(recorded).toEqual([
+      { date: '2026-01-01', netWorth: 10_000, projected: false },
+      { date: '2026-03-01', netWorth: 12_000, projected: false },
+    ])
+  })
+
   test('does not project when the last snapshot is today', () => {
     const profile: Profile = { ...GROWING, snapshots: [{ date: '2026-07-02', cash_amount: 500 }] }
     expect(buildHistorySeries(profile, TODAY)).toEqual([
