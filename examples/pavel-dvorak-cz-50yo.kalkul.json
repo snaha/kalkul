@@ -117,6 +117,33 @@
         "end_month": 6,
         "change_over_time": "none"
       }
+    ],
+    "transfers": [
+      {
+        "id": "tr-1",
+        "name": "Move building savings to bonds at retirement",
+        "from_asset_id": "inv-3",
+        "to_asset_id": "inv-2",
+        "amount": 0,
+        "transfer_all": true,
+        "schedule": "one_time",
+        "transaction_year": 2041,
+        "transaction_month": 11
+      },
+      {
+        "id": "tr-2",
+        "name": "Monthly pension top-up from ETF",
+        "from_asset_id": "inv-1",
+        "to_asset_id": "cash",
+        "amount": 30000,
+        "inflation_adjusted": true,
+        "schedule": "recurring",
+        "frequency": "monthly",
+        "start": "when_age_is",
+        "start_age": 65,
+        "end": "never",
+        "change_over_time": "none"
+      }
     ]
   },
   "portfolios": [
@@ -132,33 +159,6 @@
       "included_tangible_asset_ids": ["ta-1", "ta-2"],
       "included_income_ids": ["inc-1", "inc-2"],
       "included_expense_ids": ["exp-1", "exp-2", "exp-3", "exp-4"],
-      "transfers": [
-        {
-          "id": "tr-1",
-          "name": "Move building savings to bonds at retirement",
-          "from_asset_id": "inv-3",
-          "to_asset_id": "inv-2",
-          "amount": 0,
-          "transfer_all": true,
-          "schedule": "one_time",
-          "transaction_year": 2041,
-          "transaction_month": 11
-        },
-        {
-          "id": "tr-2",
-          "name": "Monthly pension top-up from ETF",
-          "from_asset_id": "inv-1",
-          "to_asset_id": "cash",
-          "amount": 30000,
-          "inflation_adjusted": true,
-          "schedule": "recurring",
-          "frequency": "monthly",
-          "start": "when_age_is",
-          "start_age": 65,
-          "end": "never",
-          "change_over_time": "none"
-        }
-      ],
       "included_transfer_ids": ["tr-1", "tr-2"],
       "investments": [],
       "goals": []

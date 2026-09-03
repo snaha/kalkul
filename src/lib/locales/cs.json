@@ -174,43 +174,88 @@
     "dashboard": {
       "finances": {
         "title": "Aktuální finance",
+        "viewAllFinancialData": "Zobrazit všechna finanční data",
         "addData": "Přidat data",
         "illustrationAlt": "Ilustrace finančních dat",
         "emptyTitle": "Aktuální finance",
         "emptySubtitle": "Zpřesněte své plány",
         "emptyDescription": "Přidejte, co aktuálně vlastníte",
         "addFinancialData": "Přidat finanční data",
-        "viewDetails": "Zobrazit detaily",
-        "netWorthSummary": "Vaše aktuální celkové jmění je {total}",
-        "lastUpdated": "Naposledy aktualizováno dnes",
-        "lastUpdatedOn": "Naposledy aktualizováno {date}",
-        "lastUpdatedNever": "Zatím neaktualizováno",
-        "keepUpToDate": "Udržujte aktuální pro přesné plánování",
-        "viewAll": "Zobrazit všechna finanční data",
+        "noExpensesHint": "Přidejte své výdaje, abyste viděli tento údaj",
+        "stale": {
+          "title": "Naposledy aktualizováno {date}",
+          "description": "Všechny údaje jsou odhadnuté od poslední aktualizace — zkontrolujte je pro větší přesnost.",
+          "quickUpdate": "Rychlá aktualizace"
+        },
         "netWorthCard": {
           "title": "Čisté jmění",
-          "description": "Celková hodnota vašeho majetku po odečtení závazků"
+          "help": "Celková hodnota vašeho majetku po odečtení závazků",
+          "actual": "Skutečná data podle vaší dnešní aktualizace.",
+          "projected": "Odhadnuto od poslední aktualizace {date}",
+          "totalAssets": "Celková aktiva",
+          "totalNetWorth": "Celkové čisté jmění"
         },
-        "fiCard": {
-          "title": "Finanční nezávislost",
-          "description": "Odhadovaný pokrok k životu z vašich investic"
+        "savingsRateCard": {
+          "title": "Míra úspor",
+          "help": "Část vašich příjmů, která zbyde po výdajích a splátkách",
+          "periodLabel": "Období míry úspor",
+          "monthly": "Měsíčně",
+          "yearly": "Ročně",
+          "perPeriod": "{amount} / {period}",
+          "totalIncome": "Celkové příjmy",
+          "totalExpenses": "Celkové výdaje",
+          "noIncomeHint": "Přidejte své příjmy, abyste viděli tento údaj"
         },
         "runwayCard": {
           "title": "Rezerva",
-          "description": "Odhadovaná doba, po kterou byste vyžili ze svých současných úspor",
+          "help": "Odhadovaná doba, po kterou byste vyžili ze svých současných úspor",
+          "settings": "Nastavení rezervy",
           "value": "{years} let"
         },
-        "noExpensesHint": "Přidejte své výdaje, abyste viděli tento údaj"
+        "fiCard": {
+          "title": "Finanční nezávislost",
+          "help": "Odhadovaný pokrok k životu z vašich investic",
+          "settings": "Nastavení finanční nezávislosti"
+        },
+        "history": {
+          "title": "Historie",
+          "viewDetails": "Zobrazit detaily",
+          "chartLabel": "Čisté jmění v čase",
+          "now": "Nyní"
+        }
       },
-      "plans": {
-        "title": "Plány",
-        "addPlan": "Přidat plán",
+      "projections": {
+        "title": "Projekce",
+        "addProjection": "Přidat projekci",
+        "noNotes": "Žádný popis",
+        "planChartLabel": "Odhadované čisté jmění pro {name}",
         "illustrationAlt": "Ilustrace plánů",
         "emptyTitle": "Připraveni prozkoumat svou budoucnost?",
         "emptySubtitle": "Podívejte se, kam vás vaše peníze mohou dovést",
         "emptyDescription": "Zmapujte svá aktiva, definujte své peněžní toky, zjistěte, co je možné",
-        "makeFirstPlan": "Vytvořte svůj první plán",
-        "noNotes": "Žádný popis"
+        "makeFirstProjection": "Vytvořte svou první projekci",
+        "current": {
+          "title": "Aktuální projekce",
+          "badge": "Automaticky",
+          "description": "Podívejte se na svou finanční budoucnost, pokud se nic nezmění, podle vašich současných financí.",
+          "chartLabel": "Odhadované čisté jmění, pokud se nic nezmění"
+        },
+        "explore": {
+          "title": "Chcete prozkoumat jiné budoucnosti?",
+          "description": "Modelujte scénáře „co kdyby“ a uvidíte dopad na svou budoucnost"
+        }
+      },
+      "quickUpdate": {
+        "title": "Rychlá aktualizace",
+        "description": "Dnešní výchozí hodnoty jsou odhadnuté od poslední aktualizace — zkontrolujte je a opravte, co se změnilo.",
+        "hint": "Příjmy, výdaje, převody a parametry aktiv upravte ve svých finančních datech.",
+        "item": "Položka",
+        "lastUpdatedValue": "Poslední aktualizovaná hodnota",
+        "today": "Dnes",
+        "currentValue": "Aktuální hodnota",
+        "currentValueFor": "Aktuální hodnota pro {name}",
+        "resetValues": "Obnovit hodnoty",
+        "confirm": "Potvrdit"
       }
     },
     "financialData": {
