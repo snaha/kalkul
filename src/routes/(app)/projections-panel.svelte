@@ -173,4 +173,4 @@
   {/if}
 </div>
 
-<AddProjectionDialog bind:open={addProjectionOpen} onOpenChange={(v) => (addProjectionOpen = v)} />
+<AddProjectionDialog bind:open={addProjectionOpen} />
