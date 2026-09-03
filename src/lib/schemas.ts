@@ -434,10 +434,17 @@ function isRealCalendarDate(dateOnly: string): boolean {
   )
 }
 
-// A point-in-time record of every balance that makes up net worth. The profile
-// itself holds the balances as they stood on the most recent snapshot's date;
-// the dashboard projects them forward to today for display. Snapshots are what
-// the History chart plots and what Quick update diffs "today" against.
+// A point-in-time record of a user's finances: every balance that makes up net
+// worth, plus the recurring cash flows that were running on the date. The
+// profile itself holds the figures as they stood on the most recent snapshot's
+// date; the dashboard projects them forward to today for display. Snapshots are
+// what the History chart plots, what the History page's table lists, and what
+// Quick update diffs "today" against.
+//
+// Only the values that move over time are recorded. Everything descriptive — an
+// investment's name and APY, an income's tax rate and start/end window — stays
+// on the profile, so a snapshot never has to be kept in sync with an edit that
+// changed no figure.
 export const snapshotSchema = z.object({
   // Date-only ISO string (`YYYY-MM-DD`) the balances were recorded on. The
   // format is enforced, not just documented: snapshot ordering, the staleness
@@ -464,6 +471,16 @@ export const snapshotSchema = z.object({
     )
     .optional(),
   liabilities: z.array(z.object({ id: z.string(), outstanding_balance: z.number() })).optional(),
+  // Recurring cash flows as they stood on the date. Both the amount and the
+  // frequency are recorded: a salary that went from 4,000 monthly to 48,000
+  // yearly is the same money, and the History page would otherwise show it as a
+  // twelvefold raise.
+  incomes: z
+    .array(z.object({ id: z.string(), amount: z.number(), frequency: frequencySchema }))
+    .optional(),
+  expenses: z
+    .array(z.object({ id: z.string(), amount: z.number(), frequency: frequencySchema }))
+    .optional(),
 })
 
 /**

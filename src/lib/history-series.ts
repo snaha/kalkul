@@ -1,7 +1,7 @@
 import { addDays, daysBetween } from '$lib/@snaha/kalkul-maths'
 import { getCurrentProfile } from '$lib/current-values'
 import { hasAnyFinancialData } from '$lib/financial-totals'
-import type { Profile } from '$lib/schemas'
+import { type Profile, normalizeSnapshots } from '$lib/schemas'
 import { captureSnapshot, snapshotNetWorth } from '$lib/snapshots'
 import { parseDateOnly, toDateOnlyString } from '$lib/utils'
 
@@ -38,9 +38,15 @@ function netWorthOn(profile: Profile, date: string): number {
  * snapshot. Each projected sample is computed by carrying those balances
  * forward to that sample's date, so the tail follows the same model the
  * dashboard's headline figures come from.
+ *
+ * The history is normalized here rather than assumed sorted: the last recorded
+ * point is the baseline the projected tail runs from, so a hand-edited backup
+ * or a file from another tool listing its snapshots out of order would
+ * otherwise project from the wrong one and draw the area path zig-zagging back
+ * through time.
  */
 export function buildHistorySeries(profile: Profile, today: Date): HistoryPoint[] {
-  const snapshots = profile.snapshots ?? []
+  const snapshots = normalizeSnapshots(profile.snapshots ?? [])
   if (snapshots.length === 0 && !hasAnyFinancialData(profile)) return []
 
   const todayDate = toDateOnlyString(today)
