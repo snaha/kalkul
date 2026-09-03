@@ -38,23 +38,37 @@
   let today = $state(new Date())
   const todayDate = $derived(toDateOnlyString(today))
 
-  const REFRESH_INTERVAL_MS = 60_000
-
   $effect(() => {
-    // `today` is only read from the callback, never while the effect runs, so
+    // `today` is only read from the callbacks, never while the effect runs, so
     // this subscribes once instead of re-arming on every replacement.
+    let timer: ReturnType<typeof setTimeout>
+
     function refresh(): void {
       const now = new Date()
       // Only a new calendar day changes anything on this page, so everything
       // downstream is left alone until the date itself rolls over.
       if (toDateOnlyString(now) !== toDateOnlyString(today)) today = now
     }
-    const interval = setInterval(refresh, REFRESH_INTERVAL_MS)
-    // A backgrounded tab throttles its timers; coming back to it must not show
-    // yesterday's dashboard while the next tick is still pending.
+
+    // One timer aimed at the next midnight, rather than a poll running all day
+    // to catch a single rollover. Re-armed after each one so a dashboard left
+    // open for a week keeps following the calendar.
+    function armForMidnight(): void {
+      const now = new Date()
+      const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+      timer = setTimeout(() => {
+        refresh()
+        armForMidnight()
+      }, nextMidnight.getTime() - now.getTime())
+    }
+    armForMidnight()
+
+    // A backgrounded tab throttles its timers, so the midnight one can fire
+    // late; coming back to the tab must not show yesterday's dashboard while
+    // it is still pending.
     document.addEventListener('visibilitychange', refresh)
     return () => {
-      clearInterval(interval)
+      clearTimeout(timer)
       document.removeEventListener('visibilitychange', refresh)
     }
   })

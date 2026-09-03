@@ -665,6 +665,41 @@ export function effectiveInvestmentApy(investment: ProfileInvestment): Decimal {
   return Decimal.max(apy.minus(ter).minus(ongoingDrag), DECIMAL_MINUS_100)
 }
 
+/**
+ * Exit fee on a withdrawal, before it lands at the destination —
+ * sells/redemptions usually take the fee out of proceeds, so the source loses
+ * `amount` but the destination receives less. `undefined` (cash, or an id that
+ * is not an investment) is free to withdraw from.
+ *
+ * Exported so `current-values.ts` charges transfers the same fees the
+ * projection does instead of keeping its own copy of the rule.
+ */
+export function applyExitFee(investment: ProfileInvestment | undefined, amount: Decimal): Decimal {
+  if (!investment || !investment.exit_fee) return amount
+  const exitFee = new Decimal(investment.exit_fee)
+  if (investment.exit_fee_type === 'fixed') {
+    return Decimal.max(amount.minus(exitFee), DECIMAL_0)
+  }
+  // Default to percentage (matches the schema default and Figma).
+  return Decimal.max(amount.mul(DECIMAL_1.minus(exitFee.div(100))), DECIMAL_0)
+}
+
+/**
+ * Entry fee on a deposit — for 'upfront' the whole fee comes out of the
+ * inflow; 'forty-sixty' takes 40 % upfront and amortizes the rest through the
+ * APY drag in `effectiveInvestmentApy`; 'ongoing' takes none here (all drag).
+ * `undefined` (cash, or an id that is not an investment) is free to pay into.
+ */
+export function applyEntryFee(investment: ProfileInvestment | undefined, amount: Decimal): Decimal {
+  if (!investment || !investment.entry_fee) return amount
+  const entryFee = new Decimal(investment.entry_fee)
+  let upfrontPct = DECIMAL_0
+  if (investment.entry_fee_type === 'upfront') upfrontPct = entryFee
+  else if (investment.entry_fee_type === 'forty-sixty') upfrontPct = entryFee.mul(0.4)
+  if (upfrontPct.isZero()) return amount
+  return Decimal.max(amount.mul(DECIMAL_1.minus(upfrontPct.div(100))), DECIMAL_0)
+}
+
 export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): YearlyProjection[] {
   const startYear = yearOf(plan.start_date)
   const endYear = yearOf(plan.end_date)
@@ -894,34 +929,6 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       }
     }
 
-    // Exit fee bites the withdrawal before it lands at the destination —
-    // sells/redemptions usually take the fee out of proceeds, so the source
-    // loses `amount` but the destination receives less.
-    function applyExitFee(fromId: string, amount: Decimal): Decimal {
-      const inv = investmentsById.get(fromId)
-      if (!inv || !inv.exit_fee) return amount
-      const exitFee = new Decimal(inv.exit_fee)
-      if (inv.exit_fee_type === 'fixed') {
-        return Decimal.max(amount.minus(exitFee), DECIMAL_0)
-      }
-      // Default to percentage (matches the schema default and Figma).
-      return Decimal.max(amount.mul(DECIMAL_1.minus(exitFee.div(100))), DECIMAL_0)
-    }
-
-    // Entry fee bites the deposit — for 'upfront' the whole fee comes out of
-    // the inflow; 'forty-sixty' takes 40 % upfront and amortizes the rest via
-    // the APY drag set up above; 'ongoing' takes none here (all drag).
-    function applyEntryFee(toId: string, amount: Decimal): Decimal {
-      const inv = investmentsById.get(toId)
-      if (!inv || !inv.entry_fee) return amount
-      const entryFee = new Decimal(inv.entry_fee)
-      let upfrontPct = DECIMAL_0
-      if (inv.entry_fee_type === 'upfront') upfrontPct = entryFee
-      else if (inv.entry_fee_type === 'forty-sixty') upfrontPct = entryFee.mul(0.4)
-      if (upfrontPct.isZero()) return amount
-      return Decimal.max(amount.mul(DECIMAL_1.minus(upfrontPct.div(100))), DECIMAL_0)
-    }
-
     // An investment only takes part in transfers between its start and exit
     // years — money must not flow into one the user has not bought yet, or
     // into one they have already sold. Non-investment endpoints always pass.
@@ -971,8 +978,8 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       // way in. Difference is lost to the broker.
       withdraw(transfer.from_asset_id, amount)
       const netToDestination = applyEntryFee(
-        transfer.to_asset_id,
-        applyExitFee(transfer.from_asset_id, amount),
+        investmentsById.get(transfer.to_asset_id),
+        applyExitFee(investmentsById.get(transfer.from_asset_id), amount),
       )
       deposit(transfer.to_asset_id, netToDestination)
     }

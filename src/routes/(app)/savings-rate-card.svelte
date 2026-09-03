@@ -75,7 +75,14 @@
           <p
             class={cn(
               'flex-1 text-xl font-extrabold',
-              savingsRate.percent >= 0 ? 'text-success' : 'text-destructive',
+              // Saving nothing is neither good nor bad news, the same reading
+              // Quick update gives a balance that did not move — so only a
+              // rate that is actually positive gets the success green.
+              savingsRate.percent > 0
+                ? 'text-success'
+                : savingsRate.percent < 0
+                  ? 'text-destructive'
+                  : undefined,
             )}
           >
             {appStore.formatPercent(savingsRate.percent, 0)}

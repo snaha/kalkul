@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest'
 
 import { getCurrentProfile, percentChange, withBalancesCarriedForward } from './current-values'
-import type { Profile } from './schemas'
+import { remainingInstallmentPeriods } from './plan-projection'
+import type { Profile, ProfileLiability, Transfer } from './schemas'
 
 // Snapshot on 2026-01-01, read on 2026-07-02 — 182 days, 0.4982888 of a year.
 const SNAPSHOT_DATE = '2026-01-01'
@@ -137,9 +138,28 @@ describe('getCurrentProfile', () => {
 
   test('takes the elapsed installments off the remaining term', () => {
     // Five of the loan's 36 monthly installments have been paid, so it now runs
-    // for 31 more: 31/12 = 2.5833 years. Left at three, every re-dating of the
+    // for 31 more: 31/12 = 2.58 years. Left at three, every re-dating of the
     // baseline would restart the loan's clock and push the payoff date out.
-    expect(getCurrentProfile(PROFILE, TODAY).liabilities?.[0].remaining_term).toBe(2.5833)
+    expect(getCurrentProfile(PROFILE, TODAY).liabilities?.[0].remaining_term).toBe(2.58)
+  })
+
+  test('writes the term back at a precision the user can read and edit', () => {
+    // The term lands in the financial-data form, where the user typed it by
+    // hand — a figure that grows a tail of decimals on its own reads as
+    // machine output. Two places still recover the exact installment count.
+    const weekly: ProfileLiability = {
+      id: 'l2',
+      name: 'Weekly loan',
+      outstanding_balance: 6_000,
+      installment_frequency: 'weekly',
+      annual_rate: 5,
+      installment_amount: 50,
+      remaining_term: 3,
+    }
+    const carried = getCurrentProfile({ ...PROFILE, liabilities: [weekly] }, TODAY).liabilities![0]
+    // 156 weekly installments less the 25 that fell due: 131/52 = 2.5192 years.
+    expect(carried.remaining_term).toBe(2.52)
+    expect(remainingInstallmentPeriods(carried)).toBe(131)
   })
 
   test('writes the shortened term back in the unit the loan states it in', () => {
@@ -193,7 +213,7 @@ describe('getCurrentProfile', () => {
     expect(current.tangible_assets?.[0].value).toBe(300_000)
     expect(current.tangible_assets?.[0].outstanding_balance).toBe(197_487.47)
     // 300 monthly installments less the five that fell due: 295/12.
-    expect(current.tangible_assets?.[0].remaining_term).toBe(24.5833)
+    expect(current.tangible_assets?.[0].remaining_term).toBe(24.58)
   })
 
   test('floors a liability that pays off inside the window at zero', () => {
@@ -233,6 +253,114 @@ describe('getCurrentProfile', () => {
   })
 })
 
+describe('getCurrentProfile with transfers', () => {
+  // 600 a month out of cash and into the ETF: the shape the Claire example
+  // ships with, and the one every regular contribution takes.
+  const CONTRIBUTION: Transfer = {
+    id: 'tr1',
+    name: 'Monthly ETF contribution',
+    from_asset_id: 'cash',
+    to_asset_id: 'inv1',
+    amount: 600,
+    schedule: 'recurring',
+    frequency: 'monthly',
+    start: 'immediately',
+    end: 'never',
+    change_over_time: 'none',
+  }
+  const WITH_CONTRIBUTION: Profile = { ...PROFILE, transfers: [CONTRIBUTION] }
+
+  test('takes a recurring transfer out of the source and pays it into the destination', () => {
+    const current = getCurrentProfile(WITH_CONTRIBUTION, TODAY)
+    // Cash accrues 21,600 − 7,200 a year rather than the full 21,600 …
+    expect(current.cash_amount).toBe(22_175.36)
+    // … and the ETF gets the 7,200 on top of its own growth.
+    expect(current.investments?.[0].balance).toBe(108_451.46)
+  })
+
+  test('leaves net worth where it was, since the money only changed hands', () => {
+    const before = getCurrentProfile(PROFILE, TODAY)
+    const after = getCurrentProfile(WITH_CONTRIBUTION, TODAY)
+    const netWorth = (profile: Profile) =>
+      (profile.cash_amount ?? 0) + (profile.investments ?? []).reduce((s, i) => s + i.balance, 0)
+    expect(netWorth(after)).toBeCloseTo(netWorth(before), 2)
+  })
+
+  test('charges the exit fee on the way out, so the destination receives less', () => {
+    const profile: Profile = {
+      ...PROFILE,
+      investments: [{ ...PROFILE.investments![0], exit_fee: 10 }, PROFILE.investments![1]],
+      transfers: [{ ...CONTRIBUTION, from_asset_id: 'inv1', to_asset_id: 'cash', amount: 100 }],
+    }
+    const current = getCurrentProfile(profile, TODAY)
+    // The ETF loses the full 1,200 a year …
+    expect(current.investments?.[0].balance).toBe(104_265.83)
+    // … and cash receives 1,080 of it.
+    expect(current.cash_amount).toBe(26_301.19)
+  })
+
+  test('charges the upfront entry fee on the way in', () => {
+    const profile: Profile = {
+      ...PROFILE,
+      investments: [
+        { ...PROFILE.investments![0], entry_fee: 5, entry_fee_type: 'upfront' },
+        PROFILE.investments![1],
+      ],
+      transfers: [{ ...CONTRIBUTION, amount: 100 }],
+    }
+    const current = getCurrentProfile(profile, TODAY)
+    expect(current.cash_amount).toBe(25_165.09)
+    expect(current.investments?.[0].balance).toBe(105_431.83)
+  })
+
+  test('ignores a transfer whose window has already closed', () => {
+    const profile: Profile = {
+      ...PROFILE,
+      transfers: [{ ...CONTRIBUTION, end: 'at_specific_date', end_year: 2025, end_month: 12 }],
+    }
+    const current = getCurrentProfile(profile, TODAY)
+    expect(current.cash_amount).toBe(25_763.04)
+    expect(current.investments?.[0].balance).toBe(104_863.78)
+  })
+
+  test('ignores a one-time transfer, which is an event rather than a rate', () => {
+    const profile: Profile = {
+      ...PROFILE,
+      transfers: [
+        {
+          ...CONTRIBUTION,
+          schedule: 'one_time',
+          transaction_year: 2026,
+          transaction_month: 3,
+          frequency: undefined,
+        },
+      ],
+    }
+    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(25_763.04)
+  })
+
+  test('ignores a "transfer all" sweep, which has no yearly rate to accrue', () => {
+    const profile: Profile = {
+      ...PROFILE,
+      transfers: [{ ...CONTRIBUTION, transfer_all: true }],
+    }
+    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(25_763.04)
+  })
+
+  test('ignores a transfer pointing at something the profile no longer holds', () => {
+    const profile: Profile = { ...PROFILE, transfers: [{ ...CONTRIBUTION, to_asset_id: 'gone' }] }
+    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(25_763.04)
+  })
+
+  test('floors an investment drained by a transfer at zero', () => {
+    const profile: Profile = {
+      ...PROFILE,
+      transfers: [{ ...CONTRIBUTION, from_asset_id: 'inv2', to_asset_id: 'cash', amount: 100_000 }],
+    }
+    expect(getCurrentProfile(profile, TODAY).investments?.[1].balance).toBe(0)
+  })
+})
+
 describe('percentChange', () => {
   test('reports growth as a positive percentage', () => {
     expect(percentChange(100, 125)).toBe(25)
@@ -244,6 +372,14 @@ describe('percentChange', () => {
 
   test('is undefined when there is nothing to compare against', () => {
     expect(percentChange(0, 500)).toBeUndefined()
+  })
+
+  test('reads a debt getting smaller as an improvement', () => {
+    // Measured against the size of the baseline, not its sign: halving what is
+    // owed is a 50% move in the right direction, and dividing by the signed
+    // figure would render it in the destructive red.
+    expect(percentChange(-1_000, -500)).toBe(50)
+    expect(percentChange(-1_000, -1_500)).toBe(-50)
   })
 })
 
@@ -267,9 +403,9 @@ describe('withBalancesCarriedForward', () => {
   test('carries the elapsed installments out of the remaining term', () => {
     // The re-dated baseline says these balances are today's. The loan's term has
     // to move with them, or every save restarts its clock: five installments
-    // paid leave 31 of 36, i.e. 2.5833 years.
+    // paid leave 31 of 36, i.e. 2.58 years.
     const merged = withBalancesCarriedForward(PROFILE, { ...PROFILE }, TODAY)
-    expect(merged.liabilities?.[0].remaining_term).toBe(2.5833)
+    expect(merged.liabilities?.[0].remaining_term).toBe(2.58)
   })
 
   test('keeps a remaining term the edit changed exactly as given', () => {

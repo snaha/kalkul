@@ -279,7 +279,7 @@ describe('appStore.updateProfile on a stale profile', () => {
     })
 
     expect(appStore.profile.liabilities?.[0].outstanding_balance).toBe(5_117.68)
-    expect(appStore.profile.liabilities?.[0].remaining_term).toBe(2.5833)
+    expect(appStore.profile.liabilities?.[0].remaining_term).toBe(2.58)
   })
 
   it('leaves the stored balances and the baseline alone when no balance moved', () => {

@@ -4,6 +4,8 @@ import { DECIMAL_0, daysBetween } from '$lib/@snaha/kalkul-maths'
 import {
   INSTALLMENT_PERIODS_PER_YEAR,
   annualizedAmount,
+  applyEntryFee,
+  applyExitFee,
   effectiveInvestmentApy,
   financingToLiability,
   installmentPeriodRate,
@@ -79,6 +81,18 @@ function isActiveOn(flow: CashFlowWindow, asOf: Date, birthYear: number | undefi
   return now <= endsAt
 }
 
+/** The transfer endpoint standing for the profile's cash, as the editor writes it. */
+const CASH_ENDPOINT = 'cash'
+
+/**
+ * The yearly rate each balance is changing at on `asOf` — one entry for cash
+ * and one per investment that a transfer touches.
+ */
+interface AnnualFlows {
+  cash: Decimal
+  investments: Map<string, Decimal>
+}
+
 /**
  * Net yearly cash flow from everything actually running on `asOf`: take-home
  * income, less living expenses, less debt service on loans that still carry a
@@ -90,8 +104,7 @@ function isActiveOn(flow: CashFlowWindow, asOf: Date, birthYear: number | undefi
  * that starts next year must not top up today's cash, and an expense that
  * ended last spring must not keep draining it.
  */
-function netAnnualFlowOn(profile: Profile, asOf: Date): Decimal {
-  const birthYear = profile.birth_date ? yearOf(profile.birth_date) : undefined
+function netAnnualCashFlowOn(profile: Profile, asOf: Date, birthYear: number | undefined): Decimal {
   const active = <T extends CashFlowWindow>(items: T[] | undefined): T[] =>
     (items ?? []).filter((item) => isActiveOn(item, asOf, birthYear))
 
@@ -125,13 +138,95 @@ function netAnnualFlowOn(profile: Profile, asOf: Date): Decimal {
 }
 
 /**
- * Four decimals is how a partly elapsed term is written back. That is
- * comfortably finer than half an installment period at every supported
- * frequency (weekly stated in years is the tightest at 1/104), so the period
- * count round-trips exactly through `remainingInstallmentPeriods` — and the
- * figure stays readable in the financial-data form.
+ * The yearly rate at which every balance is moving on `asOf`: the cash flow
+ * above, plus the recurring transfers running that day.
+ *
+ * A regular contribution is the whole reason investments grow faster than
+ * their APY, so leaving transfers out would put the drift straight into the
+ * Quick update inputs — cash too high by every contribution made since the
+ * snapshot, the destination too low by the same — and the user would confirm
+ * that split as their own word on the balances.
+ *
+ * The source loses the full amount and the destination receives what is left
+ * after the exit fee on the way out and the upfront entry fee on the way in,
+ * charged with `plan-projection`'s own helpers so the two agree. Transfers
+ * only ever run between cash and investments, which is what the editor
+ * offers, so anything pointing elsewhere — including at an asset the profile
+ * no longer holds — is skipped rather than half-applied.
+ *
+ * Two kinds are deliberately left out, both because they are events rather
+ * than rates and this accrual only knows rates:
+ *
+ * - **One-time transfers**, which fire in a single month of the plan's
+ *   timeline.
+ * - **"Transfer all" sweeps**, whose amount is whatever the source holds at
+ *   the moment they execute.
+ *
+ * Growth within the window is ignored for the same reason it is on incomes and
+ * expenses: the amount running today is the rate for the whole of it.
  */
-const TERM_DECIMALS = 4
+function annualFlowsOn(profile: Profile, asOf: Date): AnnualFlows {
+  const birthYear = profile.birth_date ? yearOf(profile.birth_date) : undefined
+  const flows: AnnualFlows = {
+    cash: netAnnualCashFlowOn(profile, asOf, birthYear),
+    investments: new Map(),
+  }
+
+  const investmentsById = new Map((profile.investments ?? []).map((i) => [i.id, i]))
+  const isEndpoint = (id: string) => id === CASH_ENDPOINT || investmentsById.has(id)
+  const add = (id: string, amount: Decimal): void => {
+    if (id === CASH_ENDPOINT) flows.cash = flows.cash.plus(amount)
+    else flows.investments.set(id, (flows.investments.get(id) ?? DECIMAL_0).plus(amount))
+  }
+
+  for (const transfer of profile.transfers ?? []) {
+    if (transfer.schedule !== 'recurring' || transfer.transfer_all) continue
+    if (!isEndpoint(transfer.from_asset_id) || !isEndpoint(transfer.to_asset_id)) continue
+    // Recurring transfers carry the same start/end shape as incomes and
+    // expenses, with the projection's own defaults for the optional fields.
+    const running = isActiveOn(
+      {
+        start: transfer.start ?? 'immediately',
+        start_year: transfer.start_year,
+        start_month: transfer.start_month,
+        start_age: transfer.start_age,
+        end: transfer.end ?? 'never',
+        end_year: transfer.end_year,
+        end_month: transfer.end_month,
+        end_age: transfer.end_age,
+      },
+      asOf,
+      birthYear,
+    )
+    if (!running) continue
+
+    const gross = annualizedAmount(new Decimal(transfer.amount), transfer.frequency ?? 'monthly')
+    if (gross.isZero()) continue
+    add(transfer.from_asset_id, gross.negated())
+    add(
+      transfer.to_asset_id,
+      applyEntryFee(
+        investmentsById.get(transfer.to_asset_id),
+        applyExitFee(investmentsById.get(transfer.from_asset_id), gross),
+      ),
+    )
+  }
+
+  return flows
+}
+
+/**
+ * A partly elapsed term is written back to two decimals — the coarsest figure
+ * that still round-trips, and the one that reads as a number rather than as
+ * machine output in the financial-data form the user edits it in.
+ *
+ * `remainingInstallmentPeriods` rounds the term to a whole installment count,
+ * so writing it back only has to land within half a period of the exact value.
+ * Half a period is 1/104 of a year on the tightest supported combination
+ * (weekly installments on a term stated in years); two decimals are never more
+ * than 1/200 of a year out, so the count comes back unchanged.
+ */
+const TERM_DECIMALS = 2
 
 /**
  * A period count back in the unit the loan states its term in. Writing years
@@ -208,9 +303,10 @@ function amortizeLoan(liability: ProfileLiability, yearFraction: Decimal): Amort
  * Balances as they stand *today*, projected forward from the most recent
  * snapshot. The stored profile holds the values the user last confirmed; this
  * grows investments at their effective APY, accrues cash at the net of income,
- * expenses and debt service over the elapsed time, and pays down loan balances
- * by the installments that fell due in it — taking those installments off each
- * loan's remaining term as well, so its payoff date stays where it was.
+ * expenses and debt service over the elapsed time, moves the recurring
+ * transfers running in it between cash and the investments, and pays down loan
+ * balances by the installments that fell due — taking those installments off
+ * each loan's remaining term as well, so its payoff date stays where it was.
  *
  * Tangible asset *values* are returned untouched: they only change through an
  * explicit edit in financial data, and Quick update does not ask about them.
@@ -234,20 +330,28 @@ export function getCurrentProfile(profile: Profile, today: Date): Profile {
   // started or ended partway through the elapsed window counts for all of it or
   // none of it. Integrating piecewise over every window edge would buy little
   // for a figure the user sees and re-confirms in Quick update.
-  const netAnnualFlow = netAnnualFlowOn(profile, today)
+  const flows = annualFlowsOn(profile, today)
+  const elapsed = (annualFlow: Decimal | undefined) => (annualFlow ?? DECIMAL_0).mul(yearFraction)
 
   return {
     ...profile,
     cash_amount: Decimal.max(
-      new Decimal(profile.cash_amount ?? 0).plus(netAnnualFlow.mul(yearFraction)),
+      new Decimal(profile.cash_amount ?? 0).plus(elapsed(flows.cash)),
       DECIMAL_0,
     )
       .toDecimalPlaces(MONEY_DECIMALS)
       .toNumber(),
+    // Growth first, then the transfers over it — the order the projection's
+    // year loop uses, so a contribution does not compound in the same window
+    // it arrives in.
     investments: profile.investments?.map((investment) => ({
       ...investment,
-      balance: new Decimal(investment.balance)
-        .mul(effectiveInvestmentApy(investment).div(100).plus(1).pow(yearFraction))
+      balance: Decimal.max(
+        new Decimal(investment.balance)
+          .mul(effectiveInvestmentApy(investment).div(100).plus(1).pow(yearFraction))
+          .plus(elapsed(flows.investments.get(investment.id))),
+        DECIMAL_0,
+      )
         .toDecimalPlaces(MONEY_DECIMALS)
         .toNumber(),
     })),
@@ -394,8 +498,14 @@ export function withBalancesCarriedForward(
 /**
  * Change from `previous` to `current` as a percentage, or undefined when there
  * is no baseline to compare against.
+ *
+ * Measured against the *size* of the baseline, so the sign of the result is
+ * the direction the figure moved rather than the direction it moved relative
+ * to which side of zero it started on. Dividing by a signed baseline would
+ * report a debt shrinking from −1,000 to −500 as −50% and colour a repayment
+ * as a loss.
  */
 export function percentChange(previous: number, current: number): number | undefined {
   if (previous === 0) return undefined
-  return ((current - previous) / previous) * 100
+  return ((current - previous) / Math.abs(previous)) * 100
 }

@@ -19,10 +19,9 @@
 
   interface Props {
     open: boolean
-    onOpenChange: (open: boolean) => void
   }
 
-  let { open = $bindable(), onOpenChange }: Props = $props()
+  let { open = $bindable() }: Props = $props()
 
   const uid = $props.id()
 
@@ -50,7 +49,7 @@
   })
 
   function close() {
-    onOpenChange(false)
+    open = false
   }
 
   function handleCreate() {
@@ -65,7 +64,7 @@
   }
 </script>
 
-<Dialog.Root bind:open {onOpenChange}>
+<Dialog.Root bind:open>
   <Dialog.Content showCloseButton={false} class="gap-0 p-0 sm:max-w-xl">
     <Dialog.Header class="flex flex-row items-center border-b p-4">
       <Dialog.Title class="flex-1 text-base font-medium">
