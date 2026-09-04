@@ -4,12 +4,14 @@
 
   import storageKeys from '$lib/storage-keys'
   import { appStore } from '$lib/stores/app.svelte'
+  import { themeStore } from '$lib/stores/theme.svelte'
 
   import '../app.css'
 
   let { children } = $props()
 
   let cleanupSync: (() => void) | undefined
+  let cleanupTheme: (() => void) | undefined
 
   $effect(() => {
     appStore.browserLocale = $locale ?? undefined
@@ -31,10 +33,12 @@
     // Data is loaded synchronously in +layout.ts before render; here we only
     // wire up cross-tab sync, which needs the browser `window`.
     cleanupSync = appStore.startSync()
+    cleanupTheme = themeStore.init()
   })
 
   onDestroy(() => {
     cleanupSync?.()
+    cleanupTheme?.()
   })
 </script>
 
