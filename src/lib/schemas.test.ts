@@ -763,3 +763,30 @@ describe('storedDataSchema golden fixture', () => {
     })
   })
 })
+
+describe('profileSchema tax rules', () => {
+  it('round-trips investment and tangible asset tax rules, including half-filled ones', () => {
+    const profile = {
+      name: 'Test',
+      email: '',
+      investment_tax_rules: [
+        { id: 'r1', rate: 15, holding_period: 'less_than', holding_years: 3 },
+        { id: 'r2', holding_period: 'more_than' },
+      ],
+      tangible_asset_tax_rules: [
+        { id: 'r3', rate: 0, holding_period: 'more_than', holding_years: 5 },
+      ],
+    }
+    expect(profileSchema.parse(profile)).toEqual(profile)
+  })
+
+  it('rejects an unknown holding period', () => {
+    expect(() =>
+      profileSchema.parse({
+        name: 'Test',
+        email: '',
+        investment_tax_rules: [{ id: 'r1', holding_period: 'between' }],
+      }),
+    ).toThrow()
+  })
+})

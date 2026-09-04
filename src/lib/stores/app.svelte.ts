@@ -36,6 +36,7 @@ function enrichProfile({
   location,
   currency,
   language,
+  terms_accepted,
   cash_amount,
   has_investments,
   has_tangible_assets,
@@ -46,6 +47,8 @@ function enrichProfile({
   incomes,
   expenses,
   transfers,
+  investment_tax_rules,
+  tangible_asset_tax_rules,
 }: Profile): ProfileStore {
   return {
     name,
@@ -54,6 +57,7 @@ function enrichProfile({
     location,
     currency,
     language,
+    terms_accepted,
     cash_amount,
     has_investments,
     has_tangible_assets,
@@ -64,6 +68,8 @@ function enrichProfile({
     incomes,
     expenses,
     transfers,
+    investment_tax_rules,
+    tangible_asset_tax_rules,
     get birthDate() {
       return birth_date ? parseDateOnly(birth_date) : undefined
     },
@@ -78,6 +84,7 @@ function enrichProfile({
         location,
         currency,
         language,
+        terms_accepted,
         cash_amount,
         has_investments,
         has_tangible_assets,
@@ -88,6 +95,8 @@ function enrichProfile({
         incomes,
         expenses,
         transfers,
+        investment_tax_rules,
+        tangible_asset_tax_rules,
       }
     },
   }

@@ -405,6 +405,38 @@
         "title": "Pravidelné převody",
         "description": "Pravidelné vklady nebo výběry mezi vašimi účty a aktivy — jako měsíční investiční příspěvky."
       }
+    },
+    "settings": {
+      "title": "Nastavení",
+      "close": "Zavřít",
+      "nav": {
+        "backup": "Zálohování",
+        "appearance": "Vzhled",
+        "localisation": "Lokalizace",
+        "taxRules": "Daňová pravidla",
+        "yourDetails": "Vaše údaje"
+      },
+      "backup": {
+        "export": "Exportovat do souboru",
+        "exportDescription": "Uložte svá aktuální data Kalkul do souboru pro zálohu nebo přenos na jiné zařízení.",
+        "import": "Importovat ze souboru",
+        "importDescription": "Načtěte dříve exportovaný soubor Kalkul. Tím nahradíte svá aktuální data."
+      },
+      "taxRules": {
+        "description": "Nastavte výchozí daňová pravidla pro prodej investic nebo hmotného majetku. Použijí se automaticky, pokud nebudou přepsána.",
+        "investments": "Pro investice",
+        "tangibleAssets": "Pro hmotný majetek",
+        "capitalGainsTax": "Daň z kapitálových výnosů",
+        "if": "pokud",
+        "holdingPeriodIs": "Doba držení je",
+        "moreThan": "Více než",
+        "lessThan": "Méně než",
+        "years": "let",
+        "holdingYears": "Doba držení v letech",
+        "addRule": "Přidat daňové pravidlo",
+        "removeRule": "Odebrat daňové pravidlo",
+        "cgtHelp": "Daň z kapitálových výnosů (CGT) je daň ze zisku z prodeje majetku – například akcií, dluhopisů, nemovitostí nebo sběratelských předmětů – jehož hodnota vzrostla. Platí se pouze při prodeji (realizaci), nikoli během držení. Sazby obvykle závisí na době držení (krátkodobé vs. dlouhodobé) a na výši příjmu vlastníka."
+      }
     }
   },
   "common": {
@@ -421,15 +453,10 @@
   "theme": {
     "light": "Světlý",
     "dark": "Tmavý",
-    "system": "Systém"
+    "system": "Automaticky"
   },
   "navbar": {
     "menu": {
-      "exportData": "Exportovat data",
-      "importData": "Importovat data",
-      "reportBug": "Nahlásit chybu nebo zpětnou vazbu",
-      "visitGithub": "Navštivte naši stránku na GitHubu",
-      "joinDiscord": "Připojte se na náš Discord server",
       "usageLicense": "Přečíst si podmínky použití a licenci"
     },
     "import": {
@@ -456,7 +483,9 @@
       "licenseName": "licencí AGPL-3.0",
       "openSourceSuffix": ". Můžete jej volně používat, upravovat a distribuovat za stejných podmínek.",
       "visitGithub": "Navštívit náš GitHub"
-    }
+    },
+    "help": "Nápověda",
+    "settings": "Nastavení"
   },
   "dev": {
     "confirm": {

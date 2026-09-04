@@ -8,11 +8,12 @@
 
   import ImportDialog from '$lib/components/import-dialog.svelte'
   import LicenseDialog from '$lib/components/license-dialog.svelte'
-  import SelectField, { type SelectFieldItem } from '$lib/components/select-field.svelte'
+  import SelectField from '$lib/components/select-field.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Checkbox } from '$lib/components/ui/checkbox'
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
+  import { COUNTRY_CURRENCY_MAP, getCountryItems, getLanguageItems } from '$lib/profile-options'
   import routes from '$lib/routes'
   import type { Profile } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
@@ -47,37 +48,16 @@
   // would leak the OS locale instead).
   const months = $derived(getMonthOptions($locale ?? undefined))
 
-  const languageItems = $derived<SelectFieldItem<'en' | 'cs'>[]>([
-    { value: 'en', label: $_('page.setup.aboutYou.languageEnglish') },
-    { value: 'cs', label: $_('page.setup.aboutYou.languageCzech') },
-  ])
-
-  const countryCurrencyMap: Record<string, string> = {
-    CZ: 'CZK',
-    HU: 'HUF',
-    SK: 'EUR',
-    FR: 'EUR',
-    other: 'EUR',
-  }
-
-  let countries = $derived([
-    { value: 'CZ', label: $_('common.countries.czechRepublic') },
-    { value: 'SK', label: $_('common.countries.slovakia') },
-    { value: 'HU', label: $_('common.countries.hungary') },
-    { value: 'FR', label: $_('common.countries.france') },
-    { value: 'other', label: $_('common.countries.other') },
-  ])
+  const languageItems = $derived(getLanguageItems($_))
+  const countries = $derived(getCountryItems($_))
 
   let userChangedCurrency = $state(false)
 
-  // Map country -> currency only when the user actually changes the country.
-  // The previous $effect also ran on mount, where userChangedCurrency is
-  // always freshly false — so navigating Back to this page overwrote the
-  // saved currency with the country default (issue #38: "currency reverts
-  // back to HUF").
+  // Map country -> currency only when the user actually changes the country
+  // (see COUNTRY_CURRENCY_MAP for why this must not be an $effect).
   function handleLocationChange(value: string) {
     if (userChangedCurrency) return
-    const mapped = countryCurrencyMap[value]
+    const mapped = COUNTRY_CURRENCY_MAP[value]
     if (mapped) currency = mapped
   }
 

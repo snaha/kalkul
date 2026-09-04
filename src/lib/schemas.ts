@@ -516,6 +516,20 @@ export const transferSchema = z
     }
   })
 
+export const holdingPeriodSchema = z.enum(['more_than', 'less_than'])
+
+// Default capital gains tax applied when an investment or tangible asset is
+// sold: `rate` % if the holding period is more/less than `holding_years`.
+// Rate and years are optional so a half-filled row on the Settings page can
+// be persisted as-is; the projection engine ignores incomplete rules (and
+// does not apply tax rules at all yet).
+export const taxRuleSchema = z.object({
+  id: z.string(),
+  rate: z.number().optional(),
+  holding_period: holdingPeriodSchema,
+  holding_years: z.number().optional(),
+})
+
 export const profileSchema = z.object({
   name: z.string(),
   email: z.string(),
@@ -538,6 +552,8 @@ export const profileSchema = z.object({
   incomes: z.array(incomeSchema).optional(),
   expenses: z.array(expenseSchema).optional(),
   transfers: z.array(transferSchema).optional(),
+  investment_tax_rules: z.array(taxRuleSchema).optional(),
+  tangible_asset_tax_rules: z.array(taxRuleSchema).optional(),
 })
 
 export const portfolioSchema = z.object({
@@ -587,3 +603,5 @@ export type TangibleAssetStatus = z.infer<typeof tangibleAssetStatusSchema>
 export type RemainingTermUnit = z.infer<typeof remainingTermUnitSchema>
 export type PlanStartType = z.infer<typeof planStartTypeSchema>
 export type PlanEndType = z.infer<typeof planEndTypeSchema>
+export type HoldingPeriod = z.infer<typeof holdingPeriodSchema>
+export type TaxRule = z.infer<typeof taxRuleSchema>

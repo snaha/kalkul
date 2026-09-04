@@ -17,6 +17,7 @@ export default {
   FINANCIAL_DATA_EXPENSES: '/financial-data/expenses',
   FINANCIAL_DATA_TRANSFERS: '/financial-data/transfers',
   PLAN_VIEW: '/plan',
+  SETTINGS: '/settings',
   DEV: '/dev',
 } as const
 
