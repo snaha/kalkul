@@ -4,6 +4,7 @@
 
   import storageKeys from '$lib/storage-keys'
   import { appStore } from '$lib/stores/app.svelte'
+  import { syncStore } from '$lib/stores/sync.svelte'
   import { themeStore } from '$lib/stores/theme.svelte'
 
   import '../app.css'
@@ -12,6 +13,7 @@
 
   let cleanupSync: (() => void) | undefined
   let cleanupTheme: (() => void) | undefined
+  let cleanupRemote: (() => void) | undefined
 
   $effect(() => {
     appStore.browserLocale = $locale ?? undefined
@@ -34,11 +36,13 @@
     // wire up cross-tab sync, which needs the browser `window`.
     cleanupSync = appStore.startSync()
     cleanupTheme = themeStore.init()
+    cleanupRemote = syncStore.init()
   })
 
   onDestroy(() => {
     cleanupSync?.()
     cleanupTheme?.()
+    cleanupRemote?.()
   })
 </script>
 

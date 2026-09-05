@@ -27,6 +27,7 @@ pnpm dev
 pnpm dev              # Start development server
 pnpm build            # Build for production
 pnpm preview          # Preview production build
+pnpm server           # Local AI relay (see "AI access via MCP")
 
 pnpm check            # TypeScript type checking
 pnpm lint             # Run linting
@@ -36,6 +37,23 @@ pnpm test             # Run the unit test suite once
 pnpm test:unit        # Run unit tests in watch mode (Vitest)
 pnpm test:unit run    # Run unit tests once
 ```
+
+## AI access via MCP
+
+The browser tab can run an MCP server (`src/lib/mcp/server.ts`) whose tools read and change the
+data through the app store. A small local relay (`server/index.ts`) forwards JSON-RPC between an
+MCP client and the tab; it holds no data.
+
+```bash
+pnpm server                                   # relay on http://127.0.0.1:3001
+claude mcp add --transport http kalkul http://127.0.0.1:3001/mcp
+```
+
+Then open the app, go to Settings → MCP server and click Connect. Tools only answer while such a
+tab is open. This also works on https://kalkul.app with the relay running on your machine, in
+Chrome and Firefox (Safari blocks `ws://localhost` from https pages). The relay accepts WebSocket
+connections only from localhost and kalkul.app; set `KALKUL_ORIGINS` (comma-separated) to allow
+more, e.g. a PR preview.
 
 ## Project Structure
 

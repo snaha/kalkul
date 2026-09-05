@@ -24,6 +24,7 @@
   import routes from '$lib/routes'
   import type { HoldingPeriod, Profile, TaxRule } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
+  import { syncStore } from '$lib/stores/sync.svelte'
   import { type Theme, themeStore } from '$lib/stores/theme.svelte'
   import {
     CURRENCY_OPTIONS,
@@ -38,14 +39,28 @@
   const uid = $props.id()
 
   // --- Sidebar ---
-  type SectionId = 'backup' | 'appearance' | 'localisation' | 'taxRules' | 'yourDetails'
-  const sections: SectionId[] = ['backup', 'appearance', 'localisation', 'taxRules', 'yourDetails']
+  type SectionId =
+    | 'backup'
+    | 'appearance'
+    | 'localisation'
+    | 'taxRules'
+    | 'yourDetails'
+    | 'mcpServer'
+  const sections: SectionId[] = [
+    'backup',
+    'appearance',
+    'localisation',
+    'taxRules',
+    'yourDetails',
+    'mcpServer',
+  ]
   const navLabels = $derived<Record<SectionId, string>>({
     backup: $_('page.settings.nav.backup'),
     appearance: $_('page.settings.nav.appearance'),
     localisation: $_('page.settings.nav.localisation'),
     taxRules: $_('page.settings.nav.taxRules'),
     yourDetails: $_('page.settings.nav.yourDetails'),
+    mcpServer: $_('page.settings.nav.mcpServer'),
   })
   let active = $state<SectionId>('backup')
 
@@ -57,6 +72,20 @@
   }
 
   let importOpen = $state(false)
+
+  // --- MCP server ---
+  // The field is a draft; the store only changes on Connect / Disconnect.
+  let syncUrlDraft = $state('ws://localhost:3001/ws')
+  // Seed the draft from the stored URL; keep it after Disconnect so reconnecting is one click.
+  // A writable $derived would reset the draft to '' when the store empties.
+  $effect(() => {
+    if (syncStore.url) syncUrlDraft = syncStore.url
+  })
+  const syncDirty = $derived(syncUrlDraft.trim() !== syncStore.url)
+  function connectSync(e: SubmitEvent) {
+    e.preventDefault()
+    syncStore.setUrl(syncUrlDraft.trim())
+  }
 
   // --- Appearance ---
   const themeItems = $derived<SelectFieldItem<Theme>[]>([
@@ -378,6 +407,52 @@
               {/if}
             </p>
           </div>
+        </div>
+      </section>
+
+      <Separator class="max-w-[576px]" />
+
+      <!-- MCP server -->
+      <section id="{uid}-mcpServer" class="flex w-full max-w-[576px] scroll-mt-8 flex-col gap-4">
+        <div class="flex flex-col gap-1">
+          <h2 class="text-xl font-bold text-foreground">{navLabels.mcpServer}</h2>
+          <p class="text-sm text-muted-foreground">{$_('page.settings.mcpServer.description')}</p>
+        </div>
+        <div class="flex flex-col gap-2">
+          <Label for="{uid}-sync-url">{$_('page.settings.mcpServer.url')}</Label>
+          <form class="flex gap-2" onsubmit={connectSync}>
+            <Input id="{uid}-sync-url" bind:value={syncUrlDraft} />
+            {#if syncDirty || !syncStore.url || syncStore.status === 'replaced'}
+              <Button type="submit" disabled={!syncUrlDraft.trim()}>
+                {$_('page.settings.mcpServer.connect')}
+              </Button>
+            {:else}
+              <Button type="button" variant="outline" onclick={() => syncStore.setUrl('')}>
+                {$_('page.settings.mcpServer.disconnect')}
+              </Button>
+            {/if}
+          </form>
+          <p class="flex items-center gap-2 text-sm text-muted-foreground">
+            <span
+              class={cn(
+                'size-2 rounded-full',
+                !syncStore.url
+                  ? 'bg-muted-foreground/40'
+                  : syncStore.status === 'connected'
+                    ? 'bg-green-500'
+                    : syncStore.status === 'replaced'
+                      ? 'bg-amber-500'
+                      : 'bg-red-500',
+              )}
+            ></span>
+            {!syncStore.url
+              ? $_('page.settings.mcpServer.off')
+              : syncStore.status === 'connected'
+                ? $_('page.settings.mcpServer.connected')
+                : syncStore.status === 'replaced'
+                  ? $_('page.settings.mcpServer.replaced')
+                  : $_('page.settings.mcpServer.disconnected')}
+          </p>
         </div>
       </section>
     </div>

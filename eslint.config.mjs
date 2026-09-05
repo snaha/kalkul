@@ -45,7 +45,9 @@ export default typescriptEslint.config(
       'no-restricted-syntax': [
         'error',
         {
-          selector: 'ImportDeclaration[source.value=/\\/.*\\.(?!(svelte|svg|json|css)$)\\w+$/]',
+          // @modelcontextprotocol/sdk exports `./*` -> `./dist/esm/*` and needs the .js suffix.
+          selector:
+            'ImportDeclaration[source.value=/^(?!@modelcontextprotocol\\/sdk\\/).*\\/.*\\.(?!(svelte|svg|json|css)$)\\w+$/]',
           message:
             'Unnecessary file extension in import. Only .svelte, .svg, .json, and .css extensions are allowed.',
         },

@@ -414,7 +414,18 @@
         "appearance": "Appearance",
         "localisation": "Localisation",
         "taxRules": "Tax rules",
-        "yourDetails": "Your details"
+        "yourDetails": "Your details",
+        "mcpServer": "MCP server"
+      },
+      "mcpServer": {
+        "url": "Relay address",
+        "description": "Let an AI assistant such as Claude read and update your plans through the Model Context Protocol (MCP). Start the relay on this computer with `pnpm server`, connect this tab, then add http://127.0.0.1:3001/mcp to your AI client. Your data stays on your computer. Works on kalkul.app too, as long as the relay runs on this computer.",
+        "connect": "Connect",
+        "disconnect": "Disconnect",
+        "off": "Off",
+        "connected": "Connected",
+        "disconnected": "Disconnected",
+        "replaced": "Another tab took over. Click Connect to use this tab."
       },
       "backup": {
         "export": "Export to file",
