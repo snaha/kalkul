@@ -414,7 +414,17 @@
         "appearance": "Vzhled",
         "localisation": "Lokalizace",
         "taxRules": "Daňová pravidla",
-        "yourDetails": "Vaše údaje"
+        "yourDetails": "Vaše údaje",
+        "localServer": "Místní server"
+      },
+      "localServer": {
+        "url": "Adresa serveru",
+        "description": "Připojí tuto záložku k místnímu Kalkul relay (pnpm server), aby AI agent mohl číst a měnit vaše data přes MCP. Pro vypnutí nechte prázdné.",
+        "connect": "Připojit",
+        "disconnect": "Odpojit",
+        "off": "Vypnuto",
+        "connected": "Připojeno",
+        "disconnected": "Odpojeno"
       },
       "backup": {
         "export": "Exportovat do souboru",

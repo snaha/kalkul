@@ -24,6 +24,7 @@
   import routes from '$lib/routes'
   import type { HoldingPeriod, Profile, TaxRule } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
+  import { syncStore } from '$lib/stores/sync.svelte'
   import { type Theme, themeStore } from '$lib/stores/theme.svelte'
   import {
     CURRENCY_OPTIONS,
@@ -38,14 +39,28 @@
   const uid = $props.id()
 
   // --- Sidebar ---
-  type SectionId = 'backup' | 'appearance' | 'localisation' | 'taxRules' | 'yourDetails'
-  const sections: SectionId[] = ['backup', 'appearance', 'localisation', 'taxRules', 'yourDetails']
+  type SectionId =
+    | 'backup'
+    | 'appearance'
+    | 'localisation'
+    | 'taxRules'
+    | 'yourDetails'
+    | 'localServer'
+  const sections: SectionId[] = [
+    'backup',
+    'appearance',
+    'localisation',
+    'taxRules',
+    'yourDetails',
+    'localServer',
+  ]
   const navLabels = $derived<Record<SectionId, string>>({
     backup: $_('page.settings.nav.backup'),
     appearance: $_('page.settings.nav.appearance'),
     localisation: $_('page.settings.nav.localisation'),
     taxRules: $_('page.settings.nav.taxRules'),
     yourDetails: $_('page.settings.nav.yourDetails'),
+    localServer: $_('page.settings.nav.localServer'),
   })
   let active = $state<SectionId>('backup')
 
@@ -57,6 +72,21 @@
   }
 
   let importOpen = $state(false)
+
+  // --- Local server ---
+  // The field is a draft; the store only changes on Connect / Disconnect.
+  let syncUrlDraft = $state('ws://localhost:3001/ws')
+  // Seed the draft from the stored URL; keep it after Disconnect so reconnecting is one click.
+  // A writable $derived would reset the draft to '' when the store empties.
+  // eslint-disable-next-line svelte/prefer-writable-derived
+  $effect(() => {
+    if (syncStore.url) syncUrlDraft = syncStore.url
+  })
+  const syncDirty = $derived(syncUrlDraft.trim() !== syncStore.url)
+  function connectSync(e: SubmitEvent) {
+    e.preventDefault()
+    syncStore.setUrl(syncUrlDraft.trim())
+  }
 
   // --- Appearance ---
   const themeItems = $derived<SelectFieldItem<Theme>[]>([
@@ -378,6 +408,48 @@
               {/if}
             </p>
           </div>
+        </div>
+      </section>
+
+      <Separator class="max-w-[576px]" />
+
+      <!-- Local server (AI relay) -->
+      <section id="{uid}-localServer" class="flex w-full max-w-[576px] scroll-mt-8 flex-col gap-4">
+        <div class="flex flex-col gap-1">
+          <h2 class="text-xl font-bold text-foreground">{navLabels.localServer}</h2>
+          <p class="text-sm text-muted-foreground">{$_('page.settings.localServer.description')}</p>
+        </div>
+        <div class="flex flex-col gap-2">
+          <Label for="{uid}-sync-url">{$_('page.settings.localServer.url')}</Label>
+          <form class="flex gap-2" onsubmit={connectSync}>
+            <Input id="{uid}-sync-url" bind:value={syncUrlDraft} />
+            {#if syncDirty || !syncStore.url}
+              <Button type="submit" disabled={!syncUrlDraft.trim()}>
+                {$_('page.settings.localServer.connect')}
+              </Button>
+            {:else}
+              <Button type="button" variant="outline" onclick={() => syncStore.setUrl('')}>
+                {$_('page.settings.localServer.disconnect')}
+              </Button>
+            {/if}
+          </form>
+          <p class="flex items-center gap-2 text-sm text-muted-foreground">
+            <span
+              class={cn(
+                'size-2 rounded-full',
+                !syncStore.url
+                  ? 'bg-muted-foreground/40'
+                  : syncStore.status === 'connected'
+                    ? 'bg-green-500'
+                    : 'bg-red-500',
+              )}
+            ></span>
+            {!syncStore.url
+              ? $_('page.settings.localServer.off')
+              : syncStore.status === 'connected'
+                ? $_('page.settings.localServer.connected')
+                : $_('page.settings.localServer.disconnected')}
+          </p>
         </div>
       </section>
     </div>

@@ -414,7 +414,17 @@
         "appearance": "Appearance",
         "localisation": "Localisation",
         "taxRules": "Tax rules",
-        "yourDetails": "Your details"
+        "yourDetails": "Your details",
+        "localServer": "Local server"
+      },
+      "localServer": {
+        "url": "Server URL",
+        "description": "Connect this tab to the local Kalkul relay (pnpm server) so an AI agent can read and change your data through MCP. Leave empty to turn it off.",
+        "connect": "Connect",
+        "disconnect": "Disconnect",
+        "off": "Off",
+        "connected": "Connected",
+        "disconnected": "Disconnected"
       },
       "backup": {
         "export": "Export to file",

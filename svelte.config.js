@@ -26,7 +26,9 @@ const config = {
         'script-src': ['self'],
         'style-src': ['self', 'unsafe-inline'],
         'img-src': ['self', 'data:'],
-        'connect-src': ['self'],
+        // Loopback websockets only: the optional local AI relay (server/index.ts).
+        // A malicious script still cannot reach a remote host.
+        'connect-src': ['self', 'ws://localhost:*', 'ws://127.0.0.1:*'],
         'object-src': ['none'],
         'base-uri': ['self'],
       },
