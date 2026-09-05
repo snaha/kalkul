@@ -425,7 +425,11 @@
         "off": "Vypnuto",
         "connected": "Připojeno",
         "disconnected": "Odpojeno",
-        "replaced": "Převzala to jiná záložka. Pro použití této záložky klikněte na Připojit."
+        "replaced": "Převzala to jiná záložka. Pro použití této záložky klikněte na Připojit.",
+        "webMcp": "Zpřístupnit nástroje agentům v prohlížeči (WebMCP)",
+        "webMcpDescription": "Umožní AI agentům zabudovaným v prohlížeči, například Gemini v Chromu, číst a upravovat vaše plány v této záložce. Nic neopustí prohlížeč, pokud to takový agent neodešle. Vyžaduje prohlížeč s podporou WebMCP.",
+        "webMcpNotSupported": "Tento prohlížeč to nepodporuje",
+        "webMcpExposed": "Zpřístupněno agentům v prohlížeči"
       },
       "backup": {
         "export": "Exportovat do souboru",

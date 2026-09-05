@@ -425,7 +425,11 @@
         "off": "Off",
         "connected": "Connected",
         "disconnected": "Disconnected",
-        "replaced": "Another tab took over. Click Connect to use this tab."
+        "replaced": "Another tab took over. Click Connect to use this tab.",
+        "webMcp": "Expose tools to browser agents (WebMCP)",
+        "webMcpDescription": "Lets AI agents built into the browser, such as Gemini in Chrome, read and update your plans on this tab. Nothing leaves the browser unless such an agent sends it. Needs a browser with WebMCP support.",
+        "webMcpNotSupported": "Not supported by this browser",
+        "webMcpExposed": "Exposed to browser agents"
       },
       "backup": {
         "export": "Export to file",
