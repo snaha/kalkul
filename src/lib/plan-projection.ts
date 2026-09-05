@@ -690,6 +690,16 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   const invBalancesNominal = new Map<string, Decimal>(
     investments.map((i) => [i.id, heldAtPlanStart(i.id) ? new Decimal(i.balance) : DECIMAL_0]),
   )
+  // Cost basis per investment, for capital gains tax on withdrawals. Money
+  // paid in (initial balance, contributions, the synthetic buy) is basis;
+  // growth is not. A withdrawal takes basis and gain in the same proportion
+  // as the balance holds them (average-cost method).
+  // ponytail: the initial balance counts fully as basis — gains made before
+  // the plan start are untaxed; add a cost_basis field to investments if that
+  // ever matters.
+  const invBasisNominal = new Map<string, Decimal>(
+    investments.map((i) => [i.id, heldAtPlanStart(i.id) ? new Decimal(i.balance) : DECIMAL_0]),
+  )
   // A not-yet-purchased asset starts at 0; its synthetic buy (plus the
   // lender-funded part, below) brings it to full value in the purchase year.
   const tangValuesNominal = new Map<string, Decimal>(
@@ -830,7 +840,12 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       if (id === 'cash') {
         cashNominal = cashNominal.minus(amount)
       } else if (invBalancesNominal.has(id)) {
-        invBalancesNominal.set(id, (invBalancesNominal.get(id) ?? DECIMAL_0).minus(amount))
+        const balance = invBalancesNominal.get(id) ?? DECIMAL_0
+        const basis = invBasisNominal.get(id) ?? DECIMAL_0
+        if (balance.greaterThan(0)) {
+          invBasisNominal.set(id, basis.mul(DECIMAL_1.minus(amount.div(balance))))
+        }
+        invBalancesNominal.set(id, balance.minus(amount))
       } else if (tangValuesNominal.has(id)) {
         tangValuesNominal.set(id, (tangValuesNominal.get(id) ?? DECIMAL_0).minus(amount))
       }
@@ -841,9 +856,31 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
         cashNominal = cashNominal.plus(amount)
       } else if (invBalancesNominal.has(id)) {
         invBalancesNominal.set(id, (invBalancesNominal.get(id) ?? DECIMAL_0).plus(amount))
+        invBasisNominal.set(id, (invBasisNominal.get(id) ?? DECIMAL_0).plus(amount))
       } else if (tangValuesNominal.has(id)) {
         tangValuesNominal.set(id, (tangValuesNominal.get(id) ?? DECIMAL_0).plus(amount))
       }
+    }
+
+    // Capital gains tax on the gain share of a withdrawal from an investment,
+    // at the rate of the first profile rule whose holding period matches the
+    // years the investment has been held in this plan. No matching rule, no
+    // gain, or a loss → no tax. Must run before withdraw() moves the basis.
+    // Tangible assets are not taxed here (tangible_asset_tax_rules) — that
+    // belongs to the selling flow (#223).
+    function capitalGainsTax(fromId: string, amount: Decimal): Decimal {
+      if (!invBalancesNominal.has(fromId)) return DECIMAL_0
+      const balance = invBalancesNominal.get(fromId) ?? DECIMAL_0
+      const basis = invBasisNominal.get(fromId) ?? DECIMAL_0
+      if (balance.lessThanOrEqualTo(basis) || balance.isZero()) return DECIMAL_0
+      const heldYears = year - (assetWindows.get(fromId)?.startYear ?? startYear)
+      const rule = (profile.investment_tax_rules ?? []).find((r) => {
+        const threshold = r.holding_years ?? 0
+        return r.holding_period === 'more_than' ? heldYears > threshold : heldYears < threshold
+      })
+      if (!rule?.rate) return DECIMAL_0
+      const gain = amount.mul(balance.minus(basis).div(balance))
+      return gain.mul(new Decimal(rule.rate).div(100))
     }
 
     // Exit fee bites the withdrawal before it lands at the destination —
@@ -919,12 +956,14 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
         }
       }
       // Source loses the full `amount`. Destination receives what's left
-      // after the exit fee on the way out and the upfront entry fee on the
-      // way in. Difference is lost to the broker.
+      // after the exit fee and capital gains tax on the way out and the
+      // upfront entry fee on the way in. Difference is lost to the broker
+      // and the tax office.
+      const tax = capitalGainsTax(transfer.from_asset_id, amount)
       withdraw(transfer.from_asset_id, amount)
       const netToDestination = applyEntryFee(
         transfer.to_asset_id,
-        applyExitFee(transfer.from_asset_id, amount),
+        Decimal.max(applyExitFee(transfer.from_asset_id, amount).minus(tax), DECIMAL_0),
       )
       deposit(transfer.to_asset_id, netToDestination)
     }

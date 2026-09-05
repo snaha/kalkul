@@ -2886,3 +2886,108 @@ describe('getYearlyPlanProjection', () => {
     expect(saleYear?.cash).toBeCloseTo(100_000 / 1.02 ** 2, 4)
   })
 })
+
+describe('capital gains tax on withdrawals', () => {
+  // Investment doubles in year 2 (apy 100 %), so half of any withdrawal is gain.
+  const doubling: ProfileInvestment[] = [{ id: 'i1', name: 'Fund', balance: 1000, apy: 100 }]
+  function sell(amount: number, year: number, id = 't1'): Transfer {
+    return {
+      id,
+      name: 'Sell',
+      from_asset_id: 'i1',
+      to_asset_id: 'cash',
+      amount,
+      schedule: 'one_time',
+      transaction_year: year,
+      transaction_month: 1,
+    }
+  }
+
+  it('taxes only the gain share of a withdrawal at the matching rule rate', () => {
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({
+        cash_amount: 0,
+        investments: doubling,
+        transfers: [sell(1000, 2026)],
+        investment_tax_rules: [{ id: 'r1', rate: 30, holding_period: 'more_than' }],
+      }),
+    )
+    // Value 2000, basis 1000 → 50 % gain. 1000 sold: 500 gain × 30 % = 150 tax.
+    expect(result[1].investments).toBeCloseTo(1000, 6)
+    expect(result[1].cash).toBeCloseTo(850, 6)
+  })
+
+  it('applies no tax without rules', () => {
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ cash_amount: 0, investments: doubling, transfers: [sell(1000, 2026)] }),
+    )
+    expect(result[1].cash).toBeCloseTo(1000, 6)
+  })
+
+  it('counts contributions as cost basis', () => {
+    const investments: ProfileInvestment[] = [{ id: 'i1', name: 'Fund', balance: 1000, apy: 0 }]
+    const buy: Transfer = {
+      id: 'b1',
+      name: 'Buy',
+      from_asset_id: 'cash',
+      to_asset_id: 'i1',
+      amount: 500,
+      schedule: 'one_time',
+      transaction_year: 2025,
+      transaction_month: 1,
+    }
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({
+        cash_amount: 500,
+        investments,
+        transfers: [buy, sell(1500, 2026)],
+        investment_tax_rules: [{ id: 'r1', rate: 30, holding_period: 'more_than' }],
+      }),
+    )
+    // Basis 1500 = value 1500 → no gain, no tax.
+    expect(result[1].cash).toBeCloseTo(1500, 6)
+    expect(result[1].investments).toBeCloseTo(0, 6)
+  })
+
+  it('picks the rule whose holding period matches the years held', () => {
+    const investments: ProfileInvestment[] = [{ id: 'i1', name: 'Fund', balance: 1000, apy: 0 }]
+    // Doubling would compound; use a one-off gain instead: the balance is worth
+    // 1000 with basis 1000, so give it a gain by starting with apy 100 for one
+    // year via a second investment is overkill — model the gain with apy 100
+    // and sell fractions whose gain share is known.
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({
+        cash_amount: 0,
+        investments: [{ ...investments[0], apy: 100 }],
+        transfers: [sell(1000, 2026, 'early'), sell(1000, 2028, 'late')],
+        investment_tax_rules: [
+          { id: 'short', rate: 40, holding_period: 'less_than', holding_years: 2 },
+          { id: 'long', rate: 10, holding_period: 'more_than', holding_years: 2 },
+        ],
+      }),
+    )
+    // 2026: held 1 year (< 2) → 40 %. Value 2000, basis 1000: 500 gain → 200 tax → 800 cash.
+    expect(result[1].cash).toBeCloseTo(800, 6)
+    // After the sale: value 1000, basis 500. 2027: 2000/500, 2028: 4000/500.
+    // 2028: held 3 years (> 2) → 10 %. Selling 1000: gain share 3500/4000 → 875 × 10 % = 87.5.
+    expect(result[3].cash).toBeCloseTo(800 + 912.5, 6)
+  })
+
+  it('charges nothing on a withdrawal at a loss', () => {
+    const investments: ProfileInvestment[] = [{ id: 'i1', name: 'Fund', balance: 1000, apy: -50 }]
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({
+        cash_amount: 0,
+        investments,
+        transfers: [sell(500, 2026)],
+        investment_tax_rules: [{ id: 'r1', rate: 30, holding_period: 'more_than' }],
+      }),
+    )
+    expect(result[1].cash).toBeCloseTo(500, 6)
+  })
+})
