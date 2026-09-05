@@ -49,7 +49,7 @@ pnpm server                                   # relay on http://127.0.0.1:3001
 claude mcp add --transport http kalkul http://127.0.0.1:3001/mcp
 ```
 
-Then open the app, go to Settings → Local server and enter `ws://localhost:3001/ws`. Tools only
+Then open the app, go to Settings → MCP server and enter `ws://localhost:3001/ws`. Tools only
 answer while such a tab is open.
 
 ## Project Structure
