@@ -17,4 +17,6 @@ export default {
   THEME: 'theme',
   /** localStorage — selected UI language override. */
   LOCALE: 'locale',
+  /** localStorage — WebSocket URL of the local AI relay (server/index.ts); empty = off. */
+  SYNC_URL: 'kalkul-sync-url',
 } as const

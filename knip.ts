@@ -23,7 +23,7 @@ const config: KnipConfig = {
   // `!` scopes production mode the same way for project files: scripts/ is
   // dev tooling (check-locales), analyzed in default mode but exempt from
   // "is this reachable from the app?" reporting.
-  project: ['src/**/*!', 'scripts/**'],
+  project: ['src/**/*!', 'scripts/**', 'server/**'],
   paths: {
     '$app/*': ['node_modules/@sveltejs/kit/src/runtime/app/*'],
     '$env/*': ['.svelte-kit/ambient.d.ts'],
