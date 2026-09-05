@@ -14,6 +14,8 @@
      * Defaults to a shared i18n key.
      */
     changeDescription?: string
+    /** Overrides the 'none' option label, e.g. "None — stays the same". */
+    noneLabel?: string
     formatNumber: (n: number) => string
     onValueChange: (v: ChangeOverTime) => void
     onPercentageChange: (v: number | undefined) => void
@@ -25,6 +27,7 @@
     value,
     percentage,
     changeDescription,
+    noneLabel,
     formatNumber,
     onValueChange,
     onPercentageChange,
@@ -35,7 +38,7 @@
   // list. Legacy data carrying the old value still renders as 'None' here, while
   // the calculation honors it via the legacy fallback in growthFactor.
   let changeItems: SelectFieldItem<ChangeOverTime>[] = $derived([
-    { value: 'none', label: $_('page.setup.common.none') },
+    { value: 'none', label: noneLabel ?? $_('page.setup.common.none') },
     { value: 'increase_yearly', label: $_('page.setup.common.increaseYearlyBy') },
     { value: 'decrease_yearly', label: $_('page.setup.common.decreaseYearlyBy') },
   ])

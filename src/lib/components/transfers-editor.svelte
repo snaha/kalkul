@@ -1,9 +1,11 @@
 <script lang="ts">
   import { onDestroy } from 'svelte'
-  import { _ } from 'svelte-i18n'
+  import { _, locale } from 'svelte-i18n'
 
   import Plus from '@lucide/svelte/icons/plus'
 
+  import ChangeOverTimeSelector from '$lib/components/change-over-time-selector.svelte'
+  import DateAgeSelector from '$lib/components/date-age-selector.svelte'
   import EditableItemCard from '$lib/components/editable-item-card.svelte'
   import EditorItemErrors from '$lib/components/editor-item-errors.svelte'
   import InflationAdjustToggle from '$lib/components/inflation-adjust-toggle.svelte'
@@ -11,86 +13,71 @@
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Label } from '$lib/components/ui/label'
+  import { Separator } from '$lib/components/ui/separator'
+  import { Switch } from '$lib/components/ui/switch'
   import { createListEditor } from '$lib/list-editor.svelte'
   import type { Frequency, Transfer as TransferData, TransferSchedule } from '$lib/schemas'
   import { getFrequencyItems, getFrequencyShortLabel } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
+  import {
+    type TransferFields,
+    blankTransferFields,
+    transferFromFields,
+    transferToFields,
+  } from '$lib/transfer-form'
+  import { getMonthOptions, getYearOptions } from '$lib/utils'
 
-  type TransferUI = {
-    id: string
-    name: string
-    amount: number | undefined
-    frequency: Frequency
-    from_asset_id: string
-    to_asset_id: string
-    inflation_adjusted: boolean
-    // Not editable here (the setup card has no scheduling controls, per its
-    // Figma) but carried so editing a card cannot turn a one-time transfer
-    // created in the plan dialog into a recurring one.
-    schedule: TransferSchedule
+  type TransferUI = TransferFields & {
+    showAdvanced: boolean
     editing: boolean
+  }
+
+  // The advanced section opens by itself when the stored transfer already
+  // uses something it controls, so those settings are never hidden.
+  function usesAdvanced(t: TransferData): boolean {
+    return (
+      t.schedule === 'one_time' ||
+      (t.start !== undefined && t.start !== 'immediately' && t.start !== 'now') ||
+      (t.end !== undefined && t.end !== 'never') ||
+      (t.change_over_time !== undefined && t.change_over_time !== 'none')
+    )
   }
 
   const editor = createListEditor<TransferData, TransferUI>({
     load: () => appStore.profile.transfers,
-    toUI: (t) => ({
-      id: t.id,
-      name: t.name,
-      amount: t.amount > 0 ? t.amount : undefined,
-      frequency: t.frequency ?? 'monthly',
-      from_asset_id: t.from_asset_id,
-      to_asset_id: t.to_asset_id,
-      inflation_adjusted: t.inflation_adjusted === true,
-      schedule: t.schedule,
-      editing: false,
-    }),
+    toUI: (t) => ({ ...transferToFields(t), showAdvanced: usesAdvanced(t), editing: false }),
     makeBlank: (index) => ({
-      id: crypto.randomUUID(),
-      name: $_('page.setup.transfers.defaultName', { values: { index } }),
-      amount: undefined,
-      frequency: 'monthly',
+      ...blankTransferFields(
+        crypto.randomUUID(),
+        $_('page.setup.transfers.defaultName', { values: { index } }),
+      ),
       // Cash is the overwhelmingly common source, and seeding it keeps a
       // named-but-unfinished card schema-valid (from !== to) so it survives
       // a remount instead of being rejected as a self-transfer.
       from_asset_id: 'cash',
-      to_asset_id: '',
-      // Default ON — mirrors the income/expense default so new transfers
-      // keep their real value over time without the user having to flip it.
-      inflation_adjusted: true,
+      // The setup card describes regular contributions; one-time moves are
+      // one switch away under Advanced options.
       schedule: 'recurring',
+      showAdvanced: false,
       editing: true,
     }),
     copyName: (name) => $_('page.setup.common.copySuffix', { values: { name } }),
     // Continue/Done is only enabled once the transfer becomes meaningful: an
     // amount plus both endpoints chosen (and distinct — enforced by the card).
     hasValue: (t) =>
-      (t.amount ?? 0) > 0 &&
+      (t.transfer_all || (t.amount ?? 0) > 0) &&
       t.from_asset_id !== '' &&
       t.to_asset_id !== '' &&
       t.from_asset_id !== t.to_asset_id,
-    // Spread the stored transfer first so everything this card does not show
-    // — one-time transaction dates, transfer_all, custom start/end, change
-    // over time — survives an edit here. Only the rendered fields override it.
-    toStored: (t, prev) => ({
-      schedule: 'recurring',
-      start: 'immediately',
-      end: 'never',
-      change_over_time: 'none',
-      ...prev,
-      id: t.id,
-      name: t.name,
-      from_asset_id: t.from_asset_id,
-      to_asset_id: t.to_asset_id,
-      amount: t.amount ?? 0,
-      // A one-time transfer has no frequency to set here.
-      frequency: t.schedule === 'one_time' ? prev?.frequency : t.frequency,
-      inflation_adjusted: t.inflation_adjusted ? true : undefined,
-    }),
+    toStored: (t) => transferFromFields(t),
     persist: (data) => appStore.updateProfile({ transfers: data }),
   })
   onDestroy(editor.flushSave)
 
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
+  const years = getYearOptions()
+  let months = $derived(getMonthOptions($locale ?? undefined))
+  let yearItems = $derived(years.map((y) => ({ value: y, label: y })))
 
   // From/To dropdown options: cash plus every investment on the profile.
   // Transfers can only move between cash and investments — tangible assets
@@ -104,12 +91,28 @@
   ])
 
   const frequencyItems: SelectFieldItem<Frequency>[] = $derived(getFrequencyItems($_))
+  const scheduleItems: SelectFieldItem<TransferSchedule>[] = $derived([
+    { value: 'one_time', label: $_('page.plan.scheduleOneTime') },
+    { value: 'recurring', label: $_('page.plan.scheduleRecurring') },
+  ])
 
   function collapsedValue(transfer: TransferUI): string | undefined {
     if (!transfer.amount) return undefined
     const amount = appStore.formatCurrencyCode(transfer.amount)
     if (transfer.schedule === 'one_time') return amount
     return `${amount} / ${getFrequencyShortLabel($_, transfer.frequency)}`
+  }
+
+  // Same-year ranges can't end before they start: disable the months before
+  // the start month in the end dropdown. Schema validation still reports an
+  // inverted pair through EditorItemErrors if one slips through.
+  function endMinMonth(t: TransferUI): number | undefined {
+    return t.start === 'at_specific_date' &&
+      t.end === 'at_specific_date' &&
+      t.start_year !== undefined &&
+      t.start_year === t.end_year
+      ? t.start_month
+      : undefined
   }
 </script>
 
@@ -136,7 +139,7 @@
         onDelete={() => editor.remove(transfer)}
       >
         {#snippet expandedContent()}
-          <!-- Amount and Frequency row -->
+          <!-- Amount and (recurring) Frequency row -->
           <div class="flex items-center gap-2">
             <div class="flex flex-1 flex-col gap-2">
               <Label for="amount-{transfer.id}">{$_('page.setup.transfers.amount')}</Label>
@@ -150,17 +153,21 @@
                 }}
               />
             </div>
-            <div class="flex flex-1 flex-col gap-2">
-              <Label for="frequency-{transfer.id}">{$_('page.setup.transfers.frequency')}</Label>
-              <SelectField
-                id="frequency-{transfer.id}"
-                value={transfer.frequency}
-                items={frequencyItems}
-                onValueChange={(v) => {
-                  if (v) transfer.frequency = v
-                }}
-              />
-            </div>
+            {#if transfer.schedule === 'recurring'}
+              <div class="flex flex-1 flex-col gap-2">
+                <Label for="frequency-{transfer.id}">{$_('page.setup.transfers.frequency')}</Label>
+                <SelectField
+                  id="frequency-{transfer.id}"
+                  value={transfer.frequency}
+                  items={frequencyItems}
+                  onValueChange={(v) => {
+                    if (v) transfer.frequency = v
+                  }}
+                />
+              </div>
+            {:else}
+              <div class="flex-1"></div>
+            {/if}
           </div>
 
           <!-- From / To row -->
@@ -195,6 +202,137 @@
               transfer.inflation_adjusted = v
             }}
           />
+
+          <!-- Advanced options toggle -->
+          <label class="flex cursor-pointer items-center gap-2">
+            <Switch
+              checked={transfer.showAdvanced}
+              onCheckedChange={(v) => {
+                transfer.showAdvanced = v === true
+              }}
+            />
+            <span class="text-sm font-medium">{$_('page.setup.common.advancedOptions')}</span>
+          </label>
+
+          {#if transfer.showAdvanced}
+            <Separator />
+
+            <!-- Type + (one-time) Date -->
+            <div class="flex items-end gap-2">
+              <div class="flex flex-1 flex-col gap-2">
+                <Label for="schedule-{transfer.id}">{$_('page.plan.scheduleLabel')}</Label>
+                <SelectField
+                  id="schedule-{transfer.id}"
+                  value={transfer.schedule}
+                  items={scheduleItems}
+                  onValueChange={(v) => {
+                    if (v) transfer.schedule = v
+                  }}
+                />
+              </div>
+              {#if transfer.schedule === 'one_time'}
+                <div class="flex flex-1 flex-col gap-2">
+                  <Label for="transaction-year-{transfer.id}">
+                    {$_('page.plan.transactionDateLabel')}
+                  </Label>
+                  <div class="flex items-center gap-2">
+                    <SelectField
+                      id="transaction-year-{transfer.id}"
+                      class="max-w-24"
+                      aria-label={$_('page.setup.aboutYou.selectYear')}
+                      value={transfer.transaction_year !== undefined
+                        ? String(transfer.transaction_year)
+                        : ''}
+                      items={yearItems}
+                      onValueChange={(v) => {
+                        if (v) transfer.transaction_year = Number(v)
+                      }}
+                    />
+                    <SelectField
+                      aria-label={$_('page.setup.aboutYou.selectMonth')}
+                      value={transfer.transaction_month !== undefined
+                        ? String(transfer.transaction_month - 1)
+                        : ''}
+                      items={months}
+                      onValueChange={(v) => {
+                        if (v) transfer.transaction_month = Number(v) + 1
+                      }}
+                    />
+                  </div>
+                </div>
+              {:else}
+                <div class="flex-1"></div>
+              {/if}
+            </div>
+
+            {#if transfer.schedule === 'recurring'}
+              <DateAgeSelector
+                mode="start"
+                value={transfer.start}
+                year={transfer.start_year}
+                month={transfer.start_month}
+                age={transfer.start_age}
+                {years}
+                {months}
+                birthDateSet={appStore.profile.birthDate !== undefined}
+                description={$_('page.plan.transferStartDescription')}
+                formatNumber={appStore.formatNumber}
+                onValueChange={(v) => {
+                  transfer.start = v
+                }}
+                onYearChange={(v) => {
+                  transfer.start_year = v
+                }}
+                onMonthChange={(v) => {
+                  transfer.start_month = v
+                }}
+                onAgeChange={(v) => {
+                  transfer.start_age = v
+                }}
+              />
+
+              <DateAgeSelector
+                mode="end"
+                value={transfer.end}
+                year={transfer.end_year}
+                month={transfer.end_month}
+                age={transfer.end_age}
+                {years}
+                {months}
+                minMonth={endMinMonth(transfer)}
+                birthDateSet={appStore.profile.birthDate !== undefined}
+                neverLabel={$_('page.plan.transferEndNever')}
+                description={$_('page.plan.transferEndDescription')}
+                formatNumber={appStore.formatNumber}
+                onValueChange={(v) => {
+                  transfer.end = v
+                }}
+                onYearChange={(v) => {
+                  transfer.end_year = v
+                }}
+                onMonthChange={(v) => {
+                  transfer.end_month = v
+                }}
+                onAgeChange={(v) => {
+                  transfer.end_age = v
+                }}
+              />
+
+              <ChangeOverTimeSelector
+                value={transfer.change_over_time}
+                percentage={transfer.change_percentage}
+                noneLabel={$_('page.plan.transferChangeNone')}
+                changeDescription={$_('page.plan.transferChangeDescription')}
+                formatNumber={appStore.formatNumber}
+                onValueChange={(v) => {
+                  transfer.change_over_time = v
+                }}
+                onPercentageChange={(v) => {
+                  transfer.change_percentage = v
+                }}
+              />
+            {/if}
+          {/if}
         {/snippet}
       </EditableItemCard>
       <EditorItemErrors messages={editor.errors[transfer.id]} />

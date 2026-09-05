@@ -2,6 +2,7 @@
   import { _, locale } from 'svelte-i18n'
 
   import CircleHelp from '@lucide/svelte/icons/circle-help'
+  import TrendingUp from '@lucide/svelte/icons/trending-up'
 
   import ChangeOverTimeSelector from '$lib/components/change-over-time-selector.svelte'
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
@@ -12,19 +13,18 @@
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
   import * as Tooltip from '$lib/components/ui/tooltip'
-  import { filterById } from '$lib/plan-projection'
+  import { filterById, summarizeTransfer } from '$lib/plan-projection'
   import { sameYearMonthsInverted, timingComplete } from '$lib/schemas'
-  import type {
-    CashFlowEnd,
-    CashFlowStart,
-    ChangeOverTime,
-    Frequency,
-    Transfer,
-    TransferSchedule,
-  } from '$lib/schemas'
+  import type { Transfer, TransferSchedule } from '$lib/schemas'
   import { getFrequencyItems } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
+  import {
+    type TransferFields,
+    blankTransferFields,
+    transferFromFields,
+    transferToFields,
+  } from '$lib/transfer-form'
   import { getMonthOptions, getYearOptions } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
@@ -42,34 +42,6 @@
 
   let { open = $bindable(), onOpenChange, initial, plan, onDuplicated }: Props = $props()
 
-  interface FormState {
-    id: string
-    name: string
-    from_asset_id: string
-    to_asset_id: string
-    amount: number | undefined
-    transfer_all: boolean
-    inflation_adjusted: boolean
-    schedule: TransferSchedule
-    // one-time
-    transaction_year: number | undefined
-    transaction_month: number | undefined
-    // recurring
-    frequency: Frequency
-    start: CashFlowStart
-    start_year: number | undefined
-    start_month: number | undefined
-    start_age: number | undefined
-    end: CashFlowEnd
-    end_year: number | undefined
-    end_month: number | undefined
-    end_age: number | undefined
-    change_over_time: ChangeOverTime
-    change_percentage: number | undefined
-  }
-
-  const currentYear = new Date().getFullYear()
-  const currentMonth = new Date().getMonth()
   const years = getYearOptions()
   let months = $derived(getMonthOptions($locale ?? undefined))
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
@@ -89,68 +61,19 @@
     })),
   ])
 
-  function blankForm(): FormState {
+  function blankForm(): TransferFields {
     const counter = (appStore.profile.transfers ?? []).length + 1
-    return {
-      id: crypto.randomUUID(),
-      name: $_('page.plan.defaultTransferName', { values: { index: counter } }),
-      from_asset_id: '',
-      to_asset_id: '',
-      amount: undefined,
-      transfer_all: false,
-      // Default ON — mirrors the income/expense default so new transfers
-      // keep their real value over time without the user having to flip it.
-      inflation_adjusted: true,
-      schedule: 'one_time',
-      transaction_year: currentYear,
-      transaction_month: currentMonth + 1,
-      frequency: 'monthly',
-      start: 'immediately',
-      // Timing fields start empty so 'at_specific_date'/'when_age_is' force an
-      // explicit choice instead of silently defaulting to "now" (= plan year 1).
-      start_year: undefined,
-      start_month: undefined,
-      start_age: undefined,
-      end: 'never',
-      end_year: undefined,
-      end_month: undefined,
-      end_age: undefined,
-      change_over_time: 'none',
-      change_percentage: undefined,
-    }
+    return blankTransferFields(
+      crypto.randomUUID(),
+      $_('page.plan.defaultTransferName', { values: { index: counter } }),
+    )
   }
 
-  function seedForm(src: Transfer | undefined): FormState {
-    if (!src) return blankForm()
-    const f = blankForm()
-    f.id = src.id
-    f.name = src.name
-    f.from_asset_id = src.from_asset_id
-    f.to_asset_id = src.to_asset_id
-    f.amount = src.amount > 0 ? src.amount : undefined
-    f.transfer_all = src.transfer_all ?? false
-    f.schedule = src.schedule
-    f.transaction_year = src.transaction_year ?? currentYear
-    f.transaction_month = src.transaction_month ?? currentMonth + 1
-    f.frequency = src.frequency ?? 'monthly'
-    f.start = src.start ?? 'immediately'
-    f.start_year = src.start_year
-    f.start_month = src.start_month
-    f.start_age = src.start_age
-    f.end = src.end ?? 'never'
-    f.end_year = src.end_year
-    f.end_month = src.end_month
-    f.end_age = src.end_age
-    // Legacy migration: old change_over_time='match_inflation' folds into the
-    // new toggle and the dropdown collapses to 'none'.
-    const legacyInflation = src.change_over_time === 'match_inflation'
-    f.inflation_adjusted = src.inflation_adjusted === true || legacyInflation
-    f.change_over_time = legacyInflation ? 'none' : (src.change_over_time ?? 'none')
-    f.change_percentage = src.change_percentage
-    return f
+  function seedForm(src: Transfer | undefined): TransferFields {
+    return src ? transferToFields(src) : blankForm()
   }
 
-  let form = $state<FormState>(blankForm())
+  let form = $state<TransferFields>(blankForm())
   // Controlled state for the Max-helper tooltip. Hover/focus events still
   // open/close it via bits-ui's onOpenChange. Click toggles it manually so
   // touch devices (no hover) can show *and* dismiss it.
@@ -197,54 +120,13 @@
   let frequencyItems = $derived(getFrequencyItems($_))
   let yearItems = $derived(years.map((y) => ({ value: y, label: y })))
 
-  function projectTransfer(f: FormState): Transfer {
-    if (f.schedule === 'one_time') {
-      return {
-        id: f.id,
-        name: f.name,
-        from_asset_id: f.from_asset_id,
-        to_asset_id: f.to_asset_id,
-        amount: f.transfer_all ? 0 : (f.amount ?? 0),
-        ...(f.transfer_all ? { transfer_all: true } : {}),
-        inflation_adjusted: f.inflation_adjusted ? true : undefined,
-        schedule: 'one_time',
-        transaction_year: f.transaction_year,
-        transaction_month: f.transaction_month,
-      }
-    }
-    return {
-      id: f.id,
-      name: f.name,
-      from_asset_id: f.from_asset_id,
-      to_asset_id: f.to_asset_id,
-      amount: f.transfer_all ? 0 : (f.amount ?? 0),
-      ...(f.transfer_all ? { transfer_all: true } : {}),
-      inflation_adjusted: f.inflation_adjusted ? true : undefined,
-      schedule: 'recurring',
-      frequency: f.frequency,
-      start: f.start,
-      start_year: f.start === 'at_specific_date' ? f.start_year : undefined,
-      start_month: f.start === 'at_specific_date' ? f.start_month : undefined,
-      start_age: f.start === 'when_age_is' ? f.start_age : undefined,
-      end: f.end,
-      end_year: f.end === 'at_specific_date' ? f.end_year : undefined,
-      end_month: f.end === 'at_specific_date' ? f.end_month : undefined,
-      end_age: f.end === 'when_age_is' ? f.end_age : undefined,
-      change_over_time: f.change_over_time,
-      change_percentage:
-        f.change_over_time === 'increase_yearly' || f.change_over_time === 'decrease_yearly'
-          ? (f.change_percentage ?? 0)
-          : undefined,
-    }
-  }
-
   function close() {
     onOpenChange(false)
   }
 
   function save() {
     const existing = appStore.profile.transfers ?? []
-    const projected = projectTransfer(form)
+    const projected = transferFromFields(form)
     const idx = existing.findIndex((t) => t.id === form.id)
     const next =
       idx === -1 ? [...existing, projected] : existing.map((it, i) => (i === idx ? projected : it))
@@ -348,6 +230,19 @@
             form.end_month,
           ))),
   )
+
+  // Preview of what the transfer moves over the plan (Figma frames 1340-1345).
+  // A one-time transfer without inflation has nothing to add beyond the
+  // amount itself, so the box is hidden for it; "Max" has no fixed amount.
+  const summary = $derived.by(() => {
+    if (!canSave || form.transfer_all) return undefined
+    if (form.schedule === 'one_time' && !form.inflation_adjusted) return undefined
+    return summarizeTransfer(
+      transferFromFields(form),
+      plan,
+      appStore.profile.birthDate?.getFullYear(),
+    )
+  })
 </script>
 
 <ItemEditDialogShell
@@ -360,40 +255,23 @@
   renamable={false}
   newTitle={$_('page.plan.newTransfer')}
   saveDisabled={!canSave}
+  saveLabel={isNew ? $_('page.plan.createItem') : undefined}
   onSave={save}
   onDuplicate={duplicate}
   onToggleInclude={toggleExclude}
   onDelete={remove}
 >
-  <!-- From + To -->
-  <div class="flex items-end gap-2">
-    <div class="flex flex-1 flex-col gap-2">
-      <Label for="{uid}-transferFromLabel">{$_('page.plan.transferFromLabel')}</Label>
-      <SelectField
-        id="{uid}-transferFromLabel"
-        value={form.from_asset_id}
-        items={fromAssetItems}
-        placeholder={$_('page.plan.pickAsset')}
-        onValueChange={(v) => {
-          if (v) form.from_asset_id = v
-        }}
-      />
-    </div>
-    <div class="flex flex-1 flex-col gap-2">
-      <Label for="{uid}-transferToLabel">{$_('page.plan.transferToLabel')}</Label>
-      <SelectField
-        id="{uid}-transferToLabel"
-        value={form.to_asset_id}
-        items={toAssetItems}
-        placeholder={$_('page.plan.pickAsset')}
-        onValueChange={(v) => {
-          if (v) form.to_asset_id = v
-        }}
-      />
-    </div>
+  <!-- Label -->
+  <div class="flex flex-col gap-2">
+    <Label for="{uid}-transferName">{$_('page.plan.transferLabelLabel')}</Label>
+    <Input
+      id="{uid}-transferName"
+      value={form.name}
+      oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
+    />
   </div>
 
-  <!-- Schedule + (one-time) Date  /  (recurring) Schedule alone -->
+  <!-- Type + (one-time) Date  /  (recurring) Frequency -->
   <div class="flex items-end gap-2">
     <div class="flex flex-1 flex-col gap-2">
       <Label for="{uid}-scheduleLabel">{$_('page.plan.scheduleLabel')}</Label>
@@ -435,7 +313,6 @@
         </div>
       </div>
     {:else}
-      <!-- Recurring: Frequency sits in the right column of the Schedule row. -->
       <div class="flex flex-1 flex-col gap-2">
         <Label for="{uid}-transferFrequencyLabel">{$_('page.plan.transferFrequencyLabel')}</Label>
         <SelectField
@@ -450,7 +327,36 @@
     {/if}
   </div>
 
-  <!-- Amount (+ Max toggle for one-time only) + Label -->
+  <!-- From + To -->
+  <div class="flex items-end gap-2">
+    <div class="flex flex-1 flex-col gap-2">
+      <Label for="{uid}-transferFromLabel">{$_('page.plan.transferFromLabel')}</Label>
+      <SelectField
+        id="{uid}-transferFromLabel"
+        value={form.from_asset_id}
+        items={fromAssetItems}
+        placeholder={$_('page.plan.pickAsset')}
+        onValueChange={(v) => {
+          if (v) form.from_asset_id = v
+        }}
+      />
+    </div>
+    <div class="flex flex-1 flex-col gap-2">
+      <Label for="{uid}-transferToLabel">{$_('page.plan.transferToLabel')}</Label>
+      <SelectField
+        id="{uid}-transferToLabel"
+        value={form.to_asset_id}
+        items={toAssetItems}
+        placeholder={$_('page.plan.pickAsset')}
+        onValueChange={(v) => {
+          if (v) form.to_asset_id = v
+        }}
+      />
+    </div>
+  </div>
+
+  <!-- Amount (+ Max toggle for one-time only) + Adjust for inflation -->
+  <!-- The Max switch is not in the Figma frames; kept as an existing feature. -->
   <div class="flex items-end gap-2">
     <div class="flex flex-1 flex-col gap-2">
       <Label for="{uid}-transferAmount">{$_('page.setup.common.amount')}</Label>
@@ -499,12 +405,10 @@
         {/if}
       </div>
     </div>
-    <div class="flex flex-1 flex-col gap-2">
-      <Label for="{uid}-transferName">{$_('page.plan.transferLabelLabel')}</Label>
-      <Input
-        id="{uid}-transferName"
-        value={form.name}
-        oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
+    <div class="flex h-8 flex-1 items-center">
+      <InflationAdjustToggle
+        checked={form.inflation_adjusted}
+        onCheckedChange={(v) => (form.inflation_adjusted = v)}
       />
     </div>
   </div>
@@ -519,6 +423,7 @@
       {years}
       {months}
       birthDateSet={appStore.profile.birthDate !== undefined}
+      description={$_('page.plan.transferStartDescription')}
       formatNumber={appStore.formatNumber}
       onValueChange={(v) => (form.start = v)}
       onYearChange={(v) => (form.start_year = v)}
@@ -536,6 +441,8 @@
       {months}
       minMonth={endMinMonth}
       birthDateSet={appStore.profile.birthDate !== undefined}
+      neverLabel={$_('page.plan.transferEndNever')}
+      description={$_('page.plan.transferEndDescription')}
       formatNumber={appStore.formatNumber}
       onValueChange={(v) => (form.end = v)}
       onYearChange={(v) => (form.end_year = v)}
@@ -546,14 +453,47 @@
     <ChangeOverTimeSelector
       value={form.change_over_time}
       percentage={form.change_percentage}
+      noneLabel={$_('page.plan.transferChangeNone')}
+      changeDescription={$_('page.plan.transferChangeDescription')}
       formatNumber={appStore.formatNumber}
       onValueChange={(v) => (form.change_over_time = v)}
       onPercentageChange={(v) => (form.change_percentage = v)}
     />
   {/if}
 
-  <InflationAdjustToggle
-    checked={form.inflation_adjusted}
-    onCheckedChange={(v) => (form.inflation_adjusted = v)}
-  />
+  {#if summary}
+    <div class="flex flex-col gap-1 rounded-md bg-muted p-3 text-sm text-muted-foreground">
+      {#if form.schedule === 'recurring'}
+        <span>
+          {$_('page.plan.transferOccurrences', { values: { count: summary.occurrences } })}
+        </span>
+      {/if}
+      {#if !form.inflation_adjusted}
+        <span>
+          {$_('page.plan.transferTotal', {
+            values: { total: appStore.formatCurrencyCode(summary.nominalTotal) },
+          })}
+        </span>
+      {:else}
+        <span class="flex items-center gap-2">
+          <TrendingUp class="size-4 shrink-0" />
+          {#if form.schedule === 'one_time'}
+            {$_('page.plan.transferNominalValue', {
+              values: {
+                nominal: appStore.formatCurrencyCode(summary.nominalTotal),
+                real: appStore.formatCurrencyCode(summary.realTotal),
+              },
+            })}
+          {:else}
+            {$_('page.plan.transferNominalTotal', {
+              values: {
+                nominal: appStore.formatCurrencyCode(summary.nominalTotal),
+                real: appStore.formatCurrencyCode(summary.realTotal),
+              },
+            })}
+          {/if}
+        </span>
+      {/if}
+    </div>
+  {/if}
 </ItemEditDialogShell>
