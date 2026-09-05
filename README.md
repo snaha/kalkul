@@ -55,6 +55,15 @@ Chrome and Firefox (Safari blocks `ws://localhost` from https pages). The relay 
 connections only from localhost and kalkul.app; set `KALKUL_ORIGINS` (comma-separated) to allow
 more, e.g. a PR preview.
 
+### Browser agents (WebMCP)
+
+The same tools can be handed straight to agents that run inside the browser through the W3C
+WebMCP API (`document.modelContext`, with the deprecated `navigator.modelContext` fallback), with
+no relay involved. It is off by default: enable "Expose tools to browser agents" under Settings →
+MCP server. Needs a browser with WebMCP, e.g. Chrome 149+ in the origin trial or with
+`about:flags#enable-webmcp-testing`. Tool definitions live in `src/lib/mcp/tools.ts` and are shared
+by both paths.
+
 ## Project Structure
 
 - `src/lib/plan-projection.ts` - Plan projection engine with precise decimal arithmetic
