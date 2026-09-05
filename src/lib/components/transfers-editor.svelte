@@ -16,7 +16,7 @@
   import { Separator } from '$lib/components/ui/separator'
   import { Switch } from '$lib/components/ui/switch'
   import { createListEditor } from '$lib/list-editor.svelte'
-  import type { Frequency, Transfer as TransferData, TransferSchedule } from '$lib/schemas'
+  import type { Frequency, Transfer as TransferData } from '$lib/schemas'
   import { getFrequencyItems, getFrequencyShortLabel } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import {
@@ -36,7 +36,6 @@
   // uses something it controls, so those settings are never hidden.
   function usesAdvanced(t: TransferData): boolean {
     return (
-      t.schedule === 'one_time' ||
       (t.start !== undefined && t.start !== 'immediately' && t.start !== 'now') ||
       (t.end !== undefined && t.end !== 'never') ||
       (t.change_over_time !== undefined && t.change_over_time !== 'none')
@@ -55,8 +54,8 @@
       // named-but-unfinished card schema-valid (from !== to) so it survives
       // a remount instead of being rejected as a self-transfer.
       from_asset_id: 'cash',
-      // The setup card describes regular contributions; one-time moves are
-      // one switch away under Advanced options.
+      // Financial data holds recurring transfers only; one-time transfers are
+      // created in the plan dialog.
       schedule: 'recurring',
       showAdvanced: false,
       editing: true,
@@ -77,7 +76,6 @@
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
   const years = getYearOptions()
   let months = $derived(getMonthOptions($locale ?? undefined))
-  let yearItems = $derived(years.map((y) => ({ value: y, label: y })))
 
   // From/To dropdown options: cash plus every investment on the profile.
   // Transfers can only move between cash and investments — tangible assets
@@ -91,10 +89,6 @@
   ])
 
   const frequencyItems: SelectFieldItem<Frequency>[] = $derived(getFrequencyItems($_))
-  const scheduleItems: SelectFieldItem<TransferSchedule>[] = $derived([
-    { value: 'one_time', label: $_('page.plan.scheduleOneTime') },
-    { value: 'recurring', label: $_('page.plan.scheduleRecurring') },
-  ])
 
   function collapsedValue(transfer: TransferUI): string | undefined {
     if (!transfer.amount) return undefined
@@ -203,69 +197,22 @@
             }}
           />
 
-          <!-- Advanced options toggle -->
-          <label class="flex cursor-pointer items-center gap-2">
-            <Switch
-              checked={transfer.showAdvanced}
-              onCheckedChange={(v) => {
-                transfer.showAdvanced = v === true
-              }}
-            />
-            <span class="text-sm font-medium">{$_('page.setup.common.advancedOptions')}</span>
-          </label>
+          <!-- Advanced options (recurring only — a one-time transfer created in
+               the plan dialog has no schedule fields to edit here) -->
+          {#if transfer.schedule === 'recurring'}
+            <label class="flex cursor-pointer items-center gap-2">
+              <Switch
+                checked={transfer.showAdvanced}
+                onCheckedChange={(v) => {
+                  transfer.showAdvanced = v === true
+                }}
+              />
+              <span class="text-sm font-medium">{$_('page.setup.common.advancedOptions')}</span>
+            </label>
 
-          {#if transfer.showAdvanced}
-            <Separator />
+            {#if transfer.showAdvanced}
+              <Separator />
 
-            <!-- Type + (one-time) Date -->
-            <div class="flex items-end gap-2">
-              <div class="flex flex-1 flex-col gap-2">
-                <Label for="schedule-{transfer.id}">{$_('page.plan.scheduleLabel')}</Label>
-                <SelectField
-                  id="schedule-{transfer.id}"
-                  value={transfer.schedule}
-                  items={scheduleItems}
-                  onValueChange={(v) => {
-                    if (v) transfer.schedule = v
-                  }}
-                />
-              </div>
-              {#if transfer.schedule === 'one_time'}
-                <div class="flex flex-1 flex-col gap-2">
-                  <Label for="transaction-year-{transfer.id}">
-                    {$_('page.plan.transactionDateLabel')}
-                  </Label>
-                  <div class="flex items-center gap-2">
-                    <SelectField
-                      id="transaction-year-{transfer.id}"
-                      class="max-w-24"
-                      aria-label={$_('page.setup.aboutYou.selectYear')}
-                      value={transfer.transaction_year !== undefined
-                        ? String(transfer.transaction_year)
-                        : ''}
-                      items={yearItems}
-                      onValueChange={(v) => {
-                        if (v) transfer.transaction_year = Number(v)
-                      }}
-                    />
-                    <SelectField
-                      aria-label={$_('page.setup.aboutYou.selectMonth')}
-                      value={transfer.transaction_month !== undefined
-                        ? String(transfer.transaction_month - 1)
-                        : ''}
-                      items={months}
-                      onValueChange={(v) => {
-                        if (v) transfer.transaction_month = Number(v) + 1
-                      }}
-                    />
-                  </div>
-                </div>
-              {:else}
-                <div class="flex-1"></div>
-              {/if}
-            </div>
-
-            {#if transfer.schedule === 'recurring'}
               <DateAgeSelector
                 mode="start"
                 value={transfer.start}
