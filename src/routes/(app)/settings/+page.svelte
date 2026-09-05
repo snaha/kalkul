@@ -19,6 +19,7 @@
   import { Label } from '$lib/components/ui/label'
   import * as RadioGroup from '$lib/components/ui/radio-group'
   import { Separator } from '$lib/components/ui/separator'
+  import { Switch } from '$lib/components/ui/switch'
   import downloadBackup from '$lib/download-backup'
   import { COUNTRY_CURRENCY_MAP, getCountryItems, getLanguageItems } from '$lib/profile-options'
   import routes from '$lib/routes'
@@ -452,6 +453,27 @@
                 : syncStore.status === 'replaced'
                   ? $_('page.settings.mcpServer.replaced')
                   : $_('page.settings.mcpServer.disconnected')}
+          </p>
+        </div>
+        <div class="flex flex-col gap-2">
+          <div class="flex items-center gap-3">
+            <Switch
+              id="{uid}-web-mcp"
+              checked={syncStore.webMcp}
+              disabled={!syncStore.webMcpSupported}
+              onCheckedChange={(on) => syncStore.setWebMcp(on)}
+            />
+            <Label for="{uid}-web-mcp">{$_('page.settings.mcpServer.webMcp')}</Label>
+          </div>
+          <p class="text-sm text-muted-foreground">
+            {$_('page.settings.mcpServer.webMcpDescription')}
+          </p>
+          <p class="text-sm text-muted-foreground">
+            {!syncStore.webMcpSupported
+              ? $_('page.settings.mcpServer.webMcpNotSupported')
+              : syncStore.webMcp
+                ? $_('page.settings.mcpServer.webMcpExposed')
+                : $_('page.settings.mcpServer.off')}
           </p>
         </div>
       </section>
