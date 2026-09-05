@@ -42,6 +42,8 @@
     /** Optional label shown next to the title, e.g. "Financed". */
     badge?: string
     saveDisabled?: boolean
+    /** Replaces the default "Save changes" label, e.g. "Create" for new items. */
+    saveLabel?: string
     onSave: () => void
     onDuplicate: () => void
     onToggleInclude: () => void
@@ -62,6 +64,7 @@
     footer,
     badge,
     saveDisabled = false,
+    saveLabel,
     onSave,
     onDuplicate,
     onToggleInclude,
@@ -182,7 +185,9 @@
         {@render footer()}
       {:else}
         <Button variant="secondary" onclick={close}>{$_('page.plan.cancel')}</Button>
-        <Button disabled={saveDisabled} onclick={onSave}>{$_('page.plan.saveChanges')}</Button>
+        <Button disabled={saveDisabled} onclick={onSave}
+          >{saveLabel ?? $_('page.plan.saveChanges')}</Button
+        >
       {/if}
     </Dialog.Footer>
   </Dialog.Content>

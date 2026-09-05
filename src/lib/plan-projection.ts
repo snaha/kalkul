@@ -547,6 +547,61 @@ function transferAmountForYear(
     .mul(fraction)
 }
 
+export interface TransferSummary {
+  /** How many times the transfer fires within the plan. */
+  occurrences: number
+  /** Sum of the amounts actually moved, after inflation and change over time. */
+  nominalTotal: number
+  /** The same sum in today's money (inflation factor stripped). */
+  realTotal: number
+}
+
+/**
+ * Preview totals for the transfer dialogs: how often a transfer fires within
+ * the plan and how much it moves in nominal and in today's money. Reuses the
+ * per-year amount the projection itself applies, so the preview and the chart
+ * cannot disagree.
+ */
+export function summarizeTransfer(
+  transfer: Transfer,
+  plan: Pick<Portfolio, 'start_date' | 'end_date' | 'inflation_rate'>,
+  birthYear: number | undefined,
+): TransferSummary {
+  const startYear = yearOf(plan.start_date)
+  const endYear = yearOf(plan.end_date)
+  const inflationRate = new Decimal(plan.inflation_rate)
+  // Same transfer with the inflation factor off: growthFactor then yields the
+  // real-terms amount, change over time included.
+  const real: Transfer = { ...transfer, inflation_adjusted: false }
+  let occurrences = 0
+  let nominalTotal = DECIMAL_0
+  let realTotal = DECIMAL_0
+  for (let year = startYear; year <= endYear; year++) {
+    if (!isTransferActiveThisYear(transfer, year, startYear, birthYear)) continue
+    if (transfer.schedule === 'one_time') {
+      occurrences += 1
+    } else {
+      const temporal = transferToTemporal(transfer)
+      const fraction = activeMonthFraction(
+        temporal,
+        year,
+        resolveStartYear(temporal, startYear, birthYear),
+        resolveEndYear(temporal, birthYear),
+      )
+      occurrences += Math.round(
+        FLOW_PERIODS_PER_YEAR[transfer.frequency ?? 'monthly'] * fraction.toNumber(),
+      )
+    }
+    nominalTotal = nominalTotal.plus(
+      transferAmountForYear(transfer, year, startYear, birthYear, inflationRate),
+    )
+    realTotal = realTotal.plus(
+      transferAmountForYear(real, year, startYear, birthYear, inflationRate),
+    )
+  }
+  return { occurrences, nominalTotal: nominalTotal.toNumber(), realTotal: realTotal.toNumber() }
+}
+
 /**
  * Sum the annualized, grown, month-fractioned nominal amounts of the cash
  * flows active in `year`, and report which items were active. `growthFactor`

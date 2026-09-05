@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { getYearlyPlanProjection } from './plan-projection'
+import { getYearlyPlanProjection, summarizeTransfer } from './plan-projection'
 import type {
   Expense,
   Income,
@@ -2884,5 +2884,105 @@ describe('getYearlyPlanProjection', () => {
     expect(saleYear?.netWorth).toBeCloseTo(600_000 / 1.02 ** 2, 4)
     expect(saleYear?.tangibleAssets).toBeCloseTo(500_000 / 1.02 ** 2, 4)
     expect(saleYear?.cash).toBeCloseTo(100_000 / 1.02 ** 2, 4)
+  })
+})
+
+describe('summarizeTransfer', () => {
+  const recurring: Transfer = {
+    id: 't1',
+    name: 'Monthly',
+    from_asset_id: 'cash',
+    to_asset_id: 'inv1',
+    amount: 1000,
+    schedule: 'recurring',
+    frequency: 'monthly',
+    start: 'immediately',
+    end: 'never',
+    change_over_time: 'none',
+  }
+  const oneTime: Transfer = {
+    id: 't2',
+    name: 'Once',
+    from_asset_id: 'cash',
+    to_asset_id: 'inv1',
+    amount: 1000,
+    schedule: 'one_time',
+    transaction_year: 2027,
+    transaction_month: 6,
+  }
+
+  it('counts a one-time transfer once at face value without inflation', () => {
+    expect(summarizeTransfer(oneTime, makePlan(), undefined)).toEqual({
+      occurrences: 1,
+      nominalTotal: 1000,
+      realTotal: 1000,
+    })
+  })
+
+  it('scales a one-time inflation-adjusted transfer forward to its transaction year', () => {
+    const result = summarizeTransfer(
+      { ...oneTime, inflation_adjusted: true },
+      makePlan({ inflation_rate: 0.02 }),
+      undefined,
+    )
+    expect(result.occurrences).toBe(1)
+    expect(result.nominalTotal).toBeCloseTo(1040.4, 6)
+    expect(result.realTotal).toBe(1000)
+  })
+
+  it('reports zero occurrences for a one-time transfer outside the plan', () => {
+    expect(
+      summarizeTransfer({ ...oneTime, transaction_year: 2035 }, makePlan(), undefined),
+    ).toEqual({ occurrences: 0, nominalTotal: 0, realTotal: 0 })
+  })
+
+  it('counts every month of a never-ending recurring transfer over the plan', () => {
+    expect(summarizeTransfer(recurring, makePlan(), undefined)).toEqual({
+      occurrences: 72,
+      nominalTotal: 72000,
+      realTotal: 72000,
+    })
+  })
+
+  it('stops counting at an at_specific_date end (inclusive of the end month)', () => {
+    const result = summarizeTransfer(
+      { ...recurring, end: 'at_specific_date', end_year: 2026, end_month: 6 },
+      makePlan(),
+      undefined,
+    )
+    expect(result).toEqual({ occurrences: 18, nominalTotal: 18000, realTotal: 18000 })
+  })
+
+  it('stops counting at a when_age_is end when a birth year is given', () => {
+    // born 1990 -> age 36 in 2026
+    const result = summarizeTransfer(
+      { ...recurring, end: 'when_age_is', end_age: 36 },
+      makePlan(),
+      1990,
+    )
+    expect(result.occurrences).toBe(24)
+    expect(result.nominalTotal).toBe(24000)
+  })
+
+  it('grows the nominal total with inflation while the real total stays flat', () => {
+    const result = summarizeTransfer(
+      { ...recurring, inflation_adjusted: true },
+      makePlan({ inflation_rate: 0.02 }),
+      undefined,
+    )
+    expect(result.occurrences).toBe(72)
+    // 12000 * (1 + 1.02 + 1.02^2 + ... + 1.02^5)
+    expect(result.nominalTotal).toBeCloseTo(75697.4515584, 6)
+    expect(result.realTotal).toBe(72000)
+  })
+
+  it('counts yearly transfers once per plan year', () => {
+    expect(summarizeTransfer({ ...recurring, frequency: 'yearly' }, makePlan(), undefined)).toEqual(
+      {
+        occurrences: 6,
+        nominalTotal: 6000,
+        realTotal: 6000,
+      },
+    )
   })
 })
