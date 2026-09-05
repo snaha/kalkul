@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { type SyncStatus, WsTransport } from './ws-transport'
+import { REPLACED_CLOSE_CODE, type SyncStatus, WsTransport } from './ws-transport'
 
 class FakeWebSocket {
   static OPEN = 1
@@ -10,7 +10,7 @@ class FakeWebSocket {
   closed = false
   onopen?: () => void
   onmessage?: (event: { data: string }) => void
-  onclose?: () => void
+  onclose?: (event: { code: number }) => void
 
   constructor(public url: string) {
     FakeWebSocket.instances.push(this)
@@ -25,10 +25,10 @@ class FakeWebSocket {
     this.sent.push(data)
   }
 
-  close() {
+  close(code = 1000) {
     this.closed = true
     this.readyState = 3
-    this.onclose?.()
+    this.onclose?.({ code })
   }
 }
 
@@ -92,6 +92,17 @@ describe('WsTransport', () => {
 
     vi.advanceTimersByTime(3000)
     expect(FakeWebSocket.instances.length).toBe(2)
+  })
+
+  it('does not reconnect when the relay replaced it with another tab', async () => {
+    await transport.start()
+    const socket = FakeWebSocket.instances[0]!
+    socket.open()
+    socket.close(REPLACED_CLOSE_CODE)
+    expect(statuses).toEqual(['connected', 'replaced'])
+
+    vi.advanceTimersByTime(10_000)
+    expect(FakeWebSocket.instances.length).toBe(1)
   })
 
   it('close() stops reconnecting and closes the socket', async () => {

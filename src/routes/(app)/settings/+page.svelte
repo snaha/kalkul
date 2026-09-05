@@ -422,7 +422,7 @@
           <Label for="{uid}-sync-url">{$_('page.settings.mcpServer.url')}</Label>
           <form class="flex gap-2" onsubmit={connectSync}>
             <Input id="{uid}-sync-url" bind:value={syncUrlDraft} />
-            {#if syncDirty || !syncStore.url}
+            {#if syncDirty || !syncStore.url || syncStore.status === 'replaced'}
               <Button type="submit" disabled={!syncUrlDraft.trim()}>
                 {$_('page.settings.mcpServer.connect')}
               </Button>
@@ -440,14 +440,18 @@
                   ? 'bg-muted-foreground/40'
                   : syncStore.status === 'connected'
                     ? 'bg-green-500'
-                    : 'bg-red-500',
+                    : syncStore.status === 'replaced'
+                      ? 'bg-amber-500'
+                      : 'bg-red-500',
               )}
             ></span>
             {!syncStore.url
               ? $_('page.settings.mcpServer.off')
               : syncStore.status === 'connected'
                 ? $_('page.settings.mcpServer.connected')
-                : $_('page.settings.mcpServer.disconnected')}
+                : syncStore.status === 'replaced'
+                  ? $_('page.settings.mcpServer.replaced')
+                  : $_('page.settings.mcpServer.disconnected')}
           </p>
         </div>
       </section>

@@ -424,7 +424,8 @@
         "disconnect": "Disconnect",
         "off": "Off",
         "connected": "Connected",
-        "disconnected": "Disconnected"
+        "disconnected": "Disconnected",
+        "replaced": "Another tab took over. Click Connect to use this tab."
       },
       "backup": {
         "export": "Export to file",

@@ -424,7 +424,8 @@
         "disconnect": "Odpojit",
         "off": "Vypnuto",
         "connected": "Připojeno",
-        "disconnected": "Odpojeno"
+        "disconnected": "Odpojeno",
+        "replaced": "Převzala to jiná záložka. Pro použití této záložky klikněte na Připojit."
       },
       "backup": {
         "export": "Exportovat do souboru",
