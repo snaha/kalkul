@@ -419,7 +419,7 @@
       },
       "mcpServer": {
         "url": "Adresa relay",
-        "description": "Umožní AI asistentovi, například Claude, číst a upravovat vaše plány přes Model Context Protocol (MCP). Spusťte na tomto počítači relay příkazem `pnpm server`, připojte tuto záložku a přidejte http://127.0.0.1:3001/mcp do svého AI klienta. Vaše data zůstávají ve vašem počítači.",
+        "description": "Umožní AI asistentovi, například Claude, číst a upravovat vaše plány přes Model Context Protocol (MCP). Spusťte na tomto počítači relay příkazem `pnpm server`, připojte tuto záložku a přidejte http://127.0.0.1:3001/mcp do svého AI klienta. Vaše data zůstávají ve vašem počítači. Funguje i na kalkul.app, pokud relay běží na tomto počítači.",
         "connect": "Připojit",
         "disconnect": "Odpojit",
         "off": "Vypnuto",

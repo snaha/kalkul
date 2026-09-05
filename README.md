@@ -49,8 +49,11 @@ pnpm server                                   # relay on http://127.0.0.1:3001
 claude mcp add --transport http kalkul http://127.0.0.1:3001/mcp
 ```
 
-Then open the app, go to Settings → MCP server and enter `ws://localhost:3001/ws`. Tools only
-answer while such a tab is open.
+Then open the app, go to Settings → MCP server and click Connect. Tools only answer while such a
+tab is open. This also works on https://kalkul.app with the relay running on your machine, in
+Chrome and Firefox (Safari blocks `ws://localhost` from https pages). The relay accepts WebSocket
+connections only from localhost and kalkul.app; set `KALKUL_ORIGINS` (comma-separated) to allow
+more, e.g. a PR preview.
 
 ## Project Structure
 

@@ -419,7 +419,7 @@
       },
       "mcpServer": {
         "url": "Relay address",
-        "description": "Let an AI assistant such as Claude read and update your plans through the Model Context Protocol (MCP). Start the relay on this computer with `pnpm server`, connect this tab, then add http://127.0.0.1:3001/mcp to your AI client. Your data stays on your computer.",
+        "description": "Let an AI assistant such as Claude read and update your plans through the Model Context Protocol (MCP). Start the relay on this computer with `pnpm server`, connect this tab, then add http://127.0.0.1:3001/mcp to your AI client. Your data stays on your computer. Works on kalkul.app too, as long as the relay runs on this computer.",
         "connect": "Connect",
         "disconnect": "Disconnect",
         "off": "Off",

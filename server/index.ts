@@ -13,6 +13,8 @@ import { JSONRPCMessageSchema, type RequestId } from '@modelcontextprotocol/sdk/
 import { createServer } from 'node:http'
 import { type WebSocket, WebSocketServer } from 'ws'
 
+import { isAllowedOrigin } from './origin'
+
 const port = Number(process.env.PORT ?? 3001)
 const NO_BROWSER =
   'No browser connected: open Kalkul and connect this relay under Settings → MCP server'
@@ -46,7 +48,12 @@ const http = createServer(async (req, res) => {
   await transport.handleRequest(req, res)
 })
 
-new WebSocketServer({ server: http, path: '/ws' }).on('connection', (socket) => {
+new WebSocketServer({
+  server: http,
+  path: '/ws',
+  verifyClient: ({ origin }: { origin: string }) =>
+    isAllowedOrigin(origin, process.env.KALKUL_ORIGINS),
+}).on('connection', (socket) => {
   browser?.close()
   browser = socket
   socket.on('message', (raw) => {
