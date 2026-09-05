@@ -13,6 +13,7 @@ import { JSONRPCMessageSchema, type RequestId } from '@modelcontextprotocol/sdk/
 import { createServer } from 'node:http'
 import { type WebSocket, WebSocketServer } from 'ws'
 
+import { REPLACED_CLOSE_CODE } from '../src/lib/mcp/ws-transport'
 import { isAllowedOrigin } from './origin'
 
 const port = Number(process.env.PORT ?? 3001)
@@ -54,7 +55,7 @@ new WebSocketServer({
   verifyClient: ({ origin }: { origin: string }) =>
     isAllowedOrigin(origin, process.env.KALKUL_ORIGINS),
 }).on('connection', (socket) => {
-  browser?.close()
+  browser?.close(REPLACED_CLOSE_CODE, 'replaced by another tab')
   browser = socket
   socket.on('message', (raw) => {
     const message = JSONRPCMessageSchema.parse(JSON.parse(raw.toString()))

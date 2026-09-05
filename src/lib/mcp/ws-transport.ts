@@ -1,7 +1,10 @@
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { type JSONRPCMessage, JSONRPCMessageSchema } from '@modelcontextprotocol/sdk/types.js'
 
-export type SyncStatus = 'connected' | 'disconnected'
+export type SyncStatus = 'connected' | 'disconnected' | 'replaced'
+
+/** Close code the relay sends when another tab took over; the client must not reconnect. */
+export const REPLACED_CLOSE_CODE = 4000
 
 /**
  * MCP transport over a browser WebSocket to the local relay
@@ -38,10 +41,13 @@ export class WsTransport implements Transport {
         this.onerror?.(e instanceof Error ? e : new Error(String(e)))
       }
     }
-    socket.onclose = () => {
-      this.onStatus('disconnected')
+    socket.onclose = (event) => {
+      const replaced = event.code === REPLACED_CLOSE_CODE
+      this.onStatus(replaced ? 'replaced' : 'disconnected')
       // ponytail: fixed 3s retry, add backoff if it ever matters
-      if (!this.closed) this.timer = setTimeout(() => this.connect(), this.reconnectMs)
+      if (!this.closed && !replaced) {
+        this.timer = setTimeout(() => this.connect(), this.reconnectMs)
+      }
     }
   }
 
