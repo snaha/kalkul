@@ -415,11 +415,11 @@
         "localisation": "Lokalizace",
         "taxRules": "Daňová pravidla",
         "yourDetails": "Vaše údaje",
-        "localServer": "Místní server"
+        "mcpServer": "MCP server"
       },
-      "localServer": {
-        "url": "Adresa serveru",
-        "description": "Připojí tuto záložku k místnímu Kalkul relay (pnpm server), aby AI agent mohl číst a měnit vaše data přes MCP. Pro vypnutí nechte prázdné.",
+      "mcpServer": {
+        "url": "Adresa relay",
+        "description": "Umožní AI asistentovi, například Claude, číst a upravovat vaše plány přes Model Context Protocol (MCP). Spusťte na tomto počítači relay příkazem `pnpm server`, připojte tuto záložku a přidejte http://127.0.0.1:3001/mcp do svého AI klienta. Vaše data zůstávají ve vašem počítači.",
         "connect": "Připojit",
         "disconnect": "Odpojit",
         "off": "Vypnuto",

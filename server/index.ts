@@ -14,7 +14,8 @@ import { createServer } from 'node:http'
 import { type WebSocket, WebSocketServer } from 'ws'
 
 const port = Number(process.env.PORT ?? 3001)
-const NO_BROWSER = 'No browser connected: open Kalkul with the local server URL set in Settings'
+const NO_BROWSER =
+  'No browser connected: open Kalkul and connect this relay under Settings → MCP server'
 
 // ponytail: last tab wins, no multi-tab arbitration
 let browser: WebSocket | undefined

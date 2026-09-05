@@ -45,14 +45,14 @@
     | 'localisation'
     | 'taxRules'
     | 'yourDetails'
-    | 'localServer'
+    | 'mcpServer'
   const sections: SectionId[] = [
     'backup',
     'appearance',
     'localisation',
     'taxRules',
     'yourDetails',
-    'localServer',
+    'mcpServer',
   ]
   const navLabels = $derived<Record<SectionId, string>>({
     backup: $_('page.settings.nav.backup'),
@@ -60,7 +60,7 @@
     localisation: $_('page.settings.nav.localisation'),
     taxRules: $_('page.settings.nav.taxRules'),
     yourDetails: $_('page.settings.nav.yourDetails'),
-    localServer: $_('page.settings.nav.localServer'),
+    mcpServer: $_('page.settings.nav.mcpServer'),
   })
   let active = $state<SectionId>('backup')
 
@@ -73,7 +73,7 @@
 
   let importOpen = $state(false)
 
-  // --- Local server ---
+  // --- MCP server ---
   // The field is a draft; the store only changes on Connect / Disconnect.
   let syncUrlDraft = $state('ws://localhost:3001/ws')
   // Seed the draft from the stored URL; keep it after Disconnect so reconnecting is one click.
@@ -413,23 +413,23 @@
 
       <Separator class="max-w-[576px]" />
 
-      <!-- Local server (AI relay) -->
-      <section id="{uid}-localServer" class="flex w-full max-w-[576px] scroll-mt-8 flex-col gap-4">
+      <!-- MCP server -->
+      <section id="{uid}-mcpServer" class="flex w-full max-w-[576px] scroll-mt-8 flex-col gap-4">
         <div class="flex flex-col gap-1">
-          <h2 class="text-xl font-bold text-foreground">{navLabels.localServer}</h2>
-          <p class="text-sm text-muted-foreground">{$_('page.settings.localServer.description')}</p>
+          <h2 class="text-xl font-bold text-foreground">{navLabels.mcpServer}</h2>
+          <p class="text-sm text-muted-foreground">{$_('page.settings.mcpServer.description')}</p>
         </div>
         <div class="flex flex-col gap-2">
-          <Label for="{uid}-sync-url">{$_('page.settings.localServer.url')}</Label>
+          <Label for="{uid}-sync-url">{$_('page.settings.mcpServer.url')}</Label>
           <form class="flex gap-2" onsubmit={connectSync}>
             <Input id="{uid}-sync-url" bind:value={syncUrlDraft} />
             {#if syncDirty || !syncStore.url}
               <Button type="submit" disabled={!syncUrlDraft.trim()}>
-                {$_('page.settings.localServer.connect')}
+                {$_('page.settings.mcpServer.connect')}
               </Button>
             {:else}
               <Button type="button" variant="outline" onclick={() => syncStore.setUrl('')}>
-                {$_('page.settings.localServer.disconnect')}
+                {$_('page.settings.mcpServer.disconnect')}
               </Button>
             {/if}
           </form>
@@ -445,10 +445,10 @@
               )}
             ></span>
             {!syncStore.url
-              ? $_('page.settings.localServer.off')
+              ? $_('page.settings.mcpServer.off')
               : syncStore.status === 'connected'
-                ? $_('page.settings.localServer.connected')
-                : $_('page.settings.localServer.disconnected')}
+                ? $_('page.settings.mcpServer.connected')
+                : $_('page.settings.mcpServer.disconnected')}
           </p>
         </div>
       </section>
