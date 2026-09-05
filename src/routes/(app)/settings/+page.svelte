@@ -78,7 +78,6 @@
   let syncUrlDraft = $state('ws://localhost:3001/ws')
   // Seed the draft from the stored URL; keep it after Disconnect so reconnecting is one click.
   // A writable $derived would reset the draft to '' when the store empties.
-  // eslint-disable-next-line svelte/prefer-writable-derived
   $effect(() => {
     if (syncStore.url) syncUrlDraft = syncStore.url
   })
