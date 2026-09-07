@@ -1,9 +1,16 @@
 import { describe, expect, test } from 'vitest'
 
+import { getCurrentProfile } from '$lib/current-values'
 import type { Profile, Snapshot } from '$lib/schemas'
 import { captureSnapshot } from '$lib/snapshots'
+import { parseDateOnly } from '$lib/utils'
 
-import { buildSnapshotSections, snapshotFromFields } from './snapshot-form'
+import {
+  buildSnapshotSections,
+  openingDate,
+  seedSnapshotOn,
+  snapshotFromFields,
+} from './snapshot-form'
 
 const PROFILE: Profile = {
   name: 'Alice',
@@ -224,5 +231,75 @@ describe('snapshotFromFields', () => {
   test('writes the edited amount and the carried frequency for a cash flow', () => {
     const result = snapshotFromFields(SOURCE, sections, { 'incomes:i1': 5_000 }, '2026-06-01')
     expect(result.incomes).toEqual([{ id: 'i1', amount: 5_000, frequency: 'monthly' }])
+  })
+})
+
+describe('seedSnapshotOn', () => {
+  // Nothing accrues or compounds, so carrying a snapshot forward changes no
+  // figure and the seed can be compared exactly.
+  const STATIC: Profile = {
+    name: 'Alice',
+    email: 'a@example.com',
+    cash_amount: 9_000,
+    investments: [
+      { id: 'inv1', name: 'ETF', balance: 80_000, apy: 0 },
+      { id: 'inv2', name: 'Gold', balance: 500, apy: 0 },
+    ],
+  }
+  const JAN: Snapshot = {
+    date: '2026-01-01',
+    cash_amount: 1_000,
+    investments: [{ id: 'inv1', balance: 50_000 }],
+  }
+  const JUN = captureSnapshot(STATIC, '2026-06-01')
+  const HISTORY: Profile = { ...STATIC, snapshots: [JAN, JUN] }
+
+  test('opens a date between two snapshots at the earlier one carried forward', () => {
+    expect(seedSnapshotOn(HISTORY, '2026-03-01')).toEqual({
+      ...JAN,
+      date: '2026-03-01',
+      tangible_assets: [],
+      liabilities: [],
+      incomes: [],
+      expenses: [],
+    })
+  })
+
+  test('leaves out an item the earlier snapshot never recorded', () => {
+    // Gold was opened after January, so on a March date it opens at zero
+    // rather than at today's balance.
+    expect(seedSnapshotOn(HISTORY, '2026-03-01').investments?.map((i) => i.id)).toEqual(['inv1'])
+  })
+
+  test('opens a date before the first snapshot at that snapshot', () => {
+    expect(seedSnapshotOn(HISTORY, '2025-06-01').cash_amount).toBe(1_000)
+  })
+
+  test('opens a date after the latest snapshot at the projection to that date', () => {
+    // The same model the dashboard carries the latest snapshot to today with.
+    const history: Profile = { ...PROFILE, snapshots: [SOURCE] }
+    const seed = seedSnapshotOn(history, '2026-09-01')
+    expect(seed).toEqual(
+      captureSnapshot(getCurrentProfile(history, parseDateOnly('2026-09-01')), '2026-09-01'),
+    )
+    expect(seed.cash_amount).toBeGreaterThan(20_000)
+  })
+
+  test('opens a profile with no history at its own figures', () => {
+    expect(seedSnapshotOn(STATIC, '2026-03-01')).toEqual(captureSnapshot(STATIC, '2026-03-01'))
+  })
+})
+
+describe('openingDate', () => {
+  test('keeps a free date', () => {
+    expect(openingDate('2026-09-07', ['2026-08-01'])).toBe('2026-09-07')
+  })
+
+  test('opens blank rather than on an error when the date is already taken', () => {
+    expect(openingDate('2026-09-07', ['2026-09-07'])).toBe('')
+  })
+
+  test("keeps the snapshot's own date when editing it", () => {
+    expect(openingDate('2026-08-01', ['2026-08-01'], '2026-08-01')).toBe('2026-08-01')
   })
 })

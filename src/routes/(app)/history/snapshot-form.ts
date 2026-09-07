@@ -1,4 +1,7 @@
-import type { Frequency, Profile, Snapshot } from '$lib/schemas'
+import { getCurrentProfile } from '$lib/current-values'
+import { type Frequency, type Profile, type Snapshot, normalizeSnapshots } from '$lib/schemas'
+import { captureSnapshot, profileAtSnapshot } from '$lib/snapshots'
+import { parseDateOnly } from '$lib/utils'
 
 /** The six groups the snapshot dialog is laid out in, in the design's order. */
 export type SnapshotSectionId =
@@ -211,4 +214,35 @@ export function snapshotFromFields(
     incomes: merged(base.incomes, cashFlow('incomes')),
     expenses: merged(base.expenses, cashFlow('expenses')),
   }
+}
+
+/**
+ * The figures a fresh snapshot opens at for `date`: the app's own estimate of
+ * how the finances stood that day, so the user corrects a plausible starting
+ * point instead of retyping everything.
+ *
+ * The newest snapshot on or before the date is carried forward to it, by the
+ * same model the dashboard carries the latest one to today. An item that
+ * snapshot never recorded is left out, so it opens at zero — it did not exist
+ * yet. A date before the first snapshot opens at that snapshot's figures, there
+ * being nothing earlier to wind back from; a profile with no history opens at
+ * its own.
+ */
+export function seedSnapshotOn(profile: Profile, date: string): Snapshot {
+  const snapshots = normalizeSnapshots(profile.snapshots ?? [])
+  const base = snapshots.findLast((snapshot) => snapshot.date <= date) ?? snapshots[0]
+  if (!base) return captureSnapshot(profile, date)
+  const asOfBase: Profile = { ...profileAtSnapshot(profile, base), snapshots: [base] }
+  return captureSnapshot(getCurrentProfile(asOfBase, parseDateOnly(date)), date)
+}
+
+/**
+ * The date the dialog opens with. A seeded date that already has a snapshot —
+ * today, when the user confirmed one earlier today — opens the field blank and
+ * asks for a date, rather than opening on an error the user did nothing to
+ * cause. A snapshot being edited keeps its own date, taken or not.
+ */
+export function openingDate(seeded: string, takenDates: string[], originalDate?: string): string {
+  if (seeded === originalDate) return seeded
+  return takenDates.includes(seeded) ? '' : seeded
 }
