@@ -138,17 +138,6 @@ export function transferFromFields(f: TransferFields): Transfer {
 }
 
 /**
- * Whether the transfer uses anything the advanced (Start/End/Change) section
- * controls, i.e. differs from the blank defaults there.
- */
-export function usesAdvancedTiming(f: TransferFields): boolean {
-  const blank = blankTransferFields(f.id, f.name)
-  return (
-    f.start !== blank.start || f.end !== blank.end || f.change_over_time !== blank.change_over_time
-  )
-}
-
-/**
  * Same-year ranges can't end before they start: the end-month dropdown
  * disables the months before the start month. Undefined when the range is
  * not pinned to one calendar year.

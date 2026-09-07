@@ -6,7 +6,6 @@ import {
   endMinMonth,
   transferFromFields,
   transferToFields,
-  usesAdvancedTiming,
 } from '$lib/transfer-form'
 
 const RECURRING: Transfer = {
@@ -86,19 +85,6 @@ describe('transfer-form round trip', () => {
     const stored = transferFromFields(f)
     expect(stored.inflation_adjusted).toBe(true)
     expect(stored.change_over_time).toBe('none')
-  })
-})
-
-describe('usesAdvancedTiming', () => {
-  test('false for the blank defaults', () => {
-    expect(usesAdvancedTiming(blankTransferFields('x', 'X'))).toBe(false)
-  })
-
-  test('true when start, end or change differs from the default', () => {
-    const blank = blankTransferFields('x', 'X')
-    expect(usesAdvancedTiming({ ...blank, start: 'now' })).toBe(true)
-    expect(usesAdvancedTiming({ ...blank, end: 'at_specific_date' })).toBe(true)
-    expect(usesAdvancedTiming({ ...blank, change_over_time: 'increase_yearly' })).toBe(true)
   })
 })
 

@@ -1,11 +1,9 @@
 <script lang="ts">
   import { onDestroy } from 'svelte'
-  import { _, locale } from 'svelte-i18n'
+  import { _ } from 'svelte-i18n'
 
   import Plus from '@lucide/svelte/icons/plus'
 
-  import ChangeOverTimeSelector from '$lib/components/change-over-time-selector.svelte'
-  import DateAgeSelector from '$lib/components/date-age-selector.svelte'
   import EditableItemCard from '$lib/components/editable-item-card.svelte'
   import EditorItemErrors from '$lib/components/editor-item-errors.svelte'
   import InflationAdjustToggle from '$lib/components/inflation-adjust-toggle.svelte'
@@ -13,8 +11,6 @@
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Label } from '$lib/components/ui/label'
-  import { Separator } from '$lib/components/ui/separator'
-  import { Switch } from '$lib/components/ui/switch'
   import { createListEditor } from '$lib/list-editor.svelte'
   import type { Frequency, Transfer as TransferData } from '$lib/schemas'
   import { getFrequencyItems, getFrequencyShortLabel } from '$lib/select-options'
@@ -22,26 +18,18 @@
   import {
     type TransferFields,
     blankTransferFields,
-    endMinMonth,
     transferFromFields,
     transferToFields,
-    usesAdvancedTiming,
   } from '$lib/transfer-form'
-  import { getMonthOptions, getYearOptions } from '$lib/utils'
 
-  type TransferUI = TransferFields & {
-    showAdvanced: boolean
-    editing: boolean
-  }
+  type TransferUI = TransferFields & { editing: boolean }
 
   const editor = createListEditor<TransferData, TransferUI>({
     load: () => appStore.profile.transfers,
-    // The advanced section opens by itself when the stored transfer already
-    // uses something it controls, so those settings are never hidden.
-    toUI: (t) => {
-      const fields = transferToFields(t)
-      return { ...fields, showAdvanced: usesAdvancedTiming(fields), editing: false }
-    },
+    // The card renders From/To, Amount/Frequency and the inflation toggle
+    // only; Start/End/Change belong to the plan dialog. Timing fields are still
+    // carried on the UI item so a save here round-trips them untouched.
+    toUI: (t) => ({ ...transferToFields(t), editing: false }),
     makeBlank: (index) => ({
       ...blankTransferFields(
         crypto.randomUUID(),
@@ -54,7 +42,6 @@
       // Financial data holds recurring transfers only; one-time transfers are
       // created in the plan dialog.
       schedule: 'recurring',
-      showAdvanced: false,
       editing: true,
     }),
     copyName: (name) => $_('page.setup.common.copySuffix', { values: { name } }),
@@ -71,8 +58,6 @@
   onDestroy(editor.flushSave)
 
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
-  const years = getYearOptions()
-  let months = $derived(getMonthOptions($locale ?? undefined))
 
   // From/To dropdown options: cash plus every investment on the profile.
   // Transfers can only move between cash and investments — tangible assets
@@ -118,6 +103,32 @@
         onDelete={() => editor.remove(transfer)}
       >
         {#snippet expandedContent()}
+          <!-- From / To row -->
+          <div class="flex items-center gap-2">
+            <div class="flex flex-1 flex-col gap-2">
+              <Label for="from-{transfer.id}">{$_('page.setup.transfers.from')}</Label>
+              <SelectField
+                id="from-{transfer.id}"
+                value={transfer.from_asset_id}
+                items={fromItems}
+                onValueChange={(v) => {
+                  if (v) transfer.from_asset_id = v
+                }}
+              />
+            </div>
+            <div class="flex flex-1 flex-col gap-2">
+              <Label for="to-{transfer.id}">{$_('page.setup.transfers.to')}</Label>
+              <SelectField
+                id="to-{transfer.id}"
+                value={transfer.to_asset_id}
+                items={toItems}
+                onValueChange={(v) => {
+                  if (v) transfer.to_asset_id = v
+                }}
+              />
+            </div>
+          </div>
+
           <!-- Amount and (recurring) Frequency row -->
           <div class="flex items-center gap-2">
             <div class="flex flex-1 flex-col gap-2">
@@ -149,122 +160,12 @@
             {/if}
           </div>
 
-          <!-- From / To row -->
-          <div class="flex items-center gap-2">
-            <div class="flex flex-1 flex-col gap-2">
-              <Label for="from-{transfer.id}">{$_('page.setup.transfers.from')}</Label>
-              <SelectField
-                id="from-{transfer.id}"
-                value={transfer.from_asset_id}
-                items={fromItems}
-                onValueChange={(v) => {
-                  if (v) transfer.from_asset_id = v
-                }}
-              />
-            </div>
-            <div class="flex flex-1 flex-col gap-2">
-              <Label for="to-{transfer.id}">{$_('page.setup.transfers.to')}</Label>
-              <SelectField
-                id="to-{transfer.id}"
-                value={transfer.to_asset_id}
-                items={toItems}
-                onValueChange={(v) => {
-                  if (v) transfer.to_asset_id = v
-                }}
-              />
-            </div>
-          </div>
-
           <InflationAdjustToggle
             checked={transfer.inflation_adjusted}
             onCheckedChange={(v) => {
               transfer.inflation_adjusted = v
             }}
           />
-
-          <!-- Advanced options (recurring only — a one-time transfer created in
-               the plan dialog has no schedule fields to edit here) -->
-          {#if transfer.schedule === 'recurring'}
-            <label class="flex cursor-pointer items-center gap-2">
-              <Switch
-                checked={transfer.showAdvanced}
-                onCheckedChange={(v) => {
-                  transfer.showAdvanced = v === true
-                }}
-              />
-              <span class="text-sm font-medium">{$_('page.setup.common.advancedOptions')}</span>
-            </label>
-
-            {#if transfer.showAdvanced}
-              <Separator />
-
-              <DateAgeSelector
-                mode="start"
-                value={transfer.start}
-                year={transfer.start_year}
-                month={transfer.start_month}
-                age={transfer.start_age}
-                {years}
-                {months}
-                birthDateSet={appStore.profile.birthDate !== undefined}
-                description={$_('page.plan.transferStartDescription')}
-                formatNumber={appStore.formatNumber}
-                onValueChange={(v) => {
-                  transfer.start = v
-                }}
-                onYearChange={(v) => {
-                  transfer.start_year = v
-                }}
-                onMonthChange={(v) => {
-                  transfer.start_month = v
-                }}
-                onAgeChange={(v) => {
-                  transfer.start_age = v
-                }}
-              />
-
-              <DateAgeSelector
-                mode="end"
-                value={transfer.end}
-                year={transfer.end_year}
-                month={transfer.end_month}
-                age={transfer.end_age}
-                {years}
-                {months}
-                minMonth={endMinMonth(transfer)}
-                birthDateSet={appStore.profile.birthDate !== undefined}
-                neverLabel={$_('page.plan.transferEndNever')}
-                description={$_('page.plan.transferEndDescription')}
-                formatNumber={appStore.formatNumber}
-                onValueChange={(v) => {
-                  transfer.end = v
-                }}
-                onYearChange={(v) => {
-                  transfer.end_year = v
-                }}
-                onMonthChange={(v) => {
-                  transfer.end_month = v
-                }}
-                onAgeChange={(v) => {
-                  transfer.end_age = v
-                }}
-              />
-
-              <ChangeOverTimeSelector
-                value={transfer.change_over_time}
-                percentage={transfer.change_percentage}
-                noneLabel={$_('page.plan.transferChangeNone')}
-                changeDescription={$_('page.plan.transferChangeDescription')}
-                formatNumber={appStore.formatNumber}
-                onValueChange={(v) => {
-                  transfer.change_over_time = v
-                }}
-                onPercentageChange={(v) => {
-                  transfer.change_percentage = v
-                }}
-              />
-            {/if}
-          {/if}
         {/snippet}
       </EditableItemCard>
       <EditorItemErrors messages={editor.errors[transfer.id]} />
