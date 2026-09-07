@@ -19,4 +19,6 @@ export default {
   LOCALE: 'locale',
   /** localStorage — WebSocket URL of the local AI relay (server/index.ts); empty = off. */
   SYNC_URL: 'kalkul-sync-url',
+  /** localStorage — 'true' when the tab exposes its tools to browser agents via WebMCP. */
+  WEB_MCP: 'kalkul-web-mcp',
 } as const
