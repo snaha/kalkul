@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy } from 'svelte'
-  import { _, locale } from 'svelte-i18n'
+  import { _ } from 'svelte-i18n'
 
   import Plus from '@lucide/svelte/icons/plus'
 
@@ -10,42 +10,30 @@
   import { createListEditor } from '$lib/list-editor.svelte'
   import type { Expense as ExpenseData } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
-  import { calculateAge, getMonthOptions, getYearOptions } from '$lib/utils'
 
   type ExpenseUI = Omit<ExpenseData, 'amount'> & {
     amount: number | undefined
-    showAdvanced: boolean
     editing: boolean
   }
-
-  const currentYear = new Date().getFullYear()
-  const currentMonth = new Date().getMonth()
-  let currentAge = $derived(calculateAge(appStore.profile.birthDate, currentYear, currentMonth))
-  const years = getYearOptions()
-  let months = $derived(getMonthOptions($locale ?? undefined))
 
   const editor = createListEditor<ExpenseData, ExpenseUI>({
     load: () => appStore.profile.expenses,
     toUI: (exp) => ({
       ...exp,
       amount: exp.amount > 0 ? exp.amount : undefined,
-      showAdvanced: false,
       editing: false,
     }),
+    // Financial data records the current expense; Start/End/Change over time are
+    // planned modelling and are set in the plan dialog. The required timing
+    // fields are seeded so a new expense is schema-valid, but no card renders
+    // them; whatever a plan sets round-trips untouched through toUI/toStored.
     makeBlank: (index) => ({
       id: crypto.randomUUID(),
       name: $_('page.setup.expenses.defaultName', { values: { index } }),
       amount: undefined,
       frequency: 'monthly',
-      showAdvanced: false,
       start: 'immediately',
-      start_year: currentYear,
-      start_month: currentMonth,
-      start_age: currentAge,
       end: 'never',
-      end_year: currentYear,
-      end_month: currentMonth,
-      end_age: currentAge,
       change_over_time: 'none',
       change_percentage: undefined,
       // Default ON so new expenses keep their real value over time without the
@@ -89,11 +77,6 @@
         item={expense}
         suffix={currencyLabel}
         sentiment="negative"
-        startDescription={$_('page.setup.expenses.startDescription')}
-        endDescription={$_('page.setup.expenses.endDescription')}
-        changeDescription={$_('page.setup.expenses.changeDescription')}
-        {years}
-        {months}
         formatCurrencyCode={appStore.formatCurrencyCode}
         formatNumber={appStore.formatNumber}
         onToggleEditing={() => {

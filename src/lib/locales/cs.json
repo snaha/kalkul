@@ -388,9 +388,6 @@
         "addIncome": "Přidat příjem",
         "withholdTaxes": "Srážet daně z tohoto příjmu",
         "percentageToWithhold": "Procento ke srážce",
-        "startDescription": "Příjem automaticky začne od začátku vašeho plánu",
-        "endDescription": "Příjem bude automaticky trvat po celou dobu vašeho plánu",
-        "changeDescription": "Výše příjmu zůstane stejná po celou dobu vašeho plánu",
         "defaultName": "Příjem {index}",
         "netAmount": "Čistá částka"
       },
@@ -398,9 +395,6 @@
         "title": "Pravidelné výdaje",
         "description": "Životní náklady, opakované účty a pravidelné finanční závazky.",
         "addExpense": "Přidat výdaj",
-        "startDescription": "Výdaj automaticky začne od začátku vašeho plánu",
-        "endDescription": "Výdaj bude automaticky trvat po celou dobu vašeho plánu",
-        "changeDescription": "Výše výdaje zůstane stejná po celou dobu vašeho plánu",
         "defaultName": "Výdaj {index}"
       },
       "done": "Hotovo",
