@@ -9,6 +9,18 @@ type App = typeof appStore
 export type ToolResult = { content: { type: 'text'; text: string }[] }
 
 /**
+ * MCP tool annotations, a hint to clients (relay agents and WebMCP browser
+ * agents alike) about what a tool does before they call it. A browser agent
+ * acts on page content, so prompt-injection risk is higher here; a
+ * `destructiveHint` at least lets a well-behaved agent ask first.
+ */
+export type ToolAnnotations = { readOnlyHint?: boolean; destructiveHint?: boolean }
+
+const READ_ONLY: ToolAnnotations = { readOnlyHint: true }
+const WRITE: ToolAnnotations = { readOnlyHint: false }
+const DESTRUCTIVE: ToolAnnotations = { readOnlyHint: false, destructiveHint: true }
+
+/**
  * A tool definition shared by both surfaces: the in-browser MCP server
  * (src/lib/mcp/server.ts, reached through the local relay) and WebMCP
  * (src/lib/mcp/web-mcp.ts, reached by agents running in the browser).
@@ -19,6 +31,7 @@ export type KalkulTool = {
   name: string
   description: string
   inputSchema: z.ZodObject | undefined
+  annotations: ToolAnnotations
   execute: (args: Record<string, unknown>) => ToolResult
 }
 
@@ -36,9 +49,16 @@ function tool<S extends z.ZodObject>(
   name: string,
   description: string,
   inputSchema: S,
+  annotations: ToolAnnotations,
   execute: (args: z.output<S>) => ToolResult,
 ): KalkulTool {
-  return { name, description, inputSchema, execute: (args) => execute(inputSchema.parse(args)) }
+  return {
+    name,
+    description,
+    inputSchema,
+    annotations,
+    execute: (args) => execute(inputSchema.parse(args)),
+  }
 }
 
 export function kalkulTools(app: App = appStore): KalkulTool[] {
@@ -48,12 +68,14 @@ export function kalkulTools(app: App = appStore): KalkulTool[] {
       description:
         "The user's profile (cash, assets, liabilities, cash flows) and portfolios (plans)",
       inputSchema: undefined,
+      annotations: READ_ONLY,
       execute: () => text(JSON.parse(app.exportBackup())),
     },
     tool(
       'update_profile',
       'Merge the given fields into the profile',
       profileSchema.partial(),
+      WRITE,
       (args) => {
         app.updateProfile(args)
         return text(app.profile.toJSON())
@@ -63,12 +85,14 @@ export function kalkulTools(app: App = appStore): KalkulTool[] {
       'add_portfolio',
       'Create a portfolio (plan); returns its id',
       portfolioSchema.omit({ id: true }),
+      WRITE,
       (args) => text({ id: app.addPortfolio(args) }),
     ),
     tool(
       'update_portfolio',
       'Merge the given fields into the portfolio with this id',
       portfolioSchema.partial().required({ id: true }),
+      WRITE,
       ({ id, ...updates }) => {
         const portfolio = findPortfolio(app, id)
         portfolio.update(updates)
@@ -79,6 +103,7 @@ export function kalkulTools(app: App = appStore): KalkulTool[] {
       'delete_portfolio',
       'Delete the portfolio with this id',
       z.object({ id: z.string() }),
+      DESTRUCTIVE,
       ({ id }) => {
         findPortfolio(app, id).delete()
         return text({ ok: true })
@@ -88,6 +113,7 @@ export function kalkulTools(app: App = appStore): KalkulTool[] {
       'get_projection',
       'Yearly projection of a portfolio computed by the app (net worth, cash, investments, ...)',
       z.object({ portfolio_id: z.string() }),
+      READ_ONLY,
       ({ portfolio_id }) =>
         text(
           getYearlyPlanProjection(findPortfolio(app, portfolio_id).toJSON(), app.profile.toJSON()),

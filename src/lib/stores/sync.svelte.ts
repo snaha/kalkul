@@ -14,6 +14,9 @@ function withSyncStore() {
   let status = $state<SyncStatus>('disconnected')
   let transport: WsTransport | undefined
   let webMcp = $state(false)
+  // The API does not appear mid-session, so probe once in init() rather than
+  // on every read.
+  let webMcpSupported = $state(false)
   let unregisterWebMcp: (() => void) | undefined
 
   function applyWebMcp(): void {
@@ -43,13 +46,14 @@ function withSyncStore() {
       return webMcp
     },
     get webMcpSupported() {
-      return getModelContext() !== undefined
+      return webMcpSupported
     },
 
     /** Reads the stored URL and connects. Returns the cleanup. */
     init(): () => void {
       url = localStorage.getItem(storageKeys.SYNC_URL) ?? ''
       connect()
+      webMcpSupported = getModelContext() !== undefined
       webMcp = localStorage.getItem(storageKeys.WEB_MCP) === 'true'
       applyWebMcp()
       return () => {

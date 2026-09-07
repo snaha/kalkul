@@ -58,6 +58,17 @@ describe('registerWebMcpTools', () => {
     expect(ctx.tools.size).toBe(0)
   })
 
+  it('carries the read-only and destructive annotations onto each tool', () => {
+    registerWebMcpTools(ctx, kalkulTools(appStore))
+    expect(ctx.tools.get('get_data')?.annotations).toEqual({ readOnlyHint: true })
+    expect(ctx.tools.get('get_projection')?.annotations).toEqual({ readOnlyHint: true })
+    expect(ctx.tools.get('update_profile')?.annotations).toEqual({ readOnlyHint: false })
+    expect(ctx.tools.get('delete_portfolio')?.annotations).toEqual({
+      readOnlyHint: false,
+      destructiveHint: true,
+    })
+  })
+
   it('executes through the shared handlers with validation', async () => {
     registerWebMcpTools(ctx, kalkulTools(appStore))
     const result = await ctx.tools.get('update_profile')?.execute({ name: 'Robot' })

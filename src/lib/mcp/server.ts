@@ -15,11 +15,13 @@ export function createKalkulMcpServer(app: typeof appStore = appStore): McpServe
     if (t.inputSchema) {
       server.registerTool(
         t.name,
-        { description: t.description, inputSchema: t.inputSchema },
+        { description: t.description, inputSchema: t.inputSchema, annotations: t.annotations },
         (args) => t.execute(args),
       )
     } else {
-      server.registerTool(t.name, { description: t.description }, () => t.execute({}))
+      server.registerTool(t.name, { description: t.description, annotations: t.annotations }, () =>
+        t.execute({}),
+      )
     }
   }
   return server

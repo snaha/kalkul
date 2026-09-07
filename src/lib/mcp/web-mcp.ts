@@ -1,12 +1,13 @@
 import { z } from 'zod'
 
-import { type KalkulTool, type ToolResult, kalkulTools } from './tools'
+import { type KalkulTool, type ToolAnnotations, type ToolResult, kalkulTools } from './tools'
 
 /** Tool shape of the W3C WebMCP `modelContext.registerTool()` API. */
 export type WebMcpTool = {
   name: string
   description: string
   inputSchema: { type?: string; properties?: Record<string, unknown>; required?: string[] }
+  annotations: ToolAnnotations
   execute: (args: Record<string, unknown>) => Promise<ToolResult>
 }
 
@@ -34,6 +35,7 @@ export function toWebMcpTool(tool: KalkulTool): WebMcpTool {
     inputSchema: tool.inputSchema
       ? z.toJSONSchema(tool.inputSchema)
       : { type: 'object', properties: {} },
+    annotations: tool.annotations,
     execute: async (args) => tool.execute(args),
   }
 }
