@@ -508,4 +508,18 @@ describe('withDeletedSnapshot', () => {
     expect(deleted.snapshots).toEqual([])
     expect(deleted.cash_amount).toBe(PROFILE.cash_amount)
   })
+
+  test("keeps a financed asset's debt when the older snapshot recorded none", () => {
+    // The house was fully owned when JAN was taken and financed since. Rewinding
+    // onto JAN must not strip the debt off an asset the profile still marks as
+    // financed — the schema requires a balance there, so the write would fail.
+    const ownedOutright = PROFILE.tangible_assets?.map((a) =>
+      a.id === 't2' ? { ...a, status: 'fully_owned' as const, outstanding_balance: undefined } : a,
+    )
+    const jan = captureSnapshot({ ...PROFILE, tangible_assets: ownedOutright }, '2026-01-01')
+    const deleted = withDeletedSnapshot({ ...PROFILE, snapshots: [jan, JUN] }, '2026-06-01')
+    const house = deleted.tangible_assets?.find((a) => a.id === 't2')
+    expect(house?.status).toBe('financed')
+    expect(house?.outstanding_balance).toBe(80_000)
+  })
 })

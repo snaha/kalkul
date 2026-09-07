@@ -357,8 +357,14 @@ function withSnapshotValues(profile: Profile, snapshot: Snapshot): Profile {
       ...a,
       value: e.value,
       // A fully owned asset has no debt to restore, and writing one back would
-      // contradict its status.
-      outstanding_balance: a.status === 'financed' ? e.outstanding_balance : a.outstanding_balance,
+      // contradict its status. A financed one keeps its own balance when the
+      // snapshot recorded none (it was owned outright on that date): the schema
+      // requires a balance on a financed asset, so clearing it would fail the
+      // write.
+      outstanding_balance:
+        a.status === 'financed'
+          ? (e.outstanding_balance ?? a.outstanding_balance)
+          : a.outstanding_balance,
     })),
     liabilities: overlay(profile.liabilities, snapshot.liabilities, (l, e) => ({
       ...l,

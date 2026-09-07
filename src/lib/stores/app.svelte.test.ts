@@ -434,6 +434,37 @@ describe('appStore snapshot editing', () => {
     expect(appStore.profile.cash_amount).toBe(1_000)
   })
 
+  it('rewinds onto a snapshot that predates an asset being financed', () => {
+    // The house was owned outright when JAN was recorded and financed since.
+    // Rewinding must keep the financed asset's debt — the schema requires one,
+    // so dropping it would reject the whole write.
+    const house = {
+      id: 't1',
+      name: 'House',
+      value: 300_000,
+      status: 'financed' as const,
+      outstanding_balance: 120_000,
+      installment_frequency: 'monthly' as const,
+      annual_rate: 3,
+      installment_amount: 900,
+      remaining_term: 20,
+    }
+    appStore.updateProfile({
+      tangible_assets: [house],
+      snapshots: [
+        { ...JAN, tangible_assets: [{ id: 't1', value: 250_000 }] },
+        { ...JUN, tangible_assets: [{ id: 't1', value: 300_000, outstanding_balance: 120_000 }] },
+      ],
+    })
+    appStore.deleteSnapshot('2026-06-01')
+    expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual(['2026-01-01'])
+    expect(appStore.profile.tangible_assets?.[0]).toMatchObject({
+      value: 250_000,
+      status: 'financed',
+      outstanding_balance: 120_000,
+    })
+  })
+
   it('persists the edited history', () => {
     appStore.saveSnapshot({ ...JAN, cash_amount: 2_000 })
     const stored: unknown = JSON.parse(backing.get(storageKeys.DATA) ?? '{}')
