@@ -898,7 +898,12 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
         const balance = invBalancesNominal.get(id) ?? DECIMAL_0
         const basis = invBasisNominal.get(id) ?? DECIMAL_0
         if (balance.greaterThan(0)) {
-          invBasisNominal.set(id, basis.mul(DECIMAL_1.minus(amount.div(balance))))
+          // Clamp at zero so an overdraw (amount > balance) does not drive the
+          // basis negative and skew the gain share of the next withdrawal.
+          invBasisNominal.set(
+            id,
+            Decimal.max(basis.mul(DECIMAL_1.minus(amount.div(balance))), DECIMAL_0),
+          )
         }
         invBalancesNominal.set(id, balance.minus(amount))
       } else if (tangValuesNominal.has(id)) {
@@ -930,10 +935,16 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       if (balance.lessThanOrEqualTo(basis) || balance.isZero()) return DECIMAL_0
       const heldYears = year - (assetWindows.get(fromId)?.startYear ?? startYear)
       const rule = (profile.investment_tax_rules ?? []).find((r) => {
-        const threshold = r.holding_years ?? 0
-        return r.holding_period === 'more_than' ? heldYears > threshold : heldYears < threshold
+        // No year threshold (the Settings field is optional) → the rule applies
+        // whatever the holding period.
+        if (r.holding_years === undefined) return true
+        return r.holding_period === 'more_than'
+          ? heldYears > r.holding_years
+          : heldYears < r.holding_years
       })
       if (!rule?.rate) return DECIMAL_0
+      // Taxed on the gross gain share of `amount`, before the exit fee — a
+      // modeling choice; real brokers usually tax the net proceeds.
       const gain = amount.mul(balance.minus(basis).div(balance))
       return gain.mul(new Decimal(rule.rate).div(100))
     }

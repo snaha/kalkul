@@ -3018,6 +3018,20 @@ describe('capital gains tax on withdrawals', () => {
     expect(result[1].cash).toBeCloseTo(850, 6)
   })
 
+  it('applies a rule with no year threshold to any holding period', () => {
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({
+        cash_amount: 0,
+        investments: doubling,
+        transfers: [sell(1000, 2026)],
+        investment_tax_rules: [{ id: 'r1', rate: 30, holding_period: 'less_than' }],
+      }),
+    )
+    // No year threshold → matches regardless of years held. 500 gain × 30 % = 150.
+    expect(result[1].cash).toBeCloseTo(850, 6)
+  })
+
   it('applies no tax without rules', () => {
     const result = getYearlyPlanProjection(
       makePlan(),
@@ -3054,10 +3068,7 @@ describe('capital gains tax on withdrawals', () => {
 
   it('picks the rule whose holding period matches the years held', () => {
     const investments: ProfileInvestment[] = [{ id: 'i1', name: 'Fund', balance: 1000, apy: 0 }]
-    // Doubling would compound; use a one-off gain instead: the balance is worth
-    // 1000 with basis 1000, so give it a gain by starting with apy 100 for one
-    // year via a second investment is overkill — model the gain with apy 100
-    // and sell fractions whose gain share is known.
+    // apy 100 gives a known gain each year, so a fraction's gain share is exact.
     const result = getYearlyPlanProjection(
       makePlan(),
       makeProfile({
