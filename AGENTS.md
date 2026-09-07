@@ -6,6 +6,16 @@ This file provides guidance to LLM AI agents like Claude Code, Gemini and OpenAI
 
 See `README.md` for development commands, project structure, and conventions.
 
+## Project status
+
+**Pre-production.** Kalkul has no production users whose data we are committed to keeping: every
+profile and plan lives only in that browser's localStorage. So backwards compatibility and migration
+are not required — a Zod schema, the stored-data shape, a localStorage key, or the MCP tool surface
+may change in place, and the old path is deleted rather than kept beside the new one. Transitional
+`repair*` helpers (e.g. in `src/lib/schemas.ts`) exist only to smooth an in-progress change and can
+be removed once it lands. This holds on kalkul.app too, since the data never leaves the user's
+browser. That changes once Kalkul has users to keep, and this note with it.
+
 ## AI-Specific Guidelines
 
 ### Understanding the Codebase
@@ -153,6 +163,7 @@ When linking from a bare `<a>` tag (not the `Button` component), the `svelte/no-
 - Keep PR titles and descriptions concise.
 - Omit the issue number from branch names and titles
 - When a PR resolves an issue, reference it with a closing keyword (e.g. `Closes #53`) so GitHub closes the issue automatically on merge.
+- The repo deletes the head branch automatically when a PR is merged, so don't pass `--delete-branch` or delete branches by hand. Deleting a branch that another open PR is stacked on auto-closes that PR, so let the merge do it.
 
 ### Common Tasks
 
