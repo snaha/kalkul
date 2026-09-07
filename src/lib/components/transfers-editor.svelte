@@ -12,51 +12,35 @@
   import { Button } from '$lib/components/ui/button'
   import { Label } from '$lib/components/ui/label'
   import { createListEditor } from '$lib/list-editor.svelte'
-  import type { Frequency, Transfer as TransferData, TransferSchedule } from '$lib/schemas'
+  import type { Frequency, Transfer as TransferData } from '$lib/schemas'
   import { getFrequencyItems, getFrequencyShortLabel } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
+  import {
+    type TransferFields,
+    blankTransferFields,
+    transferFromFields,
+    transferToFields,
+  } from '$lib/transfer-form'
 
-  type TransferUI = {
-    id: string
-    name: string
-    amount: number | undefined
-    frequency: Frequency
-    from_asset_id: string
-    to_asset_id: string
-    inflation_adjusted: boolean
-    // Not editable here (the setup card has no scheduling controls, per its
-    // Figma) but carried so editing a card cannot turn a one-time transfer
-    // created in the plan dialog into a recurring one.
-    schedule: TransferSchedule
-    editing: boolean
-  }
+  type TransferUI = TransferFields & { editing: boolean }
 
   const editor = createListEditor<TransferData, TransferUI>({
     load: () => appStore.profile.transfers,
-    toUI: (t) => ({
-      id: t.id,
-      name: t.name,
-      amount: t.amount > 0 ? t.amount : undefined,
-      frequency: t.frequency ?? 'monthly',
-      from_asset_id: t.from_asset_id,
-      to_asset_id: t.to_asset_id,
-      inflation_adjusted: t.inflation_adjusted === true,
-      schedule: t.schedule,
-      editing: false,
-    }),
+    // The card renders From/To, Amount/Frequency and the inflation toggle
+    // only; Start/End/Change belong to the plan dialog. Timing fields are still
+    // carried on the UI item so a save here round-trips them untouched.
+    toUI: (t) => ({ ...transferToFields(t), editing: false }),
     makeBlank: (index) => ({
-      id: crypto.randomUUID(),
-      name: $_('page.setup.transfers.defaultName', { values: { index } }),
-      amount: undefined,
-      frequency: 'monthly',
+      ...blankTransferFields(
+        crypto.randomUUID(),
+        $_('page.setup.transfers.defaultName', { values: { index } }),
+      ),
       // Cash is the overwhelmingly common source, and seeding it keeps a
       // named-but-unfinished card schema-valid (from !== to) so it survives
       // a remount instead of being rejected as a self-transfer.
       from_asset_id: 'cash',
-      to_asset_id: '',
-      // Default ON — mirrors the income/expense default so new transfers
-      // keep their real value over time without the user having to flip it.
-      inflation_adjusted: true,
+      // Financial data holds recurring transfers only; one-time transfers are
+      // created in the plan dialog.
       schedule: 'recurring',
       editing: true,
     }),
@@ -64,28 +48,11 @@
     // Continue/Done is only enabled once the transfer becomes meaningful: an
     // amount plus both endpoints chosen (and distinct — enforced by the card).
     hasValue: (t) =>
-      (t.amount ?? 0) > 0 &&
+      (t.transfer_all || (t.amount ?? 0) > 0) &&
       t.from_asset_id !== '' &&
       t.to_asset_id !== '' &&
       t.from_asset_id !== t.to_asset_id,
-    // Spread the stored transfer first so everything this card does not show
-    // — one-time transaction dates, transfer_all, custom start/end, change
-    // over time — survives an edit here. Only the rendered fields override it.
-    toStored: (t, prev) => ({
-      schedule: 'recurring',
-      start: 'immediately',
-      end: 'never',
-      change_over_time: 'none',
-      ...prev,
-      id: t.id,
-      name: t.name,
-      from_asset_id: t.from_asset_id,
-      to_asset_id: t.to_asset_id,
-      amount: t.amount ?? 0,
-      // A one-time transfer has no frequency to set here.
-      frequency: t.schedule === 'one_time' ? prev?.frequency : t.frequency,
-      inflation_adjusted: t.inflation_adjusted ? true : undefined,
-    }),
+    toStored: (t) => transferFromFields(t),
     persist: (data) => appStore.updateProfile({ transfers: data }),
   })
   onDestroy(editor.flushSave)
@@ -136,33 +103,6 @@
         onDelete={() => editor.remove(transfer)}
       >
         {#snippet expandedContent()}
-          <!-- Amount and Frequency row -->
-          <div class="flex items-center gap-2">
-            <div class="flex flex-1 flex-col gap-2">
-              <Label for="amount-{transfer.id}">{$_('page.setup.transfers.amount')}</Label>
-              <SuffixedInput
-                id="amount-{transfer.id}"
-                value={transfer.amount}
-                suffix={currencyLabel}
-                formatNumber={appStore.formatNumber}
-                onValueChange={(v) => {
-                  transfer.amount = v
-                }}
-              />
-            </div>
-            <div class="flex flex-1 flex-col gap-2">
-              <Label for="frequency-{transfer.id}">{$_('page.setup.transfers.frequency')}</Label>
-              <SelectField
-                id="frequency-{transfer.id}"
-                value={transfer.frequency}
-                items={frequencyItems}
-                onValueChange={(v) => {
-                  if (v) transfer.frequency = v
-                }}
-              />
-            </div>
-          </div>
-
           <!-- From / To row -->
           <div class="flex items-center gap-2">
             <div class="flex flex-1 flex-col gap-2">
@@ -187,6 +127,37 @@
                 }}
               />
             </div>
+          </div>
+
+          <!-- Amount and (recurring) Frequency row -->
+          <div class="flex items-center gap-2">
+            <div class="flex flex-1 flex-col gap-2">
+              <Label for="amount-{transfer.id}">{$_('page.setup.transfers.amount')}</Label>
+              <SuffixedInput
+                id="amount-{transfer.id}"
+                value={transfer.amount}
+                suffix={currencyLabel}
+                formatNumber={appStore.formatNumber}
+                onValueChange={(v) => {
+                  transfer.amount = v
+                }}
+              />
+            </div>
+            {#if transfer.schedule === 'recurring'}
+              <div class="flex flex-1 flex-col gap-2">
+                <Label for="frequency-{transfer.id}">{$_('page.setup.transfers.frequency')}</Label>
+                <SelectField
+                  id="frequency-{transfer.id}"
+                  value={transfer.frequency}
+                  items={frequencyItems}
+                  onValueChange={(v) => {
+                    if (v) transfer.frequency = v
+                  }}
+                />
+              </div>
+            {:else}
+              <div class="flex-1"></div>
+            {/if}
           </div>
 
           <InflationAdjustToggle
