@@ -358,6 +358,69 @@ describe('getCurrentProfile with transfers', () => {
     }
     expect(getCurrentProfile(profile, TODAY).investments?.[1].balance).toBe(0)
   })
+
+  const netWorth = (profile: Profile) =>
+    (profile.cash_amount ?? 0) + (profile.investments ?? []).reduce((s, i) => s + i.balance, 0)
+
+  test('does not pay in more than the source can fund', () => {
+    // 200 in cash, nothing coming in, 600 a month promised to the ETF: half a
+    // year of that is 3,588 the cash never had.
+    const profile: Profile = {
+      ...PROFILE,
+      cash_amount: 200,
+      investments: [{ id: 'inv1', name: 'ETF', balance: 0, apy: 10 }],
+      incomes: [],
+      expenses: [],
+      liabilities: [],
+      transfers: [CONTRIBUTION],
+    }
+    const current = getCurrentProfile(profile, TODAY)
+    expect(current.cash_amount).toBe(0)
+    // The destination receives only what cash could actually cover, not the
+    // full annualized rate — net worth must not grow out of a transfer.
+    expect(current.investments?.[0].balance).toBe(200)
+    expect(netWorth(current)).toBe(200)
+  })
+
+  test('pays a drained investment out only as far as it could fund', () => {
+    // The same rule on the other side: the fund is emptied, and cash receives
+    // what was in it rather than the whole promised sweep.
+    const profile: Profile = {
+      ...PROFILE,
+      transfers: [{ ...CONTRIBUTION, from_asset_id: 'inv2', to_asset_id: 'cash', amount: 100_000 }],
+    }
+    const current = getCurrentProfile(profile, TODAY)
+    expect(current.investments?.[1].balance).toBe(0)
+    expect(netWorth(current)).toBeCloseTo(netWorth(getCurrentProfile(PROFILE, TODAY)), 2)
+  })
+
+  test('ignores a transfer into an investment not bought yet', () => {
+    const profile: Profile = {
+      ...PROFILE,
+      investments: [
+        { ...PROFILE.investments![0], start: 'at_specific_date', start_year: 2035 },
+        PROFILE.investments![1],
+      ],
+      transfers: [CONTRIBUTION],
+    }
+    const current = getCurrentProfile(profile, TODAY)
+    expect(current.cash_amount).toBe(25_763.04)
+    expect(current.investments?.[0].balance).toBe(104_863.78)
+  })
+
+  test('ignores a transfer out of an investment already sold', () => {
+    const profile: Profile = {
+      ...PROFILE,
+      investments: [
+        { ...PROFILE.investments![0], exit: 'at_specific_date', exit_year: 2025 },
+        PROFILE.investments![1],
+      ],
+      transfers: [{ ...CONTRIBUTION, from_asset_id: 'inv1', to_asset_id: 'cash' }],
+    }
+    const current = getCurrentProfile(profile, TODAY)
+    expect(current.cash_amount).toBe(25_763.04)
+    expect(current.investments?.[0].balance).toBe(104_863.78)
+  })
 })
 
 describe('percentChange', () => {

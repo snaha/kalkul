@@ -1,7 +1,8 @@
 import Decimal from 'decimal.js'
 
-import { DECIMAL_0, daysBetween } from '$lib/@snaha/kalkul-maths'
+import { DECIMAL_0, DECIMAL_1, daysBetween } from '$lib/@snaha/kalkul-maths'
 import {
+  CASH_ENDPOINT,
   INSTALLMENT_PERIODS_PER_YEAR,
   annualizedAmount,
   applyEntryFee,
@@ -9,6 +10,7 @@ import {
   effectiveInvestmentApy,
   financingToLiability,
   installmentPeriodRate,
+  investmentToTemporal,
   remainingInstallmentPeriods,
   yearOf,
 } from '$lib/plan-projection'
@@ -80,16 +82,22 @@ function isActiveOn(flow: CashFlowWindow, asOf: Date, birthYear: number | undefi
   return now <= endsAt
 }
 
-/** The transfer endpoint standing for the profile's cash, as the editor writes it. */
-const CASH_ENDPOINT = 'cash'
-
 /**
- * The yearly rate each balance is changing at on `asOf` — one entry for cash
- * and one per investment that a transfer touches.
+ * One recurring transfer as a pair of yearly rates: what leaves the source and
+ * what reaches the destination once the fees have been taken.
  */
+interface TransferLeg {
+  from: string
+  to: string
+  out: Decimal
+  in: Decimal
+}
+
+/** What is moving on `asOf`: the cash flow, and the transfers running that day. */
 interface AnnualFlows {
+  /** Net yearly cash flow from incomes, expenses and debt service. */
   cash: Decimal
-  investments: Map<string, Decimal>
+  transfers: TransferLeg[]
 }
 
 /**
@@ -151,7 +159,11 @@ function netAnnualCashFlowOn(profile: Profile, asOf: Date, birthYear: number | u
  * charged with `plan-projection`'s own helpers so the two agree. Transfers
  * only ever run between cash and investments, which is what the editor
  * offers, so anything pointing elsewhere — including at an asset the profile
- * no longer holds — is skipped rather than half-applied.
+ * no longer holds — is skipped rather than half-applied. So is one whose
+ * investment is not held on the date: the projection refuses to move money
+ * into a position the user has not bought yet, or out of one already sold,
+ * and the carry-forward has to agree with it or Quick update would offer the
+ * user a split the projection never makes.
  *
  * Two kinds are deliberately left out, both because they are events rather
  * than rates and this accrual only knows rates:
@@ -168,19 +180,20 @@ function annualFlowsOn(profile: Profile, asOf: Date): AnnualFlows {
   const birthYear = profile.birth_date ? yearOf(profile.birth_date) : undefined
   const flows: AnnualFlows = {
     cash: netAnnualCashFlowOn(profile, asOf, birthYear),
-    investments: new Map(),
+    transfers: [],
   }
 
   const investmentsById = new Map((profile.investments ?? []).map((i) => [i.id, i]))
-  const isEndpoint = (id: string) => id === CASH_ENDPOINT || investmentsById.has(id)
-  const add = (id: string, amount: Decimal): void => {
-    if (id === CASH_ENDPOINT) flows.cash = flows.cash.plus(amount)
-    else flows.investments.set(id, (flows.investments.get(id) ?? DECIMAL_0).plus(amount))
+  const isEndpointActive = (id: string): boolean => {
+    if (id === CASH_ENDPOINT) return true
+    const investment = investmentsById.get(id)
+    return investment !== undefined && isActiveOn(investmentToTemporal(investment), asOf, birthYear)
   }
 
   for (const transfer of profile.transfers ?? []) {
     if (transfer.schedule !== 'recurring' || transfer.transfer_all) continue
-    if (!isEndpoint(transfer.from_asset_id) || !isEndpoint(transfer.to_asset_id)) continue
+    if (!isEndpointActive(transfer.from_asset_id) || !isEndpointActive(transfer.to_asset_id))
+      continue
     // Recurring transfers carry the same start/end shape as incomes and
     // expenses, with the projection's own defaults for the optional fields.
     const running = isActiveOn(
@@ -201,17 +214,70 @@ function annualFlowsOn(profile: Profile, asOf: Date): AnnualFlows {
 
     const gross = annualizedAmount(new Decimal(transfer.amount), transfer.frequency ?? 'monthly')
     if (gross.isZero()) continue
-    add(transfer.from_asset_id, gross.negated())
-    add(
-      transfer.to_asset_id,
-      applyEntryFee(
+    flows.transfers.push({
+      from: transfer.from_asset_id,
+      to: transfer.to_asset_id,
+      out: gross,
+      in: applyEntryFee(
         investmentsById.get(transfer.to_asset_id),
         applyExitFee(investmentsById.get(transfer.from_asset_id), gross),
       ),
-    )
+    })
   }
 
   return flows
+}
+
+/**
+ * The balances once the transfers have run over the window, each source paying
+ * out no more than it can fund.
+ *
+ * A source that cannot cover everything promised out of it — cash outrun by a
+ * contribution between jobs, a fund swept for more than it holds — pays out
+ * what it has, and every transfer out of it is scaled down by the same factor
+ * on both legs. Flooring the source alone while the destination is paid in
+ * full would invent the shortfall out of nothing, and unlike a cash shortfall
+ * from expenses that would not cancel in net worth: it would show up on the
+ * History chart. The projection refuses such a transfer outright and flags it
+ * (`insufficientFundTransferIds`); over a window measured in fractions of a
+ * year, paying what was fundable is the closer estimate.
+ *
+ * What a source can fund is its own balance after its own movement plus what
+ * the other transfers pay into it, taken at face value rather than after their
+ * own scaling — a chain of shortfalls is not worth a fixed point here.
+ */
+function settleTransfers(
+  before: Map<string, Decimal>,
+  transfers: TransferLeg[],
+  yearFraction: Decimal,
+): Map<string, Decimal> {
+  const over = (rate: Decimal) => rate.mul(yearFraction)
+  const add = (map: Map<string, Decimal>, id: string, amount: Decimal) =>
+    map.set(id, (map.get(id) ?? DECIMAL_0).plus(amount))
+
+  const promisedOut = new Map<string, Decimal>()
+  const paidIn = new Map<string, Decimal>()
+  for (const leg of transfers) {
+    add(promisedOut, leg.from, over(leg.out))
+    add(paidIn, leg.to, over(leg.in))
+  }
+
+  const factor = new Map<string, Decimal>()
+  for (const [id, promised] of promisedOut) {
+    const fundable = Decimal.max(
+      (before.get(id) ?? DECIMAL_0).plus(paidIn.get(id) ?? DECIMAL_0),
+      DECIMAL_0,
+    )
+    factor.set(id, promised.greaterThan(fundable) ? fundable.div(promised) : DECIMAL_1)
+  }
+
+  const after = new Map(before)
+  for (const leg of transfers) {
+    const scale = factor.get(leg.from) ?? DECIMAL_1
+    add(after, leg.from, over(leg.out).mul(scale).negated())
+    add(after, leg.to, over(leg.in).mul(scale))
+  }
+  return after
 }
 
 /**
@@ -330,29 +396,35 @@ export function getCurrentProfile(profile: Profile, today: Date): Profile {
   // none of it. Integrating piecewise over every window edge would buy little
   // for a figure the user sees and re-confirms in Quick update.
   const flows = annualFlowsOn(profile, today)
-  const elapsed = (annualFlow: Decimal | undefined) => (annualFlow ?? DECIMAL_0).mul(yearFraction)
+
+  // Every balance after its own movement and before the transfers: cash after
+  // the flows running on it, each investment after its growth. Growth first,
+  // then the transfers over it — the order the projection's year loop uses, so
+  // a contribution does not compound in the same window it arrives in.
+  const before = new Map<string, Decimal>([
+    [CASH_ENDPOINT, new Decimal(profile.cash_amount ?? 0).plus(flows.cash.mul(yearFraction))],
+    ...(profile.investments ?? []).map((investment): [string, Decimal] => [
+      investment.id,
+      new Decimal(investment.balance).mul(
+        effectiveInvestmentApy(investment).div(100).plus(1).pow(yearFraction),
+      ),
+    ]),
+  ])
+  const after = settleTransfers(before, flows.transfers, yearFraction)
+  // Cash outrun by expenses stops at zero rather than going into overdraft —
+  // the shortfall is not modelled as debt. Transfers never take a balance
+  // below zero on their own; see `settleTransfers`.
+  const balance = (id: string) =>
+    Decimal.max(after.get(id) ?? DECIMAL_0, DECIMAL_0)
+      .toDecimalPlaces(MONEY_DECIMALS)
+      .toNumber()
 
   return {
     ...profile,
-    cash_amount: Decimal.max(
-      new Decimal(profile.cash_amount ?? 0).plus(elapsed(flows.cash)),
-      DECIMAL_0,
-    )
-      .toDecimalPlaces(MONEY_DECIMALS)
-      .toNumber(),
-    // Growth first, then the transfers over it — the order the projection's
-    // year loop uses, so a contribution does not compound in the same window
-    // it arrives in.
+    cash_amount: balance(CASH_ENDPOINT),
     investments: profile.investments?.map((investment) => ({
       ...investment,
-      balance: Decimal.max(
-        new Decimal(investment.balance)
-          .mul(effectiveInvestmentApy(investment).div(100).plus(1).pow(yearFraction))
-          .plus(elapsed(flows.investments.get(investment.id))),
-        DECIMAL_0,
-      )
-        .toDecimalPlaces(MONEY_DECIMALS)
-        .toNumber(),
+      balance: balance(investment.id),
     })),
     liabilities: profile.liabilities?.map((liability) => ({
       ...liability,

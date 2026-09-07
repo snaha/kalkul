@@ -33,6 +33,13 @@ interface CashFlowTemporal {
   change_percentage?: number
 }
 
+/**
+ * The transfer endpoint standing for the profile's cash, as the editor writes
+ * it. Owned here because the projection is what gives it meaning; the
+ * carry-forward in `current-values.ts` reads the same transfers.
+ */
+export const CASH_ENDPOINT = 'cash'
+
 export interface YearlyProjectionItem {
   id: string
   name: string
@@ -376,7 +383,7 @@ export function financingToLiability(asset: ProfileTangibleAsset): ProfileLiabil
   }
 }
 
-function investmentToTemporal(investment: ProfileInvestment): CashFlowTemporal {
+export function investmentToTemporal(investment: ProfileInvestment): CashFlowTemporal {
   // An investment without timing behaves like one held from day one and never
   // sold, which is what the engine did before planned timing existed.
   return {
@@ -480,7 +487,7 @@ function plannedTimingTransfers(
     ? {
         id: `${PLANNED_START_PREFIX}${asset.id}`,
         name: asset.name,
-        from_asset_id: 'cash',
+        from_asset_id: CASH_ENDPOINT,
         to_asset_id: asset.id,
         amount: buyAmount,
         schedule: 'one_time',
@@ -492,7 +499,7 @@ function plannedTimingTransfers(
         id: `${PLANNED_EXIT_PREFIX}${asset.id}`,
         name: asset.name,
         from_asset_id: asset.id,
-        to_asset_id: 'cash',
+        to_asset_id: CASH_ENDPOINT,
         amount: 0,
         transfer_all: true,
         schedule: 'one_time',
@@ -881,7 +888,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   // live on the profile and are referenced by the plan by id, mirroring how
   // incomes and expenses behave.
   const knownAssetIds = new Set<string>([
-    'cash',
+    CASH_ENDPOINT,
     ...investments.map((i) => i.id),
     ...tangibleAssets.map((a) => a.id),
   ])
@@ -967,14 +974,14 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     //    transfers are what's shown for year Y and what next year's
     //    compounding works from.
     function getBalance(id: string): Decimal {
-      if (id === 'cash') return cashNominal
+      if (id === CASH_ENDPOINT) return cashNominal
       if (invBalancesNominal.has(id)) return invBalancesNominal.get(id) ?? DECIMAL_0
       if (tangValuesNominal.has(id)) return tangValuesNominal.get(id) ?? DECIMAL_0
       return DECIMAL_0
     }
 
     function withdraw(id: string, amount: Decimal): void {
-      if (id === 'cash') {
+      if (id === CASH_ENDPOINT) {
         cashNominal = cashNominal.minus(amount)
       } else if (invBalancesNominal.has(id)) {
         const balance = invBalancesNominal.get(id) ?? DECIMAL_0
@@ -994,7 +1001,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     }
 
     function deposit(id: string, amount: Decimal): void {
-      if (id === 'cash') {
+      if (id === CASH_ENDPOINT) {
         cashNominal = cashNominal.plus(amount)
       } else if (invBalancesNominal.has(id)) {
         invBalancesNominal.set(id, (invBalancesNominal.get(id) ?? DECIMAL_0).plus(amount))
