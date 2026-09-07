@@ -465,6 +465,18 @@ describe('appStore snapshot editing', () => {
     })
   })
 
+  it('keeps a cleared history empty across a reload', () => {
+    // Legacy data (no snapshot list) is seeded a baseline on load; a history the
+    // user emptied on purpose must not come back as a snapshot dated the
+    // deletion.
+    appStore.deleteSnapshot('2026-01-01')
+    appStore.deleteSnapshot('2026-06-01')
+    expect(appStore.profile.snapshots).toEqual([])
+    appStore.load()
+    expect(appStore.profile.snapshots).toEqual([])
+    expect(appStore.profile.cash_amount).toBe(9_000)
+  })
+
   it('persists the edited history', () => {
     appStore.saveSnapshot({ ...JAN, cash_amount: 2_000 })
     const stored: unknown = JSON.parse(backing.get(storageKeys.DATA) ?? '{}')

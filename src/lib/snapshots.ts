@@ -426,10 +426,14 @@ export function withDeletedSnapshot(profile: Profile, date: string): Profile {
  * read as confirmed-today: no staleness banner, no projection, and a History
  * chart with one point.
  *
- * A no-op once any snapshot exists, or when there are no balances to record.
+ * Only a profile with no snapshot list at all is legacy data. An empty list is
+ * one the user cleared on the History page, and seeding it back on the next
+ * load would undo that — so it stays empty, and the figures count as current
+ * until the next edit records a snapshot. Also a no-op when there are no
+ * balances to record.
  */
 export function withSeededSnapshot(profile: Profile, asOf: Date): Profile {
-  if ((profile.snapshots ?? []).length > 0) return profile
+  if (profile.snapshots !== undefined) return profile
   if (!hasAnyBalance(heldBalances(profile, asOf))) return profile
   return { ...profile, snapshots: [captureSnapshot(profile, toDateOnlyString(asOf))] }
 }

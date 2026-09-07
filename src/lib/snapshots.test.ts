@@ -333,6 +333,14 @@ describe('withSeededSnapshot', () => {
     const profile: Profile = { name: '', email: '' }
     expect(withSeededSnapshot(profile, asOf).snapshots).toBeUndefined()
   })
+
+  test('leaves a deliberately emptied history alone', () => {
+    // Only a profile with no snapshot list at all predates snapshots. An empty
+    // list is one the user cleared on the History page, and seeding it back on
+    // the next load would undo that.
+    const profile: Profile = { ...PROFILE, snapshots: [] }
+    expect(withSeededSnapshot(profile, asOf)).toBe(profile)
+  })
 })
 
 describe('removeSnapshot', () => {
