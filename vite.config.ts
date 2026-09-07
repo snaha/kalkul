@@ -17,7 +17,7 @@ export default defineConfig({
     // environment via a vitest-environment pragma on their first line so they
     // get web (client) transforms — the default node environment compiles
     // Svelte in SSR mode, where effects are inert no-ops.
-    include: ['src/**/*.test.ts', 'src/**/*.test.svelte.ts'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.svelte.ts', 'server/**/*.test.ts'],
     server: {
       deps: {
         // Vitest externalizes node_modules by default, so `svelte` would be
