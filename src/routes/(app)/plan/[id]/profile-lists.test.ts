@@ -165,7 +165,6 @@ describe('cash-flow lists', () => {
         name: 'Salary',
         amount: 100,
         frequency: 'monthly',
-        withhold_taxes: false,
         start: 'immediately',
         end: 'never',
         change_over_time: 'none',

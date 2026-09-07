@@ -199,8 +199,6 @@ export const incomeSchema = z
     name: z.string(),
     amount: z.number(),
     frequency: frequencySchema,
-    withhold_taxes: z.boolean(),
-    tax_percentage: z.number().optional(),
     start: cashFlowStartSchema,
     start_year: z.number().optional(),
     start_month: z.number().optional(),

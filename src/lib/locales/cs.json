@@ -386,8 +386,6 @@
         "title": "Pravidelné příjmy",
         "description": "Mzda, podnikání a další pravidelné příjmy.",
         "addIncome": "Přidat příjem",
-        "withholdTaxes": "Srážet daně z tohoto příjmu",
-        "percentageToWithhold": "Procento ke srážce",
         "defaultName": "Příjem {index}",
         "netAmount": "Čistá částka"
       },
