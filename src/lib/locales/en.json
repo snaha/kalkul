@@ -405,6 +405,38 @@
         "title": "Recurring transfers",
         "description": "Regular deposits or withdrawals between your accounts and assets — like monthly investment contributions."
       }
+    },
+    "settings": {
+      "title": "Settings",
+      "close": "Close",
+      "nav": {
+        "backup": "Backup",
+        "appearance": "Appearance",
+        "localisation": "Localisation",
+        "taxRules": "Tax rules",
+        "yourDetails": "Your details"
+      },
+      "backup": {
+        "export": "Export to file",
+        "exportDescription": "Save your current Kalkul data as a file to back up or transfer to another device.",
+        "import": "Import from file",
+        "importDescription": "Load a previously exported Kalkul file. This will replace your current data."
+      },
+      "taxRules": {
+        "description": "Set default tax rules for when you sell investments or tangible assets. These will apply automatically unless overridden.",
+        "investments": "For investments",
+        "tangibleAssets": "For tangible assets",
+        "capitalGainsTax": "Capital gains tax",
+        "if": "if",
+        "holdingPeriodIs": "Holding period is",
+        "moreThan": "More than",
+        "lessThan": "Less than",
+        "years": "years",
+        "holdingYears": "Holding period in years",
+        "addRule": "Add tax rule",
+        "removeRule": "Remove tax rule",
+        "cgtHelp": "Capital gains tax (CGT) is a tax levied on the profit (gain) made from selling an asset—such as stocks, bonds, real estate, or collectibles—that has increased in value. It only applies when the asset is sold (realized), not while it is held. Rates generally depend on how long the asset was held (short-term vs. long-term) and the owner's income level."
+      }
     }
   },
   "common": {
@@ -421,15 +453,10 @@
   "theme": {
     "light": "Light",
     "dark": "Dark",
-    "system": "System"
+    "system": "Automatic"
   },
   "navbar": {
     "menu": {
-      "exportData": "Export data",
-      "importData": "Import data",
-      "reportBug": "Report bug and feedback",
-      "visitGithub": "Visit our Github page",
-      "joinDiscord": "Join our Discord server",
       "usageLicense": "Read our usage and license terms"
     },
     "import": {
@@ -456,7 +483,9 @@
       "licenseName": "AGPL-3.0 license",
       "openSourceSuffix": ". You are free to use, modify, and distribute it under the same terms.",
       "visitGithub": "Visit our Github"
-    }
+    },
+    "help": "Help",
+    "settings": "Settings"
   },
   "dev": {
     "confirm": {
