@@ -22,7 +22,13 @@ const NO_BROWSER =
 
 // ponytail: last tab wins, no multi-tab arbitration
 let browser: WebSocket | undefined
-const pending = new Map<RequestId, StreamableHTTPServerTransport>()
+
+// Keyed by a relay-assigned id, not the client's JSON-RPC id: two MCP clients
+// (two Claude Code sessions, say) both start numbering at 1, so the client id
+// alone would collide and route a reply to the wrong transport. We rewrite the
+// id on the way to the tab and restore the client's own id on the way back.
+const pending = new Map<number, { transport: StreamableHTTPServerTransport; id: RequestId }>()
+let nextRelayId = 0
 
 function fail(id: RequestId, transport: StreamableHTTPServerTransport): void {
   void transport.send({ jsonrpc: '2.0', id, error: { code: -32000, message: NO_BROWSER } })
@@ -36,6 +42,11 @@ const http = createServer(async (req, res) => {
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
+    // A DNS-rebinding page whose hostname resolves to 127.0.0.1 could otherwise
+    // POST to the relay with no CORS in the way; the WebSocket already checks
+    // Origin, so close the same hole on the HTTP side.
+    enableDnsRebindingProtection: true,
+    allowedHosts: [`127.0.0.1:${port}`, `localhost:${port}`],
   })
   transport.onmessage = (message) => {
     const id = 'id' in message && 'method' in message ? message.id : undefined
@@ -43,8 +54,14 @@ const http = createServer(async (req, res) => {
       if (id !== undefined) fail(id, transport)
       return
     }
-    if (id !== undefined) pending.set(id, transport)
-    browser.send(JSON.stringify(message))
+    if (id === undefined) {
+      // A notification has no reply to route, so forward it untouched.
+      browser.send(JSON.stringify(message))
+      return
+    }
+    const relayId = nextRelayId++
+    pending.set(relayId, { transport, id })
+    browser.send(JSON.stringify({ ...message, id: relayId }))
   }
   await transport.handleRequest(req, res)
 })
@@ -58,15 +75,23 @@ new WebSocketServer({
   browser?.close(REPLACED_CLOSE_CODE, 'replaced by another tab')
   browser = socket
   socket.on('message', (raw) => {
-    const message = JSONRPCMessageSchema.parse(JSON.parse(raw.toString()))
+    let message
+    try {
+      message = JSONRPCMessageSchema.parse(JSON.parse(raw.toString()))
+    } catch (error) {
+      // One bad frame must not take down the relay for every client.
+      console.error('Kalkul relay: dropping malformed frame from the tab', error)
+      return
+    }
     if (!('id' in message) || 'method' in message || message.id === undefined) return
-    const transport = pending.get(message.id)
-    pending.delete(message.id)
-    void transport?.send(message)
+    const entry = pending.get(message.id as number)
+    if (!entry) return
+    pending.delete(message.id as number)
+    void entry.transport.send({ ...message, id: entry.id })
   })
   socket.on('close', () => {
     if (browser === socket) browser = undefined
-    for (const [id, transport] of pending) fail(id, transport)
+    for (const { transport, id } of pending.values()) fail(id, transport)
     pending.clear()
   })
 })

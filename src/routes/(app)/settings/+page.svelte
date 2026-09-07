@@ -75,7 +75,7 @@
 
   // --- MCP server ---
   // The field is a draft; the store only changes on Connect / Disconnect.
-  let syncUrlDraft = $state('ws://localhost:3001/ws')
+  let syncUrlDraft = $state('ws://127.0.0.1:3001/ws')
   // Seed the draft from the stored URL; keep it after Disconnect so reconnecting is one click.
   // A writable $derived would reset the draft to '' when the store empties.
   $effect(() => {
