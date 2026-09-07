@@ -15,7 +15,7 @@
   import { appStore } from '$lib/stores/app.svelte'
 
   import type { SnapshotField, SnapshotSectionId } from './snapshot-form'
-  import { buildSnapshotSections, snapshotFromFields } from './snapshot-form'
+  import { buildSnapshotSections, openingDate, snapshotFromFields } from './snapshot-form'
 
   interface Props {
     open: boolean
@@ -29,6 +29,12 @@
     takenDates: string[]
     /** Today as a date-only ISO string — the latest date a snapshot may carry. */
     today: string
+    /**
+     * For a fresh snapshot: the figures to open at for a given date, so
+     * re-dating it re-seeds every field the user has not typed in. Left out for
+     * an edit or a duplicate, whose figures are the point.
+     */
+    seedOn?: (date: string) => Snapshot
     onConfirm: (snapshot: Snapshot, originalDate?: string) => void
   }
 
@@ -39,21 +45,34 @@
     originalDate,
     takenDates,
     today,
+    seedOn,
     onConfirm,
   }: Props = $props()
-
-  // The stored profile decides which items the dialog offers a field for; the
-  // source snapshot supplies the figures.
-  const sections = $derived(buildSnapshotSections(appStore.profile.toJSON(), source))
 
   let date = $state('')
   // Only what the user typed, keyed by field key. A field with no entry — or
   // one cleared back to empty — falls back to its seeded value.
   let edits = $state<Record<string, number | undefined>>({})
+  // The figures re-seeded for the date the user picked, when `seedOn` allows.
+  let reseeded = $state<Snapshot | undefined>(undefined)
+
+  const figures = $derived(reseeded ?? source)
+  // The stored profile decides which items the dialog offers a field for; the
+  // figures supply the values.
+  const sections = $derived(buildSnapshotSections(appStore.profile.toJSON(), figures))
 
   function reset(): void {
-    date = source.date
+    date = openingDate(source.date, takenDates, originalDate)
     edits = {}
+    reseeded = undefined
+  }
+
+  // A fresh snapshot follows its date: the figures are the app's estimate for
+  // that day, so a different day means a different estimate. Typed values stay
+  // — `edits` is kept — and only the untouched fields move with the date.
+  function reseedForDate(): void {
+    if (!seedOn || !date || dateError) return
+    reseeded = seedOn(date)
   }
 
   // Re-seed on every open so a cancelled edit never carries into the next one.
@@ -130,7 +149,7 @@
 
   function confirm(): void {
     if (dateError || !date) return
-    onConfirm(snapshotFromFields(source, sections, edits, date), originalDate)
+    onConfirm(snapshotFromFields(figures, sections, edits, date), originalDate)
     open = false
   }
 </script>
@@ -163,6 +182,7 @@
           type="date"
           max={today}
           bind:value={date}
+          onchange={reseedForDate}
           aria-invalid={dateError ? 'true' : undefined}
           aria-describedby={dateError ? 'snapshot-date-error' : undefined}
         />

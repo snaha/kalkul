@@ -14,7 +14,7 @@
   import routes from '$lib/routes'
   import type { Snapshot } from '$lib/schemas'
   import { buildSnapshotRows } from '$lib/snapshot-rows'
-  import { captureSnapshot, latestSnapshot } from '$lib/snapshots'
+  import { latestSnapshot } from '$lib/snapshots'
   import { appStore } from '$lib/stores/app.svelte'
   import { trackToday } from '$lib/today.svelte'
   import { parseDateOnly, toDateOnlyString } from '$lib/utils'
@@ -22,6 +22,7 @@
   import QuickUpdateDialog from '../quick-update-dialog.svelte'
   import StaleDataAlert from '../stale-data-alert.svelte'
   import SnapshotDialog from './snapshot-dialog.svelte'
+  import { seedSnapshotOn } from './snapshot-form'
   import SnapshotsTable from './snapshots-table.svelte'
 
   // One clock for the whole page, following the calendar past midnight.
@@ -61,16 +62,20 @@
   // Placeholder until one of the openers below fills it in.
   let snapshotSource = $state<Snapshot>({ date: '' })
   let snapshotOriginalDate = $state<string | undefined>(undefined)
+  let snapshotSeedOn = $state<((date: string) => Snapshot) | undefined>(undefined)
 
   const snapshotOn = (date: string) =>
     (storedProfile.snapshots ?? []).find((snapshot) => snapshot.date === date)
 
   function openAdd(): void {
     snapshotMode = 'add'
-    // Seeded from the balances as they stand today, the same figures Quick
-    // update starts from — a blank form would ask the user to retype
-    // everything they already told the app.
-    snapshotSource = captureSnapshot(currentProfile, todayDate)
+    // Seeded with the app's own estimate for the date — today's projected
+    // balances to begin with, the same figures Quick update starts from — and
+    // re-seeded when the user picks another day. A blank form would ask them to
+    // retype everything they already told the app.
+    const seedOn = (date: string) => seedSnapshotOn(storedProfile, date)
+    snapshotSource = seedOn(todayDate)
+    snapshotSeedOn = seedOn
     snapshotOriginalDate = undefined
     snapshotOpen = true
   }
@@ -80,6 +85,7 @@
     if (!snapshot) return
     snapshotMode = 'edit'
     snapshotSource = snapshot
+    snapshotSeedOn = undefined
     snapshotOriginalDate = date
     snapshotOpen = true
   }
@@ -88,9 +94,11 @@
     const snapshot = snapshotOn(date)
     if (!snapshot) return
     // A copy is a new snapshot, so it starts at today and leaves the original
-    // where it is — the user re-dates it if they meant another day.
+    // where it is — the user re-dates it if they meant another day. Its figures
+    // are the copied ones whatever the date, so it is not re-seeded.
     snapshotMode = 'add'
     snapshotSource = { ...snapshot, date: todayDate }
+    snapshotSeedOn = undefined
     snapshotOriginalDate = undefined
     snapshotOpen = true
   }
@@ -196,5 +204,6 @@
   originalDate={snapshotOriginalDate}
   {takenDates}
   today={todayDate}
+  seedOn={snapshotSeedOn}
   onConfirm={(snapshot, original) => appStore.saveSnapshot(snapshot, original)}
 />
