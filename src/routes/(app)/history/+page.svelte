@@ -16,6 +16,7 @@
   import { buildSnapshotRows } from '$lib/snapshot-rows'
   import { captureSnapshot, latestSnapshot } from '$lib/snapshots'
   import { appStore } from '$lib/stores/app.svelte'
+  import { trackToday } from '$lib/today.svelte'
   import { parseDateOnly, toDateOnlyString } from '$lib/utils'
 
   import QuickUpdateDialog from '../quick-update-dialog.svelte'
@@ -23,10 +24,10 @@
   import SnapshotDialog from './snapshot-dialog.svelte'
   import SnapshotsTable from './snapshots-table.svelte'
 
-  // Read once per page render: every figure below has to agree on "today", and
-  // re-reading the clock mid-render could straddle midnight.
-  const today = new Date()
-  const todayDate = toDateOnlyString(today)
+  // One clock for the whole page, following the calendar past midnight.
+  const clock = trackToday()
+  const today = $derived(clock.today)
+  const todayDate = $derived(toDateOnlyString(today))
 
   const storedProfile = $derived(appStore.profile.toJSON())
   const currentProfile = $derived(getCurrentProfile(storedProfile, today))
@@ -57,7 +58,8 @@
   let quickUpdateOpen = $state(false)
   let snapshotOpen = $state(false)
   let snapshotMode = $state<'add' | 'edit'>('add')
-  let snapshotSource = $state<Snapshot>({ date: todayDate })
+  // Placeholder until one of the openers below fills it in.
+  let snapshotSource = $state<Snapshot>({ date: '' })
   let snapshotOriginalDate = $state<string | undefined>(undefined)
 
   const snapshotOn = (date: string) =>
