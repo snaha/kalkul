@@ -22,6 +22,7 @@
   import {
     type TransferFields,
     blankTransferFields,
+    endMinMonth,
     transferFromFields,
     transferToFields,
   } from '$lib/transfer-form'
@@ -190,14 +191,6 @@
   // month are disabled in the end dropdown, and an end month that a later
   // start/year change turned invalid is cleared so the user picks again
   // (Save stays disabled until they do).
-  const endMinMonth = $derived(
-    form.start === 'at_specific_date' &&
-      form.end === 'at_specific_date' &&
-      form.start_year !== undefined &&
-      form.start_year === form.end_year
-      ? form.start_month
-      : undefined,
-  )
   $effect(() => {
     if (
       sameYearMonthsInverted(
@@ -439,7 +432,7 @@
       age={form.end_age}
       {years}
       {months}
-      minMonth={endMinMonth}
+      minMonth={endMinMonth(form)}
       birthDateSet={appStore.profile.birthDate !== undefined}
       neverLabel={$_('page.plan.transferEndNever')}
       description={$_('page.plan.transferEndDescription')}

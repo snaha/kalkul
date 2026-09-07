@@ -55,9 +55,9 @@ export function blankTransferFields(id: string, name: string): TransferFields {
     transaction_year: now.getFullYear(),
     transaction_month: now.getMonth() + 1,
     frequency: 'monthly',
-    start: 'now',
+    start: 'immediately',
     // Timing fields start empty so 'at_specific_date'/'when_age_is' force an
-    // explicit choice instead of silently defaulting to "now" (= plan year 1).
+    // explicit choice instead of silently defaulting to plan year 1.
     start_year: undefined,
     start_month: undefined,
     start_age: undefined,
@@ -135,4 +135,29 @@ export function transferFromFields(f: TransferFields): Transfer {
         ? (f.change_percentage ?? 0)
         : undefined,
   }
+}
+
+/**
+ * Whether the transfer uses anything the advanced (Start/End/Change) section
+ * controls, i.e. differs from the blank defaults there.
+ */
+export function usesAdvancedTiming(f: TransferFields): boolean {
+  const blank = blankTransferFields(f.id, f.name)
+  return (
+    f.start !== blank.start || f.end !== blank.end || f.change_over_time !== blank.change_over_time
+  )
+}
+
+/**
+ * Same-year ranges can't end before they start: the end-month dropdown
+ * disables the months before the start month. Undefined when the range is
+ * not pinned to one calendar year.
+ */
+export function endMinMonth(f: TransferFields): number | undefined {
+  return f.start === 'at_specific_date' &&
+    f.end === 'at_specific_date' &&
+    f.start_year !== undefined &&
+    f.start_year === f.end_year
+    ? f.start_month
+    : undefined
 }

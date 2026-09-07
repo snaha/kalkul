@@ -22,8 +22,10 @@
   import {
     type TransferFields,
     blankTransferFields,
+    endMinMonth,
     transferFromFields,
     transferToFields,
+    usesAdvancedTiming,
   } from '$lib/transfer-form'
   import { getMonthOptions, getYearOptions } from '$lib/utils'
 
@@ -32,19 +34,14 @@
     editing: boolean
   }
 
-  // The advanced section opens by itself when the stored transfer already
-  // uses something it controls, so those settings are never hidden.
-  function usesAdvanced(t: TransferData): boolean {
-    return (
-      (t.start !== undefined && t.start !== 'immediately' && t.start !== 'now') ||
-      (t.end !== undefined && t.end !== 'never') ||
-      (t.change_over_time !== undefined && t.change_over_time !== 'none')
-    )
-  }
-
   const editor = createListEditor<TransferData, TransferUI>({
     load: () => appStore.profile.transfers,
-    toUI: (t) => ({ ...transferToFields(t), showAdvanced: usesAdvanced(t), editing: false }),
+    // The advanced section opens by itself when the stored transfer already
+    // uses something it controls, so those settings are never hidden.
+    toUI: (t) => {
+      const fields = transferToFields(t)
+      return { ...fields, showAdvanced: usesAdvancedTiming(fields), editing: false }
+    },
     makeBlank: (index) => ({
       ...blankTransferFields(
         crypto.randomUUID(),
@@ -95,18 +92,6 @@
     const amount = appStore.formatCurrencyCode(transfer.amount)
     if (transfer.schedule === 'one_time') return amount
     return `${amount} / ${getFrequencyShortLabel($_, transfer.frequency)}`
-  }
-
-  // Same-year ranges can't end before they start: disable the months before
-  // the start month in the end dropdown. Schema validation still reports an
-  // inverted pair through EditorItemErrors if one slips through.
-  function endMinMonth(t: TransferUI): number | undefined {
-    return t.start === 'at_specific_date' &&
-      t.end === 'at_specific_date' &&
-      t.start_year !== undefined &&
-      t.start_year === t.end_year
-      ? t.start_month
-      : undefined
   }
 </script>
 
