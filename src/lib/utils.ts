@@ -105,6 +105,17 @@ export function toDateOnlyString(date: Date): string {
   return `${date.getFullYear()}-${month}-${day}`
 }
 
+/**
+ * Milliseconds from `now` to the next local midnight — the moment the calendar
+ * date, and with it everything a page derives from "today", rolls over.
+ * Counted in calendar days rather than 24-hour blocks so a DST shift lands on
+ * the real midnight.
+ */
+export function msUntilNextMidnight(now: Date): number {
+  const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+  return nextMidnight.getTime() - now.getTime()
+}
+
 export function notImplemented() {
   alert(get(_)('common.notImplemented'))
 }
