@@ -525,9 +525,9 @@ export const holdingPeriodSchema = z.enum(['more_than', 'less_than'])
 // does not apply tax rules at all yet).
 export const taxRuleSchema = z.object({
   id: z.string(),
-  rate: z.number().optional(),
+  rate: z.number().min(0).max(100).optional(),
   holding_period: holdingPeriodSchema,
-  holding_years: z.number().optional(),
+  holding_years: z.number().min(0).optional(),
 })
 
 export const profileSchema = z.object({

@@ -22,7 +22,7 @@
   import downloadBackup from '$lib/download-backup'
   import { COUNTRY_CURRENCY_MAP, getCountryItems, getLanguageItems } from '$lib/profile-options'
   import routes from '$lib/routes'
-  import type { HoldingPeriod, Profile, TaxRule } from '$lib/schemas'
+  import { type HoldingPeriod, type Profile, type TaxRule, taxRuleSchema } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
   import { type Theme, themeStore } from '$lib/stores/theme.svelte'
   import {
@@ -103,16 +103,15 @@
   }
 
   function updateRule(key: TaxRuleKey, rows: TaxRule[], id: string, patch: Partial<TaxRule>) {
-    saveRules(
-      key,
-      rows.map((rule) => (rule.id === id ? { ...rule, ...patch } : rule)),
-    )
+    const next = rows.map((rule) => (rule.id === id ? { ...rule, ...patch } : rule))
+    // Out-of-range input (e.g. a 150 % rate) is not persisted; updateProfile would throw.
+    if (next.every((rule) => taxRuleSchema.safeParse(rule).success)) saveRules(key, next)
   }
 
   // --- Your details ---
-  const p = appStore.profile
-  let birthYear = $state(p.birthDate ? String(p.birthDate.getFullYear()) : '')
-  let birthMonth = $state(p.birthDate ? String(p.birthDate.getMonth()) : '')
+  const profile = appStore.profile
+  let birthYear = $state(profile.birthDate ? String(profile.birthDate.getFullYear()) : '')
+  let birthMonth = $state(profile.birthDate ? String(profile.birthDate.getMonth()) : '')
   const years = getBirthYearOptions().map((year) => ({ value: year, label: year }))
   const months = $derived(getMonthOptions($locale ?? undefined))
   const now = new Date()
@@ -243,7 +242,12 @@
       <section id="{uid}-backup" class="flex w-full max-w-[576px] scroll-mt-8 flex-col gap-4">
         <h2 class="text-xl font-bold text-foreground">{navLabels.backup}</h2>
         <div class="flex items-start gap-4">
-          <Button variant="outline" class="w-44" onclick={downloadBackup}>
+          <Button
+            variant="outline"
+            class="w-44"
+            disabled={appStore.loading || !appStore.profile.name}
+            onclick={downloadBackup}
+          >
             <FileDown class="size-4" />
             {$_('page.settings.backup.export')}
           </Button>
@@ -348,7 +352,7 @@
             id="{uid}-name"
             value={appStore.profile.name}
             placeholder={$_('page.setup.aboutYou.namePlaceholder')}
-            oninput={(e) => appStore.updateProfile({ name: e.currentTarget.value })}
+            onchange={(e) => appStore.updateProfile({ name: e.currentTarget.value })}
           />
         </div>
         <div class="flex flex-col gap-2">

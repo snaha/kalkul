@@ -780,6 +780,28 @@ describe('profileSchema tax rules', () => {
     expect(profileSchema.parse(profile)).toEqual(profile)
   })
 
+  it('rejects a rate outside 0-100 and negative holding years', () => {
+    const base = { name: 'Test', email: '' }
+    expect(() =>
+      profileSchema.parse({
+        ...base,
+        investment_tax_rules: [{ id: 'r1', rate: 150, holding_period: 'more_than' }],
+      }),
+    ).toThrow()
+    expect(() =>
+      profileSchema.parse({
+        ...base,
+        investment_tax_rules: [{ id: 'r1', rate: -1, holding_period: 'more_than' }],
+      }),
+    ).toThrow()
+    expect(() =>
+      profileSchema.parse({
+        ...base,
+        tangible_asset_tax_rules: [{ id: 'r1', holding_period: 'more_than', holding_years: -2 }],
+      }),
+    ).toThrow()
+  })
+
   it('rejects an unknown holding period', () => {
     expect(() =>
       profileSchema.parse({
