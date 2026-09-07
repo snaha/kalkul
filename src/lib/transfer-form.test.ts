@@ -88,6 +88,18 @@ describe('transfer-form round trip', () => {
   })
 })
 
+describe('plan ownership', () => {
+  test('a blank transfer has no owner', () => {
+    expect(blankTransferFields('x', 'X').plan_id).toBeUndefined()
+  })
+
+  test('plan_id round-trips and is omitted when unset', () => {
+    const owned: Transfer = { ...RECURRING, plan_id: 'plan-1' }
+    expect(transferFromFields(transferToFields(owned))).toEqual(owned)
+    expect('plan_id' in transferFromFields(transferToFields(RECURRING))).toBe(false)
+  })
+})
+
 describe('endMinMonth', () => {
   test('is the start month only when both dates are in the same year', () => {
     const f = transferToFields(RECURRING)

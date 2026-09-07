@@ -37,6 +37,8 @@ export interface TransferFields {
   end_age: number | undefined
   change_over_time: ChangeOverTime
   change_percentage: number | undefined
+  /** Owning plan when created in a plan dialog; undefined for financial data. */
+  plan_id: string | undefined
 }
 
 export function blankTransferFields(id: string, name: string): TransferFields {
@@ -67,6 +69,7 @@ export function blankTransferFields(id: string, name: string): TransferFields {
     end_age: undefined,
     change_over_time: 'none',
     change_percentage: undefined,
+    plan_id: undefined,
   }
 }
 
@@ -95,6 +98,7 @@ export function transferToFields(src: Transfer): TransferFields {
   f.inflation_adjusted = src.inflation_adjusted === true || legacyInflation
   f.change_over_time = legacyInflation ? 'none' : (src.change_over_time ?? 'none')
   f.change_percentage = src.change_percentage
+  f.plan_id = src.plan_id
   return f
 }
 
@@ -108,6 +112,7 @@ export function transferFromFields(f: TransferFields): Transfer {
     amount: f.transfer_all ? 0 : (f.amount ?? 0),
     ...(f.transfer_all ? { transfer_all: true } : {}),
     inflation_adjusted: f.inflation_adjusted ? true : undefined,
+    ...(f.plan_id !== undefined ? { plan_id: f.plan_id } : {}),
   }
   if (f.schedule === 'one_time') {
     return {

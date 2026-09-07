@@ -77,3 +77,62 @@ describe('appStore.updateProfile persistence', () => {
     expect(persisted.tangible_asset_tax_rules).toEqual([{ id: 'r2', holding_period: 'more_than' }])
   })
 })
+
+describe('appStore.deletePortfolio', () => {
+  let backing: Map<string, string>
+
+  beforeEach(() => {
+    backing = new Map<string, string>()
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => (backing.has(key) ? backing.get(key) : undefined),
+      setItem: (key: string, value: string) => {
+        backing.set(key, value)
+      },
+      removeItem: (key: string) => {
+        backing.delete(key)
+      },
+    })
+  })
+
+  afterEach(() => {
+    appStore.clear()
+    vi.unstubAllGlobals()
+  })
+
+  it('removes the transfers the plan owns and keeps the profile ones', () => {
+    const transfer = {
+      name: 'Buy',
+      from_asset_id: 'cash',
+      to_asset_id: 'inv1',
+      amount: 100,
+      schedule: 'one_time',
+      transaction_year: 2027,
+      transaction_month: 1,
+    }
+    appStore.importBackup(
+      JSON.stringify({
+        profile: {
+          name: 'Jane',
+          email: '',
+          investments: [{ id: 'inv1', name: 'ETF', balance: 0, apy: 0 }],
+          transfers: [
+            { ...transfer, id: 'shared' },
+            { ...transfer, id: 'owned', plan_id: 'plan-1' },
+          ],
+        },
+        portfolios: [
+          {
+            id: 'plan-1',
+            name: 'Plan',
+            start_date: '2026-01-01',
+            end_date: '2060-01-01',
+            inflation_rate: 2,
+          },
+        ],
+      }),
+    )
+    appStore.portfolios[0].delete()
+    expect(appStore.portfolios).toEqual([])
+    expect(appStore.profile.transfers?.map((t) => t.id)).toEqual(['shared'])
+  })
+})

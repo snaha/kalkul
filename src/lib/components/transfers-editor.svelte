@@ -25,7 +25,9 @@
   type TransferUI = TransferFields & { editing: boolean }
 
   const editor = createListEditor<TransferData, TransferUI>({
-    load: () => appStore.profile.transfers,
+    // Financial data holds the shared transfers only. Those created in a plan
+    // carry its id, stay hidden here and are carried through every save.
+    load: () => appStore.profile.transfers?.filter((t) => t.plan_id === undefined),
     // The card renders From/To, Amount/Frequency and the inflation toggle
     // only; Start/End/Change belong to the plan dialog. Timing fields are still
     // carried on the UI item so a save here round-trips them untouched.
@@ -53,7 +55,13 @@
       t.to_asset_id !== '' &&
       t.from_asset_id !== t.to_asset_id,
     toStored: (t) => transferFromFields(t),
-    persist: (data) => appStore.updateProfile({ transfers: data }),
+    persist: (data) =>
+      appStore.updateProfile({
+        transfers: [
+          ...data,
+          ...(appStore.profile.transfers ?? []).filter((t) => t.plan_id !== undefined),
+        ],
+      }),
   })
   onDestroy(editor.flushSave)
 

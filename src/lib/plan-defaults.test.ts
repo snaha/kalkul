@@ -176,6 +176,17 @@ describe('buildPlanInclusions', () => {
     })
   })
 
+  it('leaves transfers owned by another plan out of a new plan', () => {
+    const withOwned: Profile = {
+      ...profile,
+      transfers: [
+        ...(profile.transfers ?? []),
+        { ...profile.transfers![0], id: 'tr-2', plan_id: 'plan-x' },
+      ],
+    }
+    expect(buildPlanInclusions(withOwned, true).included_transfer_ids).toEqual(['tr-1'])
+  })
+
   it('includes nothing when not starting from current finances', () => {
     expect(buildPlanInclusions(profile, false)).toEqual({
       include_cash: false,
