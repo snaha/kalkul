@@ -193,7 +193,9 @@ export function timingComplete(
   return true
 }
 
-export const incomeSchema = z
+// Incomes and expenses share one shape; the two names are kept so call sites
+// read naturally.
+const cashFlowSchema = z
   .object({
     id: z.string(),
     name: z.string(),
@@ -216,25 +218,8 @@ export const incomeSchema = z
   })
   .superRefine(cashFlowTemporalRefinement)
 
-export const expenseSchema = z
-  .object({
-    id: z.string(),
-    name: z.string(),
-    amount: z.number(),
-    frequency: frequencySchema,
-    start: cashFlowStartSchema,
-    start_year: z.number().optional(),
-    start_month: z.number().optional(),
-    start_age: z.number().optional(),
-    end: cashFlowEndSchema,
-    end_year: z.number().optional(),
-    end_month: z.number().optional(),
-    end_age: z.number().optional(),
-    inflation_adjusted: z.boolean().optional(),
-    change_over_time: changeOverTimeSchema,
-    change_percentage: z.number().optional(),
-  })
-  .superRefine(cashFlowTemporalRefinement)
+export const incomeSchema = cashFlowSchema
+export const expenseSchema = cashFlowSchema
 
 /**
  * Planned-timing edge check for investments (`start`/`exit`) and tangible
