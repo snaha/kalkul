@@ -14,7 +14,8 @@ are not required — a Zod schema, the stored-data shape, a localStorage key, or
 may change in place, and the old path is deleted rather than kept beside the new one. Transitional
 `repair*` helpers (e.g. in `src/lib/schemas.ts`) exist only to smooth an in-progress change and can
 be removed once it lands. This holds on kalkul.app too, since the data never leaves the user's
-browser. That changes once Kalkul has users to keep, and this note with it.
+browser. That changes once Kalkul has users to keep — concretely, when kalkul.app is announced
+publicly — and this note with it.
 
 ## AI-Specific Guidelines
 
