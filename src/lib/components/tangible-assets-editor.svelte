@@ -14,13 +14,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
   import { createListEditor } from '$lib/list-editor.svelte'
-  import type {
-    Frequency,
-    ProfileTangibleAsset,
-    RemainingTermUnit,
-    TangibleAssetStatus,
-    ValueOverTime,
-  } from '$lib/schemas'
+  import type { ProfileTangibleAsset } from '$lib/schemas'
   import {
     getFrequencyItems,
     getRemainingTermUnitItems,
@@ -28,31 +22,9 @@
     getValueOverTimeItems,
   } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
+  import { type TangibleAssetUI, toStoredTangibleAsset } from '$lib/tangible-asset-form'
 
-  interface AssetUI {
-    id: string
-    name: string
-    value: number | undefined
-    status: TangibleAssetStatus
-    outstanding_balance: number | undefined
-    installment_frequency: Frequency
-    annual_rate: number | undefined
-    installment_amount: number | undefined
-    remaining_term: number | undefined
-    remaining_term_unit: RemainingTermUnit
-    // Value over time and property tax are attributes of the asset itself, not
-    // of the financing, so they show for any status. Planned purchase/sale and
-    // the loan's interest type stay in the plan dialog and round-trip via prev.
-    value_over_time: ValueOverTime
-    value_rate: number | undefined
-    property_tax_rate: number | undefined
-    // UI-only: whether the value/tax options are revealed, toggled from the
-    // card menu.
-    showAdvanced: boolean
-    editing: boolean
-  }
-
-  const editor = createListEditor<ProfileTangibleAsset, AssetUI>({
+  const editor = createListEditor<ProfileTangibleAsset, TangibleAssetUI>({
     load: () => appStore.profile.tangible_assets,
     toUI: (a) => ({
       id: a.id,
@@ -99,25 +71,7 @@
     }),
     copyName: (name) => $_('page.setup.common.copySuffix', { values: { name } }),
     hasValue: (a) => (a.value ?? 0) > 0,
-    // Spread the stored asset first so the plan-dialog-only fields — planned
-    // purchase/sale and the loan's interest type/compounding — survive an edit
-    // here. Only the rendered fields override it.
-    toStored: (a, prev) => ({
-      ...prev,
-      id: a.id,
-      name: a.name,
-      value: a.value ?? 0,
-      status: a.status,
-      outstanding_balance: a.status === 'financed' ? (a.outstanding_balance ?? 0) : undefined,
-      installment_frequency: a.status === 'financed' ? a.installment_frequency : undefined,
-      annual_rate: a.status === 'financed' ? (a.annual_rate ?? 0) : undefined,
-      installment_amount: a.status === 'financed' ? (a.installment_amount ?? 0) : undefined,
-      remaining_term: a.status === 'financed' ? (a.remaining_term ?? 0) : undefined,
-      remaining_term_unit: a.remaining_term_unit,
-      value_over_time: a.value_over_time,
-      value_rate: a.value_rate,
-      property_tax_rate: a.property_tax_rate,
-    }),
+    toStored: toStoredTangibleAsset,
     // has_tangible_assets belongs to the Get started checkbox, not to this
     // list: re-deriving it here unchecked the box (and dropped the step from
     // the flow) the moment a seeded card was collapsed without a value.
