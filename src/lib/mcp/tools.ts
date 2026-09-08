@@ -73,7 +73,7 @@ export function kalkulTools(app: App = appStore): KalkulTool[] {
     },
     tool(
       'update_profile',
-      'Merge the given fields into the profile',
+      'Merge the given fields into the profile. Array fields (e.g. transfers) replace the whole list, so fetch, edit and write back the full array; keep plan_id on plan-owned transfers.',
       profileSchema.partial(),
       WRITE,
       (args) => {

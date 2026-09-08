@@ -30,7 +30,7 @@
   import { Input } from '$lib/components/ui/input'
   import { Separator } from '$lib/components/ui/separator'
   import { Slider } from '$lib/components/ui/slider'
-  import { getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
+  import { getYearlyPlanProjection, transfersForPlan, yearOf } from '$lib/plan-projection'
   import routes from '$lib/routes'
   import type { Expense, Income, Transfer } from '$lib/schemas'
   import { getFrequencyShortLabel } from '$lib/select-options'
@@ -168,7 +168,7 @@
   }
 
   function reopenTransferDialog(id: string) {
-    const item = (appStore.profile.transfers ?? []).find((t) => t.id === id)
+    const item = transfersForPlan(appStore.profile.transfers, planId).find((t) => t.id === id)
     if (!item) return
     setTimeout(() => openTransferDialog(item), REOPEN_DELAY_MS)
   }
@@ -218,7 +218,9 @@
   })
 
   // Category counts from profile data
-  const transfersCount = $derived((appStore.profile.transfers ?? []).length)
+  // Shared profile transfers plus this plan's own; other plans' stay out.
+  const planTransfers = $derived(transfersForPlan(appStore.profile.transfers, planId))
+  const transfersCount = $derived(planTransfers.length)
 
   function transferValueSuffix(t: Transfer): string {
     if (t.schedule === 'one_time') return `(${$_('page.plan.scheduleOneTime').toLowerCase()})`
@@ -291,7 +293,7 @@
       id: 'transfers',
       label: $_('page.plan.transfers'),
       count: transfersCount,
-      items: (appStore.profile.transfers ?? [])
+      items: planTransfers
         .filter((t) => matchesSearch(t.name, searchQuery))
         .map((t) => ({
           id: t.id,

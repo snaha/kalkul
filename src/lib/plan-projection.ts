@@ -637,6 +637,18 @@ function accumulateCashFlows<T extends CashFlowTemporal & { id: string; frequenc
   return { total, activeIds }
 }
 
+/**
+ * The transfers a plan can see: the profile's shared ones (no owner) plus
+ * those created in this plan. Another plan's transfers never take part.
+ */
+export function transfersForPlan(
+  transfers: Transfer[] | undefined,
+  /** Undefined (route still resolving) lists the shared transfers only. */
+  planId: string | undefined,
+): Transfer[] {
+  return (transfers ?? []).filter((t) => t.plan_id === undefined || t.plan_id === planId)
+}
+
 export function filterById<T extends { id: string }>(
   items: T[] | undefined,
   includedIds: string[] | undefined,
@@ -818,7 +830,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   ]
   const planTransfers = [
     ...timingTransfers.map((t) => t.start).filter((t): t is Transfer => t !== undefined),
-    ...filterById(profile.transfers, plan.included_transfer_ids).filter(
+    ...filterById(transfersForPlan(profile.transfers, plan.id), plan.included_transfer_ids).filter(
       (t) => knownAssetIds.has(t.from_asset_id) && knownAssetIds.has(t.to_asset_id),
     ),
     ...timingTransfers.map((t) => t.exit).filter((t): t is Transfer => t !== undefined),

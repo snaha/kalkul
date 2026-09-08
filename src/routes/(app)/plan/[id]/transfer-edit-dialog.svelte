@@ -13,7 +13,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
   import * as Tooltip from '$lib/components/ui/tooltip'
-  import { filterById, summarizeTransfer } from '$lib/plan-projection'
+  import { filterById, summarizeTransfer, transfersForPlan } from '$lib/plan-projection'
   import { sameYearMonthsInverted, timingComplete } from '$lib/schemas'
   import type { Transfer, TransferSchedule } from '$lib/schemas'
   import { getFrequencyItems } from '$lib/select-options'
@@ -62,12 +62,17 @@
     })),
   ])
 
+  // A transfer created here belongs to this plan: it is not current data, so
+  // financial data and other plans never list it.
   function blankForm(): TransferFields {
-    const counter = (appStore.profile.transfers ?? []).length + 1
-    return blankTransferFields(
-      crypto.randomUUID(),
-      $_('page.plan.defaultTransferName', { values: { index: counter } }),
-    )
+    const counter = transfersForPlan(appStore.profile.transfers, plan.id).length + 1
+    return {
+      ...blankTransferFields(
+        crypto.randomUUID(),
+        $_('page.plan.defaultTransferName', { values: { index: counter } }),
+      ),
+      plan_id: plan.id,
+    }
   }
 
   function seedForm(src: Transfer | undefined): TransferFields {
@@ -150,10 +155,13 @@
     const existing = appStore.profile.transfers ?? []
     const idx = existing.findIndex((t) => t.id === form.id)
     if (idx === -1) return
+    // The copy is created in this plan, so it is owned by it even when the
+    // source was a shared profile transfer.
     const copy: Transfer = {
       ...existing[idx],
       id: crypto.randomUUID(),
       name: $_('page.setup.common.copySuffix', { values: { name: existing[idx].name } }),
+      plan_id: plan.id,
     }
     const next = [...existing.slice(0, idx + 1), copy, ...existing.slice(idx + 1)]
     appStore.updateProfile({ transfers: next })
@@ -165,7 +173,7 @@
   }
 
   function toggleExclude() {
-    const allIds = (appStore.profile.transfers ?? []).map((t) => t.id)
+    const allIds = transfersForPlan(appStore.profile.transfers, plan.id).map((t) => t.id)
     const seeded = plan.included_transfer_ids ?? allIds
     const nextIds = seeded.includes(form.id)
       ? seeded.filter((id) => id !== form.id)

@@ -81,7 +81,8 @@ export function buildPlanInclusions(
     included_liability_ids: ids(profile.liabilities),
     included_income_ids: ids(profile.incomes),
     included_expense_ids: ids(profile.expenses),
-    included_transfer_ids: ids(profile.transfers),
+    // A plan's own transfers belong to it alone; only shared ones seed a new plan.
+    included_transfer_ids: ids(profile.transfers?.filter((t) => t.plan_id === undefined)),
   }
 }
 

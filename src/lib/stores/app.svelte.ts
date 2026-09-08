@@ -151,6 +151,16 @@ function withAppStore() {
   function deletePortfolio(id: string): void {
     const idx = portfolios.findIndex((p) => p.id === id)
     if (idx !== -1) portfolios.splice(idx, 1)
+    // The transfers created in the plan go with it; nothing else can show them.
+    const stored = profile.toJSON()
+    if (stored.transfers?.some((t) => t.plan_id === id)) {
+      profile = enrichProfile(
+        profileSchema.parse({
+          ...stored,
+          transfers: stored.transfers.filter((t) => t.plan_id !== id),
+        }),
+      )
+    }
     persist()
   }
 

@@ -812,3 +812,20 @@ describe('profileSchema tax rules', () => {
     ).toThrow()
   })
 })
+
+describe('transferSchema plan ownership', () => {
+  it('keeps plan_id so a transfer created in a plan stays owned by it', () => {
+    const owned = {
+      id: 't1',
+      name: 'Buy stocks',
+      from_asset_id: 'cash',
+      to_asset_id: 'inv1',
+      amount: 1000,
+      schedule: 'one_time',
+      transaction_year: 2027,
+      transaction_month: 6,
+      plan_id: 'plan-1',
+    }
+    expect(transferSchema.parse(owned)).toEqual(owned)
+  })
+})

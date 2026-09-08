@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { getYearlyPlanProjection, summarizeTransfer } from './plan-projection'
+import { getYearlyPlanProjection, summarizeTransfer, transfersForPlan } from './plan-projection'
 import type {
   Expense,
   Income,
@@ -3100,5 +3100,55 @@ describe('capital gains tax on withdrawals', () => {
       }),
     )
     expect(result[1].cash).toBeCloseTo(500, 6)
+  })
+})
+
+describe('transfersForPlan', () => {
+  const shared: Transfer = {
+    id: 'shared',
+    name: 'Savings',
+    from_asset_id: 'cash',
+    to_asset_id: 'inv1',
+    amount: 100,
+    schedule: 'recurring',
+    frequency: 'monthly',
+    start: 'immediately',
+    end: 'never',
+    change_over_time: 'none',
+  }
+  const own: Transfer = { ...shared, id: 'own', plan_id: 'plan-1' }
+  const other: Transfer = { ...shared, id: 'other', plan_id: 'plan-2' }
+
+  it("lists the profile transfers and the plan's own, not another plan's", () => {
+    expect(transfersForPlan([shared, own, other], 'plan-1').map((t) => t.id)).toEqual([
+      'shared',
+      'own',
+    ])
+  })
+
+  it('treats a missing list as empty', () => {
+    expect(transfersForPlan(undefined, 'plan-1')).toEqual([])
+  })
+
+  it("keeps another plan's transfer out of the projection even without a whitelist", () => {
+    const investments: ProfileInvestment[] = [{ id: 'inv1', name: 'Stocks', balance: 0, apy: 0 }]
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({
+        cash_amount: 5000,
+        investments,
+        transfers: [
+          {
+            ...other,
+            schedule: 'one_time',
+            transaction_year: 2026,
+            transaction_month: 1,
+            amount: 1000,
+          },
+        ],
+      }),
+    )
+    expect(result[2].cash).toBeCloseTo(5000, 6)
+    expect(result[2].investments).toBeCloseTo(0, 6)
   })
 })

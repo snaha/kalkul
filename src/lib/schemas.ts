@@ -451,6 +451,10 @@ export const transferSchema = z
     end_age: z.number().optional(),
     change_over_time: changeOverTimeSchema.optional(),
     change_percentage: z.number().optional(),
+    // Set when the transfer was created inside a plan: it belongs to that plan
+    // alone and stays out of financial data and of other plans. Unset means
+    // the user recorded it as current data, shared by every plan.
+    plan_id: z.string().optional(),
   })
   .superRefine((obj, ctx) => {
     if (obj.from_asset_id === obj.to_asset_id) {
