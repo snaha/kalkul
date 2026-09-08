@@ -71,7 +71,6 @@ describe('getYearlyPlanProjection', () => {
         name: 'Salary',
         amount: 1000,
         frequency: 'monthly',
-        withhold_taxes: false,
         start: 'immediately',
         end: 'never',
         change_over_time: 'none',
@@ -334,7 +333,6 @@ describe('getYearlyPlanProjection', () => {
         name: 'Salary',
         amount: 1000,
         frequency: 'monthly',
-        withhold_taxes: false,
         start: 'immediately',
         end: 'never',
         change_over_time: 'none',
@@ -358,23 +356,21 @@ describe('getYearlyPlanProjection', () => {
     expect(result[5].cash).toBeCloseTo(36000, 6)
   })
 
-  it('applies tax withholding on incomes', () => {
+  it('projects income at its full net amount, with no tax withholding', () => {
     const incomes: Income[] = [
       {
         id: 'inc1',
         name: 'Salary',
         amount: 1000,
         frequency: 'yearly',
-        withhold_taxes: true,
-        tax_percentage: 20,
         start: 'immediately',
         end: 'never',
         change_over_time: 'none',
       },
     ]
     const result = getYearlyPlanProjection(makePlan(), makeProfile({ incomes }))
-    expect(result[0].cash).toBeCloseTo(800, 6)
-    expect(result[1].cash).toBeCloseTo(1600, 6)
+    expect(result[0].cash).toBeCloseTo(1000, 6)
+    expect(result[1].cash).toBeCloseTo(2000, 6)
   })
 
   it('grows real income with inflation when change_over_time = match_inflation', () => {
@@ -387,7 +383,6 @@ describe('getYearlyPlanProjection', () => {
             name: 'Salary',
             amount: 1000,
             frequency: 'yearly',
-            withhold_taxes: false,
             start: 'immediately',
             end: 'never',
             change_over_time: 'none',
@@ -404,7 +399,6 @@ describe('getYearlyPlanProjection', () => {
             name: 'Salary',
             amount: 1000,
             frequency: 'yearly',
-            withhold_taxes: false,
             start: 'immediately',
             end: 'never',
             change_over_time: 'match_inflation',
@@ -431,7 +425,6 @@ describe('getYearlyPlanProjection', () => {
           name: 'Salary',
           amount: 1200,
           frequency: 'yearly',
-          withhold_taxes: false,
           start: 'now',
           end: 'never',
           change_over_time: 'none',
@@ -460,7 +453,6 @@ describe('getYearlyPlanProjection', () => {
         name: 'Pension',
         amount: 1200,
         frequency: 'yearly',
-        withhold_taxes: false,
         start: 'when_age_is',
         start_age: 65,
         end: 'never',
@@ -516,7 +508,6 @@ describe('getYearlyPlanProjection', () => {
         name: 'Salary',
         amount: 1200,
         frequency: 'yearly',
-        withhold_taxes: false,
         start: 'at_specific_date',
         start_year: 2025,
         start_month: 6,
@@ -595,7 +586,6 @@ describe('getYearlyPlanProjection', () => {
         name: 'Salary',
         amount: 1200,
         frequency: 'yearly',
-        withhold_taxes: false,
         start: 'at_specific_date',
         start_year: 2025,
         start_month: 1,
@@ -846,7 +836,6 @@ describe('getYearlyPlanProjection', () => {
         name: 'Stipend',
         amount: 100,
         frequency: 'weekly',
-        withhold_taxes: false,
         start: 'immediately',
         end: 'never',
         change_over_time: 'none',
@@ -961,7 +950,6 @@ describe('getYearlyPlanProjection', () => {
         name: 'Salary',
         amount: 1000,
         frequency: 'monthly',
-        withhold_taxes: false,
         start: 'immediately',
         end: 'never',
         change_over_time: 'none',
@@ -991,7 +979,6 @@ describe('getYearlyPlanProjection', () => {
         name: 'Salary',
         amount: 1200,
         frequency: 'yearly',
-        withhold_taxes: false,
         start: 'at_specific_date',
         start_year: 2025,
         start_month: 6,
@@ -1396,7 +1383,6 @@ describe('getYearlyPlanProjection', () => {
         name: 'Salary',
         amount: 1000,
         frequency: 'yearly',
-        withhold_taxes: false,
         start: 'immediately',
         end: 'never',
         change_over_time: 'none',
@@ -1529,7 +1515,6 @@ describe('getYearlyPlanProjection', () => {
         name: 'Salary',
         amount: 1000,
         frequency: 'yearly',
-        withhold_taxes: false,
         start: 'immediately',
         end: 'never',
         change_over_time: 'none',
@@ -1556,7 +1541,6 @@ describe('getYearlyPlanProjection', () => {
         name: 'A',
         amount: 1000,
         frequency: 'yearly',
-        withhold_taxes: false,
         start: 'immediately',
         end: 'never',
         change_over_time: 'match_inflation',
@@ -1568,7 +1552,6 @@ describe('getYearlyPlanProjection', () => {
         name: 'B',
         amount: 1000,
         frequency: 'yearly',
-        withhold_taxes: false,
         start: 'immediately',
         end: 'never',
         change_over_time: 'none',
@@ -1596,7 +1579,6 @@ describe('getYearlyPlanProjection', () => {
         name: 'Salary',
         amount: 1000,
         frequency: 'yearly',
-        withhold_taxes: false,
         start: 'immediately',
         end: 'never',
         inflation_adjusted: true,
@@ -2432,7 +2414,6 @@ describe('getYearlyPlanProjection', () => {
         name: 'Salary',
         amount: 1000,
         frequency: 'monthly',
-        withhold_taxes: false,
         start: 'immediately',
         end: 'never',
         change_over_time: 'none',
@@ -2468,7 +2449,6 @@ describe('getYearlyPlanProjection', () => {
         name: 'Short-term gig',
         amount: 1200,
         frequency: 'yearly',
-        withhold_taxes: false,
         start: 'immediately',
         end: 'at_specific_date',
         end_year: 2026,

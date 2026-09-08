@@ -135,7 +135,6 @@ describe('buildPlanInclusions', () => {
         name: 'Salary',
         amount: 1000,
         frequency: 'monthly',
-        withhold_taxes: false,
         start: 'now',
         end: 'never',
         change_over_time: 'none',

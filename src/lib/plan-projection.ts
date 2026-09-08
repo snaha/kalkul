@@ -194,13 +194,6 @@ function growthFactor(
   return inflationFactor.mul(changeFactor)
 }
 
-function netIncome(income: Income): Decimal {
-  const amount = new Decimal(income.amount)
-  if (!income.withhold_taxes) return amount
-  const taxFraction = new Decimal(income.tax_percentage ?? 0).div(100)
-  return amount.mul(DECIMAL_1.minus(taxFraction))
-}
-
 interface LiabilitySchedule {
   outstandingByYear: Map<number, Decimal>
   paidByYear: Map<number, Decimal>
@@ -870,7 +863,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       startYear,
       birthYear,
       inflationRate,
-      netIncome,
+      (income) => new Decimal(income.amount),
     ).total
     const { total: cashFlowExpensesNominal, activeIds: activeExpenseIdsThisYear } =
       accumulateCashFlows(

@@ -32,8 +32,6 @@
       name: $_('page.setup.income.defaultName', { values: { index } }),
       amount: undefined,
       frequency: 'monthly',
-      withhold_taxes: false,
-      tax_percentage: undefined,
       start: 'immediately',
       end: 'never',
       change_over_time: 'none',

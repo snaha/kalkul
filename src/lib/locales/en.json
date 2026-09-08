@@ -386,8 +386,6 @@
         "title": "Recurring income",
         "description": "Salary, business income, and other regular earnings.",
         "addIncome": "Add income",
-        "withholdTaxes": "Withhold taxes on this income",
-        "percentageToWithhold": "Percentage to withhold",
         "defaultName": "Income {index}",
         "netAmount": "Net amount"
       },

@@ -6,7 +6,6 @@
   import InflationAdjustToggle from '$lib/components/inflation-adjust-toggle.svelte'
   import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
-  import { Checkbox } from '$lib/components/ui/checkbox'
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
   import { sameYearMonthsInverted, timingComplete } from '$lib/schemas'
@@ -54,8 +53,6 @@
     name: string
     amount: number | undefined
     frequency: Frequency
-    withhold_taxes: boolean
-    tax_percentage: number | undefined
     inflation_adjusted: boolean
     start: CashFlowStart
     start_year: number | undefined
@@ -88,8 +85,6 @@
           : $_('page.setup.expenses.defaultName', { values: { index: counter } }),
       amount: undefined,
       frequency: 'monthly',
-      withhold_taxes: false,
-      tax_percentage: undefined,
       // Default ON — most income/expense streams track inflation in real
       // terms, so this matches user intent for the common case.
       inflation_adjusted: true,
@@ -110,7 +105,6 @@
 
   function seedForm(src: CashFlow | undefined): FormState {
     if (!src) return blankForm()
-    const isIncome = (s: CashFlow): s is Income => 'withhold_taxes' in s
     // Legacy migration: the old 'match_inflation' dropdown value maps onto
     // the new toggle so old data keeps behaving the same and saves into the
     // new shape on the next edit.
@@ -122,8 +116,6 @@
       name: src.name,
       amount: src.amount > 0 ? src.amount : undefined,
       frequency: src.frequency,
-      withhold_taxes: isIncome(src) ? src.withhold_taxes : false,
-      tax_percentage: isIncome(src) ? src.tax_percentage : undefined,
       inflation_adjusted: inflationAdjusted,
       start: src.start,
       start_year: src.start_year,
@@ -161,8 +153,6 @@
       name: f.name,
       amount: f.amount ?? 0,
       frequency: f.frequency,
-      withhold_taxes: f.withhold_taxes,
-      tax_percentage: f.withhold_taxes ? f.tax_percentage : undefined,
       inflation_adjusted: f.inflation_adjusted ? true : undefined,
       start: f.start,
       start_year: f.start === 'at_specific_date' ? f.start_year : undefined,
@@ -327,39 +317,6 @@
     checked={form.inflation_adjusted}
     onCheckedChange={(v) => (form.inflation_adjusted = v)}
   />
-
-  {#if kind === 'income'}
-    <!-- Withhold taxes -->
-    <div class="flex items-end gap-4">
-      <div class="flex flex-1 flex-col justify-center">
-        <label class="flex h-8 cursor-pointer items-center gap-2">
-          <Checkbox
-            checked={form.withhold_taxes}
-            onCheckedChange={(v) => (form.withhold_taxes = v === true)}
-          />
-          <span class="text-sm font-medium leading-none">
-            {$_('page.setup.income.withholdTaxes')}
-          </span>
-        </label>
-      </div>
-      {#if form.withhold_taxes}
-        <div class="flex flex-1 flex-col gap-2">
-          <Label for="{uid}-percentageToWithhold"
-            >{$_('page.setup.income.percentageToWithhold')}</Label
-          >
-          <SuffixedInput
-            id="{uid}-percentageToWithhold"
-            value={form.tax_percentage}
-            suffix="%"
-            formatNumber={appStore.formatNumber}
-            onValueChange={(v) => (form.tax_percentage = v)}
-          />
-        </div>
-      {:else}
-        <div class="flex-1"></div>
-      {/if}
-    </div>
-  {/if}
 
   <Separator />
 
