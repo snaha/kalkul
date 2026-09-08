@@ -43,26 +43,9 @@
     }),
     copyName: (name) => $_('page.setup.common.copySuffix', { values: { name } }),
     hasValue: (e) => (e.amount ?? 0) > 0,
-    toStored: (e) => ({
-      id: e.id,
-      name: e.name,
-      amount: e.amount ?? 0,
-      frequency: e.frequency,
-      start: e.start,
-      start_year: e.start === 'at_specific_date' ? e.start_year : undefined,
-      start_month: e.start === 'at_specific_date' ? e.start_month : undefined,
-      start_age: e.start === 'when_age_is' ? e.start_age : undefined,
-      end: e.end,
-      end_year: e.end === 'at_specific_date' ? e.end_year : undefined,
-      end_month: e.end === 'at_specific_date' ? e.end_month : undefined,
-      end_age: e.end === 'when_age_is' ? e.end_age : undefined,
-      change_over_time: e.change_over_time,
-      change_percentage:
-        e.change_over_time === 'increase_yearly' || e.change_over_time === 'decrease_yearly'
-          ? (e.change_percentage ?? 0)
-          : undefined,
-      inflation_adjusted: e.inflation_adjusted ?? undefined,
-    }),
+    // The card only edits name/amount/frequency; the plan dialog already gates
+    // the timing and change fields on save, so everything else passes through.
+    toStored: ({ editing: _editing, ...e }) => ({ ...e, amount: e.amount ?? 0 }),
     persist: (data) => appStore.updateProfile({ expenses: data }),
   })
   onDestroy(editor.flushSave)
