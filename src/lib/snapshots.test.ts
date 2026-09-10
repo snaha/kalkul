@@ -54,8 +54,6 @@ const PROFILE: Profile = {
       name: 'Salary',
       amount: 4_000,
       frequency: 'monthly',
-      withhold_taxes: true,
-      tax_percentage: 25,
       start: 'immediately',
       end: 'never',
       change_over_time: 'none',
@@ -390,7 +388,7 @@ describe('profileAtSnapshot', () => {
     // Only the recorded investment survives — inv2 did not exist on that date.
     expect(at.investments).toEqual([{ id: 'inv1', name: 'ETF', balance: 50_000, apy: 5 }])
     // Everything but the amount comes from the profile item.
-    expect(at.incomes?.[0]).toMatchObject({ name: 'Salary', amount: 3_000, tax_percentage: 25 })
+    expect(at.incomes?.[0]).toMatchObject({ name: 'Salary', amount: 3_000, end: 'never' })
   })
 
   test('keeps its net worth equal to the snapshot it was built from', () => {

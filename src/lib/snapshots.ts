@@ -297,7 +297,6 @@ export function profileAtSnapshot(profile: Profile, snapshot: Snapshot): Profile
           ...(incomes.get(id) ?? {
             id,
             name: '',
-            withhold_taxes: false,
             start: 'immediately',
             end: 'never',
             change_over_time: 'none',

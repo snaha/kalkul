@@ -48,7 +48,6 @@ const PROFILE: Profile = {
       name: 'Salary',
       amount: 4_000,
       frequency: 'monthly',
-      withhold_taxes: false,
       start: 'immediately',
       end: 'never',
       change_over_time: 'none',
