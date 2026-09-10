@@ -72,7 +72,7 @@ const fieldsOf = (sections: ReturnType<typeof buildSnapshotSections>, id: string
   sections.find((section) => section.id === id)?.fields ?? []
 
 describe('buildSnapshotSections', () => {
-  const sections = buildSnapshotSections(PROFILE, SOURCE)
+  const sections = buildSnapshotSections(PROFILE, SOURCE, '2026-06-01')
 
   test('lays the sections out in the order the design draws them', () => {
     expect(sections.map((s) => s.id)).toEqual([
@@ -118,7 +118,9 @@ describe('buildSnapshotSections', () => {
     }
     // The recorded debt is still the user's to correct — hiding the field
     // would drop it silently the next time they confirm.
-    expect(fieldsOf(buildSnapshotSections(paidOff, SOURCE), 'tangible_assets')).toHaveLength(2)
+    expect(
+      fieldsOf(buildSnapshotSections(paidOff, SOURCE, '2026-06-01'), 'tangible_assets'),
+    ).toHaveLength(2)
   })
 
   test('carries the frequency of a cash flow through untouched', () => {
@@ -129,25 +131,13 @@ describe('buildSnapshotSections', () => {
     })
   })
 
-  test('offers a field at zero for an item the snapshot never recorded', () => {
-    const withNewItem: Profile = {
-      ...PROFILE,
-      investments: [
-        ...(PROFILE.investments ?? []),
-        { id: 'inv2', name: 'Gold', balance: 9, apy: 1 },
-      ],
-    }
-    expect(fieldsOf(buildSnapshotSections(withNewItem, SOURCE), 'investments')[1]).toMatchObject({
-      label: 'Gold',
-      value: 0,
-    })
-  })
-
   test('seeds a cash flow from the profile when the snapshot never recorded any', () => {
     // Legacy snapshots carry no cash flows at all. Opening one at zero would
     // invite the user to confirm an income they never earned nothing of.
     const legacy: Snapshot = { ...SOURCE, incomes: undefined }
-    expect(fieldsOf(buildSnapshotSections(PROFILE, legacy), 'incomes')[0]).toMatchObject({
+    expect(
+      fieldsOf(buildSnapshotSections(PROFILE, legacy, '2026-06-01'), 'incomes')[0],
+    ).toMatchObject({
       value: 4_000,
       frequency: 'monthly',
     })
@@ -155,20 +145,82 @@ describe('buildSnapshotSections', () => {
 
   test('still seeds an item at zero when the snapshot recorded the others', () => {
     const partial: Snapshot = { ...SOURCE, incomes: [] }
-    expect(fieldsOf(buildSnapshotSections(PROFILE, partial), 'incomes')[0]).toMatchObject({
+    expect(
+      fieldsOf(buildSnapshotSections(PROFILE, partial, '2026-06-01'), 'incomes')[0],
+    ).toMatchObject({
       value: 0,
     })
   })
 
+  test('offers no field for a holding the profile does not have on the date', () => {
+    // The dialog writes every field it offers back into the snapshot, and the
+    // newest snapshot is overlaid onto the profile. A field for a position that
+    // starts in 2030 would therefore let an untouched Confirm zero it — a
+    // planned holding must never be confirmable away.
+    const planned: Profile = {
+      ...PROFILE,
+      investments: [
+        ...(PROFILE.investments ?? []),
+        {
+          id: 'inv9',
+          name: 'Future ETF',
+          balance: 50_000,
+          apy: 5,
+          start: 'at_specific_date',
+          start_year: 2030,
+          start_month: 1,
+        },
+      ],
+    }
+    const source = captureSnapshot(planned, '2026-06-01')
+    const sections = buildSnapshotSections(planned, source, '2026-06-01')
+    expect(fieldsOf(sections, 'investments').map((f) => f.itemId)).toEqual(['inv1'])
+  })
+
+  test('offers no field for an asset the profile has not bought on the date', () => {
+    const planned: Profile = {
+      ...PROFILE,
+      tangible_assets: [
+        {
+          ...(PROFILE.tangible_assets ?? [])[1],
+          purchase: 'at_specific_date',
+          purchase_year: 2030,
+          purchase_month: 1,
+        },
+      ],
+    }
+    const source = captureSnapshot(planned, '2026-06-01')
+    expect(
+      fieldsOf(buildSnapshotSections(planned, source, '2026-06-01'), 'tangible_assets'),
+    ).toEqual([])
+  })
+
+  test('still offers a field at zero for an item held on the date but never recorded', () => {
+    const withNewItem: Profile = {
+      ...PROFILE,
+      investments: [
+        ...(PROFILE.investments ?? []),
+        { id: 'inv2', name: 'Gold', balance: 9, apy: 1 },
+      ],
+    }
+    expect(
+      fieldsOf(buildSnapshotSections(withNewItem, SOURCE, '2026-06-01'), 'investments')[1],
+    ).toMatchObject({ label: 'Gold', value: 0 })
+  })
+
   test('leaves out a section the profile has no items for', () => {
     const bare: Profile = { name: '', email: '', cash_amount: 1 }
-    const bareSections = buildSnapshotSections(bare, { date: '2026-06-01', cash_amount: 1 })
+    const bareSections = buildSnapshotSections(
+      bare,
+      { date: '2026-06-01', cash_amount: 1 },
+      '2026-06-01',
+    )
     expect(fieldsOf(bareSections, 'investments')).toEqual([])
   })
 })
 
 describe('snapshotFromFields', () => {
-  const sections = buildSnapshotSections(PROFILE, SOURCE)
+  const sections = buildSnapshotSections(PROFILE, SOURCE, '2026-06-01')
 
   test('records the unedited values under the new date', () => {
     expect(snapshotFromFields(SOURCE, sections, {}, '2026-07-01')).toEqual({
@@ -199,6 +251,8 @@ describe('snapshotFromFields', () => {
       id: 't2',
       value: 1,
       outstanding_balance: 2,
+      // The dialog draws no term control, so the recorded one rides along.
+      remaining_term: 20,
     })
   })
 
@@ -223,7 +277,12 @@ describe('snapshotFromFields', () => {
       ...SOURCE,
       investments: [...(SOURCE.investments ?? []), { id: 'gone', balance: 7 }],
     }
-    const result = snapshotFromFields(withGhost, buildSnapshotSections(PROFILE, withGhost), {}, 'x')
+    const result = snapshotFromFields(
+      withGhost,
+      buildSnapshotSections(PROFILE, withGhost, '2026-06-01'),
+      {},
+      'x',
+    )
     expect(result.investments).toContainEqual({ id: 'gone', balance: 7 })
   })
 

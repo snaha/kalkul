@@ -448,17 +448,30 @@ export const snapshotSchema = z.object({
   cash_amount: z.number().optional(),
   investments: z.array(z.object({ id: z.string(), balance: z.number() })).optional(),
   // Financed assets carry their debt alongside the value so a snapshot's net
-  // worth can be computed without consulting the current profile.
+  // worth can be computed without consulting the current profile. The remaining
+  // term rides along with every recorded debt: it moves with the balance —
+  // each installment comes off both — so restoring one without the other would
+  // restart the loan's clock. The unit it is stated in is descriptive and stays
+  // on the profile.
   tangible_assets: z
     .array(
       z.object({
         id: z.string(),
         value: z.number(),
         outstanding_balance: z.number().optional(),
+        remaining_term: z.number().optional(),
       }),
     )
     .optional(),
-  liabilities: z.array(z.object({ id: z.string(), outstanding_balance: z.number() })).optional(),
+  liabilities: z
+    .array(
+      z.object({
+        id: z.string(),
+        outstanding_balance: z.number(),
+        remaining_term: z.number().optional(),
+      }),
+    )
+    .optional(),
   // Recurring cash flows as they stood on the date. Both the amount and the
   // frequency are recorded: a salary that went from 4,000 monthly to 48,000
   // yearly is the same money, and the History page would otherwise show it as a

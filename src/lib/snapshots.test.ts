@@ -82,10 +82,11 @@ describe('captureSnapshot', () => {
         { id: 'inv2', balance: 78_000 },
       ],
       tangible_assets: [
-        { id: 't1', value: 20_000, outstanding_balance: undefined },
-        { id: 't2', value: 170_000, outstanding_balance: 80_000 },
+        { id: 't1', value: 20_000, outstanding_balance: undefined, remaining_term: undefined },
+        { id: 't2', value: 170_000, outstanding_balance: 80_000, remaining_term: 20 },
       ],
-      liabilities: [{ id: 'l1', outstanding_balance: 6_000 }],
+      // The term is recorded with the balance it moves with.
+      liabilities: [{ id: 'l1', outstanding_balance: 6_000, remaining_term: 3 }],
       incomes: [{ id: 'i1', amount: 4_000, frequency: 'monthly' }],
       expenses: [{ id: 'e1', amount: 2_000, frequency: 'monthly' }],
     })
@@ -122,7 +123,7 @@ describe('captureSnapshot and the holding window', () => {
     const snapshot = captureSnapshot(profile, '2026-04-27')
     expect(snapshot.investments).toEqual([{ id: 'inv1', balance: 100_000 }])
     expect(snapshot.tangible_assets).toEqual([
-      { id: 't1', value: 20_000, outstanding_balance: undefined },
+      { id: 't1', value: 20_000, outstanding_balance: undefined, remaining_term: undefined },
     ])
   })
 })
@@ -413,22 +414,28 @@ describe('profileAtSnapshot', () => {
     expect(getNetWorth(at)).toBe(snapshotNetWorth(snapshot))
   })
 
-  test('falls back to the profile for cash flows a snapshot never recorded', () => {
-    // Snapshots written before they carried cash flows leave the arrays
-    // undefined. Reading that as "earned and spent nothing" would put every
-    // legacy row's financial independence against debt service alone; today's
-    // flows are the best estimate available for those dates.
+  test('reads a missing cash-flow list the way it reads a missing balance', () => {
+    // Undefined means "none recorded" in every section. Snapshots written
+    // before cash flows were recorded are filled in from the profile at the
+    // load boundary (`repairStoredData`), so nothing downstream has to guess.
     const legacy: Snapshot = { ...snapshot, incomes: undefined, expenses: undefined }
     const at = profileAtSnapshot(PROFILE, legacy)
-    expect(at.incomes).toEqual(PROFILE.incomes)
-    expect(at.expenses).toEqual(PROFILE.expenses)
+    expect(at.incomes).toEqual([])
+    expect(at.expenses).toEqual([])
   })
 
   test('reads a recorded but empty cash-flow list as no cash flow', () => {
-    // An explicit empty list is a recorded fact, not missing data.
     const at = profileAtSnapshot(PROFILE, { ...snapshot, incomes: [], expenses: [] })
     expect(at.incomes).toEqual([])
     expect(at.expenses).toEqual([])
+  })
+
+  test("restores a loan's recorded term alongside its balance", () => {
+    const at = profileAtSnapshot(PROFILE, {
+      ...snapshot,
+      liabilities: [{ id: 'l1', outstanding_balance: 6_000, remaining_term: 12 }],
+    })
+    expect(at.liabilities?.[0]).toMatchObject({ outstanding_balance: 6_000, remaining_term: 12 })
   })
 
   test('still reads a missing balance list as nothing owned', () => {
@@ -515,17 +522,22 @@ describe('withDeletedSnapshot', () => {
     expect(deleted.cash_amount).toBe(PROFILE.cash_amount)
   })
 
-  test("keeps a financed asset's debt when the older snapshot recorded none", () => {
-    // The house was fully owned when JAN was taken and financed since. Rewinding
-    // onto JAN must not strip the debt off an asset the profile still marks as
-    // financed — the schema requires a balance there, so the write would fail.
+  test("drops a financed asset's debt when the older snapshot recorded none", () => {
+    // The house was fully owned when JAN was taken and financed since.
+    // Rewinding onto JAN restores that state: keeping today's mortgage against
+    // January's value would leave the profile disagreeing with the very
+    // snapshot it was just re-baselined onto, so the dashboard would report a
+    // net worth the History chart never plots. Financing fields left on the
+    // item are harmless — the schema only requires them while it is financed.
     const ownedOutright = PROFILE.tangible_assets?.map((a) =>
       a.id === 't2' ? { ...a, status: 'fully_owned' as const, outstanding_balance: undefined } : a,
     )
     const jan = captureSnapshot({ ...PROFILE, tangible_assets: ownedOutright }, '2026-01-01')
     const deleted = withDeletedSnapshot({ ...PROFILE, snapshots: [jan, JUN] }, '2026-06-01')
     const house = deleted.tangible_assets?.find((a) => a.id === 't2')
-    expect(house?.status).toBe('financed')
-    expect(house?.outstanding_balance).toBe(80_000)
+    expect(house?.status).toBe('fully_owned')
+    expect(house?.outstanding_balance).toBeUndefined()
+    // Which leaves the profile matching its newest snapshot again.
+    expect(getNetWorth(deleted)).toBe(snapshotNetWorth(jan))
   })
 })

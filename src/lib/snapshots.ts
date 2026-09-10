@@ -18,7 +18,8 @@ import { parseDateOnly, toDateOnlyString } from '$lib/utils'
  */
 export type SnapshotBalances = Omit<Snapshot, 'date'>
 
-const byId = <T extends { id: string }>(items: T[] | undefined) =>
+/** The items indexed by id, for looking one up without a linear scan. */
+export const byId = <T extends { id: string }>(items: T[] | undefined) =>
   new Map((items ?? []).map((item) => [item.id, item]))
 
 /**
@@ -39,10 +40,16 @@ export function snapshotBalances(profile: Profile): SnapshotBalances {
       // Only financed assets carry debt; `status` can flip back to fully owned
       // while a stale balance lingers on the item, so gate on the status.
       outstanding_balance: a.status === 'financed' ? a.outstanding_balance : undefined,
+      remaining_term: a.status === 'financed' ? a.remaining_term : undefined,
     })),
     liabilities: (profile.liabilities ?? []).map((l) => ({
       id: l.id,
       outstanding_balance: l.outstanding_balance,
+      // The term is recorded next to the balance because it moves with it:
+      // every installment that comes off the balance comes off the term too.
+      // A balance restored without its term would restart the loan's clock and
+      // walk the payoff date into the future.
+      remaining_term: l.remaining_term,
     })),
   }
 }
@@ -95,17 +102,14 @@ export function captureSnapshot(profile: Profile, date: string): Snapshot {
   return {
     date,
     ...heldBalances(profile, parseDateOnly(date)),
-    incomes: (profile.incomes ?? []).map((i) => ({
-      id: i.id,
-      amount: i.amount,
-      frequency: i.frequency,
-    })),
-    expenses: (profile.expenses ?? []).map((e) => ({
-      id: e.id,
-      amount: e.amount,
-      frequency: e.frequency,
-    })),
+    incomes: recordedFlows(profile.incomes),
+    expenses: recordedFlows(profile.expenses),
   }
+}
+
+/** The figures a cash flow contributes to a snapshot; the rest stays on the profile. */
+function recordedFlows(flows: CashFlow[] | undefined): SnapshotCashFlow[] {
+  return (flows ?? []).map(({ id, amount, frequency }) => ({ id, amount, frequency }))
 }
 
 /**
@@ -234,6 +238,81 @@ export function hasSameValues(
   return true
 }
 
+// Incomes and expenses share one shape (`cashFlowSchema`), so one type and one
+// helper cover both sections everywhere below.
+type CashFlow = Income | Expense
+type SnapshotInvestment = NonNullable<Snapshot['investments']>[number]
+type SnapshotTangibleAsset = NonNullable<Snapshot['tangible_assets']>[number]
+type SnapshotLiability = NonNullable<Snapshot['liabilities']>[number]
+type SnapshotCashFlow = NonNullable<Snapshot['incomes']>[number]
+
+/**
+ * One profile item wearing the figures a snapshot recorded for it.
+ *
+ * Shared by `profileAtSnapshot`, which reports a past date, and
+ * `withSnapshotValues`, which re-baselines the profile onto a snapshot: the two
+ * ask the same question of an entry — "what did this item look like then?" — so
+ * they answer it with the same code and cannot drift apart.
+ */
+const withRecordedBalance = (
+  item: ProfileInvestment,
+  entry: SnapshotInvestment,
+): ProfileInvestment => ({ ...item, balance: entry.balance })
+
+const withRecordedValue = (
+  item: ProfileTangibleAsset,
+  entry: SnapshotTangibleAsset,
+): ProfileTangibleAsset => ({
+  ...item,
+  value: entry.value,
+  // The recorded debt decides the status. An asset paid off since has to keep
+  // counting its debt on a date it still owed; one financed since must not
+  // carry today's mortgage back onto a date it was owned outright. Financing
+  // fields left over from the other state are harmless — the schema only
+  // requires them while the status is 'financed'.
+  status: entry.outstanding_balance === undefined ? 'fully_owned' : 'financed',
+  outstanding_balance: entry.outstanding_balance,
+  remaining_term: entry.remaining_term ?? item.remaining_term,
+})
+
+const withRecordedDebt = (item: ProfileLiability, entry: SnapshotLiability): ProfileLiability => ({
+  ...item,
+  outstanding_balance: entry.outstanding_balance,
+  // A term is not a balance: there is no "none" for an omission to mean, so a
+  // snapshot that recorded none leaves the loan's own term standing.
+  remaining_term: entry.remaining_term ?? item.remaining_term,
+})
+
+const withRecordedAmount = (item: CashFlow, entry: SnapshotCashFlow): CashFlow => ({
+  ...item,
+  amount: entry.amount,
+  frequency: entry.frequency,
+})
+
+/**
+ * Stands in for an item the profile no longer has: the snapshot recorded its
+ * figures, not its name or its timing, so a total taken for that date still
+ * counts it.
+ */
+const MISSING_INVESTMENT = { name: '', balance: 0, apy: 0 } as const
+const MISSING_ASSET = { name: '', value: 0, status: 'fully_owned' } as const
+const MISSING_LIABILITY = {
+  name: '',
+  outstanding_balance: 0,
+  installment_frequency: 'monthly',
+  annual_rate: 0,
+  installment_amount: 0,
+  remaining_term: 0,
+} as const
+const MISSING_CASH_FLOW = {
+  name: '',
+  amount: 0,
+  frequency: 'monthly',
+  start: 'immediately',
+  end: 'never',
+  change_over_time: 'none',
+} as const
+
 /**
  * The profile as it stood on a snapshot's date: the snapshot's figures wearing
  * the profile's descriptive fields (names, APYs, tax rates, loan terms).
@@ -244,81 +323,40 @@ export function hasSameValues(
  * That makes every profile-level total in `financial-totals.ts` (total assets,
  * liabilities, FI %) available per snapshot without a second implementation.
  *
- * Cash flows are the one exception. A snapshot written before they were
- * recorded leaves the arrays undefined, and reading that as "earned and spent
- * nothing" would state every legacy row's financial independence against debt
- * service alone. Undefined therefore falls back to the profile's flows — the
- * best estimate available for a date nothing was recorded on — while an empty
- * array stays what it says it is. Balances get no such fallback: undefined has
- * to keep counting as zero there, or the equality above would not hold.
+ * Every section reads an omission the same way: nothing was recorded, so
+ * nothing counts. Snapshots written before cash flows were recorded are filled
+ * in from the profile at the load boundary (`repairStoredData` in
+ * `schemas.ts`), so by the time one reaches here undefined has one meaning.
  */
 export function profileAtSnapshot(profile: Profile, snapshot: Snapshot): Profile {
   const investments = byId(profile.investments)
   const assets = byId(profile.tangible_assets)
   const liabilities = byId(profile.liabilities)
-  const incomes = byId(profile.incomes)
-  const expenses = byId(profile.expenses)
+
+  const flowsOf = (section: 'incomes' | 'expenses'): CashFlow[] => {
+    const items = byId(profile[section])
+    return (snapshot[section] ?? []).map((entry) =>
+      withRecordedAmount(items.get(entry.id) ?? { id: entry.id, ...MISSING_CASH_FLOW }, entry),
+    )
+  }
 
   return {
     ...profile,
     cash_amount: snapshot.cash_amount ?? 0,
-    investments: (snapshot.investments ?? []).map(
-      ({ id, balance }): ProfileInvestment => ({
-        ...(investments.get(id) ?? { id, name: '', apy: 0 }),
-        balance,
-      }),
+    investments: (snapshot.investments ?? []).map((entry) =>
+      withRecordedBalance(
+        investments.get(entry.id) ?? { id: entry.id, ...MISSING_INVESTMENT },
+        entry,
+      ),
     ),
-    tangible_assets: (snapshot.tangible_assets ?? []).map(
-      ({ id, value, outstanding_balance }): ProfileTangibleAsset => ({
-        ...(assets.get(id) ?? { id, name: '' }),
-        value,
-        // The recorded debt decides the status: an asset paid off since would
-        // otherwise stop counting against net worth on a date it still did.
-        status: outstanding_balance === undefined ? 'fully_owned' : 'financed',
-        outstanding_balance,
-      }),
+    tangible_assets: (snapshot.tangible_assets ?? []).map((entry) =>
+      withRecordedValue(assets.get(entry.id) ?? { id: entry.id, ...MISSING_ASSET }, entry),
     ),
-    liabilities: (snapshot.liabilities ?? []).map(
-      ({ id, outstanding_balance }): ProfileLiability => ({
-        ...(liabilities.get(id) ?? {
-          id,
-          name: '',
-          installment_frequency: 'monthly',
-          annual_rate: 0,
-          installment_amount: 0,
-          remaining_term: 0,
-        }),
-        outstanding_balance,
-      }),
+    liabilities: (snapshot.liabilities ?? []).map((entry) =>
+      withRecordedDebt(liabilities.get(entry.id) ?? { id: entry.id, ...MISSING_LIABILITY }, entry),
     ),
-    incomes:
-      snapshot.incomes?.map(
-        ({ id, amount, frequency }): Income => ({
-          ...(incomes.get(id) ?? {
-            id,
-            name: '',
-            start: 'immediately',
-            end: 'never',
-            change_over_time: 'none',
-          }),
-          amount,
-          frequency,
-        }),
-      ) ?? profile.incomes,
-    expenses:
-      snapshot.expenses?.map(
-        ({ id, amount, frequency }): Expense => ({
-          ...(expenses.get(id) ?? {
-            id,
-            name: '',
-            start: 'immediately',
-            end: 'never',
-            change_over_time: 'none',
-          }),
-          amount,
-          frequency,
-        }),
-      ) ?? profile.expenses,
+    incomes: flowsOf('incomes'),
+    expenses: flowsOf('expenses'),
   }
 }
 
@@ -348,37 +386,11 @@ function withSnapshotValues(profile: Profile, snapshot: Snapshot): Profile {
   return {
     ...profile,
     cash_amount: snapshot.cash_amount ?? profile.cash_amount,
-    investments: overlay(profile.investments, snapshot.investments, (i, e) => ({
-      ...i,
-      balance: e.balance,
-    })),
-    tangible_assets: overlay(profile.tangible_assets, snapshot.tangible_assets, (a, e) => ({
-      ...a,
-      value: e.value,
-      // A fully owned asset has no debt to restore, and writing one back would
-      // contradict its status. A financed one keeps its own balance when the
-      // snapshot recorded none (it was owned outright on that date): the schema
-      // requires a balance on a financed asset, so clearing it would fail the
-      // write.
-      outstanding_balance:
-        a.status === 'financed'
-          ? (e.outstanding_balance ?? a.outstanding_balance)
-          : a.outstanding_balance,
-    })),
-    liabilities: overlay(profile.liabilities, snapshot.liabilities, (l, e) => ({
-      ...l,
-      outstanding_balance: e.outstanding_balance,
-    })),
-    incomes: overlay(profile.incomes, snapshot.incomes, (i, e) => ({
-      ...i,
-      amount: e.amount,
-      frequency: e.frequency,
-    })),
-    expenses: overlay(profile.expenses, snapshot.expenses, (x, e) => ({
-      ...x,
-      amount: e.amount,
-      frequency: e.frequency,
-    })),
+    investments: overlay(profile.investments, snapshot.investments, withRecordedBalance),
+    tangible_assets: overlay(profile.tangible_assets, snapshot.tangible_assets, withRecordedValue),
+    liabilities: overlay(profile.liabilities, snapshot.liabilities, withRecordedDebt),
+    incomes: overlay(profile.incomes, snapshot.incomes, withRecordedAmount),
+    expenses: overlay(profile.expenses, snapshot.expenses, withRecordedAmount),
   }
 }
 
