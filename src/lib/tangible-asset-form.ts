@@ -32,7 +32,7 @@ export interface TangibleAssetUI {
 
 // Spread the stored asset first so the plan-dialog-only fields — planned
 // purchase/sale and the loan's interest type/compounding — survive an edit
-// here. Only the rendered fields override it.
+// here. Only the rendered fields (and what follows the loan) override it.
 export function toStoredTangibleAsset(
   a: TangibleAssetUI,
   prev: ProfileTangibleAsset | undefined,
@@ -49,6 +49,10 @@ export function toStoredTangibleAsset(
     installment_amount: a.status === 'financed' ? (a.installment_amount ?? 0) : undefined,
     remaining_term: a.status === 'financed' ? (a.remaining_term ?? 0) : undefined,
     remaining_term_unit: a.remaining_term_unit,
+    // Interest settings live in the plan dialog; drop them with the loan so
+    // both writers agree on what a non-financed asset stores.
+    interest_type: a.status === 'financed' ? prev?.interest_type : undefined,
+    compounding_frequency: a.status === 'financed' ? prev?.compounding_frequency : undefined,
     // The mode only means something with a rate; without one leave it unset so
     // the asset keeps tracking inflation (mirrors the plan dialog).
     value_over_time: a.value_rate ? a.value_over_time : undefined,

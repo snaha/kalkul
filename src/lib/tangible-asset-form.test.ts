@@ -38,4 +38,15 @@ describe('toStoredTangibleAsset', () => {
     }
     expect(toStoredTangibleAsset(base, prev).purchase).toBe('at_specific_date')
   })
+
+  it('clears the loan interest settings when the asset is no longer financed', () => {
+    const prev = {
+      ...toStoredTangibleAsset(base, undefined),
+      interest_type: 'simple' as const,
+      compounding_frequency: 'monthly' as const,
+    }
+    const stored = toStoredTangibleAsset({ ...base, status: 'fully_owned' }, prev)
+    expect(stored.interest_type).toBeUndefined()
+    expect(stored.compounding_frequency).toBeUndefined()
+  })
 })
