@@ -58,10 +58,8 @@
       {
         "id": "inc-1",
         "name": "Salary",
-        "amount": 3000,
+        "amount": 2250,
         "frequency": "monthly",
-        "withhold_taxes": true,
-        "tax_percentage": 25,
         "start": "immediately",
         "end": "never",
         "change_over_time": "match_inflation"

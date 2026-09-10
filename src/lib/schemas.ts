@@ -236,14 +236,19 @@ function refineTimingEdge(
   age: number | undefined,
 ): void {
   if (mode === 'at_specific_date') {
-    const message =
+    // Resolved only when there is an issue to report. The store parses stored
+    // data at module load, before the app has set a locale, and asking
+    // svelte-i18n for a message there throws — building one up front failed
+    // the load of data that was perfectly valid, dropping the whole profile
+    // back to the empty default.
+    const message = () =>
       edge === 'start'
         ? get(_)('validation.required_when_start_at_specific_date')
         : get(_)('validation.required_when_end_at_specific_date')
     if (year === undefined)
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [`${prefix}_year`], message })
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [`${prefix}_year`], message: message() })
     if (month === undefined)
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [`${prefix}_month`], message })
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [`${prefix}_month`], message: message() })
   }
   if (mode === 'when_age_is' && age === undefined) {
     const message =
@@ -402,6 +407,69 @@ export const profileLiabilitySchema = z.object({
   compounding_frequency: compoundingFrequencySchema.optional(),
 })
 
+// --- Snapshots ---
+
+// Whether a shape-valid `YYYY-MM-DD` string names an existing calendar day:
+// `Date.UTC` rolls out-of-range components over (month 13 → January), so the
+// date is real exactly when the round-trip leaves every component unchanged.
+function isRealCalendarDate(dateOnly: string): boolean {
+  const [year, month, day] = dateOnly.split('-').map(Number)
+  const parsed = new Date(Date.UTC(year, month - 1, day))
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day
+  )
+}
+
+// A point-in-time record of every balance that makes up net worth. The profile
+// itself holds the balances as they stood on the most recent snapshot's date;
+// the dashboard projects them forward to today for display. Snapshots are what
+// the History chart plots and what Quick update diffs "today" against.
+export const snapshotSchema = z.object({
+  // Date-only ISO string (`YYYY-MM-DD`) the balances were recorded on. The
+  // format is enforced, not just documented: snapshot ordering, the staleness
+  // check and the elapsed-day count all compare these strings
+  // lexicographically, which only works for zero-padded date-only values.
+  // The components must also form a real calendar date — a shape-valid
+  // `2026-13-40` would sort past December and roll into another month when
+  // parsed, silently shifting history.
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .refine(isRealCalendarDate),
+  cash_amount: z.number().optional(),
+  investments: z.array(z.object({ id: z.string(), balance: z.number() })).optional(),
+  // Financed assets carry their debt alongside the value so a snapshot's net
+  // worth can be computed without consulting the current profile.
+  tangible_assets: z
+    .array(
+      z.object({
+        id: z.string(),
+        value: z.number(),
+        outstanding_balance: z.number().optional(),
+      }),
+    )
+    .optional(),
+  liabilities: z.array(z.object({ id: z.string(), outstanding_balance: z.number() })).optional(),
+})
+
+/**
+ * Snapshots in the order everything downstream assumes: date-ascending, one
+ * entry per date. The history series takes the last point as the baseline its
+ * projected tail runs from, and the chart keys its dots by date — an unsorted
+ * or duplicated list (a hand-edited backup, a file from another tool) would
+ * project from the wrong point and crash the keyed `{#each}`.
+ *
+ * Later entries win, matching `upsertSnapshot`: a day's balances are recorded
+ * once, and the last word on a date is the current one.
+ */
+export function normalizeSnapshots(snapshots: Snapshot[]): Snapshot[] {
+  const byDate = new Map<string, Snapshot>()
+  for (const snapshot of snapshots) byDate.set(snapshot.date, snapshot)
+  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date))
+}
+
 export const transferScheduleSchema = z.enum(['one_time', 'recurring'])
 
 export const transferSchema = z
@@ -541,6 +609,12 @@ export const profileSchema = z.object({
   transfers: z.array(transferSchema).optional(),
   investment_tax_rules: z.array(taxRuleSchema).optional(),
   tangible_asset_tax_rules: z.array(taxRuleSchema).optional(),
+  // Normalized on the way in, so every entry point — a fresh load, a restored
+  // backup, cross-tab sync, a store write — hands the rest of the app a sorted,
+  // one-per-date list. `.overwrite` rather than `.transform`: it does not change
+  // the inferred type, so `profileSchema` still converts to JSON Schema for the
+  // MCP tools, which a transform makes impossible.
+  snapshots: z.array(snapshotSchema).overwrite(normalizeSnapshots).optional(),
 })
 
 export const portfolioSchema = z.object({
@@ -572,6 +646,7 @@ export type EntryFeeType = z.infer<typeof entryFeeTypeSchema>
 export type ExitFeeType = z.infer<typeof exitFeeTypeSchema>
 export type InterestType = z.infer<typeof interestTypeSchema>
 export type CompoundingFrequency = z.infer<typeof compoundingFrequencySchema>
+export type Snapshot = z.infer<typeof snapshotSchema>
 export type ProfileInvestment = z.infer<typeof profileInvestmentSchema>
 export type ProfileTangibleAsset = z.infer<typeof profileTangibleAssetSchema>
 export type ProfileLiability = z.infer<typeof profileLiabilitySchema>

@@ -205,11 +205,20 @@ export function formatLastUpdated(ms: number, locale: string | undefined): strin
 /**
  * Format an already-percent-scaled value (e.g. 5.3 → "5.3%" / "5,3 %") with
  * locale-aware decimal separator and percent-sign placement.
+ *
+ * `signed` forces a leading + on positive values, for figures that read as a
+ * change rather than a level (e.g. Quick update's per-item movement).
  */
-export function formatPercent(value: number, digits: number, locale?: string): string {
+export function formatPercent(
+  value: number,
+  digits: number,
+  locale?: string,
+  signed = false,
+): string {
   return getNumberFormat(locale, {
     style: 'percent',
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
+    ...(signed ? { signDisplay: 'exceptZero' as const } : {}),
   }).format(unsignZero(value) / 100)
 }

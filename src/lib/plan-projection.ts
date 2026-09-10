@@ -17,7 +17,13 @@ import type {
 } from '$lib/schemas'
 
 // Common temporal shape shared by Income, Expense, and recurring Transfer.
-interface CashFlowTemporal {
+/**
+ * The start/end edges that window a cash flow, a held investment or an owned
+ * asset. Split out from `CashFlowTemporal` because resolving *when* something
+ * runs needs only these — a recurring transfer's edges are read this way
+ * without inventing the growth fields it has no use for.
+ */
+export interface TimingWindow {
   start: CashFlowStart
   start_year?: number
   start_month?: number
@@ -26,12 +32,22 @@ interface CashFlowTemporal {
   end_year?: number
   end_month?: number
   end_age?: number
+}
+
+interface CashFlowTemporal extends TimingWindow {
   // Independent toggle that compounds with change_over_time. Legacy data may
   // instead use change_over_time === 'match_inflation' to mean the same thing.
   inflation_adjusted?: boolean
   change_over_time: ChangeOverTime
   change_percentage?: number
 }
+
+/**
+ * The transfer endpoint standing for the profile's cash, as the editor writes
+ * it. Owned here because the projection is what gives it meaning; the
+ * carry-forward in `current-values.ts` reads the same transfers.
+ */
+export const CASH_ENDPOINT = 'cash'
 
 export interface YearlyProjectionItem {
   id: string
@@ -82,7 +98,7 @@ const FLOW_PERIODS_PER_YEAR: Record<Frequency, number> = {
 }
 
 // Liability amortization needs an integer count of installments per year.
-const INSTALLMENT_PERIODS_PER_YEAR: Record<Frequency, number> = {
+export const INSTALLMENT_PERIODS_PER_YEAR: Record<Frequency, number> = {
   weekly: 52,
   monthly: 12,
   yearly: 1,
@@ -117,7 +133,12 @@ function resolveEndYear(cashFlow: CashFlowTemporal, birthYear: number | undefine
   return Number.POSITIVE_INFINITY
 }
 
-function annualizedAmount(amount: Decimal, frequency: Frequency): Decimal {
+/**
+ * A per-period amount as a yearly one. Exported so the dashboard totals in
+ * `financial-totals.ts` annualize exactly like the projection does instead of
+ * keeping their own copy of the periods-per-year table.
+ */
+export function annualizedAmount(amount: Decimal, frequency: Frequency): Decimal {
   return amount.mul(FLOW_PERIODS_PER_YEAR[frequency])
 }
 
@@ -231,6 +252,54 @@ function remainingTermPeriods(
   return remainingTerm * periodsPerYear
 }
 
+/**
+ * Interest charged on one installment period. Two paths:
+ *  - 'simple' (or missing interest_type but compounding_frequency unset →
+ *    keep legacy behaviour): nominal rate divided across installments.
+ *  - 'compound': convert the nominal annual rate to an effective annual
+ *    rate using the chosen compounding frequency, then back out the
+ *    equivalent per-installment rate. Defaults to compounding at the
+ *    installment frequency so unconfigured liabilities behave identically
+ *    to the pre-advanced-options engine.
+ *
+ * Exported so `current-values.ts` can amortize a stored balance forward to
+ * today on exactly the terms the projection would use.
+ */
+export function installmentPeriodRate(liability: ProfileLiability): Decimal {
+  const periodsPerYear = INSTALLMENT_PERIODS_PER_YEAR[liability.installment_frequency]
+  const annualRate = new Decimal(liability.annual_rate).div(100)
+  if (liability.interest_type === 'simple') return annualRate.div(periodsPerYear)
+  const compFreqKey = liability.compounding_frequency
+  const compoundingPeriodsPerYear =
+    compFreqKey !== undefined ? COMPOUNDING_PERIODS_PER_YEAR[compFreqKey] : periodsPerYear
+  // EAR = (1 + r/n)^n − 1; installment rate = (1 + EAR)^(1/p) − 1
+  const periodicCompoundRate = annualRate.div(compoundingPeriodsPerYear)
+  const ear = DECIMAL_1.plus(periodicCompoundRate).pow(compoundingPeriodsPerYear).minus(DECIMAL_1)
+  return DECIMAL_1.plus(ear).pow(new Decimal(1).div(periodsPerYear)).minus(DECIMAL_1)
+}
+
+/**
+ * How many whole scheduled installments a loan has left, in the unit its term
+ * is stated in. Rounded because carrying a loan forward writes the term back as
+ * a fraction of a year (whole installments over the periods per year), and
+ * binary floating point leaves that a hair either side of the whole period
+ * count it stands for.
+ *
+ * Exported so `current-values.ts` counts the same periods the projection does.
+ * `simulateLiability` keeps the unrounded count: a term of 18 months on a
+ * yearly cadence is a genuine 1.5 periods there, cleared by a balloon on the
+ * fractional final period.
+ */
+export function remainingInstallmentPeriods(liability: ProfileLiability): number {
+  return Math.round(
+    remainingTermPeriods(
+      liability.remaining_term,
+      liability.remaining_term_unit,
+      INSTALLMENT_PERIODS_PER_YEAR[liability.installment_frequency],
+    ),
+  )
+}
+
 function simulateLiability(
   liability: ProfileLiability,
   startYear: number,
@@ -243,27 +312,7 @@ function simulateLiability(
   window?: { firstYear: number; lastYear: number },
 ): LiabilitySchedule {
   const periodsPerYear = INSTALLMENT_PERIODS_PER_YEAR[liability.installment_frequency]
-  // Per-installment rate. Two paths:
-  //  - 'simple' (or missing interest_type but compounding_frequency unset →
-  //    keep legacy behaviour): nominal rate divided across installments.
-  //  - 'compound': convert the nominal annual rate to an effective annual
-  //    rate using the chosen compounding frequency, then back out the
-  //    equivalent per-installment rate. Defaults to compounding at the
-  //    installment frequency so unconfigured liabilities behave identically
-  //    to the pre-advanced-options engine.
-  const annualRate = new Decimal(liability.annual_rate).div(100)
-  let periodRate: Decimal
-  if (liability.interest_type === 'simple') {
-    periodRate = annualRate.div(periodsPerYear)
-  } else {
-    const compFreqKey = liability.compounding_frequency
-    const compoundingPeriodsPerYear =
-      compFreqKey !== undefined ? COMPOUNDING_PERIODS_PER_YEAR[compFreqKey] : periodsPerYear
-    // EAR = (1 + r/n)^n − 1; installment rate = (1 + EAR)^(1/p) − 1
-    const periodicCompoundRate = annualRate.div(compoundingPeriodsPerYear)
-    const ear = DECIMAL_1.plus(periodicCompoundRate).pow(compoundingPeriodsPerYear).minus(DECIMAL_1)
-    periodRate = DECIMAL_1.plus(ear).pow(new Decimal(1).div(periodsPerYear)).minus(DECIMAL_1)
-  }
+  const periodRate = installmentPeriodRate(liability)
   const installmentAmount = new Decimal(liability.installment_amount)
 
   let balance = new Decimal(liability.outstanding_balance)
@@ -314,7 +363,12 @@ function simulateLiability(
   return { outstandingByYear, paidByYear }
 }
 
-function financingToLiability(asset: ProfileTangibleAsset): ProfileLiability | undefined {
+/**
+ * The loan behind a financed tangible asset, as a standalone liability — or
+ * undefined when the asset is not financed or its financing terms are
+ * incomplete. Exported for reuse by the current-balance projection.
+ */
+export function financingToLiability(asset: ProfileTangibleAsset): ProfileLiability | undefined {
   if (
     asset.status !== 'financed' ||
     asset.outstanding_balance === undefined ||
@@ -338,7 +392,7 @@ function financingToLiability(asset: ProfileTangibleAsset): ProfileLiability | u
   }
 }
 
-function investmentToTemporal(investment: ProfileInvestment): CashFlowTemporal {
+export function investmentToTemporal(investment: ProfileInvestment): CashFlowTemporal {
   // An investment without timing behaves like one held from day one and never
   // sold, which is what the engine did before planned timing existed.
   return {
@@ -368,6 +422,74 @@ function tangibleToTemporal(asset: ProfileTangibleAsset): CashFlowTemporal {
     end_age: asset.sale_age,
     change_over_time: 'none',
   }
+}
+
+/** Comparable index for a calendar month, so window edges sort as plain numbers. */
+function monthIndex(year: number, month: number): number {
+  return year * 12 + month
+}
+
+/**
+ * Whether a cash flow, a held investment or an owned asset is running on
+ * `asOf`. Month-precise, unlike `resolveStartYear`/`resolveEndYear`, which the
+ * yearly engine resolves to whole years: 'at_specific_date' is precise to the
+ * month, 'when_age_is' covers the whole calendar year the user reaches that
+ * age, and 'immediately'/'now' are always running. An edge with incomplete data
+ * (a mode whose field was never filled in, or an age window on a profile with
+ * no birth date) is treated as unbounded, mirroring the projection's fallback
+ * to the plan's first year / no end.
+ *
+ * Exported so the carry-forward in `current-values.ts` and the balances behind
+ * net worth in `snapshots.ts` resolve a window exactly one way.
+ */
+export function isActiveOn(flow: TimingWindow, asOf: Date, birthYear: number | undefined): boolean {
+  const now = monthIndex(asOf.getFullYear(), asOf.getMonth() + 1)
+
+  let startsAt = Number.NEGATIVE_INFINITY
+  if (flow.start === 'at_specific_date' && flow.start_year !== undefined) {
+    startsAt = monthIndex(flow.start_year, flow.start_month ?? 1)
+  } else if (
+    flow.start === 'when_age_is' &&
+    birthYear !== undefined &&
+    flow.start_age !== undefined
+  ) {
+    startsAt = monthIndex(birthYear + flow.start_age, 1)
+  }
+  if (now < startsAt) return false
+
+  let endsAt = Number.POSITIVE_INFINITY
+  if (flow.end === 'at_specific_date' && flow.end_year !== undefined) {
+    endsAt = monthIndex(flow.end_year, flow.end_month ?? 12)
+  } else if (flow.end === 'when_age_is' && birthYear !== undefined && flow.end_age !== undefined) {
+    endsAt = monthIndex(birthYear + flow.end_age, 12)
+  }
+  return now <= endsAt
+}
+
+/**
+ * Whether the profile actually holds this investment on `asOf`.
+ *
+ * Planned timing makes the balance a statement about a different date: a start
+ * in the future is the amount the plan buys out of cash that year, and an exit
+ * in the past liquidated it back into cash. `heldAtPlanStart` is the yearly
+ * engine's form of the same question — it seeds such an investment at zero
+ * rather than counting it.
+ */
+export function isHeldOn(
+  investment: ProfileInvestment,
+  asOf: Date,
+  birthYear: number | undefined,
+): boolean {
+  return isActiveOn(investmentToTemporal(investment), asOf, birthYear)
+}
+
+/** `isHeldOn` for a tangible asset, whose timing fields are purchase/sale. */
+export function isOwnedOn(
+  asset: ProfileTangibleAsset,
+  asOf: Date,
+  birthYear: number | undefined,
+): boolean {
+  return isActiveOn(tangibleToTemporal(asset), asOf, birthYear)
 }
 
 interface PlannedWindow {
@@ -442,7 +564,7 @@ function plannedTimingTransfers(
     ? {
         id: `${PLANNED_START_PREFIX}${asset.id}`,
         name: asset.name,
-        from_asset_id: 'cash',
+        from_asset_id: CASH_ENDPOINT,
         to_asset_id: asset.id,
         amount: buyAmount,
         schedule: 'one_time',
@@ -454,7 +576,7 @@ function plannedTimingTransfers(
         id: `${PLANNED_EXIT_PREFIX}${asset.id}`,
         name: asset.name,
         from_asset_id: asset.id,
-        to_asset_id: 'cash',
+        to_asset_id: CASH_ENDPOINT,
         amount: 0,
         transfer_all: true,
         schedule: 'one_time',
@@ -663,6 +785,59 @@ export function yearOf(dateString: string): number {
   return Number(dateString.slice(0, 4))
 }
 
+/**
+ * Effective APY = APY − TER − ongoing portion of the entry fee. The ongoing
+ * entry-fee component models the year-after-year drag (whole fee for
+ * 'ongoing', 60% for 'forty-sixty', 0 for 'upfront'). Floored at −100% (a
+ * total loss) so the yearly multiplier bottoms out at 0 — fees exceeding
+ * 100 + APY would otherwise flip the multiplier negative and make the
+ * balance oscillate in sign.
+ */
+export function effectiveInvestmentApy(investment: ProfileInvestment): Decimal {
+  const apy = new Decimal(investment.apy)
+  const ter = new Decimal(investment.ter ?? 0)
+  const entryFee = new Decimal(investment.entry_fee ?? 0)
+  let ongoingDrag = DECIMAL_0
+  if (investment.entry_fee_type === 'ongoing') ongoingDrag = entryFee
+  else if (investment.entry_fee_type === 'forty-sixty') ongoingDrag = entryFee.mul(0.6)
+  return Decimal.max(apy.minus(ter).minus(ongoingDrag), DECIMAL_MINUS_100)
+}
+
+/**
+ * Exit fee on a withdrawal, before it lands at the destination —
+ * sells/redemptions usually take the fee out of proceeds, so the source loses
+ * `amount` but the destination receives less. `undefined` (cash, or an id that
+ * is not an investment) is free to withdraw from.
+ *
+ * Exported so `current-values.ts` charges transfers the same fees the
+ * projection does instead of keeping its own copy of the rule.
+ */
+export function applyExitFee(investment: ProfileInvestment | undefined, amount: Decimal): Decimal {
+  if (!investment || !investment.exit_fee) return amount
+  const exitFee = new Decimal(investment.exit_fee)
+  if (investment.exit_fee_type === 'fixed') {
+    return Decimal.max(amount.minus(exitFee), DECIMAL_0)
+  }
+  // Default to percentage (matches the schema default and Figma).
+  return Decimal.max(amount.mul(DECIMAL_1.minus(exitFee.div(100))), DECIMAL_0)
+}
+
+/**
+ * Entry fee on a deposit — for 'upfront' the whole fee comes out of the
+ * inflow; 'forty-sixty' takes 40 % upfront and amortizes the rest through the
+ * APY drag in `effectiveInvestmentApy`; 'ongoing' takes none here (all drag).
+ * `undefined` (cash, or an id that is not an investment) is free to pay into.
+ */
+export function applyEntryFee(investment: ProfileInvestment | undefined, amount: Decimal): Decimal {
+  if (!investment || !investment.entry_fee) return amount
+  const entryFee = new Decimal(investment.entry_fee)
+  let upfrontPct = DECIMAL_0
+  if (investment.entry_fee_type === 'upfront') upfrontPct = entryFee
+  else if (investment.entry_fee_type === 'forty-sixty') upfrontPct = entryFee.mul(0.4)
+  if (upfrontPct.isZero()) return amount
+  return Decimal.max(amount.mul(DECIMAL_1.minus(upfrontPct.div(100))), DECIMAL_0)
+}
+
 export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): YearlyProjection[] {
   const startYear = yearOf(plan.start_date)
   const endYear = yearOf(plan.end_date)
@@ -768,22 +943,8 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   // Per-investment lookup so the transfer loop can apply entry/exit fees by
   // asset id without re-scanning the array.
   const investmentsById = new Map<string, ProfileInvestment>(investments.map((i) => [i.id, i]))
-  // Effective APY = APY − TER − ongoing portion of the entry fee. The ongoing
-  // entry-fee component models the year-after-year drag (whole fee for
-  // 'ongoing', 60% for 'forty-sixty', 0 for 'upfront'). Floored at −100% (a
-  // total loss) so the yearly multiplier bottoms out at 0 — fees exceeding
-  // 100 + APY would otherwise flip the multiplier negative and make the
-  // balance oscillate in sign.
   const investmentApy = new Map<string, Decimal>(
-    investments.map((i) => {
-      const apy = new Decimal(i.apy)
-      const ter = new Decimal(i.ter ?? 0)
-      const entryFee = new Decimal(i.entry_fee ?? 0)
-      let ongoingDrag = DECIMAL_0
-      if (i.entry_fee_type === 'ongoing') ongoingDrag = entryFee
-      else if (i.entry_fee_type === 'forty-sixty') ongoingDrag = entryFee.mul(0.6)
-      return [i.id, Decimal.max(apy.minus(ter).minus(ongoingDrag), DECIMAL_MINUS_100)]
-    }),
+    investments.map((i) => [i.id, effectiveInvestmentApy(i)]),
   )
 
   // Nominal yearly multiplier per tangible asset. Absent value_over_time it
@@ -804,7 +965,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   // live on the profile and are referenced by the plan by id, mirroring how
   // incomes and expenses behave.
   const knownAssetIds = new Set<string>([
-    'cash',
+    CASH_ENDPOINT,
     ...investments.map((i) => i.id),
     ...tangibleAssets.map((a) => a.id),
   ])
@@ -890,14 +1051,14 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     //    transfers are what's shown for year Y and what next year's
     //    compounding works from.
     function getBalance(id: string): Decimal {
-      if (id === 'cash') return cashNominal
+      if (id === CASH_ENDPOINT) return cashNominal
       if (invBalancesNominal.has(id)) return invBalancesNominal.get(id) ?? DECIMAL_0
       if (tangValuesNominal.has(id)) return tangValuesNominal.get(id) ?? DECIMAL_0
       return DECIMAL_0
     }
 
     function withdraw(id: string, amount: Decimal): void {
-      if (id === 'cash') {
+      if (id === CASH_ENDPOINT) {
         cashNominal = cashNominal.minus(amount)
       } else if (invBalancesNominal.has(id)) {
         const balance = invBalancesNominal.get(id) ?? DECIMAL_0
@@ -917,7 +1078,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     }
 
     function deposit(id: string, amount: Decimal): void {
-      if (id === 'cash') {
+      if (id === CASH_ENDPOINT) {
         cashNominal = cashNominal.plus(amount)
       } else if (invBalancesNominal.has(id)) {
         invBalancesNominal.set(id, (invBalancesNominal.get(id) ?? DECIMAL_0).plus(amount))
@@ -952,34 +1113,6 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       // modeling choice; real brokers usually tax the net proceeds.
       const gain = amount.mul(balance.minus(basis).div(balance))
       return gain.mul(new Decimal(rule.rate).div(100))
-    }
-
-    // Exit fee bites the withdrawal before it lands at the destination —
-    // sells/redemptions usually take the fee out of proceeds, so the source
-    // loses `amount` but the destination receives less.
-    function applyExitFee(fromId: string, amount: Decimal): Decimal {
-      const inv = investmentsById.get(fromId)
-      if (!inv || !inv.exit_fee) return amount
-      const exitFee = new Decimal(inv.exit_fee)
-      if (inv.exit_fee_type === 'fixed') {
-        return Decimal.max(amount.minus(exitFee), DECIMAL_0)
-      }
-      // Default to percentage (matches the schema default and Figma).
-      return Decimal.max(amount.mul(DECIMAL_1.minus(exitFee.div(100))), DECIMAL_0)
-    }
-
-    // Entry fee bites the deposit — for 'upfront' the whole fee comes out of
-    // the inflow; 'forty-sixty' takes 40 % upfront and amortizes the rest via
-    // the APY drag set up above; 'ongoing' takes none here (all drag).
-    function applyEntryFee(toId: string, amount: Decimal): Decimal {
-      const inv = investmentsById.get(toId)
-      if (!inv || !inv.entry_fee) return amount
-      const entryFee = new Decimal(inv.entry_fee)
-      let upfrontPct = DECIMAL_0
-      if (inv.entry_fee_type === 'upfront') upfrontPct = entryFee
-      else if (inv.entry_fee_type === 'forty-sixty') upfrontPct = entryFee.mul(0.4)
-      if (upfrontPct.isZero()) return amount
-      return Decimal.max(amount.mul(DECIMAL_1.minus(upfrontPct.div(100))), DECIMAL_0)
     }
 
     // An investment only takes part in transfers between its start and exit
@@ -1033,8 +1166,11 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       const tax = capitalGainsTax(transfer.from_asset_id, amount)
       withdraw(transfer.from_asset_id, amount)
       const netToDestination = applyEntryFee(
-        transfer.to_asset_id,
-        Decimal.max(applyExitFee(transfer.from_asset_id, amount).minus(tax), DECIMAL_0),
+        investmentsById.get(transfer.to_asset_id),
+        Decimal.max(
+          applyExitFee(investmentsById.get(transfer.from_asset_id), amount).minus(tax),
+          DECIMAL_0,
+        ),
       )
       deposit(transfer.to_asset_id, netToDestination)
     }

@@ -154,6 +154,15 @@ describe('formatPercent', () => {
   it('renders negative zero as plain 0', () => {
     expect(formatPercent(-0, 1, 'en-US')).toBe('0.0%')
   })
+
+  it('forces a leading + on positive values when signed', () => {
+    expect(formatPercent(5.3, 2, 'en-US', true)).toBe('+5.30%')
+    expect(formatPercent(-5.3, 2, 'en-US', true)).toBe('-5.30%')
+  })
+
+  it('leaves zero unsigned even when signed', () => {
+    expect(formatPercent(0, 2, 'en-US', true)).toBe('0.00%')
+  })
 })
 
 describe('formatLastUpdated', () => {
