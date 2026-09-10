@@ -524,6 +524,76 @@ describe('getCurrentProfile and the holding window', () => {
     expect(getCurrentProfile(profile, TODAY).investments?.[0].balance).toBe(100_000)
   })
 
+  test('moves a position whose planned exit passed since the snapshot into cash', () => {
+    // Issue #247: snapshot 2026-01, exit 2026-03, today 2026-07. The sale has
+    // happened and nothing recorded it yet, so the proceeds belong in cash and
+    // the position is gone.
+    const profile: Profile = {
+      ...PROFILE,
+      investments: [
+        { ...PROFILE.investments![0], exit: 'at_specific_date', exit_year: 2026, exit_month: 3 },
+        PROFILE.investments![1],
+      ],
+    }
+    const baseline = getCurrentProfile(PROFILE, TODAY).cash_amount ?? 0
+    const current = getCurrentProfile(profile, TODAY)
+    expect(current.cash_amount).toBeCloseTo(baseline + 100_000, 2)
+    expect(current.investments?.[0].balance).toBe(0)
+  })
+
+  test('charges the exit fee on the way into cash', () => {
+    const profile: Profile = {
+      ...PROFILE,
+      investments: [
+        {
+          ...PROFILE.investments![0],
+          exit: 'at_specific_date',
+          exit_year: 2026,
+          exit_month: 3,
+          exit_fee: 10,
+        },
+        PROFILE.investments![1],
+      ],
+    }
+    const baseline = getCurrentProfile(PROFILE, TODAY).cash_amount ?? 0
+    expect(getCurrentProfile(profile, TODAY).cash_amount).toBeCloseTo(baseline + 90_000, 2)
+  })
+
+  test('leaves an exit that passed before the snapshot alone', () => {
+    // The snapshot already reflects that sale: crediting it again would
+    // invent money.
+    const profile: Profile = {
+      ...PROFILE,
+      investments: [
+        { ...PROFILE.investments![0], exit: 'at_specific_date', exit_year: 2025 },
+        PROFILE.investments![1],
+      ],
+    }
+    const baseline = getCurrentProfile(PROFILE, TODAY).cash_amount ?? 0
+    expect(getCurrentProfile(profile, TODAY).cash_amount).toBeCloseTo(baseline, 2)
+  })
+
+  test('pays for a position whose planned start passed since the snapshot out of cash', () => {
+    const profile: Profile = {
+      ...PROFILE,
+      investments: [
+        {
+          ...PROFILE.investments![0],
+          balance: 5_000,
+          apy: 0,
+          start: 'at_specific_date',
+          start_year: 2026,
+          start_month: 3,
+        },
+        PROFILE.investments![1],
+      ],
+    }
+    const baseline = getCurrentProfile(PROFILE, TODAY).cash_amount ?? 0
+    const current = getCurrentProfile(profile, TODAY)
+    expect(current.cash_amount).toBeCloseTo(baseline - 5_000, 2)
+    expect(current.investments?.[0].balance).toBe(5_000)
+  })
+
   test('does not amortize the financing of a property not bought yet', () => {
     // Nobody is paying installments on a purchase that has not happened, and
     // the cash side does not charge them either.
