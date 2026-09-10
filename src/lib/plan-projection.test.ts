@@ -1821,6 +1821,74 @@ describe('getYearlyPlanProjection', () => {
     expect(result[2].netWorth).toBeCloseTo(5000, 6)
   })
 
+  it("buys an investment planned for the plan's first year out of cash", () => {
+    // Issue #246: the plan starts 2025-01 and the purchase is planned for
+    // 2025-03, so it has not happened yet — the position must be paid for.
+    const investments: ProfileInvestment[] = [
+      {
+        id: 'i1',
+        name: 'Planned ETF',
+        balance: 1000,
+        apy: 10,
+        start: 'at_specific_date',
+        start_year: 2025,
+        start_month: 3,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ cash_amount: 5000, investments }),
+    )
+    expect(result[0].cash).toBeCloseTo(4000, 6)
+    expect(result[0].investments).toBeCloseTo(1000, 6)
+    expect(result[0].netWorth).toBeCloseTo(5000, 6)
+    expect(result[1].investments).toBeCloseTo(1100, 6)
+  })
+
+  it("treats a start earlier in the plan's first year than the plan itself as already held", () => {
+    // Plan starts 2025-06; a purchase dated 2025-03 is in the past, so the
+    // balance is what the user holds and cash already reflects it.
+    const investments: ProfileInvestment[] = [
+      {
+        id: 'i1',
+        name: 'Held ETF',
+        balance: 1000,
+        apy: 0,
+        start: 'at_specific_date',
+        start_year: 2025,
+        start_month: 3,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ start_date: '2025-06-01' }),
+      makeProfile({ cash_amount: 5000, investments }),
+    )
+    expect(result[0].cash).toBeCloseTo(5000, 6)
+    expect(result[0].investments).toBeCloseTo(1000, 6)
+    expect(result[0].netWorth).toBeCloseTo(6000, 6)
+  })
+
+  it("buys a tangible asset planned for the plan's first year out of cash", () => {
+    const tangible_assets: ProfileTangibleAsset[] = [
+      {
+        id: 't1',
+        name: 'Car',
+        value: 1000,
+        status: 'fully_owned',
+        purchase: 'at_specific_date',
+        purchase_year: 2025,
+        purchase_month: 3,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ cash_amount: 5000, tangible_assets }),
+    )
+    expect(result[0].cash).toBeCloseTo(4000, 6)
+    expect(result[0].tangibleAssets).toBeCloseTo(1000, 6)
+    expect(result[0].netWorth).toBeCloseTo(5000, 6)
+  })
+
   it('charges the entry fee on a future-start purchase', () => {
     const investments: ProfileInvestment[] = [
       {

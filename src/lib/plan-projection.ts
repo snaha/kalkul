@@ -430,6 +430,20 @@ function monthIndex(year: number, month: number): number {
 }
 
 /**
+ * The month an explicitly planned start falls in, or undefined when the start
+ * is not planned ('immediately'/'now') or its field was never filled in.
+ */
+function plannedStartsAt(flow: TimingWindow, birthYear: number | undefined): number | undefined {
+  if (flow.start === 'at_specific_date' && flow.start_year !== undefined) {
+    return monthIndex(flow.start_year, flow.start_month ?? 1)
+  }
+  if (flow.start === 'when_age_is' && birthYear !== undefined && flow.start_age !== undefined) {
+    return monthIndex(birthYear + flow.start_age, 1)
+  }
+  return undefined
+}
+
+/**
  * Whether a cash flow, a held investment or an owned asset is running on
  * `asOf`. Month-precise, unlike `resolveStartYear`/`resolveEndYear`, which the
  * yearly engine resolves to whole years: 'at_specific_date' is precise to the
@@ -445,16 +459,7 @@ function monthIndex(year: number, month: number): number {
 export function isActiveOn(flow: TimingWindow, asOf: Date, birthYear: number | undefined): boolean {
   const now = monthIndex(asOf.getFullYear(), asOf.getMonth() + 1)
 
-  let startsAt = Number.NEGATIVE_INFINITY
-  if (flow.start === 'at_specific_date' && flow.start_year !== undefined) {
-    startsAt = monthIndex(flow.start_year, flow.start_month ?? 1)
-  } else if (
-    flow.start === 'when_age_is' &&
-    birthYear !== undefined &&
-    flow.start_age !== undefined
-  ) {
-    startsAt = monthIndex(birthYear + flow.start_age, 1)
-  }
+  const startsAt = plannedStartsAt(flow, birthYear) ?? Number.NEGATIVE_INFINITY
   if (now < startsAt) return false
 
   let endsAt = Number.POSITIVE_INFINITY
@@ -508,15 +513,21 @@ interface PlannedWindow {
 function plannedWindow(
   temporal: CashFlowTemporal,
   planStartYear: number,
+  /** The plan's first month, so a purchase later that same year is still a purchase. */
+  planStartsAt: number,
   birthYear: number | undefined,
 ): PlannedWindow {
   const resolvedStart = resolveStartYear(temporal, planStartYear, birthYear)
+  // A planned start is bought once the plan reaches its month — including a
+  // month later in the plan's first year (#246). A start before the plan
+  // window would never fire as a one-time transfer, so the start year is
+  // clamped and the position is simply already held.
+  const startsAt = plannedStartsAt(temporal, birthYear)
   return {
-    // A start before the plan window would never fire as a one-time transfer,
-    // so clamp it: the position is simply already held.
     startYear: Math.max(resolvedStart, planStartYear),
     exitYear: resolveEndYear(temporal, birthYear),
-    fundsFromCash: resolvedStart > planStartYear,
+    fundsFromCash:
+      startsAt === undefined ? resolvedStart > planStartYear : startsAt >= planStartsAt,
   }
 }
 
@@ -860,14 +871,15 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
 
   // One map for both kinds: investments and tangible assets share the planned
   // buy/sell machinery, so the transfer loop guards them with the same check.
+  const planStartsAt = monthIndex(startYear, Number(plan.start_date.slice(5, 7)))
   const assetWindows = new Map<string, PlannedWindow>([
     ...investments.map((i): [string, PlannedWindow] => [
       i.id,
-      plannedWindow(investmentToTemporal(i), startYear, birthYear),
+      plannedWindow(investmentToTemporal(i), startYear, planStartsAt, birthYear),
     ]),
     ...tangibleAssets.map((a): [string, PlannedWindow] => [
       a.id,
-      plannedWindow(tangibleToTemporal(a), startYear, birthYear),
+      plannedWindow(tangibleToTemporal(a), startYear, planStartsAt, birthYear),
     ]),
   ])
 
