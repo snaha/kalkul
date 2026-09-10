@@ -10,14 +10,18 @@ import {
   effectiveInvestmentApy,
   financingToLiability,
   installmentPeriodRate,
+  investmentToTemporal,
   isActiveOn,
   isHeldOn,
   isOwnedOn,
+  monthIndex,
+  plannedEndsAt,
+  plannedStartsAt,
   remainingInstallmentPeriods,
   yearOf,
 } from '$lib/plan-projection'
 import type { TimingWindow } from '$lib/plan-projection'
-import type { Profile, ProfileLiability, RemainingTermUnit } from '$lib/schemas'
+import type { Profile, ProfileInvestment, ProfileLiability, RemainingTermUnit } from '$lib/schemas'
 import { latestSnapshot } from '$lib/snapshots'
 import { toDateOnlyString } from '$lib/utils'
 
@@ -381,16 +385,46 @@ export function getCurrentProfile(profile: Profile, today: Date): Profile {
   // the same reason. It stays in the list at that figure rather than being
   // dropped or zeroed: the projections beside it need the planned amount, and
   // Quick update must never be able to confirm it away.
+  //
+  // A window edge crossed since the snapshot is the exception (#247): the
+  // snapshot was taken on one side of it and today is on the other, so nothing
+  // has recorded the money changing hands yet. The balance moves through cash
+  // the way the projection's planned buy/sell does — a start debits cash and
+  // the position receives the amount after the upfront entry fee, an exit
+  // credits cash with the balance after the exit fee and leaves the position
+  // empty, so the projection beside it does not sell it a second time. An edge
+  // before the snapshot is already in its balances and stays out.
+  const snapshotAt = monthIndex(yearOf(snapshot.date), Number(snapshot.date.slice(5, 7)))
+  const todayAt = monthIndex(today.getFullYear(), today.getMonth() + 1)
+  const crossedSince = (edge: number | undefined) =>
+    edge !== undefined && snapshotAt < edge && edge <= todayAt
+  const boughtInWindow = (investment: ProfileInvestment) =>
+    crossedSince(plannedStartsAt(investmentToTemporal(investment), birthYear))
+  // The exit month is the last one held, so the sale falls in the month after.
+  const soldInWindow = (investment: ProfileInvestment) => {
+    const endsAt = plannedEndsAt(investmentToTemporal(investment), birthYear)
+    return endsAt !== undefined && crossedSince(endsAt + 1)
+  }
+  let cashBefore = new Decimal(profile.cash_amount ?? 0).plus(flows.cash.mul(yearFraction))
+  for (const investment of profile.investments ?? []) {
+    const balance = new Decimal(investment.balance)
+    if (soldInWindow(investment)) cashBefore = cashBefore.plus(applyExitFee(investment, balance))
+    else if (boughtInWindow(investment)) cashBefore = cashBefore.minus(balance)
+  }
+
   const before = new Map<string, Decimal>([
-    [CASH_ENDPOINT, new Decimal(profile.cash_amount ?? 0).plus(flows.cash.mul(yearFraction))],
-    ...(profile.investments ?? []).map((investment): [string, Decimal] => [
-      investment.id,
-      isHeldOn(investment, today, birthYear)
-        ? new Decimal(investment.balance).mul(
-            effectiveInvestmentApy(investment).div(100).plus(1).pow(yearFraction),
-          )
-        : new Decimal(investment.balance),
-    ]),
+    [CASH_ENDPOINT, cashBefore],
+    ...(profile.investments ?? []).map((investment): [string, Decimal] => {
+      if (soldInWindow(investment)) return [investment.id, DECIMAL_0]
+      const balance = new Decimal(investment.balance)
+      const paidIn = boughtInWindow(investment) ? applyEntryFee(investment, balance) : balance
+      return [
+        investment.id,
+        isHeldOn(investment, today, birthYear)
+          ? paidIn.mul(effectiveInvestmentApy(investment).div(100).plus(1).pow(yearFraction))
+          : paidIn,
+      ]
+    }),
   ])
   const after = settleTransfers(before, flows.transfers, yearFraction)
   // Cash outrun by expenses stops at zero rather than going into overdraft —

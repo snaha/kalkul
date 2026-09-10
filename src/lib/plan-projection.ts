@@ -425,7 +425,7 @@ function tangibleToTemporal(asset: ProfileTangibleAsset): CashFlowTemporal {
 }
 
 /** Comparable index for a calendar month, so window edges sort as plain numbers. */
-function monthIndex(year: number, month: number): number {
+export function monthIndex(year: number, month: number): number {
   return year * 12 + month
 }
 
@@ -433,12 +433,32 @@ function monthIndex(year: number, month: number): number {
  * The month an explicitly planned start falls in, or undefined when the start
  * is not planned ('immediately'/'now') or its field was never filled in.
  */
-function plannedStartsAt(flow: TimingWindow, birthYear: number | undefined): number | undefined {
+export function plannedStartsAt(
+  flow: TimingWindow,
+  birthYear: number | undefined,
+): number | undefined {
   if (flow.start === 'at_specific_date' && flow.start_year !== undefined) {
     return monthIndex(flow.start_year, flow.start_month ?? 1)
   }
   if (flow.start === 'when_age_is' && birthYear !== undefined && flow.start_age !== undefined) {
     return monthIndex(birthYear + flow.start_age, 1)
+  }
+  return undefined
+}
+
+/**
+ * The last month an explicitly planned end covers, or undefined when there is
+ * no planned end or its field was never filled in.
+ */
+export function plannedEndsAt(
+  flow: TimingWindow,
+  birthYear: number | undefined,
+): number | undefined {
+  if (flow.end === 'at_specific_date' && flow.end_year !== undefined) {
+    return monthIndex(flow.end_year, flow.end_month ?? 12)
+  }
+  if (flow.end === 'when_age_is' && birthYear !== undefined && flow.end_age !== undefined) {
+    return monthIndex(birthYear + flow.end_age, 12)
   }
   return undefined
 }
@@ -461,14 +481,7 @@ export function isActiveOn(flow: TimingWindow, asOf: Date, birthYear: number | u
 
   const startsAt = plannedStartsAt(flow, birthYear) ?? Number.NEGATIVE_INFINITY
   if (now < startsAt) return false
-
-  let endsAt = Number.POSITIVE_INFINITY
-  if (flow.end === 'at_specific_date' && flow.end_year !== undefined) {
-    endsAt = monthIndex(flow.end_year, flow.end_month ?? 12)
-  } else if (flow.end === 'when_age_is' && birthYear !== undefined && flow.end_age !== undefined) {
-    endsAt = monthIndex(birthYear + flow.end_age, 12)
-  }
-  return now <= endsAt
+  return now <= (plannedEndsAt(flow, birthYear) ?? Number.POSITIVE_INFINITY)
 }
 
 /**
