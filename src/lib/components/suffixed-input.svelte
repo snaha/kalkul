@@ -1,4 +1,6 @@
 <script lang="ts">
+  import type { HTMLInputAttributes } from 'svelte/elements'
+
   import { Input } from '$lib/components/ui/input'
   import { decimalSeparatorOf, formatNumberInput, parseNumberInput } from '$lib/parse-number-input'
   import { cn } from '$lib/utils'
@@ -9,6 +11,7 @@
     placeholder?: string
     id?: string
     'aria-label'?: string
+    'aria-invalid'?: HTMLInputAttributes['aria-invalid']
     class?: string
     // Required so no call site can accidentally fall back to the OS locale —
     // pass appStore.formatNumber (or a wrapper around it).
@@ -22,6 +25,7 @@
     placeholder = '0',
     id,
     'aria-label': ariaLabel,
+    'aria-invalid': ariaInvalid,
     class: className,
     formatNumber,
     onValueChange,
@@ -76,6 +80,7 @@
     {placeholder}
     {id}
     aria-label={ariaLabel}
+    aria-invalid={ariaInvalid}
     value={displayValue}
     inputmode="decimal"
     onfocus={handleFocus}

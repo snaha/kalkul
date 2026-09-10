@@ -23,10 +23,11 @@
   import downloadBackup from '$lib/download-backup'
   import { COUNTRY_CURRENCY_MAP, getCountryItems, getLanguageItems } from '$lib/profile-options'
   import routes from '$lib/routes'
-  import { type HoldingPeriod, type Profile, type TaxRule, taxRuleSchema } from '$lib/schemas'
+  import { type HoldingPeriod, type Profile, type TaxRule } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
   import { syncStore } from '$lib/stores/sync.svelte'
   import { type Theme, themeStore } from '$lib/stores/theme.svelte'
+  import { invalidTaxRuleFields } from '$lib/tax-rule-form'
   import {
     CURRENCY_OPTIONS,
     DEFAULT_CURRENCY,
@@ -132,10 +133,20 @@
     appStore.updateProfile(updates)
   }
 
+  // Out-of-range edits (e.g. a 150 % rate) are kept here, keyed by rule id,
+  // instead of being persisted: updateProfile would throw. The row renders
+  // the draft with an error until the rule is valid again.
+  let drafts = $state<Record<string, Partial<TaxRule>>>({})
+
   function updateRule(key: TaxRuleKey, rows: TaxRule[], id: string, patch: Partial<TaxRule>) {
-    const next = rows.map((rule) => (rule.id === id ? { ...rule, ...patch } : rule))
-    // Out-of-range input (e.g. a 150 % rate) is not persisted; updateProfile would throw.
-    if (next.every((rule) => taxRuleSchema.safeParse(rule).success)) saveRules(key, next)
+    const draft = { ...drafts[id], ...patch }
+    const next = rows.map((rule) => (rule.id === id ? { ...rule, ...draft } : rule))
+    if (next.every((rule) => invalidTaxRuleFields(rule).length === 0)) {
+      delete drafts[id]
+      saveRules(key, next)
+    } else {
+      drafts[id] = draft
+    }
   }
 
   // --- Your details ---
@@ -167,7 +178,9 @@
   {@const rows = stored.length > 0 ? stored : [seedRule[key]]}
   <div class="flex w-full flex-col gap-4">
     <h3 class="text-base font-bold text-foreground">{title}</h3>
-    {#each rows as rule (rule.id)}
+    {#each rows as storedRule (storedRule.id)}
+      {@const rule = { ...storedRule, ...drafts[storedRule.id] }}
+      {@const invalid = invalidTaxRuleFields(rule)}
       <div class="flex items-end gap-2">
         <div class="flex flex-1 flex-col gap-2">
           <Label for="{uid}-{key}-{rule.id}-rate">
@@ -178,6 +191,7 @@
             value={rule.rate}
             suffix="%"
             formatNumber={appStore.formatNumber}
+            aria-invalid={invalid.includes('rate') || undefined}
             onValueChange={(v) => updateRule(key, rows, rule.id, { rate: v })}
           />
         </div>
@@ -203,6 +217,7 @@
             suffix={$_('page.settings.taxRules.years')}
             aria-label={$_('page.settings.taxRules.holdingYears')}
             formatNumber={appStore.formatNumber}
+            aria-invalid={invalid.includes('holding_years') || undefined}
             onValueChange={(v) => updateRule(key, rows, rule.id, { holding_years: v })}
           />
         </div>
@@ -226,6 +241,14 @@
           </Button>
         {/if}
       </div>
+      {#if invalid.includes('rate')}
+        <p class="text-sm text-destructive">{$_('page.settings.taxRules.rateOutOfRange')}</p>
+      {/if}
+      {#if invalid.includes('holding_years')}
+        <p class="text-sm text-destructive">
+          {$_('page.settings.taxRules.holdingYearsOutOfRange')}
+        </p>
+      {/if}
     {/each}
     <div>
       <Button variant="outline" onclick={() => saveRules(key, [...rows, blankRule()])}>
