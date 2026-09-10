@@ -1,18 +1,25 @@
-import { type ExplicitBalances, withBalancesCarriedForward } from '$lib/current-values'
+import {
+  type ExplicitBalances,
+  getCurrentProfile,
+  withBalancesCarriedForward,
+} from '$lib/current-values'
 import { hasAnyFinancialData } from '$lib/financial-totals'
 import {
   type Portfolio,
   type Profile,
   type StoredData,
   profileSchema,
-  repairStoredCashFlowMonths,
+  repairStoredData,
   storedDataSchema,
 } from '$lib/schemas'
+import type { Snapshot } from '$lib/schemas'
 import {
   captureSnapshot,
   hasSameBalances,
   latestSnapshot,
   upsertSnapshot,
+  withDeletedSnapshot,
+  withSavedSnapshot,
   withSeededSnapshot,
 } from '$lib/snapshots'
 import storageKeys from '$lib/storage-keys'
@@ -121,8 +128,9 @@ function enrichProfile({
  * Snapshots are the baseline the dashboard projects "today" from, so every
  * confirmed change to a balance has to re-date that baseline — otherwise the
  * projection keeps compounding from a value the user has already replaced.
- * Edits that leave every balance alone (a rename, a new expense) record
- * nothing, keeping the History chart to points that actually moved.
+ * Edits that leave every balance alone (a rename, a new expense, a raise)
+ * record nothing, keeping the History chart to points that actually moved and
+ * leaving the staleness banner up until the user confirms it away.
  *
  * `force` overrides that skip for an explicit confirmation ("these balances are
  * correct today", i.e. Quick update's Confirm): the point of the action is the
@@ -149,10 +157,11 @@ function loadData(): StoredData {
   try {
     const raw = localStorage.getItem(storageKeys.DATA)
     if (raw) {
-      // Repair before parsing: data stored before stricter validation rules
-      // must keep loading, otherwise the whole dataset falls back to the
-      // empty default and gets overwritten on the next persist.
-      return storedDataSchema.parse(repairStoredCashFlowMonths(JSON.parse(raw)))
+      // Repair before parsing: data stored before stricter validation rules —
+      // or before a snapshot recorded everything it records now — must keep
+      // loading, otherwise the whole dataset falls back to the empty default
+      // and gets overwritten on the next persist.
+      return storedDataSchema.parse(repairStoredData(JSON.parse(raw)))
     }
   } catch (e) {
     console.error('Failed to load data from localStorage', e)
@@ -200,16 +209,33 @@ function withAppStore() {
     }
   }
 
-  function writeProfile(updates: Partial<Profile>, confirmed: boolean): void {
+  /**
+   * How a write treats history. 'auto' records today's figures when they moved,
+   * 'confirm' always records them, and 'manage' leaves history exactly as the
+   * caller supplied it — the History page settles the snapshot list itself, and
+   * an automatic entry for today would fight every edit it makes.
+   */
+  type HistoryMode = 'auto' | 'confirm' | 'manage'
+
+  function writeProfile(updates: Partial<Profile>, history: HistoryMode): void {
     const today = new Date()
     const todayDate = toDateOnlyString(today)
     const stored = profile.toJSON()
     const next = { ...stored, ...updates }
 
+    // The History page hands over a profile whose snapshots it has already
+    // settled, balances re-baselined and all. Nothing to record, and nothing to
+    // carry forward — the figures it supplies are the ones to keep.
+    if (history === 'manage') {
+      profile = enrichProfile(profileSchema.parse(next))
+      persist()
+      return
+    }
+
     // Asked against the stored balances, which the latest snapshot matches by
     // construction — so the only differences it can see are the ones `updates`
     // introduces.
-    const recording = shouldRecordSnapshot(next, todayDate, confirmed)
+    const recording = shouldRecordSnapshot(next, todayDate, history === 'confirm')
 
     // Recording re-dates the baseline the dashboard projects from, so balances
     // the edit left alone have to reach today before that happens. An edit that
@@ -221,7 +247,7 @@ function withAppStore() {
             stored,
             next,
             today,
-            confirmed ? explicitBalancesOf(updates) : undefined,
+            history === 'confirm' ? explicitBalancesOf(updates) : undefined,
           )
         : next,
     )
@@ -339,7 +365,7 @@ function withAppStore() {
     // --- Profile ---
 
     updateProfile(updates: Partial<Profile>) {
-      writeProfile(updates, false)
+      writeProfile(updates, 'auto')
     },
 
     /**
@@ -349,7 +375,48 @@ function withAppStore() {
      * date is the whole point of the action.
      */
     confirmBalances(updates: Partial<Profile>) {
-      writeProfile(updates, true)
+      writeProfile(updates, 'confirm')
+    },
+
+    // --- History ---
+
+    /**
+     * Adds or replaces a snapshot from the History page. Pass `originalDate`
+     * when editing one whose date the user changed, so the entry does not
+     * survive at both dates.
+     */
+    saveSnapshot(snapshot: Snapshot, originalDate?: string) {
+      writeProfile(withSavedSnapshot(profile.toJSON(), snapshot, originalDate), 'manage')
+    },
+
+    /**
+     * Deletes the snapshot dated `date`.
+     *
+     * Deleting the last one would leave the profile holding balances with no
+     * baseline to project them from: no staleness banner, no projection, and
+     * the next unrelated edit stamping today's date onto months-old figures.
+     * So the deleted snapshot's figures are carried forward to today — the same
+     * model the dashboard shows them with — and recorded there. History is
+     * never empty while there are balances, and the user sees exactly what
+     * happened as a row dated today, theirs to edit or delete in turn.
+     */
+    deleteSnapshot(date: string) {
+      const today = new Date()
+      const stored = profile.toJSON()
+      const deleted = (stored.snapshots ?? []).find((snapshot) => snapshot.date === date)
+      const next = withDeletedSnapshot(stored, date)
+      if (!deleted || (next.snapshots ?? []).length > 0 || !hasAnyFinancialData(next)) {
+        writeProfile(next, 'manage')
+        return
+      }
+      // The profile already holds the deleted snapshot's figures — it was the
+      // newest, and every write keeps the profile matching that one — so it is
+      // the baseline to project from.
+      const carried = getCurrentProfile({ ...next, snapshots: [deleted] }, today)
+      writeProfile(
+        { ...carried, snapshots: [captureSnapshot(carried, toDateOnlyString(today))] },
+        'manage',
+      )
     },
 
     // --- Portfolios ---
@@ -387,9 +454,7 @@ function withAppStore() {
         try {
           // Repaired like loadData so a tab still running an older app
           // version can't break sync by persisting since-invalidated data.
-          const data = storedDataSchema.parse(
-            repairStoredCashFlowMonths(JSON.parse(event.newValue)),
-          )
+          const data = storedDataSchema.parse(repairStoredData(JSON.parse(event.newValue)))
           if (data.lastUpdated === lastUpdated) return
 
           profile = enrichProfile(data.profile)
@@ -417,7 +482,7 @@ function withAppStore() {
     importBackup(json: string): void {
       // Repaired like loadData so backups exported before stricter
       // validation rules stay restorable.
-      const parsed: unknown = repairStoredCashFlowMonths(JSON.parse(json))
+      const parsed: unknown = repairStoredData(JSON.parse(json))
       const validated = storedDataSchema.pick({ profile: true, portfolios: true }).parse(parsed)
       // A backup taken before snapshots existed carries no history; treat the
       // restored balances as confirmed now rather than as indefinitely stale.

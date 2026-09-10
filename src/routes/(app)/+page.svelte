@@ -15,8 +15,9 @@
   import { getFiPercent, getRunwayYears, hasAnyFinancialData } from '$lib/financial-totals'
   import { buildHistorySeries } from '$lib/history-series'
   import routes from '$lib/routes'
-  import { heldProfile, latestSnapshot } from '$lib/snapshots'
+  import { heldProfile, staleSince as staleSinceOf } from '$lib/snapshots'
   import { appStore } from '$lib/stores/app.svelte'
+  import { trackToday } from '$lib/today.svelte'
   import { notImplemented, toDateOnlyString } from '$lib/utils'
 
   import HistorySection from './history-section.svelte'
@@ -30,48 +31,10 @@
   const hasData = $derived(!appStore.loading && !!appStore.profile.name)
   const hasFinancialData = $derived(hasData && hasAnyFinancialData(appStore.profile))
 
-  // One clock for the whole page: every figure below has to agree on "today",
-  // and re-reading it mid-render could straddle midnight. It is state rather
-  // than a constant because a dashboard is left open for days — frozen at its
-  // mount date it would stop projecting, never raise the staleness banner, and
-  // record yesterday's projected values on Confirm.
-  let today = $state(new Date())
+  // One clock for the whole page, following the calendar past midnight.
+  const clock = trackToday()
+  const today = $derived(clock.today)
   const todayDate = $derived(toDateOnlyString(today))
-
-  $effect(() => {
-    // `today` is only read from the callbacks, never while the effect runs, so
-    // this subscribes once instead of re-arming on every replacement.
-    let timer: ReturnType<typeof setTimeout>
-
-    function refresh(): void {
-      const now = new Date()
-      // Only a new calendar day changes anything on this page, so everything
-      // downstream is left alone until the date itself rolls over.
-      if (toDateOnlyString(now) !== toDateOnlyString(today)) today = now
-    }
-
-    // One timer aimed at the next midnight, rather than a poll running all day
-    // to catch a single rollover. Re-armed after each one so a dashboard left
-    // open for a week keeps following the calendar.
-    function armForMidnight(): void {
-      const now = new Date()
-      const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
-      timer = setTimeout(() => {
-        refresh()
-        armForMidnight()
-      }, nextMidnight.getTime() - now.getTime())
-    }
-    armForMidnight()
-
-    // A backgrounded tab throttles its timers, so the midnight one can fire
-    // late; coming back to the tab must not show yesterday's dashboard while
-    // it is still pending.
-    document.addEventListener('visibilitychange', refresh)
-    return () => {
-      clearTimeout(timer)
-      document.removeEventListener('visibilitychange', refresh)
-    }
-  })
 
   const storedProfile = $derived(appStore.profile.toJSON())
   // The stored balances are as of the last snapshot; everything on this page
@@ -83,12 +46,9 @@
   // planned purchase is what it draws.
   const heldNow = $derived(heldProfile(currentProfile, today))
 
-  const lastSnapshotDate = $derived(latestSnapshot(storedProfile.snapshots)?.date)
   // Only stale once the balances predate today — a snapshot taken today needs
   // no projection and no nudge to update.
-  const staleSince = $derived(
-    lastSnapshotDate && lastSnapshotDate < todayDate ? lastSnapshotDate : undefined,
-  )
+  const staleSince = $derived(staleSinceOf(storedProfile.snapshots, todayDate))
 
   const fiPercent = $derived(getFiPercent(heldNow))
   const runwayYears = $derived(getRunwayYears(heldNow))

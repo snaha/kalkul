@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import { buildHistorySeries } from './history-series'
+import { buildHistorySeries, hasHistoryToShow } from './history-series'
 import type { Profile } from './schemas'
 
 // Snapshot on 2026-01-01, read on 2026-07-02 — 182 elapsed days.
@@ -106,6 +106,24 @@ describe('buildHistorySeries', () => {
     ])
   })
 
+  test('plots an unsorted history in date order', () => {
+    // Only the schema sorts what it stores, so a hand-edited backup can arrive
+    // out of order. The last point is the baseline the tail projects from, and
+    // the chart draws the points in the order it gets them.
+    const profile: Profile = {
+      ...GROWING,
+      snapshots: [
+        { date: '2026-03-01', cash_amount: 12_000 },
+        { date: '2026-01-01', cash_amount: 10_000 },
+      ],
+    }
+    const recorded = buildHistorySeries(profile, TODAY).filter((point) => !point.projected)
+    expect(recorded).toEqual([
+      { date: '2026-01-01', netWorth: 10_000, projected: false },
+      { date: '2026-03-01', netWorth: 12_000, projected: false },
+    ])
+  })
+
   test('does not project when the last snapshot is today', () => {
     const profile: Profile = { ...GROWING, snapshots: [{ date: '2026-07-02', cash_amount: 500 }] }
     expect(buildHistorySeries(profile, TODAY)).toEqual([
@@ -122,5 +140,27 @@ describe('buildHistorySeries', () => {
 
   test('returns nothing for a profile with no financial data', () => {
     expect(buildHistorySeries({ name: '', email: '' }, TODAY)).toEqual([])
+  })
+})
+
+describe('hasHistoryToShow', () => {
+  const EMPTY: Profile = { name: 'Alice', email: 'a@example.com' }
+
+  test('is true for a profile with balances', () => {
+    expect(hasHistoryToShow({ ...EMPTY, cash_amount: 100 })).toBe(true)
+  })
+
+  test('is true for a spent-out profile that still has recorded snapshots', () => {
+    // Going to zero is recorded deliberately, so the history has to stay
+    // reachable — gating on balances alone hid the page the moment the last
+    // one was spent.
+    expect(
+      hasHistoryToShow({ ...EMPTY, cash_amount: 0, snapshots: [{ date: '2026-01-01' }] }),
+    ).toBe(true)
+  })
+
+  test('is false for a profile with neither', () => {
+    expect(hasHistoryToShow(EMPTY)).toBe(false)
+    expect(hasHistoryToShow({ ...EMPTY, snapshots: [] })).toBe(false)
   })
 })

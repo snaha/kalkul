@@ -157,23 +157,76 @@ function repairCashFlowMonths(flow: unknown): void {
 }
 
 /**
- * Data persisted before the same-year month-order rule existed may contain a
- * cash flow whose start month is after its end month. storedDataSchema now
- * rejects that, and a rejected blob would make loadData() fall back to the
- * empty default profile — wiping the user's entire dataset on the next
- * persist. Run this on raw parsed JSON before schema validation: it swaps the
- * two months in place, so both user-entered values survive and the flow spans
- * the range the user visibly intended instead of silently contributing
- * nothing. Covers every profile list cashFlowTemporalRefinement applies to:
- * incomes, expenses and transfers.
+ * Fills in the figures a stored snapshot predates, from the profile's current
+ * items — the best estimate available for a date nothing was recorded for.
+ *
+ * Done once, here, so that everything downstream can read an omission as one
+ * thing: nothing recorded. Snapshots written before cash flows were recorded
+ * leave those arrays undefined, and reading that as "earned and spent nothing"
+ * would state such a row's financial independence against debt service alone.
+ * A recorded debt written before terms were recorded leaves the loan's clock
+ * unstated, and a rewind onto it would restart the loan.
+ *
+ * An empty array is a recorded fact — none were running — and stays as it is.
  */
-export function repairStoredCashFlowMonths(data: unknown): unknown {
+function repairSnapshot(snapshot: unknown, profile: Record<string, unknown>): void {
+  if (!isRecord(snapshot)) return
+  for (const key of ['incomes', 'expenses']) {
+    if (Array.isArray(snapshot[key])) continue
+    const flows = profile[key]
+    snapshot[key] = (Array.isArray(flows) ? flows : [])
+      .filter(isRecord)
+      .map(({ id, amount, frequency }) => ({ id, amount, frequency }))
+  }
+  // A liability entry always records a debt; an asset entry only sometimes,
+  // and an asset owned outright on the date has no term to state.
+  fillRecordedTerms(snapshot.liabilities, profile.liabilities, () => true)
+  fillRecordedTerms(
+    snapshot.tangible_assets,
+    profile.tangible_assets,
+    (entry) => entry.outstanding_balance !== undefined,
+  )
+}
+
+function fillRecordedTerms(
+  entries: unknown,
+  items: unknown,
+  recordsDebt: (entry: Record<string, unknown>) => boolean,
+): void {
+  if (!Array.isArray(entries) || !Array.isArray(items)) return
+  const terms = new Map(items.filter(isRecord).map((item) => [item.id, item.remaining_term]))
+  for (const entry of entries) {
+    if (!isRecord(entry) || entry.remaining_term !== undefined || !recordsDebt(entry)) continue
+    const term = terms.get(entry.id)
+    if (typeof term === 'number') entry.remaining_term = term
+  }
+}
+
+/**
+ * Brings raw parsed JSON up to what the schema and the app now expect, in
+ * place, before validation. Run at every ingest point (a localStorage read, a
+ * restored backup, a sync from another tab): a blob the schema rejects would
+ * make `loadData()` fall back to the empty default profile and overwrite the
+ * user's entire dataset on the next persist.
+ *
+ * Two repairs today. Data persisted before the same-year month-order rule
+ * existed may hold a cash flow whose start month is after its end month, which
+ * `storedDataSchema` now rejects; the two months are swapped, so both
+ * user-entered values survive and the flow spans the range the user visibly
+ * intended instead of silently contributing nothing. Covers every profile list
+ * `cashFlowTemporalRefinement` applies to: incomes, expenses and transfers. And
+ * snapshots are filled in as `repairSnapshot` describes.
+ */
+export function repairStoredData(data: unknown): unknown {
   if (!isRecord(data)) return data
-  if (isRecord(data.profile)) {
+  const profile = data.profile
+  if (isRecord(profile)) {
     for (const key of ['incomes', 'expenses', 'transfers']) {
-      const flows = data.profile[key]
+      const flows = profile[key]
       if (Array.isArray(flows)) for (const flow of flows) repairCashFlowMonths(flow)
     }
+    if (Array.isArray(profile.snapshots))
+      for (const snapshot of profile.snapshots) repairSnapshot(snapshot, profile)
   }
   return data
 }
@@ -422,10 +475,17 @@ function isRealCalendarDate(dateOnly: string): boolean {
   )
 }
 
-// A point-in-time record of every balance that makes up net worth. The profile
-// itself holds the balances as they stood on the most recent snapshot's date;
-// the dashboard projects them forward to today for display. Snapshots are what
-// the History chart plots and what Quick update diffs "today" against.
+// A point-in-time record of a user's finances: every balance that makes up net
+// worth, plus the recurring cash flows that were running on the date. The
+// profile itself holds the figures as they stood on the most recent snapshot's
+// date; the dashboard projects them forward to today for display. Snapshots are
+// what the History chart plots, what the History page's table lists, and what
+// Quick update diffs "today" against.
+//
+// Only the values that move over time are recorded. Everything descriptive — an
+// investment's name and APY, an income's tax rate and start/end window — stays
+// on the profile, so a snapshot never has to be kept in sync with an edit that
+// changed no figure.
 export const snapshotSchema = z.object({
   // Date-only ISO string (`YYYY-MM-DD`) the balances were recorded on. The
   // format is enforced, not just documented: snapshot ordering, the staleness
@@ -441,17 +501,40 @@ export const snapshotSchema = z.object({
   cash_amount: z.number().optional(),
   investments: z.array(z.object({ id: z.string(), balance: z.number() })).optional(),
   // Financed assets carry their debt alongside the value so a snapshot's net
-  // worth can be computed without consulting the current profile.
+  // worth can be computed without consulting the current profile. The remaining
+  // term rides along with every recorded debt: it moves with the balance —
+  // each installment comes off both — so restoring one without the other would
+  // restart the loan's clock. The unit it is stated in is descriptive and stays
+  // on the profile.
   tangible_assets: z
     .array(
       z.object({
         id: z.string(),
         value: z.number(),
         outstanding_balance: z.number().optional(),
+        remaining_term: z.number().optional(),
       }),
     )
     .optional(),
-  liabilities: z.array(z.object({ id: z.string(), outstanding_balance: z.number() })).optional(),
+  liabilities: z
+    .array(
+      z.object({
+        id: z.string(),
+        outstanding_balance: z.number(),
+        remaining_term: z.number().optional(),
+      }),
+    )
+    .optional(),
+  // Recurring cash flows as they stood on the date. Both the amount and the
+  // frequency are recorded: a salary that went from 4,000 monthly to 48,000
+  // yearly is the same money, and the History page would otherwise show it as a
+  // twelvefold raise.
+  incomes: z
+    .array(z.object({ id: z.string(), amount: z.number(), frequency: frequencySchema }))
+    .optional(),
+  expenses: z
+    .array(z.object({ id: z.string(), amount: z.number(), frequency: frequencySchema }))
+    .optional(),
 })
 
 /**
