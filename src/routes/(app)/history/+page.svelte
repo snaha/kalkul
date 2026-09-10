@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { _, locale } from 'svelte-i18n'
+  import { _ } from 'svelte-i18n'
 
   import Plus from '@lucide/svelte/icons/plus'
   import X from '@lucide/svelte/icons/x'
@@ -13,10 +13,10 @@
   import routes from '$lib/routes'
   import type { Snapshot } from '$lib/schemas'
   import { buildSnapshotRows } from '$lib/snapshot-rows'
-  import { latestSnapshot } from '$lib/snapshots'
+  import { staleSince as staleSinceOf } from '$lib/snapshots'
   import { appStore } from '$lib/stores/app.svelte'
   import { trackToday } from '$lib/today.svelte'
-  import { parseDateOnly, toDateOnlyString } from '$lib/utils'
+  import { toDateOnlyString } from '$lib/utils'
 
   import QuickUpdateDialog from '../quick-update-dialog.svelte'
   import StaleDataAlert from '../stale-data-alert.svelte'
@@ -35,27 +35,11 @@
   // its way to zero has no balances left but a history worth reading.
   const hasHistory = $derived(!appStore.loading && hasHistoryToShow(storedProfile))
 
-  const lastSnapshotDate = $derived(latestSnapshot(storedProfile.snapshots)?.date)
-  const staleSince = $derived(
-    lastSnapshotDate && lastSnapshotDate < todayDate ? lastSnapshotDate : undefined,
-  )
+  const staleSince = $derived(staleSinceOf(storedProfile.snapshots, todayDate))
 
   const historyPoints = $derived(buildHistorySeries(storedProfile, today))
   const rows = $derived(buildSnapshotRows(storedProfile))
   const takenDates = $derived((storedProfile.snapshots ?? []).map((s) => s.date))
-
-  // Month names are translations, so they follow the UI language rather than
-  // the profile's number-formatting locale. Only the leading tick carries a
-  // year, matching the spec.
-  const shortMonth = $derived(new Intl.DateTimeFormat($locale ?? undefined, { month: 'short' }))
-  const monthWithYear = $derived(
-    new Intl.DateTimeFormat($locale ?? undefined, { month: 'short', year: 'numeric' }),
-  )
-
-  function formatMonth(date: string, isFirst: boolean): string {
-    const parsed = parseDateOnly(date)
-    return isFirst ? monthWithYear.format(parsed) : shortMonth.format(parsed)
-  }
 
   let quickUpdateOpen = $state(false)
   let snapshotOpen = $state(false)
@@ -144,7 +128,6 @@
           <HistoryChart
             points={historyPoints}
             formatValue={appStore.formatCompactCurrency}
-            {formatMonth}
             nowLabel={$_('page.history.now')}
             ariaLabel={$_('page.history.chartLabel')}
             class="h-96"

@@ -10,7 +10,7 @@ import {
   type Profile,
   type StoredData,
   profileSchema,
-  repairStoredCashFlowMonths,
+  repairStoredData,
   storedDataSchema,
 } from '$lib/schemas'
 import type { Snapshot } from '$lib/schemas'
@@ -158,10 +158,11 @@ function loadData(): StoredData {
   try {
     const raw = localStorage.getItem(storageKeys.DATA)
     if (raw) {
-      // Repair before parsing: data stored before stricter validation rules
-      // must keep loading, otherwise the whole dataset falls back to the
-      // empty default and gets overwritten on the next persist.
-      return storedDataSchema.parse(repairStoredCashFlowMonths(JSON.parse(raw)))
+      // Repair before parsing: data stored before stricter validation rules —
+      // or before a snapshot recorded everything it records now — must keep
+      // loading, otherwise the whole dataset falls back to the empty default
+      // and gets overwritten on the next persist.
+      return storedDataSchema.parse(repairStoredData(JSON.parse(raw)))
     }
   } catch (e) {
     console.error('Failed to load data from localStorage', e)
@@ -473,9 +474,7 @@ function withAppStore() {
         try {
           // Repaired like loadData so a tab still running an older app
           // version can't break sync by persisting since-invalidated data.
-          const data = storedDataSchema.parse(
-            repairStoredCashFlowMonths(JSON.parse(event.newValue)),
-          )
+          const data = storedDataSchema.parse(repairStoredData(JSON.parse(event.newValue)))
           if (data.lastUpdated === lastUpdated) return
 
           profile = enrichProfile(data.profile)
@@ -503,7 +502,7 @@ function withAppStore() {
     importBackup(json: string): void {
       // Repaired like loadData so backups exported before stricter
       // validation rules stay restorable.
-      const parsed: unknown = repairStoredCashFlowMonths(JSON.parse(json))
+      const parsed: unknown = repairStoredData(JSON.parse(json))
       const validated = storedDataSchema.pick({ profile: true, portfolios: true }).parse(parsed)
       // A backup taken before snapshots existed carries no history; treat the
       // restored balances as confirmed now rather than as indefinitely stale.

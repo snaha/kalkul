@@ -15,7 +15,7 @@
   import { getFiPercent, getRunwayYears, hasAnyFinancialData } from '$lib/financial-totals'
   import { buildHistorySeries } from '$lib/history-series'
   import routes from '$lib/routes'
-  import { heldProfile, latestSnapshot } from '$lib/snapshots'
+  import { heldProfile, staleSince as staleSinceOf } from '$lib/snapshots'
   import { appStore } from '$lib/stores/app.svelte'
   import { trackToday } from '$lib/today.svelte'
   import { notImplemented, toDateOnlyString } from '$lib/utils'
@@ -46,12 +46,9 @@
   // planned purchase is what it draws.
   const heldNow = $derived(heldProfile(currentProfile, today))
 
-  const lastSnapshotDate = $derived(latestSnapshot(storedProfile.snapshots)?.date)
   // Only stale once the balances predate today — a snapshot taken today needs
   // no projection and no nudge to update.
-  const staleSince = $derived(
-    lastSnapshotDate && lastSnapshotDate < todayDate ? lastSnapshotDate : undefined,
-  )
+  const staleSince = $derived(staleSinceOf(storedProfile.snapshots, todayDate))
 
   const fiPercent = $derived(getFiPercent(heldNow))
   const runwayYears = $derived(getRunwayYears(heldNow))
