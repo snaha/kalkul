@@ -496,6 +496,8 @@
         "holdingYears": "Doba držení v letech",
         "addRule": "Přidat daňové pravidlo",
         "removeRule": "Odebrat daňové pravidlo",
+        "rateOutOfRange": "Zadejte sazbu mezi 0 a 100",
+        "holdingYearsOutOfRange": "Zadejte 0 nebo více let",
         "cgtHelp": "Daň z kapitálových výnosů (CGT) je daň ze zisku z prodeje majetku – například akcií, dluhopisů, nemovitostí nebo sběratelských předmětů – jehož hodnota vzrostla. Platí se pouze při prodeji (realizaci), nikoli během držení. Sazby obvykle závisí na době držení (krátkodobé vs. dlouhodobé) a na výši příjmu vlastníka."
       }
     }
