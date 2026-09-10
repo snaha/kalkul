@@ -363,3 +363,69 @@ describe('appStore.deletePortfolio', () => {
     expect(appStore.profile.transfers?.map((t) => t.id)).toEqual(['shared'])
   })
 })
+
+describe('appStore.deletePortfolio plan-owned items', () => {
+  it('removes every kind of item the plan owns and keeps the shared ones', () => {
+    const owned = { plan_id: 'plan-1' }
+    const flow = {
+      name: 'Flow',
+      amount: 100,
+      frequency: 'monthly',
+      start: 'immediately',
+      end: 'never',
+      change_over_time: 'none',
+    }
+    const loan = {
+      name: 'Loan',
+      outstanding_balance: 100,
+      installment_frequency: 'monthly',
+      annual_rate: 1,
+      installment_amount: 1,
+      remaining_term: 10,
+    }
+    appStore.importBackup(
+      JSON.stringify({
+        profile: {
+          name: 'Jane',
+          email: '',
+          investments: [
+            { id: 'shared', name: 'ETF', balance: 0, apy: 0 },
+            { id: 'owned', name: 'ETF', balance: 0, apy: 0, ...owned },
+          ],
+          tangible_assets: [
+            { id: 'shared', name: 'Flat', value: 1, status: 'fully_owned' },
+            { id: 'owned', name: 'Flat', value: 1, status: 'fully_owned', ...owned },
+          ],
+          liabilities: [
+            { ...loan, id: 'shared' },
+            { ...loan, id: 'owned', ...owned },
+          ],
+          incomes: [
+            { ...flow, id: 'shared' },
+            { ...flow, id: 'owned', ...owned },
+          ],
+          expenses: [
+            { ...flow, id: 'shared' },
+            { ...flow, id: 'owned', ...owned },
+          ],
+        },
+        portfolios: [
+          {
+            id: 'plan-1',
+            name: 'Plan',
+            start_date: '2026-01-01',
+            end_date: '2060-01-01',
+            inflation_rate: 2,
+          },
+        ],
+      }),
+    )
+    appStore.portfolios[0].delete()
+    const ids = (items: { id: string }[] | undefined) => items?.map((i) => i.id)
+    expect(ids(appStore.profile.investments)).toEqual(['shared'])
+    expect(ids(appStore.profile.tangible_assets)).toEqual(['shared'])
+    expect(ids(appStore.profile.liabilities)).toEqual(['shared'])
+    expect(ids(appStore.profile.incomes)).toEqual(['shared'])
+    expect(ids(appStore.profile.expenses)).toEqual(['shared'])
+  })
+})

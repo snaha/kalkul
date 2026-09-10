@@ -2,6 +2,7 @@ import Decimal from 'decimal.js'
 
 import { DECIMAL_0 } from '$lib/@snaha/kalkul-maths'
 import { CATEGORY_COLORS } from '$lib/chart-colors'
+import { sharedItems } from '$lib/plan-owned'
 import { annualizedAmount } from '$lib/plan-projection'
 import type { Frequency, Profile } from '$lib/schemas'
 import { hasAnyBalance, heldBalances, snapshotBalances, snapshotNetWorth } from '$lib/snapshots'
@@ -19,19 +20,19 @@ export function getCashTotal(profile: Profile): number {
 }
 
 export function getInvestmentsTotal(profile: Profile): number {
-  return (profile.investments ?? []).reduce((sum, i) => sum + i.balance, 0)
+  return sharedItems(profile.investments).reduce((sum, i) => sum + i.balance, 0)
 }
 
 export function getTangibleAssetsTotal(profile: Profile): number {
-  return (profile.tangible_assets ?? []).reduce((sum, a) => sum + a.value, 0)
+  return sharedItems(profile.tangible_assets).reduce((sum, a) => sum + a.value, 0)
 }
 
 function getStandaloneLiabilitiesTotal(profile: Profile): number {
-  return (profile.liabilities ?? []).reduce((sum, l) => sum + l.outstanding_balance, 0)
+  return sharedItems(profile.liabilities).reduce((sum, l) => sum + l.outstanding_balance, 0)
 }
 
 export function getFinancedAssetsDebtTotal(profile: Profile): number {
-  return (profile.tangible_assets ?? [])
+  return sharedItems(profile.tangible_assets)
     .filter((a) => a.status === 'financed')
     .reduce((sum, a) => sum + (a.outstanding_balance ?? 0), 0)
 }
@@ -100,7 +101,7 @@ export function getOverviewSegments(profile: Profile): OverviewSegment[] {
  * `current-values.ts`.
  */
 export function getAnnualExpensesTotal(profile: Profile): number {
-  return (profile.expenses ?? [])
+  return sharedItems(profile.expenses)
     .reduce<Decimal>(
       (sum, e) => sum.plus(annualizedAmount(new Decimal(e.amount), e.frequency)),
       DECIMAL_0,
@@ -116,7 +117,7 @@ export function getAnnualExpensesTotal(profile: Profile): number {
  * Window-agnostic like `getAnnualExpensesTotal` — see the note there.
  */
 export function getAnnualIncomeTotal(profile: Profile): number {
-  return (profile.incomes ?? [])
+  return sharedItems(profile.incomes)
     .reduce<Decimal>(
       (sum, i) => sum.plus(annualizedAmount(new Decimal(i.amount), i.frequency)),
       DECIMAL_0,
@@ -155,14 +156,14 @@ export function getSavingsRate(profile: Profile): SavingsRate | undefined {
 export function getAnnualDebtServiceTotal(profile: Profile): number {
   const annualize = (amount: number | undefined, frequency: Frequency | undefined) =>
     annualizedAmount(new Decimal(amount ?? 0), frequency ?? 'monthly')
-  return (profile.liabilities ?? [])
+  return sharedItems(profile.liabilities)
     .filter((l) => (l.outstanding_balance ?? 0) > 0)
     .reduce<Decimal>(
       (sum, l) => sum.plus(annualize(l.installment_amount, l.installment_frequency)),
       DECIMAL_0,
     )
     .plus(
-      (profile.tangible_assets ?? [])
+      sharedItems(profile.tangible_assets)
         .filter((a) => a.status === 'financed' && (a.outstanding_balance ?? 0) > 0)
         .reduce<Decimal>(
           (sum, a) => sum.plus(annualize(a.installment_amount, a.installment_frequency)),

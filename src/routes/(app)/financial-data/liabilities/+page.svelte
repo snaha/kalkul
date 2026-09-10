@@ -9,11 +9,12 @@
   import DonutChart from '$lib/components/donut-chart.svelte'
   import LiabilitiesEditor from '$lib/components/liabilities-editor.svelte'
   import { getLiabilitiesTotal } from '$lib/financial-totals'
+  import { sharedItems } from '$lib/plan-owned'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
   import { cn } from '$lib/utils'
 
-  const liabilities = $derived(appStore.profile.liabilities ?? [])
+  const liabilities = $derived(sharedItems(appStore.profile.liabilities))
   const total = $derived(getLiabilitiesTotal(appStore.profile))
 
   const standaloneSegments = $derived(
@@ -30,7 +31,7 @@
   // listed read-only below and included in the pie so it adds up to the
   // total. Their terms are edited on the tangible-assets page.
   const financedDebts = $derived(
-    (appStore.profile.tangible_assets ?? [])
+    sharedItems(appStore.profile.tangible_assets)
       .filter((a) => a.status === 'financed' && (a.outstanding_balance ?? 0) > 0)
       .map((a, idx) => ({
         id: a.id,

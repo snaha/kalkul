@@ -1,5 +1,6 @@
 import { resolve } from '$app/paths'
 
+import { sharedItems } from '$lib/plan-owned'
 import type { Profile } from '$lib/schemas'
 
 import routes from './routes'
@@ -13,13 +14,13 @@ export type AppRoute = (typeof routes)[keyof typeof routes]
  */
 export function getOnboardingSteps(profile: Profile): AppRoute[] {
   const steps: AppRoute[] = [routes.PROFILE, routes.FINANCES_EDIT]
-  if (profile.has_investments || (profile.investments?.length ?? 0) > 0) {
+  if (profile.has_investments || sharedItems(profile.investments).length > 0) {
     steps.push(routes.FINANCES_EDIT_INVESTMENTS)
   }
-  if (profile.has_tangible_assets || (profile.tangible_assets?.length ?? 0) > 0) {
+  if (profile.has_tangible_assets || sharedItems(profile.tangible_assets).length > 0) {
     steps.push(routes.FINANCES_EDIT_TANGIBLE_ASSETS)
   }
-  if (profile.has_liabilities || (profile.liabilities?.length ?? 0) > 0) {
+  if (profile.has_liabilities || sharedItems(profile.liabilities).length > 0) {
     steps.push(routes.FINANCES_EDIT_LIABILITIES)
   }
   steps.push(

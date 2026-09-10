@@ -1,4 +1,5 @@
 import { formatDate } from '$lib/@snaha/kalkul-maths'
+import { sharedItems } from '$lib/plan-owned'
 
 import type { PlanEndType, PlanStartType, Portfolio, Profile } from './schemas'
 import { parseDateOnly } from './utils'
@@ -76,13 +77,13 @@ export function buildPlanInclusions(
 
   return {
     include_cash: startFromCurrentFinances,
-    included_investment_ids: ids(profile.investments),
-    included_tangible_asset_ids: ids(profile.tangible_assets),
-    included_liability_ids: ids(profile.liabilities),
-    included_income_ids: ids(profile.incomes),
-    included_expense_ids: ids(profile.expenses),
-    // A plan's own transfers belong to it alone; only shared ones seed a new plan.
-    included_transfer_ids: ids(profile.transfers?.filter((t) => t.plan_id === undefined)),
+    // A plan's own items belong to it alone; only shared ones seed a new plan.
+    included_investment_ids: ids(sharedItems(profile.investments)),
+    included_tangible_asset_ids: ids(sharedItems(profile.tangible_assets)),
+    included_liability_ids: ids(sharedItems(profile.liabilities)),
+    included_income_ids: ids(sharedItems(profile.incomes)),
+    included_expense_ids: ids(sharedItems(profile.expenses)),
+    included_transfer_ids: ids(sharedItems(profile.transfers)),
   }
 }
 
