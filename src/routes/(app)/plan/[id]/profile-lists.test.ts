@@ -176,3 +176,37 @@ describe('cash-flow lists', () => {
     })
   })
 })
+
+describe('plan ownership', () => {
+  it('stamps a new item with the plan id so financial data never lists it', () => {
+    upsertProfileItem(PROFILE_LISTS.investment, makeInvestment('i1'), makePlan({ id: 'plan-1' }))
+    expect(profile.investments).toEqual([{ ...makeInvestment('i1'), plan_id: 'plan-1' }])
+  })
+
+  it('leaves an edited shared item shared', () => {
+    profile.investments = [makeInvestment('i1')]
+    upsertProfileItem(
+      PROFILE_LISTS.investment,
+      makeInvestment('i1', 'renamed'),
+      makePlan({ id: 'plan-1' }),
+    )
+    expect(profile.investments).toEqual([makeInvestment('i1', 'renamed')])
+  })
+
+  it('owns the copy made inside a plan even when the source is shared', () => {
+    profile.investments = [makeInvestment('i1')]
+    const copyId = duplicateProfileItem(
+      PROFILE_LISTS.investment,
+      'i1',
+      (name) => `${name} copy`,
+      makePlan({ id: 'plan-1' }),
+    )
+    expect(profile.investments?.find((i) => i.id === copyId)?.plan_id).toBe('plan-1')
+    expect(profile.investments?.[0].plan_id).toBeUndefined()
+  })
+
+  it('syncs the has_* flag from shared items only', () => {
+    upsertProfileItem(PROFILE_LISTS.investment, makeInvestment('i1'), makePlan({ id: 'plan-1' }))
+    expect(profile.has_investments).toBe(false)
+  })
+})

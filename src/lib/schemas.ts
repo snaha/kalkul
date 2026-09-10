@@ -193,6 +193,11 @@ export function timingComplete(
   return true
 }
 
+// Set when the item was created inside a plan: it belongs to that plan alone
+// and stays out of financial data and of other plans. Unset means the user
+// recorded it as current data, shared by every plan.
+const planOwnership = { plan_id: z.string().optional() }
+
 // Incomes and expenses share one shape; the two names are kept so call sites
 // read naturally.
 const cashFlowSchema = z
@@ -215,6 +220,7 @@ const cashFlowSchema = z
     inflation_adjusted: z.boolean().optional(),
     change_over_time: changeOverTimeSchema,
     change_percentage: z.number().optional(),
+    ...planOwnership,
   })
   .superRefine(cashFlowTemporalRefinement)
 
@@ -268,6 +274,7 @@ export const profileInvestmentSchema = z
     name: z.string(),
     balance: z.number(),
     apy: z.number(),
+    ...planOwnership,
     // Total expense ratio (annual %): drag on compounding APY.
     ter: z.number().optional(),
     // Entry fee charged when money is transferred INTO this investment. The
@@ -316,6 +323,7 @@ export const profileTangibleAssetSchema = z
     name: z.string(),
     value: z.number(),
     status: tangibleAssetStatusSchema,
+    ...planOwnership,
     outstanding_balance: z.number().optional(),
     installment_frequency: frequencySchema.optional(),
     annual_rate: z.number().optional(),
@@ -398,6 +406,7 @@ export const profileLiabilitySchema = z.object({
   outstanding_balance: z.number(),
   installment_frequency: frequencySchema,
   annual_rate: z.number(),
+  ...planOwnership,
   installment_amount: z.number(),
   remaining_term: z.number(),
   remaining_term_unit: remainingTermUnitSchema.optional(),
@@ -502,10 +511,7 @@ export const transferSchema = z
     end_age: z.number().optional(),
     change_over_time: changeOverTimeSchema.optional(),
     change_percentage: z.number().optional(),
-    // Set when the transfer was created inside a plan: it belongs to that plan
-    // alone and stays out of financial data and of other plans. Unset means
-    // the user recorded it as current data, shared by every plan.
-    plan_id: z.string().optional(),
+    ...planOwnership,
   })
   .superRefine((obj, ctx) => {
     if (obj.from_asset_id === obj.to_asset_id) {

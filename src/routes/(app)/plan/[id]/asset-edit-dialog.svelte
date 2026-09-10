@@ -15,6 +15,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
   import { Switch } from '$lib/components/ui/switch'
+  import { itemsForPlan } from '$lib/plan-owned'
   import type {
     CashFlowEnd,
     CashFlowStart,
@@ -133,10 +134,10 @@
   function blankForm(): FormState {
     const counter =
       kind === 'investment'
-        ? (appStore.profile.investments ?? []).length + 1
+        ? itemsForPlan(appStore.profile.investments, plan.id).length + 1
         : kind === 'tangibleAsset'
-          ? (appStore.profile.tangible_assets ?? []).length + 1
-          : (appStore.profile.liabilities ?? []).length + 1
+          ? itemsForPlan(appStore.profile.tangible_assets, plan.id).length + 1
+          : itemsForPlan(appStore.profile.liabilities, plan.id).length + 1
     const defaultName =
       kind === 'investment'
         ? $_('page.setup.investments.defaultName', { values: { index: counter } })

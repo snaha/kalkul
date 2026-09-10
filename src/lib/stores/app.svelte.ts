@@ -1,5 +1,6 @@
 import { type ExplicitBalances, withBalancesCarriedForward } from '$lib/current-values'
 import { hasAnyFinancialData } from '$lib/financial-totals'
+import type { PlanOwned } from '$lib/plan-owned'
 import {
   type Portfolio,
   type Profile,
@@ -240,16 +241,21 @@ function withAppStore() {
   function deletePortfolio(id: string): void {
     const idx = portfolios.findIndex((p) => p.id === id)
     if (idx !== -1) portfolios.splice(idx, 1)
-    // The transfers created in the plan go with it; nothing else can show them.
+    // Everything created in the plan goes with it; nothing else can show it.
     const stored = profile.toJSON()
-    if (stored.transfers?.some((t) => t.plan_id === id)) {
-      profile = enrichProfile(
-        profileSchema.parse({
-          ...stored,
-          transfers: stored.transfers.filter((t) => t.plan_id !== id),
-        }),
-      )
-    }
+    const disown = <T extends PlanOwned>(items: T[] | undefined) =>
+      items?.filter((item) => item.plan_id !== id)
+    profile = enrichProfile(
+      profileSchema.parse({
+        ...stored,
+        investments: disown(stored.investments),
+        tangible_assets: disown(stored.tangible_assets),
+        liabilities: disown(stored.liabilities),
+        incomes: disown(stored.incomes),
+        expenses: disown(stored.expenses),
+        transfers: disown(stored.transfers),
+      }),
+    )
     persist()
   }
 

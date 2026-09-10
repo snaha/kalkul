@@ -13,7 +13,8 @@
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
   import * as Tooltip from '$lib/components/ui/tooltip'
-  import { filterById, summarizeTransfer, transfersForPlan } from '$lib/plan-projection'
+  import { itemsForPlan } from '$lib/plan-owned'
+  import { filterById, summarizeTransfer } from '$lib/plan-projection'
   import { sameYearMonthsInverted, timingComplete } from '$lib/schemas'
   import type { Transfer, TransferSchedule } from '$lib/schemas'
   import { getFrequencyItems } from '$lib/select-options'
@@ -65,7 +66,7 @@
   // A transfer created here belongs to this plan: it is not current data, so
   // financial data and other plans never list it.
   function blankForm(): TransferFields {
-    const counter = transfersForPlan(appStore.profile.transfers, plan.id).length + 1
+    const counter = itemsForPlan(appStore.profile.transfers, plan.id).length + 1
     return {
       ...blankTransferFields(
         crypto.randomUUID(),
@@ -173,7 +174,7 @@
   }
 
   function toggleExclude() {
-    const allIds = transfersForPlan(appStore.profile.transfers, plan.id).map((t) => t.id)
+    const allIds = itemsForPlan(appStore.profile.transfers, plan.id).map((t) => t.id)
     const seeded = plan.included_transfer_ids ?? allIds
     const nextIds = seeded.includes(form.id)
       ? seeded.filter((id) => id !== form.id)

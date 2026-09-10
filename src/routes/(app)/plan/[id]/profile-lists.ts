@@ -1,3 +1,4 @@
+import { sharedItems } from '$lib/plan-owned'
 import type { Portfolio, Profile } from '$lib/schemas'
 import { appStore } from '$lib/stores/app.svelte'
 import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
@@ -62,14 +63,17 @@ function persistList<K extends ProfileListKey>(
   // Computed keys widen to an index signature, so the assembled update is
   // asserted back to Partial<Profile>; updateProfile validates it with Zod.
   const update = { [config.key]: next } as Partial<Profile>
-  if (config.hasKey) update[config.hasKey] = next.length > 0
+  // Plan-owned items are scenarios, not current data, so they never flip the flag.
+  if (config.hasKey) update[config.hasKey] = sharedItems(next).length > 0
   appStore.updateProfile(update)
 }
 
 /**
- * Insert or replace the item by id. Newly created items are appended to the
- * plan's include list when one exists, so they are visible in this plan by
- * default (an undefined include list already means "all included").
+ * Insert or replace the item by id. A new item is created in this plan, so it
+ * is owned by it: financial data and other plans never list it. It is also
+ * appended to the plan's include list when one exists, so it is visible in
+ * this plan by default (an undefined include list already means "all
+ * included"). Editing an existing item leaves its ownership as it is.
  */
 export function upsertProfileItem<K extends ProfileListKey>(
   config: ProfileListConfig<K>,
@@ -78,7 +82,10 @@ export function upsertProfileItem<K extends ProfileListKey>(
 ): void {
   const existing = listItems(config)
   const idx = existing.findIndex((it) => it.id === item.id)
-  const next = idx === -1 ? [...existing, item] : existing.map((it, i) => (i === idx ? item : it))
+  const next =
+    idx === -1
+      ? [...existing, { ...item, plan_id: plan.id }]
+      : existing.map((it, i) => (i === idx ? item : it))
   persistList(config, next)
   if (idx === -1) {
     const included = plan[config.includedKey]
@@ -91,10 +98,12 @@ export function upsertProfileItem<K extends ProfileListKey>(
 }
 
 /**
- * Insert a renamed copy right after the original. Like upsertProfileItem, the
- * copy joins the plan's include list when one exists — otherwise duplicating
- * inside a plan that excludes anything would produce a copy that is excluded
- * by default, i.e. one that looks like it never got created.
+ * Insert a renamed copy right after the original. The copy is created in this
+ * plan, so it is owned by it even when the source is shared. Like
+ * upsertProfileItem, the copy joins the plan's include list when one exists —
+ * otherwise duplicating inside a plan that excludes anything would produce a
+ * copy that is excluded by default, i.e. one that looks like it never got
+ * created.
  */
 export function duplicateProfileItem(
   config: ProfileListConfig,
@@ -105,7 +114,12 @@ export function duplicateProfileItem(
   const existing = listItems(config)
   const idx = existing.findIndex((it) => it.id === id)
   if (idx === -1) return undefined
-  const copy = { ...existing[idx], id: crypto.randomUUID(), name: copyName(existing[idx].name) }
+  const copy = {
+    ...existing[idx],
+    id: crypto.randomUUID(),
+    name: copyName(existing[idx].name),
+    plan_id: plan.id,
+  }
   persistList(config, [...existing.slice(0, idx + 1), copy, ...existing.slice(idx + 1)])
   const included = plan[config.includedKey]
   if (included !== undefined) {

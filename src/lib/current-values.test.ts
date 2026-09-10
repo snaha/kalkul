@@ -674,3 +674,32 @@ describe('withBalancesCarriedForward', () => {
     expect(withBalancesCarriedForward(stored, next, TODAY)).toBe(next)
   })
 })
+
+describe('getCurrentProfile plan-owned items', () => {
+  test('accrues cash from current data only, never from what a plan owns', () => {
+    const owned = { plan_id: 'plan-1' }
+    const withOwned: Profile = {
+      ...PROFILE,
+      incomes: [...PROFILE.incomes!, { ...PROFILE.incomes![0], id: 'x', amount: 9_999, ...owned }],
+      expenses: [
+        ...PROFILE.expenses!,
+        { ...PROFILE.expenses![0], id: 'x', amount: 9_999, ...owned },
+      ],
+      transfers: [
+        {
+          id: 'x',
+          name: 'Sweep',
+          from_asset_id: 'cash',
+          to_asset_id: 'inv1',
+          amount: 9_999,
+          schedule: 'recurring',
+          frequency: 'monthly',
+          ...owned,
+        },
+      ],
+    }
+    expect(getCurrentProfile(withOwned, TODAY).cash_amount).toBe(
+      getCurrentProfile(PROFILE, TODAY).cash_amount,
+    )
+  })
+})
