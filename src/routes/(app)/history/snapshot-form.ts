@@ -38,24 +38,6 @@ export interface SnapshotSection {
   fields: SnapshotField[]
 }
 
-const entryById = <T extends { id: string }>(entries: T[] | undefined, id: string) =>
-  (entries ?? []).find((entry) => entry.id === id)
-
-/**
- * What a cash-flow field opens at. A snapshot written before cash flows were
- * recorded leaves the whole list undefined; opening at zero would invite the
- * user to confirm an income they were in fact earning, so the profile's current
- * amount stands in. An entry missing from a list that *was* recorded is a
- * recorded fact — the flow did not exist yet — and opens at zero.
- */
-function cashFlowAmount(
-  recorded: { id: string; amount: number }[] | undefined,
-  item: { id: string; amount: number },
-): number {
-  if (!recorded) return item.amount
-  return entryById(recorded, item.id)?.amount ?? 0
-}
-
 /**
  * The dialog's fields for editing `source` on `date`, one per figure the
  * snapshot can record.
@@ -76,8 +58,34 @@ export function buildSnapshotSections(
   date: string,
 ): SnapshotSection[] {
   const held = heldProfile(profile, parseDateOnly(date))
+  const recordedInvestments = byId(source.investments)
+  const recordedAssets = byId(source.tangible_assets)
+  const recordedLiabilities = byId(source.liabilities)
+
+  // Incomes and expenses are the same shape and the same rules; one section
+  // builder covers both. An amount the snapshot has no entry for opens at zero,
+  // like every other figure — snapshots stored before cash flows were recorded
+  // are filled in from the profile at the load boundary (`repairStoredData`).
+  const cashFlowSection = (id: 'incomes' | 'expenses'): SnapshotSection => {
+    const recorded = byId(source[id])
+    return {
+      id,
+      fields: (profile[id] ?? []).map((flow) => {
+        const entry = recorded.get(flow.id)
+        return {
+          key: `${id}:${flow.id}`,
+          itemId: flow.id,
+          label: flow.name,
+          kind: 'amount' as const,
+          frequency: entry?.frequency ?? flow.frequency,
+          value: entry?.amount ?? 0,
+        }
+      }),
+    }
+  }
+
   const tangibleFields = (held.tangible_assets ?? []).flatMap((asset): SnapshotField[] => {
-    const recorded = entryById(source.tangible_assets, asset.id)
+    const recorded = recordedAssets.get(asset.id)
     const value: SnapshotField = {
       key: `tangible_assets:${asset.id}`,
       itemId: asset.id,
@@ -116,7 +124,7 @@ export function buildSnapshotSections(
         itemId: investment.id,
         label: investment.name,
         kind: 'balance',
-        value: entryById(source.investments, investment.id)?.balance ?? 0,
+        value: recordedInvestments.get(investment.id)?.balance ?? 0,
       })),
     },
     { id: 'tangible_assets', fields: tangibleFields },
@@ -127,31 +135,11 @@ export function buildSnapshotSections(
         itemId: liability.id,
         label: liability.name,
         kind: 'debt',
-        value: entryById(source.liabilities, liability.id)?.outstanding_balance ?? 0,
+        value: recordedLiabilities.get(liability.id)?.outstanding_balance ?? 0,
       })),
     },
-    {
-      id: 'incomes',
-      fields: (profile.incomes ?? []).map((income) => ({
-        key: `incomes:${income.id}`,
-        itemId: income.id,
-        label: income.name,
-        kind: 'amount',
-        frequency: entryById(source.incomes, income.id)?.frequency ?? income.frequency,
-        value: cashFlowAmount(source.incomes, income),
-      })),
-    },
-    {
-      id: 'expenses',
-      fields: (profile.expenses ?? []).map((expense) => ({
-        key: `expenses:${expense.id}`,
-        itemId: expense.id,
-        label: expense.name,
-        kind: 'amount',
-        frequency: entryById(source.expenses, expense.id)?.frequency ?? expense.frequency,
-        value: cashFlowAmount(source.expenses, expense),
-      })),
-    },
+    cashFlowSection('incomes'),
+    cashFlowSection('expenses'),
   ]
 }
 
@@ -202,7 +190,7 @@ export function snapshotFromFields(
       }
     })
 
-  const cashFlow = (id: 'incomes' | 'expenses') =>
+  const cashFlows = (id: 'incomes' | 'expenses') =>
     fieldsOf(id).map((field) => ({
       id: field.itemId,
       amount: valueOf(field),
@@ -228,8 +216,8 @@ export function snapshotFromFields(
         remaining_term: baseLiabilities.get(field.itemId)?.remaining_term,
       })),
     ),
-    incomes: merged(base.incomes, cashFlow('incomes')),
-    expenses: merged(base.expenses, cashFlow('expenses')),
+    incomes: merged(base.incomes, cashFlows('incomes')),
+    expenses: merged(base.expenses, cashFlows('expenses')),
   }
 }
 

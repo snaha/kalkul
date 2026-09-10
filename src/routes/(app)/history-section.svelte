@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { _, locale } from 'svelte-i18n'
+  import { _ } from 'svelte-i18n'
 
   import { resolve } from '$app/paths'
 
@@ -8,26 +8,12 @@
   import type { HistoryPoint } from '$lib/history-series'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
-  import { parseDateOnly } from '$lib/utils'
 
   interface Props {
     points: HistoryPoint[]
   }
 
   let { points }: Props = $props()
-
-  // Month names are translations, so they follow the UI language rather than
-  // the profile's number-formatting locale. Only the leading tick carries a
-  // year, matching the spec.
-  const shortMonth = $derived(new Intl.DateTimeFormat($locale ?? undefined, { month: 'short' }))
-  const monthWithYear = $derived(
-    new Intl.DateTimeFormat($locale ?? undefined, { month: 'short', year: 'numeric' }),
-  )
-
-  function formatMonth(date: string, isFirst: boolean): string {
-    const parsed = parseDateOnly(date)
-    return isFirst ? monthWithYear.format(parsed) : shortMonth.format(parsed)
-  }
 </script>
 
 <div class="flex min-h-0 flex-1 flex-col gap-4">
@@ -40,7 +26,6 @@
   <HistoryChart
     {points}
     formatValue={appStore.formatCompactCurrency}
-    {formatMonth}
     nowLabel={$_('page.dashboard.finances.history.now')}
     ariaLabel={$_('page.dashboard.finances.history.chartLabel')}
     class="min-h-0 flex-1"

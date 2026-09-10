@@ -131,25 +131,16 @@ describe('buildSnapshotSections', () => {
     })
   })
 
-  test('seeds a cash flow from the profile when the snapshot never recorded any', () => {
-    // Legacy snapshots carry no cash flows at all. Opening one at zero would
-    // invite the user to confirm an income they never earned nothing of.
-    const legacy: Snapshot = { ...SOURCE, incomes: undefined }
-    expect(
-      fieldsOf(buildSnapshotSections(PROFILE, legacy, '2026-06-01'), 'incomes')[0],
-    ).toMatchObject({
-      value: 4_000,
-      frequency: 'monthly',
-    })
-  })
-
-  test('still seeds an item at zero when the snapshot recorded the others', () => {
+  test('opens a cash flow the snapshot has no entry for at zero', () => {
+    // One meaning for an omission everywhere: nothing recorded. Snapshots
+    // stored before cash flows were recorded are filled in from the profile at
+    // the load boundary (`repairStoredData`), so they never reach the dialog
+    // empty. The frequency still comes from the profile — a field opening at
+    // zero has to carry some cadence in its suffix.
     const partial: Snapshot = { ...SOURCE, incomes: [] }
     expect(
       fieldsOf(buildSnapshotSections(PROFILE, partial, '2026-06-01'), 'incomes')[0],
-    ).toMatchObject({
-      value: 0,
-    })
+    ).toMatchObject({ value: 0, frequency: 'monthly' })
   })
 
   test('offers no field for a holding the profile does not have on the date', () => {

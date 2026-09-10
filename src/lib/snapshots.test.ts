@@ -9,6 +9,7 @@ import {
   profileAtSnapshot,
   removeSnapshot,
   snapshotNetWorth,
+  staleSince,
   upsertSnapshot,
   withDeletedSnapshot,
   withSavedSnapshot,
@@ -178,6 +179,23 @@ describe('latestSnapshot', () => {
   test('returns undefined when there are no snapshots', () => {
     expect(latestSnapshot(undefined)).toBeUndefined()
     expect(latestSnapshot([])).toBeUndefined()
+  })
+})
+
+describe('staleSince', () => {
+  const snapshots: Snapshot[] = [{ date: '2026-01-01' }, { date: '2026-03-01' }]
+
+  test('names the date the figures were last recorded on', () => {
+    expect(staleSince(snapshots, '2026-06-15')).toBe('2026-03-01')
+  })
+
+  test('is undefined when the newest snapshot is today', () => {
+    expect(staleSince(snapshots, '2026-03-01')).toBeUndefined()
+  })
+
+  test('is undefined when nothing was ever recorded', () => {
+    expect(staleSince(undefined, '2026-06-15')).toBeUndefined()
+    expect(staleSince([], '2026-06-15')).toBeUndefined()
   })
 })
 
