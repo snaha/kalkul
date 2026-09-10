@@ -16,6 +16,7 @@
 
   import { CATEGORY_COLORS } from '$lib/chart-colors'
   import ChartTooltipContent from '$lib/components/chart-tooltip-content.svelte'
+  import Loader from '$lib/components/loader.svelte'
   import StackedBarChart, {
     type BarData,
     type HoverPosition,
@@ -985,6 +986,8 @@
       </div>
     {/if}
   </div>
+{:else if appStore.loading}
+  <Loader />
 {:else}
   <div class="flex flex-1 flex-col items-center justify-center gap-8 p-8">
     <div class="flex flex-col items-center gap-4 text-center">
