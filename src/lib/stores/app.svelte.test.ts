@@ -238,10 +238,10 @@ describe('appStore.updateProfile on a stale profile', () => {
       ],
     })
 
-    expect(appStore.profile.cash_amount).toBe(24_757.7)
-    expect(appStore.profile.investments?.[0].balance).toBe(104_399.63)
+    expect(appStore.profile.cash_amount).toBe(24_758)
+    expect(appStore.profile.investments?.[0].balance).toBe(104_400)
     expect(appStore.profile.investments?.[1].balance).toBe(5_000)
-    expect(appStore.profile.liabilities?.[0].outstanding_balance).toBe(5_117.68)
+    expect(appStore.profile.liabilities?.[0].outstanding_balance).toBe(5_118)
   })
 
   it('records the carried-forward balances in the new snapshot', () => {
@@ -251,9 +251,9 @@ describe('appStore.updateProfile on a stale profile', () => {
       date: TODAY,
       // The edited value stands; everything else arrives projected to today.
       cash_amount: 20_000,
-      investments: [{ id: 'inv1', balance: 104_399.63 }],
+      investments: [{ id: 'inv1', balance: 104_400 }],
       tangible_assets: [],
-      liabilities: [{ id: 'l1', outstanding_balance: 5_117.68 }],
+      liabilities: [{ id: 'l1', outstanding_balance: 5_118 }],
     })
   })
 
@@ -277,7 +277,7 @@ describe('appStore.updateProfile on a stale profile', () => {
       investments: [{ id: 'inv1', name: 'ETF', balance: 100_000, apy: 10 }],
     })
 
-    expect(appStore.profile.liabilities?.[0].outstanding_balance).toBe(5_117.68)
+    expect(appStore.profile.liabilities?.[0].outstanding_balance).toBe(5_118)
     expect(appStore.profile.liabilities?.[0].remaining_term).toBe(2.58)
   })
 

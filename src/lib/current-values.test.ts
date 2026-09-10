@@ -55,14 +55,14 @@ const PROFILE: Profile = {
 describe('getCurrentProfile', () => {
   test('compounds each investment at its effective APY over the elapsed fraction of a year', () => {
     const current = getCurrentProfile(PROFILE, TODAY)
-    expect(current.investments?.[0].balance).toBeCloseTo(104_863.78, 2)
+    expect(current.investments?.[0].balance).toBe(104_864)
     // 8% APY minus a 0.5% TER compounds at 7.5%.
-    expect(current.investments?.[1].balance).toBeCloseTo(51_834.69, 2)
+    expect(current.investments?.[1].balance).toBe(51_835)
   })
 
   test('accrues cash at income minus expenses minus debt service', () => {
     // (60,000 − 36,000 − 2,400) × 0.4982888 added to 15,000.
-    expect(getCurrentProfile(PROFILE, TODAY).cash_amount).toBeCloseTo(25_763.04, 2)
+    expect(getCurrentProfile(PROFILE, TODAY).cash_amount).toBe(25_763)
   })
 
   test('does not accrue income that has not started yet', () => {
@@ -74,7 +74,7 @@ describe('getCurrentProfile', () => {
       ],
     }
     // Only outflows are running: 50,000 − (36,000 + 2,400) × 0.4982888.
-    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(30_865.71)
+    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(30_866)
   })
 
   test('stops accruing an expense whose window has already closed', () => {
@@ -85,7 +85,7 @@ describe('getCurrentProfile', () => {
       ],
     }
     // 15,000 + (60,000 − 2,400) × 0.4982888.
-    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(43_701.44)
+    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(43_701)
   })
 
   test('counts a flow whose start month has arrived', () => {
@@ -95,7 +95,7 @@ describe('getCurrentProfile', () => {
         { ...PROFILE.incomes![0], start: 'at_specific_date', start_year: 2026, start_month: 7 },
       ],
     }
-    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(25_763.04)
+    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(25_763)
   })
 
   test('resolves age-based windows against the birth date', () => {
@@ -106,15 +106,15 @@ describe('getCurrentProfile', () => {
       birth_date: '1990-06-15',
       incomes: [{ ...PROFILE.incomes![0], start: 'when_age_is', start_age: 40 }],
     }
-    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(30_865.71)
+    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(30_866)
   })
 
-  test('rounds projected balances to the cent', () => {
+  test('rounds projected balances to whole units', () => {
     // Compounding a fraction of a year otherwise leaves a long tail of digits
     // that would show up verbatim in the Quick update inputs.
     const current = getCurrentProfile(PROFILE, TODAY)
-    expect(current.cash_amount).toBe(25_763.04)
-    expect(current.investments?.[0].balance).toBe(104_863.78)
+    expect(current.cash_amount).toBe(25_763)
+    expect(current.investments?.[0].balance).toBe(104_864)
   })
 
   test('leaves a fully owned tangible asset untouched', () => {
@@ -130,7 +130,7 @@ describe('getCurrentProfile', () => {
     // interest and takes 200 off: 6,000 → 5,825 → 5,649.27 → 5,472.81 →
     // 5,295.61 → 5,117.68.
     const current = getCurrentProfile(PROFILE, TODAY)
-    expect(current.liabilities?.[0].outstanding_balance).toBe(5_117.68)
+    expect(current.liabilities?.[0].outstanding_balance).toBe(5_118)
     // Every other field survives.
     expect(current.liabilities?.[0].name).toBe('Car loan')
   })
@@ -210,7 +210,7 @@ describe('getCurrentProfile', () => {
     }
     const current = getCurrentProfile(profile, TODAY)
     expect(current.tangible_assets?.[0].value).toBe(300_000)
-    expect(current.tangible_assets?.[0].outstanding_balance).toBe(197_487.47)
+    expect(current.tangible_assets?.[0].outstanding_balance).toBe(197_487)
     // 300 monthly installments less the five that fell due: 295/12.
     expect(current.tangible_assets?.[0].remaining_term).toBe(24.58)
   })
@@ -272,9 +272,9 @@ describe('getCurrentProfile with transfers', () => {
   test('takes a recurring transfer out of the source and pays it into the destination', () => {
     const current = getCurrentProfile(WITH_CONTRIBUTION, TODAY)
     // Cash accrues 21,600 − 7,200 a year rather than the full 21,600 …
-    expect(current.cash_amount).toBe(22_175.36)
+    expect(current.cash_amount).toBe(22_175)
     // … and the ETF gets the 7,200 on top of its own growth.
-    expect(current.investments?.[0].balance).toBe(108_451.46)
+    expect(current.investments?.[0].balance).toBe(108_451)
   })
 
   test('leaves net worth where it was, since the money only changed hands', () => {
@@ -282,7 +282,9 @@ describe('getCurrentProfile with transfers', () => {
     const after = getCurrentProfile(WITH_CONTRIBUTION, TODAY)
     const netWorth = (profile: Profile) =>
       (profile.cash_amount ?? 0) + (profile.investments ?? []).reduce((s, i) => s + i.balance, 0)
-    expect(netWorth(after)).toBeCloseTo(netWorth(before), 2)
+    // Each balance is rounded to a whole unit on its own, so the total may be
+    // off by one either way.
+    expect(Math.abs(netWorth(after) - netWorth(before))).toBeLessThanOrEqual(1)
   })
 
   test('charges the exit fee on the way out, so the destination receives less', () => {
@@ -293,9 +295,9 @@ describe('getCurrentProfile with transfers', () => {
     }
     const current = getCurrentProfile(profile, TODAY)
     // The ETF loses the full 1,200 a year …
-    expect(current.investments?.[0].balance).toBe(104_265.83)
+    expect(current.investments?.[0].balance).toBe(104_266)
     // … and cash receives 1,080 of it.
-    expect(current.cash_amount).toBe(26_301.19)
+    expect(current.cash_amount).toBe(26_301)
   })
 
   test('charges the upfront entry fee on the way in', () => {
@@ -308,8 +310,8 @@ describe('getCurrentProfile with transfers', () => {
       transfers: [{ ...CONTRIBUTION, amount: 100 }],
     }
     const current = getCurrentProfile(profile, TODAY)
-    expect(current.cash_amount).toBe(25_165.09)
-    expect(current.investments?.[0].balance).toBe(105_431.83)
+    expect(current.cash_amount).toBe(25_165)
+    expect(current.investments?.[0].balance).toBe(105_432)
   })
 
   test('ignores a transfer whose window has already closed', () => {
@@ -318,8 +320,8 @@ describe('getCurrentProfile with transfers', () => {
       transfers: [{ ...CONTRIBUTION, end: 'at_specific_date', end_year: 2025, end_month: 12 }],
     }
     const current = getCurrentProfile(profile, TODAY)
-    expect(current.cash_amount).toBe(25_763.04)
-    expect(current.investments?.[0].balance).toBe(104_863.78)
+    expect(current.cash_amount).toBe(25_763)
+    expect(current.investments?.[0].balance).toBe(104_864)
   })
 
   test('ignores a one-time transfer, which is an event rather than a rate', () => {
@@ -335,7 +337,7 @@ describe('getCurrentProfile with transfers', () => {
         },
       ],
     }
-    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(25_763.04)
+    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(25_763)
   })
 
   test('ignores a "transfer all" sweep, which has no yearly rate to accrue', () => {
@@ -343,12 +345,12 @@ describe('getCurrentProfile with transfers', () => {
       ...PROFILE,
       transfers: [{ ...CONTRIBUTION, transfer_all: true }],
     }
-    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(25_763.04)
+    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(25_763)
   })
 
   test('ignores a transfer pointing at something the profile no longer holds', () => {
     const profile: Profile = { ...PROFILE, transfers: [{ ...CONTRIBUTION, to_asset_id: 'gone' }] }
-    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(25_763.04)
+    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(25_763)
   })
 
   test('floors an investment drained by a transfer at zero', () => {
@@ -478,7 +480,7 @@ describe('getCurrentProfile with transfers', () => {
       transfers: [CONTRIBUTION],
     }
     const current = getCurrentProfile(profile, TODAY)
-    expect(current.cash_amount).toBe(25_763.04)
+    expect(current.cash_amount).toBe(25_763)
     // And it is not compounding either — see the holding-window tests below.
     expect(current.investments?.[0].balance).toBe(100_000)
   })
@@ -493,7 +495,7 @@ describe('getCurrentProfile with transfers', () => {
       transfers: [{ ...CONTRIBUTION, from_asset_id: 'inv1', to_asset_id: 'cash' }],
     }
     const current = getCurrentProfile(profile, TODAY)
-    expect(current.cash_amount).toBe(25_763.04)
+    expect(current.cash_amount).toBe(25_763)
     expect(current.investments?.[0].balance).toBe(100_000)
   })
 })
@@ -583,11 +585,11 @@ describe('withBalancesCarriedForward', () => {
     }
     const merged = withBalancesCarriedForward(PROFILE, next, TODAY)
 
-    expect(merged.cash_amount).toBe(25_763.04)
-    expect(merged.investments?.[0].balance).toBe(104_863.78)
+    expect(merged.cash_amount).toBe(25_763)
+    expect(merged.investments?.[0].balance).toBe(104_864)
     expect(merged.investments?.[0].name).toBe('Renamed ETF')
-    expect(merged.investments?.[1].balance).toBe(51_834.69)
-    expect(merged.liabilities?.[0].outstanding_balance).toBe(5_117.68)
+    expect(merged.investments?.[1].balance).toBe(51_835)
+    expect(merged.liabilities?.[0].outstanding_balance).toBe(5_118)
   })
 
   test('carries the elapsed installments out of the remaining term', () => {
@@ -621,7 +623,7 @@ describe('withBalancesCarriedForward', () => {
     expect(merged.cash_amount).toBe(15_000)
     expect(merged.investments?.[0].balance).toBe(100_000)
     // Not confirmed, so it still arrives at today's value.
-    expect(merged.investments?.[1].balance).toBe(51_834.69)
+    expect(merged.investments?.[1].balance).toBe(51_835)
   })
 
   test('keeps a balance the edit changed exactly as given', () => {
@@ -635,7 +637,7 @@ describe('withBalancesCarriedForward', () => {
     expect(merged.cash_amount).toBe(1_000)
     expect(merged.investments?.[0].balance).toBe(42)
     // The one it did not touch still arrives at today's value.
-    expect(merged.investments?.[1].balance).toBe(51_834.69)
+    expect(merged.investments?.[1].balance).toBe(51_835)
   })
 
   test('leaves an item the profile did not hold before untouched', () => {
@@ -665,7 +667,7 @@ describe('withBalancesCarriedForward', () => {
     const merged = withBalancesCarriedForward(stored, { ...stored }, TODAY)
 
     expect(merged.tangible_assets?.[0].value).toBe(300_000)
-    expect(merged.tangible_assets?.[0].outstanding_balance).toBe(197_487.47)
+    expect(merged.tangible_assets?.[0].outstanding_balance).toBe(197_487)
   })
 
   test('returns the edit untouched when nothing has elapsed', () => {

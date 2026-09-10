@@ -38,8 +38,7 @@ describe('buildHistorySeries', () => {
     // 100,000 × 1.1^(days/365.25) + 10,000 cash, rounded to the cent.
     const series = buildHistorySeries(GROWING, TODAY)
     expect(series.map((point) => point.netWorth)).toEqual([
-      110_000, 110_601.98, 111_207.58, 111_790.26, 112_403.02, 113_019.46, 113_639.62, 114_236.3,
-      114_863.78,
+      110_000, 110_602, 111_208, 111_790, 112_403, 113_019, 113_640, 114_236, 114_864,
     ])
   })
 

@@ -23,11 +23,13 @@ import { toDateOnlyString } from '$lib/utils'
 
 const DAYS_PER_YEAR = 365.25
 /**
- * Projected balances are rounded to the cent. Compounding a fraction of a year
- * leaves a long tail of digits that is pure noise at money scale, and it would
- * otherwise be shown verbatim in the Quick update inputs.
+ * Projected balances are rounded to whole currency units. Compounding a
+ * fraction of a year leaves a long tail of digits that is pure noise at money
+ * scale, and it would otherwise be shown verbatim in the Quick update inputs —
+ * even cents are noise there, since every figure is an estimate the user is
+ * asked to confirm.
  */
-const MONEY_DECIMALS = 2
+const MONEY_DECIMALS = 0
 
 /**
  * One recurring transfer as a pair of yearly rates: what leaves the source and
