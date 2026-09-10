@@ -1,1 +1,0 @@
-import{wt as e}from"./BQ1unurm.js";e();
