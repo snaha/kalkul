@@ -31,6 +31,18 @@ function netWorthOn(profile: Profile, date: string): number {
 }
 
 /**
+ * Whether there is a History to show at all: figures on the profile, or dates
+ * recorded for figures it no longer has.
+ *
+ * A profile that spent its way to zero has no balances left but a history worth
+ * reading — the drop to zero is recorded deliberately — so gating on balances
+ * alone would make it unreachable at exactly the moment it became interesting.
+ */
+export function hasHistoryToShow(profile: Profile): boolean {
+  return hasAnyFinancialData(profile) || (profile.snapshots ?? []).length > 0
+}
+
+/**
  * Net worth over time for the History chart: one point per recorded snapshot,
  * then a sampled projection running from the last of them to today.
  *
@@ -46,8 +58,8 @@ function netWorthOn(profile: Profile, date: string): number {
  * through time.
  */
 export function buildHistorySeries(profile: Profile, today: Date): HistoryPoint[] {
+  if (!hasHistoryToShow(profile)) return []
   const snapshots = normalizeSnapshots(profile.snapshots ?? [])
-  if (snapshots.length === 0 && !hasAnyFinancialData(profile)) return []
 
   const todayDate = toDateOnlyString(today)
   const points: HistoryPoint[] = snapshots

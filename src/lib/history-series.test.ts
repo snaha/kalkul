@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import { buildHistorySeries } from './history-series'
+import { buildHistorySeries, hasHistoryToShow } from './history-series'
 import type { Profile } from './schemas'
 
 // Snapshot on 2026-01-01, read on 2026-07-02 — 182 elapsed days.
@@ -140,5 +140,27 @@ describe('buildHistorySeries', () => {
 
   test('returns nothing for a profile with no financial data', () => {
     expect(buildHistorySeries({ name: '', email: '' }, TODAY)).toEqual([])
+  })
+})
+
+describe('hasHistoryToShow', () => {
+  const EMPTY: Profile = { name: 'Alice', email: 'a@example.com' }
+
+  test('is true for a profile with balances', () => {
+    expect(hasHistoryToShow({ ...EMPTY, cash_amount: 100 })).toBe(true)
+  })
+
+  test('is true for a spent-out profile that still has recorded snapshots', () => {
+    // Going to zero is recorded deliberately, so the history has to stay
+    // reachable — gating on balances alone hid the page the moment the last
+    // one was spent.
+    expect(
+      hasHistoryToShow({ ...EMPTY, cash_amount: 0, snapshots: [{ date: '2026-01-01' }] }),
+    ).toBe(true)
+  })
+
+  test('is false for a profile with neither', () => {
+    expect(hasHistoryToShow(EMPTY)).toBe(false)
+    expect(hasHistoryToShow({ ...EMPTY, snapshots: [] })).toBe(false)
   })
 })

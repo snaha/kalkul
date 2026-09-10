@@ -4,7 +4,7 @@ import { getNetWorth } from './financial-totals'
 import type { Profile, Snapshot } from './schemas'
 import {
   captureSnapshot,
-  hasSameValues,
+  hasSameBalances,
   latestSnapshot,
   profileAtSnapshot,
   removeSnapshot,
@@ -181,17 +181,17 @@ describe('latestSnapshot', () => {
   })
 })
 
-describe('hasSameValues', () => {
+describe('hasSameBalances', () => {
   test('ignores the date when comparing', () => {
     const one = captureSnapshot(PROFILE, '2026-01-01')
     const two = captureSnapshot(PROFILE, '2026-06-01')
-    expect(hasSameValues(one, two)).toBe(true)
+    expect(hasSameBalances(one, two)).toBe(true)
   })
 
   test('detects a changed balance', () => {
     const one = captureSnapshot(PROFILE, '2026-01-01')
     const two = captureSnapshot({ ...PROFILE, cash_amount: 15_001 }, '2026-01-01')
-    expect(hasSameValues(one, two)).toBe(false)
+    expect(hasSameBalances(one, two)).toBe(false)
   })
 
   test('detects an added item', () => {
@@ -206,14 +206,10 @@ describe('hasSameValues', () => {
       },
       '2026-01-01',
     )
-    expect(hasSameValues(one, two)).toBe(false)
+    expect(hasSameBalances(one, two)).toBe(false)
   })
 
-  test('treats a section the earlier snapshot never recorded as no evidence', () => {
-    // The upgrade case: a snapshot stored before cash flows were recorded has
-    // no incomes/expenses at all. Reading that as a change would stamp a fresh
-    // snapshot on the user's first edit after upgrading — re-dating months-old
-    // balances to today and silently clearing the staleness banner.
+  test('reads a snapshot stored before cash flows were recorded as unchanged', () => {
     const legacy: Snapshot = {
       date: '2020-01-01',
       cash_amount: 15_000,
@@ -227,17 +223,17 @@ describe('hasSameValues', () => {
       ],
       liabilities: [{ id: 'l1', outstanding_balance: 6_000 }],
     }
-    expect(hasSameValues(legacy, captureSnapshot(PROFILE, '2026-06-15'))).toBe(true)
+    expect(hasSameBalances(legacy, captureSnapshot(PROFILE, '2026-06-15'))).toBe(true)
   })
 
   test('still detects a balance that moved since a legacy snapshot', () => {
     const legacy: Snapshot = { date: '2020-01-01', cash_amount: 15_000 }
     const moved = captureSnapshot({ ...PROFILE, cash_amount: 16_000 }, '2026-06-15')
-    expect(hasSameValues(legacy, moved)).toBe(false)
+    expect(hasSameBalances(legacy, moved)).toBe(false)
   })
 
   test('treats a missing snapshot as different', () => {
-    expect(hasSameValues(undefined, captureSnapshot(PROFILE, '2026-01-01'))).toBe(false)
+    expect(hasSameBalances(undefined, captureSnapshot(PROFILE, '2026-01-01'))).toBe(false)
   })
 
   // A snapshot restored from a backup only has to satisfy the schema, which
@@ -250,12 +246,12 @@ describe('hasSameValues', () => {
       { name: 'Alice', email: 'a@example.com', cash_amount: 15_000 },
       '2026-01-01',
     )
-    expect(hasSameValues(sparse, captured)).toBe(true)
+    expect(hasSameBalances(sparse, captured)).toBe(true)
   })
 
   test('treats an omitted list as different from one holding a balance', () => {
     const sparse: Snapshot = { date: '2026-01-01', cash_amount: 15_000 }
-    expect(hasSameValues(sparse, captureSnapshot(PROFILE, '2026-01-01'))).toBe(false)
+    expect(hasSameBalances(sparse, captureSnapshot(PROFILE, '2026-01-01'))).toBe(false)
   })
 
   test("treats a financed asset's missing debt as zero", () => {
@@ -264,29 +260,32 @@ describe('hasSameValues', () => {
       date: '2026-01-01',
       tangible_assets: [{ id: 't1', value: 100, outstanding_balance: 0 }],
     }
-    expect(hasSameValues(one, two)).toBe(true)
+    expect(hasSameBalances(one, two)).toBe(true)
   })
 
-  test('detects a cash flow whose amount moved', () => {
+  test('ignores a cash flow whose amount moved', () => {
+    // A raise moves no balance. Reading it as a change would re-date the
+    // projection baseline: every untouched balance replaced by its projection,
+    // today stamped onto them, and the staleness banner gone — all because the
+    // user corrected their salary.
     const one = captureSnapshot(PROFILE, '2026-01-01')
     const raised = { ...(PROFILE.incomes ?? [])[0], amount: 4_500 }
     const two = captureSnapshot({ ...PROFILE, incomes: [raised] }, '2026-01-01')
-    expect(hasSameValues(one, two)).toBe(false)
+    expect(hasSameBalances(one, two)).toBe(true)
   })
 
-  test('detects a cash flow whose frequency moved', () => {
-    // The same money at a different cadence is still the same money, but a
-    // salary restated from 4,000 monthly to 4,000 yearly is a real change.
-    const one = captureSnapshot(PROFILE, '2026-01-01')
-    const restated = { ...(PROFILE.expenses ?? [])[0], frequency: 'yearly' as const }
-    const two = captureSnapshot({ ...PROFILE, expenses: [restated] }, '2026-01-01')
-    expect(hasSameValues(one, two)).toBe(false)
-  })
-
-  test('detects a cash flow the earlier snapshot recorded none of', () => {
-    // An explicit empty list says "none were running", unlike an absent one.
+  test('ignores a cash flow the profile gained or lost', () => {
     const none = captureSnapshot({ ...PROFILE, incomes: [] }, '2026-01-01')
-    expect(hasSameValues(none, captureSnapshot(PROFILE, '2026-01-01'))).toBe(false)
+    expect(hasSameBalances(none, captureSnapshot(PROFILE, '2026-01-01'))).toBe(true)
+  })
+
+  test("ignores a loan's term, which moves with the balance it is compared beside", () => {
+    const one = captureSnapshot(PROFILE, '2026-01-01')
+    const two: Snapshot = {
+      ...one,
+      liabilities: [{ id: 'l1', outstanding_balance: 6_000, remaining_term: 2 }],
+    }
+    expect(hasSameBalances(one, two)).toBe(true)
   })
 
   test('ignores the order the items are stored in', () => {
@@ -297,7 +296,7 @@ describe('hasSameValues', () => {
       { ...PROFILE, investments: [...(PROFILE.investments ?? [])].reverse() },
       '2026-01-01',
     )
-    expect(hasSameValues(one, reordered)).toBe(true)
+    expect(hasSameBalances(one, reordered)).toBe(true)
   })
 
   test('detects an item swapped for another with the same balance', () => {
@@ -311,7 +310,7 @@ describe('hasSameValues', () => {
         { id: 'inv3', balance: 78_000 },
       ],
     }
-    expect(hasSameValues(one, swapped)).toBe(false)
+    expect(hasSameBalances(one, swapped)).toBe(false)
   })
 })
 
@@ -333,12 +332,14 @@ describe('withSeededSnapshot', () => {
     expect(withSeededSnapshot(profile, asOf).snapshots).toBeUndefined()
   })
 
-  test('leaves a deliberately emptied history alone', () => {
-    // Only a profile with no snapshot list at all predates snapshots. An empty
-    // list is one the user cleared on the History page, and seeding it back on
-    // the next load would undo that.
+  test('seeds a profile whose snapshot list is empty', () => {
+    // An empty list means the same as no list: balances with no date attached.
+    // Nothing can leave one behind on purpose — deleting the last snapshot
+    // re-baselines onto today rather than clearing the history.
     const profile: Profile = { ...PROFILE, snapshots: [] }
-    expect(withSeededSnapshot(profile, asOf)).toBe(profile)
+    expect(withSeededSnapshot(profile, asOf).snapshots).toEqual([
+      captureSnapshot(PROFILE, '2026-04-27'),
+    ])
   })
 })
 

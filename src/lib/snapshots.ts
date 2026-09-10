@@ -184,9 +184,17 @@ function sameEntries<T extends { id: string }>(
 }
 
 /**
- * Whether `next` holds the same figures `previous` recorded, ignoring their
- * dates. Used to skip recording a snapshot when an edit left every figure
+ * Whether `next` holds the same *balances* `previous` recorded, ignoring their
+ * dates. Used to skip recording a snapshot when an edit left every balance
  * untouched.
+ *
+ * Cash flows are deliberately not compared. Recording a snapshot re-dates the
+ * baseline the dashboard projects from, which replaces every untouched balance
+ * with its projection and clears the staleness banner — far too much to happen
+ * because the user added a gym membership. A snapshot recorded for another
+ * reason still captures the flows as they stand; what they must not do is
+ * trigger one. Loan terms are left out for the same reason: they move with the
+ * balance that is compared here.
  *
  * Compared field by field rather than by serialized shape: only
  * `captureSnapshot` emits the canonical form, while the schema makes every
@@ -194,18 +202,8 @@ function sameEntries<T extends { id: string }>(
  * balance that is simply zero or an empty list. Reading those omissions as
  * "changed" made a rename record a snapshot and re-date the projection
  * baseline.
- *
- * Cash flows are the one section an omission cannot be read that way. A
- * snapshot `previous` never recorded them on leaves them unknown, not none, so
- * they count as no evidence of a change. Without that, the first edit a
- * returning user makes after cash flows were added to the schema would compare
- * a legacy snapshot (which has none) against a fresh capture (which has them),
- * decide something moved, and stamp today's date onto months-old balances —
- * silently clearing the staleness banner they never confirmed away. Balances
- * get no such fallback: undefined has to keep counting as zero there, the way
- * `snapshotNetWorth` counts it.
  */
-export function hasSameValues(
+export function hasSameBalances(
   previous: SnapshotBalances | undefined,
   next: SnapshotBalances | undefined,
 ): boolean {
@@ -231,11 +229,22 @@ export function hasSameValues(
   )
     return false
 
-  const sameFlow = (x: { amount: number; frequency: string }, y: typeof x) =>
-    x.amount === y.amount && x.frequency === y.frequency
-  if (previous.incomes && !sameEntries(previous.incomes, next.incomes, sameFlow)) return false
-  if (previous.expenses && !sameEntries(previous.expenses, next.expenses, sameFlow)) return false
   return true
+}
+
+/**
+ * The date the profile's figures were last recorded, when that is earlier than
+ * `todayDate`: what the staleness banner names, and what the dashboard's
+ * projected figures are projected from. Undefined when the newest snapshot is
+ * today's — nothing to project and nothing to nudge about — or when there is
+ * no snapshot at all.
+ */
+export function staleSince(
+  snapshots: Snapshot[] | undefined,
+  todayDate: string,
+): string | undefined {
+  const recorded = latestSnapshot(snapshots)?.date
+  return recorded && recorded < todayDate ? recorded : undefined
 }
 
 // Incomes and expenses share one shape (`cashFlowSchema`), so one type and one
@@ -318,10 +327,15 @@ const MISSING_CASH_FLOW = {
  * the profile's descriptive fields (names, APYs, tax rates, loan terms).
  *
  * The snapshot decides which items exist — one the profile has since gained is
- * dropped, one it has since lost is kept with a placeholder name — so that
- * `getNetWorth` of the result always equals `snapshotNetWorth` of the input.
- * That makes every profile-level total in `financial-totals.ts` (total assets,
- * liabilities, FI %) available per snapshot without a second implementation.
+ * dropped, one it has since lost is kept with a placeholder name — which makes
+ * every profile-level total in `financial-totals.ts` (total assets, liabilities,
+ * FI %) available per snapshot without a second implementation.
+ *
+ * `getNetWorth` is the exception: it counts only what the profile holds *on a
+ * date*, which is a question about today's timing fields rather than about what
+ * the snapshot recorded. Net worth for a recorded date comes from
+ * `snapshotNetWorth` instead, so it always equals the row's own assets less its
+ * own debt.
  *
  * Every section reads an omission the same way: nothing was recorded, so
  * nothing counts. Snapshots written before cash flows were recorded are filled
@@ -432,19 +446,19 @@ export function withDeletedSnapshot(profile: Profile, date: string): Profile {
 }
 
 /**
- * Gives a profile that predates snapshots a single baseline dated `asOf` (the
- * last time its data was written). Without it, figures saved months ago would
- * read as confirmed-today: no staleness banner, no projection, and a History
- * chart with one point.
+ * Gives a profile with no history a single baseline dated `asOf` (the last time
+ * its data was written). Without it, figures saved months ago would read as
+ * confirmed-today: no staleness banner, no projection, and a History chart with
+ * one point.
  *
- * Only a profile with no snapshot list at all is legacy data. An empty list is
- * one the user cleared on the History page, and seeding it back on the next
- * load would undo that — so it stays empty, and the figures count as current
- * until the next edit records a snapshot. Also a no-op when there are no
- * balances to record.
+ * An absent list and an empty one are the same thing — a profile holding
+ * balances that nothing says a date for. Nothing else can leave one behind:
+ * deleting the last snapshot re-baselines onto today rather than clearing the
+ * history, precisely so a profile with balances always has a baseline. A no-op
+ * when there are no balances to record.
  */
 export function withSeededSnapshot(profile: Profile, asOf: Date): Profile {
-  if (profile.snapshots !== undefined) return profile
+  if ((profile.snapshots ?? []).length > 0) return profile
   if (!hasAnyBalance(heldBalances(profile, asOf))) return profile
   return { ...profile, snapshots: [captureSnapshot(profile, toDateOnlyString(asOf))] }
 }

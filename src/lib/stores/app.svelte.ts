@@ -1,4 +1,8 @@
-import { type ExplicitBalances, withBalancesCarriedForward } from '$lib/current-values'
+import {
+  type ExplicitBalances,
+  getCurrentProfile,
+  withBalancesCarriedForward,
+} from '$lib/current-values'
 import { hasAnyFinancialData } from '$lib/financial-totals'
 import {
   type Portfolio,
@@ -11,7 +15,7 @@ import {
 import type { Snapshot } from '$lib/schemas'
 import {
   captureSnapshot,
-  hasSameValues,
+  hasSameBalances,
   latestSnapshot,
   upsertSnapshot,
   withDeletedSnapshot,
@@ -124,8 +128,9 @@ function enrichProfile({
  * Snapshots are the baseline the dashboard projects "today" from, so every
  * confirmed change to a balance has to re-date that baseline — otherwise the
  * projection keeps compounding from a value the user has already replaced.
- * Edits that leave every balance alone (a rename, a new expense) record
- * nothing, keeping the History chart to points that actually moved.
+ * Edits that leave every balance alone (a rename, a new expense, a raise)
+ * record nothing, keeping the History chart to points that actually moved and
+ * leaving the staleness banner up until the user confirms it away.
  *
  * `force` overrides that skip for an explicit confirmation ("these balances are
  * correct today", i.e. Quick update's Confirm): the point of the action is the
@@ -140,7 +145,7 @@ function shouldRecordSnapshot(profile: Profile, todayDate: string, force: boolea
   // their cash and owns nothing else) and has to be recorded like any other.
   if (!hasAnyFinancialData(profile) && (profile.snapshots ?? []).length === 0) return false
   if (force) return true
-  return !hasSameValues(latestSnapshot(profile.snapshots), captureSnapshot(profile, todayDate))
+  return !hasSameBalances(latestSnapshot(profile.snapshots), captureSnapshot(profile, todayDate))
 }
 
 const DEFAULT_PROFILE: Profile = {
@@ -383,8 +388,34 @@ function withAppStore() {
       writeProfile(withSavedSnapshot(profile.toJSON(), snapshot, originalDate), 'manage')
     },
 
+    /**
+     * Deletes the snapshot dated `date`.
+     *
+     * Deleting the last one would leave the profile holding balances with no
+     * baseline to project them from: no staleness banner, no projection, and
+     * the next unrelated edit stamping today's date onto months-old figures.
+     * So the deleted snapshot's figures are carried forward to today — the same
+     * model the dashboard shows them with — and recorded there. History is
+     * never empty while there are balances, and the user sees exactly what
+     * happened as a row dated today, theirs to edit or delete in turn.
+     */
     deleteSnapshot(date: string) {
-      writeProfile(withDeletedSnapshot(profile.toJSON(), date), 'manage')
+      const today = new Date()
+      const stored = profile.toJSON()
+      const deleted = (stored.snapshots ?? []).find((snapshot) => snapshot.date === date)
+      const next = withDeletedSnapshot(stored, date)
+      if (!deleted || (next.snapshots ?? []).length > 0 || !hasAnyFinancialData(next)) {
+        writeProfile(next, 'manage')
+        return
+      }
+      // The profile already holds the deleted snapshot's figures — it was the
+      // newest, and every write keeps the profile matching that one — so it is
+      // the baseline to project from.
+      const carried = getCurrentProfile({ ...next, snapshots: [deleted] }, today)
+      writeProfile(
+        { ...carried, snapshots: [captureSnapshot(carried, toDateOnlyString(today))] },
+        'manage',
+      )
     },
 
     // --- Portfolios ---

@@ -9,8 +9,7 @@
   import HistoryChart from '$lib/components/history-chart.svelte'
   import { Button } from '$lib/components/ui/button'
   import { getCurrentProfile } from '$lib/current-values'
-  import { hasAnyFinancialData } from '$lib/financial-totals'
-  import { buildHistorySeries } from '$lib/history-series'
+  import { buildHistorySeries, hasHistoryToShow } from '$lib/history-series'
   import routes from '$lib/routes'
   import type { Snapshot } from '$lib/schemas'
   import { buildSnapshotRows } from '$lib/snapshot-rows'
@@ -32,7 +31,9 @@
 
   const storedProfile = $derived(appStore.profile.toJSON())
   const currentProfile = $derived(getCurrentProfile(storedProfile, today))
-  const hasFinancialData = $derived(!appStore.loading && hasAnyFinancialData(storedProfile))
+  // Recorded snapshots keep the page open on their own: a profile that spent
+  // its way to zero has no balances left but a history worth reading.
+  const hasHistory = $derived(!appStore.loading && hasHistoryToShow(storedProfile))
 
   const lastSnapshotDate = $derived(latestSnapshot(storedProfile.snapshots)?.date)
   const staleSince = $derived(
@@ -126,7 +127,7 @@
 
   <div class="flex flex-1 justify-center px-8 pb-8">
     <div class="flex w-full max-w-[576px] flex-col gap-8">
-      {#if hasFinancialData}
+      {#if hasHistory}
         <div class="flex flex-col gap-4">
           {#if staleSince}
             <StaleDataAlert
