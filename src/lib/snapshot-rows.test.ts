@@ -106,6 +106,42 @@ describe('buildSnapshotRows', () => {
     expect(buildSnapshotRows(profile)[0].fiPercent).toBeUndefined()
   })
 
+  test('nets a row off its own totals, whatever the profile holds today', () => {
+    // The investment was sold in 2025, so it is not part of *today's* net
+    // worth — but the 2025 row records the day it was still held. A row whose
+    // net worth is filtered by today's holdings while its own totals are not
+    // would not add up, and would disagree with the point the chart plots.
+    const sold: Profile = {
+      name: 'Alice',
+      email: 'a@example.com',
+      investments: [
+        {
+          id: 'inv1',
+          name: 'ETF',
+          balance: 50_000,
+          apy: 0,
+          exit: 'at_specific_date',
+          exit_year: 2025,
+          exit_month: 1,
+        },
+      ],
+      snapshots: [
+        {
+          date: '2025-01-01',
+          cash_amount: 10_000,
+          investments: [{ id: 'inv1', balance: 50_000 }],
+          tangible_assets: [],
+          liabilities: [],
+          incomes: [],
+          expenses: [],
+        },
+      ],
+    }
+    const [row] = buildSnapshotRows(sold)
+    expect(row).toMatchObject({ totalAssets: 60_000, liabilities: 0, netWorth: 60_000 })
+    expect(row.netWorth).toBe(row.totalAssets - row.liabilities)
+  })
+
   test('is empty for a profile with no history', () => {
     expect(buildSnapshotRows(PROFILE)).toEqual([])
   })
