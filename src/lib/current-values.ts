@@ -243,8 +243,18 @@ function annualFlowsOn(profile: Profile, asOf: Date): AnnualFlows {
  * year, paying what was fundable is the closer estimate.
  *
  * What a source can fund is its own balance after its own movement plus what
- * the other transfers pay into it, taken at face value rather than after their
- * own scaling — a chain of shortfalls is not worth a fixed point here.
+ * the other transfers actually deliver to it — after their own scaling, not at
+ * face value. A position wound down through cash into another one is one chain
+ * of that kind, and counting the first leg's promise rather than its payment
+ * would let cash pass on money that never arrived.
+ *
+ * Solved by raising the factors from zero rather than lowering them from one.
+ * Each round pays every source only what the previous round's factors actually
+ * delivered, so no round can promise more than the one before it funded — the
+ * result is safe to use at every step, and one round per source is enough to
+ * carry a payment along the longest chain that has an end. Transfers that
+ * circle back on each other have no such length; they settle low rather than
+ * high, which under-pays a little and invents nothing.
  */
 function settleTransfers(
   before: Map<string, Decimal>,
@@ -256,19 +266,29 @@ function settleTransfers(
     map.set(id, (map.get(id) ?? DECIMAL_0).plus(amount))
 
   const promisedOut = new Map<string, Decimal>()
-  const paidIn = new Map<string, Decimal>()
-  for (const leg of transfers) {
-    add(promisedOut, leg.from, over(leg.out))
-    add(paidIn, leg.to, over(leg.in))
-  }
+  for (const leg of transfers) add(promisedOut, leg.from, over(leg.out))
 
-  const factor = new Map<string, Decimal>()
-  for (const [id, promised] of promisedOut) {
-    const fundable = Decimal.max(
-      (before.get(id) ?? DECIMAL_0).plus(paidIn.get(id) ?? DECIMAL_0),
-      DECIMAL_0,
-    )
-    factor.set(id, promised.greaterThan(fundable) ? fundable.div(promised) : DECIMAL_1)
+  // Nothing delivered yet, so the first round funds each source out of its own
+  // balance alone; every round after it adds what the last one paid in.
+  let factor = new Map<string, Decimal>([...promisedOut.keys()].map((id) => [id, DECIMAL_0]))
+  for (let round = 0; round < promisedOut.size; round++) {
+    const paidIn = new Map<string, Decimal>()
+    for (const leg of transfers) {
+      add(paidIn, leg.to, over(leg.in).mul(factor.get(leg.from) ?? DECIMAL_1))
+    }
+
+    const next = new Map<string, Decimal>()
+    for (const [id, promised] of promisedOut) {
+      const fundable = Decimal.max(
+        (before.get(id) ?? DECIMAL_0).plus(paidIn.get(id) ?? DECIMAL_0),
+        DECIMAL_0,
+      )
+      next.set(id, promised.greaterThan(fundable) ? fundable.div(promised) : DECIMAL_1)
+    }
+
+    const settled = [...next].every(([id, value]) => value.equals(factor.get(id) ?? DECIMAL_0))
+    factor = next
+    if (settled) break
   }
 
   const after = new Map(before)

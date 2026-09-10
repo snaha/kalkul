@@ -394,6 +394,80 @@ describe('getCurrentProfile with transfers', () => {
     expect(netWorth(current)).toBeCloseTo(netWorth(getCurrentProfile(PROFILE, TODAY)), 2)
   })
 
+  test('funds a chain of transfers out of what actually reaches each link', () => {
+    // A position being wound down through cash into another one, with the
+    // first already empty. Cash must not pay the second leg out of money the
+    // first never delivered.
+    const profile: Profile = {
+      ...PROFILE,
+      cash_amount: 0,
+      investments: [
+        { id: 'inv1', name: 'Old fund', balance: 0, apy: 0 },
+        { id: 'inv2', name: 'New fund', balance: 0, apy: 0 },
+      ],
+      incomes: [],
+      expenses: [],
+      liabilities: [],
+      transfers: [
+        { ...CONTRIBUTION, id: 'tr1', from_asset_id: 'inv1', to_asset_id: 'cash', amount: 1_000 },
+        { ...CONTRIBUTION, id: 'tr2', from_asset_id: 'cash', to_asset_id: 'inv2', amount: 1_000 },
+      ],
+    }
+    const current = getCurrentProfile(profile, TODAY)
+    expect(current.cash_amount).toBe(0)
+    expect(current.investments?.[0].balance).toBe(0)
+    expect(current.investments?.[1].balance).toBe(0)
+    expect(netWorth(current)).toBe(0)
+  })
+
+  test('passes a part-funded chain through at the rate the first link can fund', () => {
+    // The same chain with 1,000 in the old fund: that 1,000 is what the sweep
+    // can deliver, and it is what cash can pass on — so it arrives whole at
+    // the far end rather than being paid twice or stopped halfway.
+    const profile: Profile = {
+      ...PROFILE,
+      cash_amount: 0,
+      investments: [
+        { id: 'inv1', name: 'Old fund', balance: 1_000, apy: 0 },
+        { id: 'inv2', name: 'New fund', balance: 0, apy: 0 },
+      ],
+      incomes: [],
+      expenses: [],
+      liabilities: [],
+      transfers: [
+        { ...CONTRIBUTION, id: 'tr1', from_asset_id: 'inv1', to_asset_id: 'cash', amount: 1_000 },
+        { ...CONTRIBUTION, id: 'tr2', from_asset_id: 'cash', to_asset_id: 'inv2', amount: 1_000 },
+      ],
+    }
+    const current = getCurrentProfile(profile, TODAY)
+    expect(current.cash_amount).toBe(0)
+    expect(current.investments?.[0].balance).toBe(0)
+    expect(current.investments?.[1].balance).toBe(1_000)
+    expect(netWorth(current)).toBe(1_000)
+  })
+
+  test('settles transfers that circle back on each other without inventing money', () => {
+    // Two transfers pointing at each other have no chain end to work back
+    // from. What matters is that the pair nets out: cash lends what it has and
+    // gets it straight back, and nothing appears that was not there.
+    const profile: Profile = {
+      ...PROFILE,
+      cash_amount: 1_000,
+      investments: [{ id: 'inv1', name: 'Fund', balance: 0, apy: 0 }],
+      incomes: [],
+      expenses: [],
+      liabilities: [],
+      transfers: [
+        { ...CONTRIBUTION, id: 'tr1', from_asset_id: 'cash', to_asset_id: 'inv1', amount: 1_000 },
+        { ...CONTRIBUTION, id: 'tr2', from_asset_id: 'inv1', to_asset_id: 'cash', amount: 1_000 },
+      ],
+    }
+    const current = getCurrentProfile(profile, TODAY)
+    expect(current.cash_amount).toBe(1_000)
+    expect(current.investments?.[0].balance).toBe(0)
+    expect(netWorth(current)).toBe(1_000)
+  })
+
   test('ignores a transfer into an investment not bought yet', () => {
     const profile: Profile = {
       ...PROFILE,
