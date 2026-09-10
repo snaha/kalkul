@@ -1,6 +1,7 @@
 import Decimal from 'decimal.js'
 
 import { DECIMAL_0, DECIMAL_1, daysBetween } from '$lib/@snaha/kalkul-maths'
+import { sharedItems } from '$lib/plan-owned'
 import {
   CASH_ENDPOINT,
   INSTALLMENT_PERIODS_PER_YEAR,
@@ -62,11 +63,11 @@ function netAnnualCashFlowOn(profile: Profile, asOf: Date, birthYear: number | u
   const active = <T extends TimingWindow>(items: T[] | undefined): T[] =>
     (items ?? []).filter((item) => isActiveOn(item, asOf, birthYear))
 
-  const income = active(profile.incomes).reduce<Decimal>(
+  const income = active(sharedItems(profile.incomes)).reduce<Decimal>(
     (sum, i) => sum.plus(annualizedAmount(new Decimal(i.amount), i.frequency)),
     DECIMAL_0,
   )
-  const expenses = active(profile.expenses).reduce<Decimal>(
+  const expenses = active(sharedItems(profile.expenses)).reduce<Decimal>(
     (sum, e) => sum.plus(annualizedAmount(new Decimal(e.amount), e.frequency)),
     DECIMAL_0,
   )
@@ -75,8 +76,8 @@ function netAnnualCashFlowOn(profile: Profile, asOf: Date, birthYear: number | u
   // does have one: nobody pays installments on a purchase that has not
   // happened, or on a mortgage settled by a sale that already has.
   const debtService = [
-    ...(profile.liabilities ?? []),
-    ...(profile.tangible_assets ?? []).filter(
+    ...sharedItems(profile.liabilities),
+    ...sharedItems(profile.tangible_assets).filter(
       (a) => a.status === 'financed' && isOwnedOn(a, asOf, birthYear),
     ),
   ].reduce<Decimal>(
@@ -141,7 +142,7 @@ function annualFlowsOn(profile: Profile, asOf: Date): AnnualFlows {
     return investment !== undefined && isHeldOn(investment, asOf, birthYear)
   }
 
-  for (const transfer of profile.transfers ?? []) {
+  for (const transfer of sharedItems(profile.transfers)) {
     if (transfer.schedule !== 'recurring' || transfer.transfer_all) continue
     if (!isEndpointActive(transfer.from_asset_id) || !isEndpointActive(transfer.to_asset_id))
       continue

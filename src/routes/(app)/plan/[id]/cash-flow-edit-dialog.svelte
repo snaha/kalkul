@@ -8,6 +8,7 @@
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
+  import { itemsForPlan } from '$lib/plan-owned'
   import { sameYearMonthsInverted, timingComplete } from '$lib/schemas'
   import type {
     CashFlowEnd,
@@ -75,8 +76,8 @@
   function blankForm(): FormState {
     const counter =
       kind === 'income'
-        ? (appStore.profile.incomes ?? []).length + 1
-        : (appStore.profile.expenses ?? []).length + 1
+        ? itemsForPlan(appStore.profile.incomes, plan.id).length + 1
+        : itemsForPlan(appStore.profile.expenses, plan.id).length + 1
     return {
       id: crypto.randomUUID(),
       name:

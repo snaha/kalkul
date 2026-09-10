@@ -14,6 +14,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
   import { createListEditor } from '$lib/list-editor.svelte'
+  import { planOwnedItems, sharedItems } from '$lib/plan-owned'
   import type {
     CompoundingFrequency,
     Frequency,
@@ -50,7 +51,9 @@
   }
 
   const editor = createListEditor<ProfileLiability, LiabilityUI>({
-    load: () => appStore.profile.liabilities,
+    // Financial data holds the shared items only. Those created in a plan
+    // carry its id, stay hidden here and are carried through every save.
+    load: () => sharedItems(appStore.profile.liabilities),
     toUI: (l) => ({
       id: l.id,
       name: l.name,
@@ -103,7 +106,10 @@
     // has_liabilities belongs to the Get started checkbox, not to this list:
     // re-deriving it here unchecked the box (and dropped the step from the
     // flow) the moment a seeded card was collapsed without a value.
-    persist: (data) => appStore.updateProfile({ liabilities: data }),
+    persist: (data) =>
+      appStore.updateProfile({
+        liabilities: [...data, ...planOwnedItems(appStore.profile.liabilities)],
+      }),
   })
   onDestroy(editor.flushSave)
 

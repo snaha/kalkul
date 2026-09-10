@@ -1,6 +1,7 @@
 import Decimal from 'decimal.js'
 
 import { DECIMAL_0, DECIMAL_1 } from '$lib/@snaha/kalkul-maths'
+import { type PlanOwned, itemsForPlan } from '$lib/plan-owned'
 import type {
   CashFlowEnd,
   CashFlowStart,
@@ -752,18 +753,6 @@ function accumulateCashFlows<T extends CashFlowTemporal & { id: string; frequenc
   return { total, activeIds }
 }
 
-/**
- * The transfers a plan can see: the profile's shared ones (no owner) plus
- * those created in this plan. Another plan's transfers never take part.
- */
-export function transfersForPlan(
-  transfers: Transfer[] | undefined,
-  /** Undefined (route still resolving) lists the shared transfers only. */
-  planId: string | undefined,
-): Transfer[] {
-  return (transfers ?? []).filter((t) => t.plan_id === undefined || t.plan_id === planId)
-}
-
 export function filterById<T extends { id: string }>(
   items: T[] | undefined,
   includedIds: string[] | undefined,
@@ -839,6 +828,8 @@ export function applyEntryFee(investment: ProfileInvestment | undefined, amount:
 }
 
 export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): YearlyProjection[] {
+  // Shared profile items plus this plan's own; another plan's never take part.
+  const visible = <T extends PlanOwned>(items: T[] | undefined): T[] => itemsForPlan(items, plan.id)
   const startYear = yearOf(plan.start_date)
   const endYear = yearOf(plan.end_date)
 
@@ -847,16 +838,19 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   const birthYear = profile.birth_date ? yearOf(profile.birth_date) : undefined
 
   const investments: ProfileInvestment[] = filterById(
-    profile.investments,
+    visible(profile.investments),
     plan.included_investment_ids,
   )
   const liabilities: ProfileLiability[] = filterById(
-    profile.liabilities,
+    visible(profile.liabilities),
     plan.included_liability_ids,
   )
-  const tangibleAssets = filterById(profile.tangible_assets, plan.included_tangible_asset_ids)
-  const incomes: Income[] = filterById(profile.incomes, plan.included_income_ids)
-  const expenses: Expense[] = filterById(profile.expenses, plan.included_expense_ids)
+  const tangibleAssets = filterById(
+    visible(profile.tangible_assets),
+    plan.included_tangible_asset_ids,
+  )
+  const incomes: Income[] = filterById(visible(profile.incomes), plan.included_income_ids)
+  const expenses: Expense[] = filterById(visible(profile.expenses), plan.included_expense_ids)
 
   // One map for both kinds: investments and tangible assets share the planned
   // buy/sell machinery, so the transfer loop guards them with the same check.
@@ -984,7 +978,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   ]
   const planTransfers = [
     ...timingTransfers.map((t) => t.start).filter((t): t is Transfer => t !== undefined),
-    ...filterById(transfersForPlan(profile.transfers, plan.id), plan.included_transfer_ids).filter(
+    ...filterById(visible(profile.transfers), plan.included_transfer_ids).filter(
       (t) => knownAssetIds.has(t.from_asset_id) && knownAssetIds.has(t.to_asset_id),
     ),
     ...timingTransfers.map((t) => t.exit).filter((t): t is Transfer => t !== undefined),

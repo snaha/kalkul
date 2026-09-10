@@ -575,3 +575,88 @@ describe('hasAnyFinancialData', () => {
     expect(hasAnyFinancialData(profile)).toBe(true)
   })
 })
+
+describe('plan-owned items', () => {
+  const owned = { plan_id: 'plan-1' }
+  const withOwned: Profile = {
+    ...POPULATED_PROFILE,
+    investments: [
+      ...POPULATED_PROFILE.investments!,
+      { id: 'x', name: 'x', balance: 999, apy: 0, ...owned },
+    ],
+    tangible_assets: [
+      ...POPULATED_PROFILE.tangible_assets!,
+      {
+        id: 'x',
+        name: 'x',
+        value: 999,
+        status: 'financed',
+        outstanding_balance: 999,
+        installment_frequency: 'monthly',
+        annual_rate: 1,
+        installment_amount: 99,
+        remaining_term: 10,
+        ...owned,
+      },
+    ],
+    liabilities: [
+      ...(POPULATED_PROFILE.liabilities ?? []),
+      {
+        id: 'x',
+        name: 'x',
+        outstanding_balance: 999,
+        installment_frequency: 'monthly',
+        annual_rate: 1,
+        installment_amount: 99,
+        remaining_term: 10,
+        ...owned,
+      },
+    ],
+    incomes: [
+      ...(POPULATED_PROFILE.incomes ?? []),
+      {
+        id: 'x',
+        name: 'x',
+        amount: 999,
+        frequency: 'monthly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+        ...owned,
+      },
+    ],
+    expenses: [
+      ...(POPULATED_PROFILE.expenses ?? []),
+      {
+        id: 'x',
+        name: 'x',
+        amount: 999,
+        frequency: 'monthly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+        ...owned,
+      },
+    ],
+  }
+
+  test('are not current data, so every total ignores them', () => {
+    expect(getInvestmentsTotal(withOwned)).toBe(getInvestmentsTotal(POPULATED_PROFILE))
+    expect(getTangibleAssetsTotal(withOwned)).toBe(getTangibleAssetsTotal(POPULATED_PROFILE))
+    expect(getLiabilitiesTotal(withOwned)).toBe(getLiabilitiesTotal(POPULATED_PROFILE))
+    expect(getAnnualIncomeTotal(withOwned)).toBe(getAnnualIncomeTotal(POPULATED_PROFILE))
+    expect(getAnnualExpensesTotal(withOwned)).toBe(getAnnualExpensesTotal(POPULATED_PROFILE))
+    expect(getAnnualDebtServiceTotal(withOwned)).toBe(getAnnualDebtServiceTotal(POPULATED_PROFILE))
+    expect(getNetWorth(withOwned)).toBe(getNetWorth(POPULATED_PROFILE))
+    expect(getOverviewSegments(withOwned)).toEqual(getOverviewSegments(POPULATED_PROFILE))
+  })
+
+  test('alone do not count as financial data', () => {
+    expect(
+      hasAnyFinancialData({
+        ...EMPTY_PROFILE,
+        investments: [{ id: 'x', name: 'x', balance: 999, apy: 0, ...owned }],
+      }),
+    ).toBe(false)
+  })
+})

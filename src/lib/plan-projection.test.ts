@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { getYearlyPlanProjection, summarizeTransfer, transfersForPlan } from './plan-projection'
+import { getYearlyPlanProjection, summarizeTransfer } from './plan-projection'
 import type {
   Expense,
   Income,
@@ -3083,32 +3083,17 @@ describe('capital gains tax on withdrawals', () => {
   })
 })
 
-describe('transfersForPlan', () => {
-  const shared: Transfer = {
-    id: 'shared',
-    name: 'Savings',
-    from_asset_id: 'cash',
-    to_asset_id: 'inv1',
+describe('plan ownership', () => {
+  const other = { plan_id: 'plan-2' }
+  const flow: Income = {
+    id: 'f',
+    name: 'Flow',
     amount: 100,
-    schedule: 'recurring',
     frequency: 'monthly',
     start: 'immediately',
     end: 'never',
     change_over_time: 'none',
   }
-  const own: Transfer = { ...shared, id: 'own', plan_id: 'plan-1' }
-  const other: Transfer = { ...shared, id: 'other', plan_id: 'plan-2' }
-
-  it("lists the profile transfers and the plan's own, not another plan's", () => {
-    expect(transfersForPlan([shared, own, other], 'plan-1').map((t) => t.id)).toEqual([
-      'shared',
-      'own',
-    ])
-  })
-
-  it('treats a missing list as empty', () => {
-    expect(transfersForPlan(undefined, 'plan-1')).toEqual([])
-  })
 
   it("keeps another plan's transfer out of the projection even without a whitelist", () => {
     const investments: ProfileInvestment[] = [{ id: 'inv1', name: 'Stocks', balance: 0, apy: 0 }]
@@ -3119,16 +3104,73 @@ describe('transfersForPlan', () => {
         investments,
         transfers: [
           {
-            ...other,
+            id: 'other',
+            name: 'Buy',
+            from_asset_id: 'cash',
+            to_asset_id: 'inv1',
             schedule: 'one_time',
             transaction_year: 2026,
             transaction_month: 1,
             amount: 1000,
+            ...other,
           },
         ],
       }),
     )
     expect(result[2].cash).toBeCloseTo(5000, 6)
     expect(result[2].investments).toBeCloseTo(0, 6)
+  })
+
+  it("keeps another plan's income and expense out", () => {
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({
+        cash_amount: 1000,
+        incomes: [{ ...flow, id: 'i', ...other }],
+        expenses: [{ ...flow, id: 'e', amount: 50, ...other }],
+      }),
+    )
+    expect(result[0].totalIncome).toBe(0)
+    expect(result[0].totalExpenses).toBe(0)
+    expect(result[0].cash).toBe(1000)
+  })
+
+  it("keeps another plan's investment, tangible asset and liability out", () => {
+    const result = getYearlyPlanProjection(
+      makePlan({ include_cash: false }),
+      makeProfile({
+        investments: [{ id: 'v', name: 'ETF', balance: 100, apy: 0, ...other }],
+        tangible_assets: [{ id: 'a', name: 'Flat', value: 100, status: 'fully_owned', ...other }],
+        liabilities: [
+          {
+            id: 'l',
+            name: 'Loan',
+            outstanding_balance: 100,
+            installment_frequency: 'monthly',
+            annual_rate: 0,
+            installment_amount: 1,
+            remaining_term: 10,
+            ...other,
+          },
+        ],
+      }),
+    )
+    expect(result[0].investments).toBe(0)
+    expect(result[0].tangibleAssets).toBe(0)
+    expect(result[0].liabilities).toBe(0)
+  })
+
+  it("counts the plan's own items", () => {
+    const own = { plan_id: 'plan-1' }
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({
+        cash_amount: 1000,
+        incomes: [{ ...flow, id: 'i', ...own }],
+        investments: [{ id: 'v', name: 'ETF', balance: 100, apy: 0, ...own }],
+      }),
+    )
+    expect(result[0].totalIncome).toBe(1200)
+    expect(result[0].investments).toBe(100)
   })
 })

@@ -5,9 +5,10 @@
   import DonutChart from '$lib/components/donut-chart.svelte'
   import InvestmentsEditor from '$lib/components/investments-editor.svelte'
   import { getInvestmentsTotal } from '$lib/financial-totals'
+  import { sharedItems } from '$lib/plan-owned'
   import { appStore } from '$lib/stores/app.svelte'
 
-  const investments = $derived(appStore.profile.investments ?? [])
+  const investments = $derived(sharedItems(appStore.profile.investments))
   const total = $derived(getInvestmentsTotal(appStore.profile))
 
   const segments = $derived(

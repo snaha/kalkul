@@ -73,7 +73,7 @@ export function kalkulTools(app: App = appStore): KalkulTool[] {
     },
     tool(
       'update_profile',
-      'Merge the given fields into the profile. Array fields (e.g. transfers) replace the whole list, so fetch, edit and write back the full array; keep plan_id on plan-owned transfers.',
+      'Merge the given fields into the profile. Array fields (investments, tangible_assets, liabilities, incomes, expenses, transfers) replace the whole list, so fetch, edit and write back the full array. An item with plan_id belongs to that plan only and stays out of financial data; keep plan_id on such items, and set it when adding an item that should exist in one plan only.',
       profileSchema.partial(),
       WRITE,
       (args) => {
