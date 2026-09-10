@@ -81,10 +81,8 @@
       {
         "id": "inc-1",
         "name": "Salary (marketing manager)",
-        "amount": 4600,
+        "amount": 3358,
         "frequency": "monthly",
-        "withhold_taxes": true,
-        "tax_percentage": 27,
         "start": "immediately",
         "end": "never",
         "change_over_time": "match_inflation"
@@ -92,10 +90,8 @@
       {
         "id": "inc-2",
         "name": "Rental income (Villeurbanne)",
-        "amount": 850,
+        "amount": 595,
         "frequency": "monthly",
-        "withhold_taxes": true,
-        "tax_percentage": 30,
         "start": "immediately",
         "end": "never",
         "change_over_time": "match_inflation"

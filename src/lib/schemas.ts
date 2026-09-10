@@ -606,8 +606,10 @@ export const profileSchema = z.object({
   tangible_asset_tax_rules: z.array(taxRuleSchema).optional(),
   // Normalized on the way in, so every entry point — a fresh load, a restored
   // backup, cross-tab sync, a store write — hands the rest of the app a sorted,
-  // one-per-date list.
-  snapshots: z.array(snapshotSchema).transform(normalizeSnapshots).optional(),
+  // one-per-date list. `.overwrite` rather than `.transform`: it does not change
+  // the inferred type, so `profileSchema` still converts to JSON Schema for the
+  // MCP tools, which a transform makes impossible.
+  snapshots: z.array(snapshotSchema).overwrite(normalizeSnapshots).optional(),
 })
 
 export const portfolioSchema = z.object({

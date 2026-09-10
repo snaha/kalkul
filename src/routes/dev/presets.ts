@@ -344,7 +344,7 @@ const UNDERWATER: Profile = {
     {
       id: 'inc-1',
       name: 'Salary',
-      amount: 2_400,
+      amount: 1_920,
       frequency: 'monthly',
       start: 'immediately',
       end: 'never',
