@@ -1,0 +1,1 @@
+import{wt as e}from"./B2EqAuaq.js";e();
