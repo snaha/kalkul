@@ -15,7 +15,7 @@
   import { getFiPercent, getRunwayYears, hasAnyFinancialData } from '$lib/financial-totals'
   import { buildHistorySeries } from '$lib/history-series'
   import routes from '$lib/routes'
-  import { latestSnapshot } from '$lib/snapshots'
+  import { heldProfile, latestSnapshot } from '$lib/snapshots'
   import { appStore } from '$lib/stores/app.svelte'
   import { notImplemented, toDateOnlyString } from '$lib/utils'
 
@@ -77,6 +77,11 @@
   // The stored balances are as of the last snapshot; everything on this page
   // shows them carried forward to today.
   const currentProfile = $derived(getCurrentProfile(storedProfile, today))
+  // What the user actually holds today, for the figures that report the
+  // present. A position bought in a future year, or sold in a past one, is not
+  // part of it — the projections panel keeps the unfiltered profile, since a
+  // planned purchase is what it draws.
+  const heldNow = $derived(heldProfile(currentProfile, today))
 
   const lastSnapshotDate = $derived(latestSnapshot(storedProfile.snapshots)?.date)
   // Only stale once the balances predate today — a snapshot taken today needs
@@ -85,8 +90,8 @@
     lastSnapshotDate && lastSnapshotDate < todayDate ? lastSnapshotDate : undefined,
   )
 
-  const fiPercent = $derived(getFiPercent(currentProfile))
-  const runwayYears = $derived(getRunwayYears(currentProfile))
+  const fiPercent = $derived(getFiPercent(heldNow))
+  const runwayYears = $derived(getRunwayYears(heldNow))
   // The stored profile, not the projected one: the series carries the balances
   // forward itself, sampling the tail so compounding reads as a curve.
   const historyPoints = $derived(buildHistorySeries(storedProfile, today))
@@ -123,7 +128,7 @@
             {/if}
 
             <div class="flex items-stretch gap-2">
-              <NetWorthCard profile={currentProfile} projectedFrom={staleSince} />
+              <NetWorthCard profile={heldNow} projectedFrom={staleSince} />
 
               <div class="flex min-w-0 flex-1 flex-col justify-center gap-2">
                 <SavingsRateCard profile={currentProfile} />
@@ -208,7 +213,7 @@
     <QuickUpdateDialog
       bind:open={quickUpdateOpen}
       {storedProfile}
-      projectedProfile={currentProfile}
+      projectedProfile={heldNow}
       lastUpdated={staleSince}
     />
   {/if}

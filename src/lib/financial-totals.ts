@@ -4,7 +4,7 @@ import { DECIMAL_0 } from '$lib/@snaha/kalkul-maths'
 import { CATEGORY_COLORS } from '$lib/chart-colors'
 import { annualizedAmount } from '$lib/plan-projection'
 import type { Frequency, Profile } from '$lib/schemas'
-import { hasAnyBalance, snapshotBalances, snapshotNetWorth } from '$lib/snapshots'
+import { hasAnyBalance, heldBalances, snapshotBalances, snapshotNetWorth } from '$lib/snapshots'
 
 export type CategoryLabel = 'cash' | 'investments' | 'tangible-assets' | 'liabilities'
 
@@ -45,12 +45,18 @@ export function getTotalAssets(profile: Profile): number {
 }
 
 /**
- * Assets less every debt. Delegated to `snapshotNetWorth` so the live profile
- * and a recorded snapshot are summed by one definition — the History chart
- * plots snapshots next to this figure and the two must agree.
+ * Assets less every debt, as they stand on `asOf`. Delegated to
+ * `snapshotNetWorth` over `heldBalances` so the live profile and a recorded
+ * snapshot are summed by one definition, over the same set of holdings — the
+ * History chart plots snapshots next to this figure and the two must agree.
+ *
+ * `asOf` decides which planned holdings count: one bought in a future year, or
+ * sold in a past one, is not part of net worth today. It defaults to now,
+ * which is what every caller outside the dashboard means; the dashboard passes
+ * its own `today` so every figure on the page shares one clock.
  */
-export function getNetWorth(profile: Profile): number {
-  return snapshotNetWorth(snapshotBalances(profile))
+export function getNetWorth(profile: Profile, asOf: Date = new Date()): number {
+  return snapshotNetWorth(heldBalances(profile, asOf))
 }
 
 export function getOverviewSegments(profile: Profile): OverviewSegment[] {

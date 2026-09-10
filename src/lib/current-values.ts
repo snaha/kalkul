@@ -10,17 +10,14 @@ import {
   effectiveInvestmentApy,
   financingToLiability,
   installmentPeriodRate,
-  investmentToTemporal,
+  isActiveOn,
+  isHeldOn,
+  isOwnedOn,
   remainingInstallmentPeriods,
   yearOf,
 } from '$lib/plan-projection'
-import type {
-  CashFlowEnd,
-  CashFlowStart,
-  Profile,
-  ProfileLiability,
-  RemainingTermUnit,
-} from '$lib/schemas'
+import type { TimingWindow } from '$lib/plan-projection'
+import type { Profile, ProfileLiability, RemainingTermUnit } from '$lib/schemas'
 import { latestSnapshot } from '$lib/snapshots'
 import { toDateOnlyString } from '$lib/utils'
 
@@ -31,56 +28,6 @@ const DAYS_PER_YEAR = 365.25
  * otherwise be shown verbatim in the Quick update inputs.
  */
 const MONEY_DECIMALS = 2
-
-/** Comparable index for a calendar month, so window edges sort as plain numbers. */
-function monthIndex(year: number, month: number): number {
-  return year * 12 + month
-}
-
-/** The start/end fields incomes and expenses have in common. */
-interface CashFlowWindow {
-  start: CashFlowStart
-  start_year?: number
-  start_month?: number
-  start_age?: number
-  end: CashFlowEnd
-  end_year?: number
-  end_month?: number
-  end_age?: number
-}
-
-/**
- * Whether a cash flow is running on `asOf`, resolving the same fields the same
- * way `plan-projection.ts` does: 'at_specific_date' is precise to the month,
- * 'when_age_is' covers the whole calendar year the user reaches that age, and
- * 'immediately'/'now' are always running. An edge with incomplete data (a mode
- * whose field was never filled in, or an age window on a profile with no birth
- * date) is treated as unbounded, mirroring the projection's fallback to the
- * plan's first year / no end.
- */
-function isActiveOn(flow: CashFlowWindow, asOf: Date, birthYear: number | undefined): boolean {
-  const now = monthIndex(asOf.getFullYear(), asOf.getMonth() + 1)
-
-  let startsAt = Number.NEGATIVE_INFINITY
-  if (flow.start === 'at_specific_date' && flow.start_year !== undefined) {
-    startsAt = monthIndex(flow.start_year, flow.start_month ?? 1)
-  } else if (
-    flow.start === 'when_age_is' &&
-    birthYear !== undefined &&
-    flow.start_age !== undefined
-  ) {
-    startsAt = monthIndex(birthYear + flow.start_age, 1)
-  }
-  if (now < startsAt) return false
-
-  let endsAt = Number.POSITIVE_INFINITY
-  if (flow.end === 'at_specific_date' && flow.end_year !== undefined) {
-    endsAt = monthIndex(flow.end_year, flow.end_month ?? 12)
-  } else if (flow.end === 'when_age_is' && birthYear !== undefined && flow.end_age !== undefined) {
-    endsAt = monthIndex(birthYear + flow.end_age, 12)
-  }
-  return now <= endsAt
-}
 
 /**
  * One recurring transfer as a pair of yearly rates: what leaves the source and
@@ -112,7 +59,7 @@ interface AnnualFlows {
  * ended last spring must not keep draining it.
  */
 function netAnnualCashFlowOn(profile: Profile, asOf: Date, birthYear: number | undefined): Decimal {
-  const active = <T extends CashFlowWindow>(items: T[] | undefined): T[] =>
+  const active = <T extends TimingWindow>(items: T[] | undefined): T[] =>
     (items ?? []).filter((item) => isActiveOn(item, asOf, birthYear))
 
   const income = active(profile.incomes).reduce<Decimal>(
@@ -123,11 +70,15 @@ function netAnnualCashFlowOn(profile: Profile, asOf: Date, birthYear: number | u
     (sum, e) => sum.plus(annualizedAmount(new Decimal(e.amount), e.frequency)),
     DECIMAL_0,
   )
-  // Loans carry no start/end window of their own — one is serviced for as long
-  // as it still has a balance to pay off.
+  // Standalone loans carry no start/end window of their own — one is serviced
+  // for as long as it still has a balance to pay off. A property's financing
+  // does have one: nobody pays installments on a purchase that has not
+  // happened, or on a mortgage settled by a sale that already has.
   const debtService = [
     ...(profile.liabilities ?? []),
-    ...(profile.tangible_assets ?? []).filter((a) => a.status === 'financed'),
+    ...(profile.tangible_assets ?? []).filter(
+      (a) => a.status === 'financed' && isOwnedOn(a, asOf, birthYear),
+    ),
   ].reduce<Decimal>(
     (sum, loan) =>
       (loan.outstanding_balance ?? 0) > 0
@@ -187,7 +138,7 @@ function annualFlowsOn(profile: Profile, asOf: Date): AnnualFlows {
   const isEndpointActive = (id: string): boolean => {
     if (id === CASH_ENDPOINT) return true
     const investment = investmentsById.get(id)
-    return investment !== undefined && isActiveOn(investmentToTemporal(investment), asOf, birthYear)
+    return investment !== undefined && isHeldOn(investment, asOf, birthYear)
   }
 
   for (const transfer of profile.transfers ?? []) {
@@ -416,18 +367,29 @@ export function getCurrentProfile(profile: Profile, today: Date): Profile {
   // none of it. Integrating piecewise over every window edge would buy little
   // for a figure the user sees and re-confirms in Quick update.
   const flows = annualFlowsOn(profile, today)
+  const birthYear = profile.birth_date ? yearOf(profile.birth_date) : undefined
 
   // Every balance after its own movement and before the transfers: cash after
   // the flows running on it, each investment after its growth. Growth first,
   // then the transfers over it — the order the projection's year loop uses, so
   // a contribution does not compound in the same window it arrives in.
+  //
+  // A position the profile does not hold on the date is left exactly as
+  // stored. Its balance is a statement about a different year — what the plan
+  // will buy out of cash, or what a past exit already liquidated — so it is
+  // earning nothing today, and the transfers pointing at it are skipped for
+  // the same reason. It stays in the list at that figure rather than being
+  // dropped or zeroed: the projections beside it need the planned amount, and
+  // Quick update must never be able to confirm it away.
   const before = new Map<string, Decimal>([
     [CASH_ENDPOINT, new Decimal(profile.cash_amount ?? 0).plus(flows.cash.mul(yearFraction))],
     ...(profile.investments ?? []).map((investment): [string, Decimal] => [
       investment.id,
-      new Decimal(investment.balance).mul(
-        effectiveInvestmentApy(investment).div(100).plus(1).pow(yearFraction),
-      ),
+      isHeldOn(investment, today, birthYear)
+        ? new Decimal(investment.balance).mul(
+            effectiveInvestmentApy(investment).div(100).plus(1).pow(yearFraction),
+          )
+        : new Decimal(investment.balance),
     ]),
   ])
   const after = settleTransfers(before, flows.transfers, yearFraction)
@@ -451,6 +413,10 @@ export function getCurrentProfile(profile: Profile, today: Date): Profile {
       ...amortizeLoan(liability, yearFraction),
     })),
     tangible_assets: profile.tangible_assets?.map((asset) => {
+      // A property not owned on the date is left alone for the same reason a
+      // position not held is: its mortgage is not being paid yet, or was
+      // settled by the sale.
+      if (!isOwnedOn(asset, today, birthYear)) return asset
       // Undefined for a fully owned asset, or one whose financing terms are
       // incomplete — nothing to amortize either way.
       const financing = financingToLiability(asset)

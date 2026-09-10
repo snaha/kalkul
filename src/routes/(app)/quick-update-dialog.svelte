@@ -19,7 +19,10 @@
     open: boolean
     /** Stored balances, as of the last snapshot — the "last updated" column. */
     storedProfile: Profile
-    /** The same balances projected to today — what the inputs start from. */
+    /**
+     * The balances the user holds today, projected — what the inputs start
+     * from, and the rows the dialog asks about.
+     */
     projectedProfile: Profile
     /** Date the stored balances were confirmed (date-only ISO string). */
     lastUpdated: string
@@ -79,7 +82,9 @@
     // not ask about (loans, asset values) forward on its own clock.
     appStore.confirmBalances(
       buildConfirmUpdates(
-        projectedProfile,
+        // The stored list, so a holding with no row here — one bought in a
+        // future year — survives the submission untouched.
+        storedProfile,
         cashRow ? valueOf(cashRow) : (projectedProfile.cash_amount ?? 0),
         new Map(rows.filter((row) => row.id !== 'cash').map((row) => [row.id, valueOf(row)])),
       ),

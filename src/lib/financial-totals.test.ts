@@ -193,6 +193,73 @@ describe('getNetWorth', () => {
     expect(getNetWorth(profile)).toBe(-4_000)
   })
 
+  // A planned holding is money the profile does not have yet (or no longer
+  // has): the schema says a future start buys the balance out of cash that
+  // year. Counting it today both overstates net worth and disagrees with the
+  // Current projection card beside it, which holds it at zero until then.
+  const AS_OF = new Date(2026, 5, 15)
+
+  test('leaves out a position that has not been bought yet', () => {
+    const profile: Profile = {
+      ...EMPTY_PROFILE,
+      cash_amount: 10_000,
+      investments: [
+        { id: 'i1', name: 'ETF', balance: 5_000, apy: 5 },
+        {
+          id: 'i2',
+          name: 'Future ETF',
+          balance: 100_000,
+          apy: 5,
+          start: 'at_specific_date',
+          start_year: 2035,
+        },
+      ],
+    }
+    expect(getNetWorth(profile, AS_OF)).toBe(15_000)
+  })
+
+  test('leaves out a position that has already been sold', () => {
+    const profile: Profile = {
+      ...EMPTY_PROFILE,
+      cash_amount: 10_000,
+      investments: [
+        {
+          id: 'i1',
+          name: 'Sold fund',
+          balance: 5_000,
+          apy: 5,
+          exit: 'at_specific_date',
+          exit_year: 2025,
+        },
+      ],
+    }
+    expect(getNetWorth(profile, AS_OF)).toBe(10_000)
+  })
+
+  test('leaves out a property not bought yet along with its financing', () => {
+    // Dropping the value but keeping the debt would read as a 200,000 hole.
+    const profile: Profile = {
+      ...EMPTY_PROFILE,
+      cash_amount: 10_000,
+      tangible_assets: [
+        {
+          id: 'a1',
+          name: 'Future flat',
+          value: 300_000,
+          status: 'financed',
+          outstanding_balance: 200_000,
+          installment_frequency: 'monthly',
+          annual_rate: 3,
+          installment_amount: 1_000,
+          remaining_term: 25,
+          purchase: 'at_specific_date',
+          purchase_year: 2035,
+        },
+      ],
+    }
+    expect(getNetWorth(profile, AS_OF)).toBe(10_000)
+  })
+
   // The History chart plots recorded snapshots with `snapshotNetWorth` while
   // the dashboard's headline figure comes from here. Two independent
   // definitions could drift apart silently, so there is only one — this pins

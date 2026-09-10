@@ -1,5 +1,6 @@
+import { isHeldOn, isOwnedOn, yearOf } from '$lib/plan-projection'
 import { type Profile, type Snapshot, normalizeSnapshots } from '$lib/schemas'
-import { toDateOnlyString } from '$lib/utils'
+import { parseDateOnly, toDateOnlyString } from '$lib/utils'
 
 /**
  * The balances a snapshot records, without the date it was recorded on. Net
@@ -8,7 +9,14 @@ import { toDateOnlyString } from '$lib/utils'
  */
 export type SnapshotBalances = Omit<Snapshot, 'date'>
 
-/** Every balance that makes up net worth, as it stands on `profile`. */
+/**
+ * Every balance the profile records, whether or not it is held right now.
+ *
+ * Answers "has this profile any financial data at all?" — a purchase planned
+ * for 2035 is data the user entered and has to keep the dashboard open, even
+ * though it is not part of today's net worth. `heldBalances` is the one to
+ * count with.
+ */
 export function snapshotBalances(profile: Profile): SnapshotBalances {
   return {
     cash_amount: profile.cash_amount ?? 0,
@@ -27,9 +35,48 @@ export function snapshotBalances(profile: Profile): SnapshotBalances {
   }
 }
 
+/**
+ * The balances that make up net worth on `asOf` — what the profile actually
+ * holds that day.
+ *
+ * Planned timing makes a balance a statement about a different date: a start
+ * in the future is the amount the plan will buy out of cash that year, and an
+ * exit in the past put it back into cash. Counting either today overstates net
+ * worth, and puts the headline figure at odds with the Current projection card
+ * beside it, which holds such a position at zero until its year arrives.
+ *
+ * A property that has not been bought drops its financing along with its
+ * value: keeping the debt without the asset would read as a hole the size of
+ * the mortgage. Standalone liabilities carry no timing of their own and always
+ * count.
+ */
+export function heldBalances(profile: Profile, asOf: Date): SnapshotBalances {
+  return snapshotBalances(heldProfile(profile, asOf))
+}
+
+/**
+ * The profile with only what it holds on `asOf` — the same rule `heldBalances`
+ * counts by, kept in one place so a total taken from the filtered profile and
+ * one taken from the balances can never disagree.
+ *
+ * Handed to anything that reports what the user has right now: the net-worth
+ * card totals its own breakdown, so filtering at that boundary keeps the pie,
+ * the rows and the headline figure adding up. Anything that models the
+ * *future* — the projections panel above all — needs the unfiltered profile,
+ * because a planned purchase is exactly what it is there to draw.
+ */
+export function heldProfile(profile: Profile, asOf: Date): Profile {
+  const birthYear = profile.birth_date ? yearOf(profile.birth_date) : undefined
+  return {
+    ...profile,
+    investments: (profile.investments ?? []).filter((i) => isHeldOn(i, asOf, birthYear)),
+    tangible_assets: (profile.tangible_assets ?? []).filter((a) => isOwnedOn(a, asOf, birthYear)),
+  }
+}
+
 /** Point-in-time record of every balance that makes up net worth. */
 export function captureSnapshot(profile: Profile, date: string): Snapshot {
-  return { date, ...snapshotBalances(profile) }
+  return { date, ...heldBalances(profile, parseDateOnly(date)) }
 }
 
 /**
@@ -137,7 +184,7 @@ export function hasSameBalances(
  */
 export function withSeededSnapshot(profile: Profile, asOf: Date): Profile {
   if ((profile.snapshots ?? []).length > 0) return profile
-  const balances = snapshotBalances(profile)
+  const balances = heldBalances(profile, asOf)
   if (!hasAnyBalance(balances)) return profile
   return { ...profile, snapshots: [{ date: toDateOnlyString(asOf), ...balances }] }
 }

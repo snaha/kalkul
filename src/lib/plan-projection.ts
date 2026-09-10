@@ -17,7 +17,13 @@ import type {
 } from '$lib/schemas'
 
 // Common temporal shape shared by Income, Expense, and recurring Transfer.
-interface CashFlowTemporal {
+/**
+ * The start/end edges that window a cash flow, a held investment or an owned
+ * asset. Split out from `CashFlowTemporal` because resolving *when* something
+ * runs needs only these — a recurring transfer's edges are read this way
+ * without inventing the growth fields it has no use for.
+ */
+export interface TimingWindow {
   start: CashFlowStart
   start_year?: number
   start_month?: number
@@ -26,6 +32,9 @@ interface CashFlowTemporal {
   end_year?: number
   end_month?: number
   end_age?: number
+}
+
+interface CashFlowTemporal extends TimingWindow {
   // Independent toggle that compounds with change_over_time. Legacy data may
   // instead use change_over_time === 'match_inflation' to mean the same thing.
   inflation_adjusted?: boolean
@@ -413,6 +422,74 @@ function tangibleToTemporal(asset: ProfileTangibleAsset): CashFlowTemporal {
     end_age: asset.sale_age,
     change_over_time: 'none',
   }
+}
+
+/** Comparable index for a calendar month, so window edges sort as plain numbers. */
+function monthIndex(year: number, month: number): number {
+  return year * 12 + month
+}
+
+/**
+ * Whether a cash flow, a held investment or an owned asset is running on
+ * `asOf`. Month-precise, unlike `resolveStartYear`/`resolveEndYear`, which the
+ * yearly engine resolves to whole years: 'at_specific_date' is precise to the
+ * month, 'when_age_is' covers the whole calendar year the user reaches that
+ * age, and 'immediately'/'now' are always running. An edge with incomplete data
+ * (a mode whose field was never filled in, or an age window on a profile with
+ * no birth date) is treated as unbounded, mirroring the projection's fallback
+ * to the plan's first year / no end.
+ *
+ * Exported so the carry-forward in `current-values.ts` and the balances behind
+ * net worth in `snapshots.ts` resolve a window exactly one way.
+ */
+export function isActiveOn(flow: TimingWindow, asOf: Date, birthYear: number | undefined): boolean {
+  const now = monthIndex(asOf.getFullYear(), asOf.getMonth() + 1)
+
+  let startsAt = Number.NEGATIVE_INFINITY
+  if (flow.start === 'at_specific_date' && flow.start_year !== undefined) {
+    startsAt = monthIndex(flow.start_year, flow.start_month ?? 1)
+  } else if (
+    flow.start === 'when_age_is' &&
+    birthYear !== undefined &&
+    flow.start_age !== undefined
+  ) {
+    startsAt = monthIndex(birthYear + flow.start_age, 1)
+  }
+  if (now < startsAt) return false
+
+  let endsAt = Number.POSITIVE_INFINITY
+  if (flow.end === 'at_specific_date' && flow.end_year !== undefined) {
+    endsAt = monthIndex(flow.end_year, flow.end_month ?? 12)
+  } else if (flow.end === 'when_age_is' && birthYear !== undefined && flow.end_age !== undefined) {
+    endsAt = monthIndex(birthYear + flow.end_age, 12)
+  }
+  return now <= endsAt
+}
+
+/**
+ * Whether the profile actually holds this investment on `asOf`.
+ *
+ * Planned timing makes the balance a statement about a different date: a start
+ * in the future is the amount the plan buys out of cash that year, and an exit
+ * in the past liquidated it back into cash. `heldAtPlanStart` is the yearly
+ * engine's form of the same question — it seeds such an investment at zero
+ * rather than counting it.
+ */
+export function isHeldOn(
+  investment: ProfileInvestment,
+  asOf: Date,
+  birthYear: number | undefined,
+): boolean {
+  return isActiveOn(investmentToTemporal(investment), asOf, birthYear)
+}
+
+/** `isHeldOn` for a tangible asset, whose timing fields are purchase/sale. */
+export function isOwnedOn(
+  asset: ProfileTangibleAsset,
+  asOf: Date,
+  birthYear: number | undefined,
+): boolean {
+  return isActiveOn(tangibleToTemporal(asset), asOf, birthYear)
 }
 
 interface PlannedWindow {

@@ -479,7 +479,8 @@ describe('getCurrentProfile with transfers', () => {
     }
     const current = getCurrentProfile(profile, TODAY)
     expect(current.cash_amount).toBe(25_763.04)
-    expect(current.investments?.[0].balance).toBe(104_863.78)
+    // And it is not compounding either — see the holding-window tests below.
+    expect(current.investments?.[0].balance).toBe(100_000)
   })
 
   test('ignores a transfer out of an investment already sold', () => {
@@ -493,7 +494,60 @@ describe('getCurrentProfile with transfers', () => {
     }
     const current = getCurrentProfile(profile, TODAY)
     expect(current.cash_amount).toBe(25_763.04)
-    expect(current.investments?.[0].balance).toBe(104_863.78)
+    expect(current.investments?.[0].balance).toBe(100_000)
+  })
+})
+
+describe('getCurrentProfile and the holding window', () => {
+  test('does not compound a position the user has not bought yet', () => {
+    // A future start means the balance is bought out of cash that year: it is
+    // the amount the plan will put in, not money in the market earning a
+    // return today.
+    const profile: Profile = {
+      ...PROFILE,
+      investments: [
+        { ...PROFILE.investments![0], start: 'at_specific_date', start_year: 2035 },
+        PROFILE.investments![1],
+      ],
+    }
+    expect(getCurrentProfile(profile, TODAY).investments?.[0].balance).toBe(100_000)
+  })
+
+  test('does not compound a position that has already been sold', () => {
+    const profile: Profile = {
+      ...PROFILE,
+      investments: [
+        { ...PROFILE.investments![0], exit: 'at_specific_date', exit_year: 2025 },
+        PROFILE.investments![1],
+      ],
+    }
+    expect(getCurrentProfile(profile, TODAY).investments?.[0].balance).toBe(100_000)
+  })
+
+  test('does not amortize the financing of a property not bought yet', () => {
+    // Nobody is paying installments on a purchase that has not happened, and
+    // the cash side does not charge them either.
+    const profile: Profile = {
+      ...PROFILE,
+      tangible_assets: [
+        {
+          id: 't1',
+          name: 'Future flat',
+          value: 300_000,
+          status: 'financed',
+          outstanding_balance: 200_000,
+          installment_frequency: 'monthly',
+          annual_rate: 3,
+          installment_amount: 1_000,
+          remaining_term: 25,
+          purchase: 'at_specific_date',
+          purchase_year: 2035,
+        },
+      ],
+    }
+    const current = getCurrentProfile(profile, TODAY)
+    expect(current.tangible_assets?.[0].outstanding_balance).toBe(200_000)
+    expect(current.tangible_assets?.[0].remaining_term).toBe(25)
   })
 })
 

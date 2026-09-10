@@ -73,6 +73,29 @@ describe('captureSnapshot', () => {
   })
 })
 
+describe('captureSnapshot and the holding window', () => {
+  test('records nothing for a holding the profile does not have on that date', () => {
+    // History has to plot the same net worth the dashboard shows, so what a
+    // snapshot records and what `getNetWorth` counts have to be the same set.
+    const profile: Profile = {
+      ...PROFILE,
+      investments: [
+        PROFILE.investments![0],
+        { ...PROFILE.investments![1], start: 'at_specific_date', start_year: 2035 },
+      ],
+      tangible_assets: [
+        PROFILE.tangible_assets![0],
+        { ...PROFILE.tangible_assets![1], purchase: 'at_specific_date', purchase_year: 2035 },
+      ],
+    }
+    const snapshot = captureSnapshot(profile, '2026-04-27')
+    expect(snapshot.investments).toEqual([{ id: 'inv1', balance: 100_000 }])
+    expect(snapshot.tangible_assets).toEqual([
+      { id: 't1', value: 20_000, outstanding_balance: undefined },
+    ])
+  })
+})
+
 describe('snapshotNetWorth', () => {
   test('sums assets and subtracts both standalone and financed-asset debt', () => {
     // 15,000 + 178,000 + 190,000 − (6,000 + 80,000)

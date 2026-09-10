@@ -12,15 +12,21 @@ import type { Profile } from '$lib/schemas'
  *
  * The values that are submitted are confirmations: the store persists them
  * verbatim, including one the user typed back to its stored figure.
+ *
+ * Built from the *stored* investments rather than the rows, because the list is
+ * submitted whole and replaces what is there. The dialog asks only about what
+ * the user holds today, so a position bought in a future year has no row —
+ * taking the list from the rows would delete it, and taking a balance from
+ * anywhere but the map would rewrite the amount the plan is going to buy.
  */
 export function buildConfirmUpdates(
-  profile: Profile,
+  stored: Profile,
   cashAmount: number,
   investmentBalances: ReadonlyMap<string, number>,
 ): Partial<Profile> {
   return {
     cash_amount: cashAmount,
-    investments: (profile.investments ?? []).map((investment) => ({
+    investments: (stored.investments ?? []).map((investment) => ({
       ...investment,
       balance: investmentBalances.get(investment.id) ?? investment.balance,
     })),

@@ -236,14 +236,19 @@ function refineTimingEdge(
   age: number | undefined,
 ): void {
   if (mode === 'at_specific_date') {
-    const message =
+    // Resolved only when there is an issue to report. The store parses stored
+    // data at module load, before the app has set a locale, and asking
+    // svelte-i18n for a message there throws — building one up front failed
+    // the load of data that was perfectly valid, dropping the whole profile
+    // back to the empty default.
+    const message = () =>
       edge === 'start'
         ? get(_)('validation.required_when_start_at_specific_date')
         : get(_)('validation.required_when_end_at_specific_date')
     if (year === undefined)
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [`${prefix}_year`], message })
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [`${prefix}_year`], message: message() })
     if (month === undefined)
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [`${prefix}_month`], message })
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [`${prefix}_month`], message: message() })
   }
   if (mode === 'when_age_is' && age === undefined) {
     const message =
