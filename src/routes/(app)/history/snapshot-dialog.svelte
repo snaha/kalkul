@@ -57,9 +57,14 @@
   let reseeded = $state<Snapshot | undefined>(undefined)
 
   const figures = $derived(reseeded ?? source)
+  // Which items the dialog offers a field for depends on the date it is being
+  // recorded for, so a holding the profile does not have then gets no field.
+  // A date the user has cleared falls back to the figures' own date, and to
+  // today for a dialog that has neither.
+  const heldOn = $derived(date || figures.date || today)
   // The stored profile decides which items the dialog offers a field for; the
   // figures supply the values.
-  const sections = $derived(buildSnapshotSections(appStore.profile.toJSON(), figures))
+  const sections = $derived(buildSnapshotSections(appStore.profile.toJSON(), figures, heldOn))
 
   function reset(): void {
     date = openingDate(source.date, takenDates, originalDate)

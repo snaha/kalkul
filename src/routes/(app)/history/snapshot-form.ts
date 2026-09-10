@@ -1,6 +1,6 @@
 import { getCurrentProfile } from '$lib/current-values'
 import { type Frequency, type Profile, type Snapshot, normalizeSnapshots } from '$lib/schemas'
-import { captureSnapshot, profileAtSnapshot } from '$lib/snapshots'
+import { byId, captureSnapshot, heldProfile, profileAtSnapshot } from '$lib/snapshots'
 import { parseDateOnly } from '$lib/utils'
 
 /** The six groups the snapshot dialog is laid out in, in the design's order. */
@@ -57,18 +57,26 @@ function cashFlowAmount(
 }
 
 /**
- * The dialog's fields for editing `source`, one per figure the snapshot can
- * record.
+ * The dialog's fields for editing `source` on `date`, one per figure the
+ * snapshot can record.
  *
  * The *profile* decides which items appear — those are the ones the user can
- * name and reason about — while `source` supplies the figures. An item the
- * snapshot never recorded opens at zero (it did not exist on that date, and the
- * user can say otherwise); an entry recorded for an item the profile has since
- * deleted gets no field, and `snapshotFromFields` carries it through untouched
- * rather than dropping it.
+ * name and reason about — while `source` supplies the figures. Only what the
+ * profile holds on `date` is offered: every field is written back into the
+ * snapshot, and the newest snapshot is overlaid onto the profile, so a field
+ * for a position that only starts in 2030 would let an untouched Confirm zero
+ * it. An item held on the date but never recorded opens at zero (it may have
+ * existed, and the user can say otherwise); an entry recorded for an item the
+ * profile has since deleted gets no field, and `snapshotFromFields` carries it
+ * through untouched rather than dropping it.
  */
-export function buildSnapshotSections(profile: Profile, source: Snapshot): SnapshotSection[] {
-  const tangibleFields = (profile.tangible_assets ?? []).flatMap((asset): SnapshotField[] => {
+export function buildSnapshotSections(
+  profile: Profile,
+  source: Snapshot,
+  date: string,
+): SnapshotSection[] {
+  const held = heldProfile(profile, parseDateOnly(date))
+  const tangibleFields = (held.tangible_assets ?? []).flatMap((asset): SnapshotField[] => {
     const recorded = entryById(source.tangible_assets, asset.id)
     const value: SnapshotField = {
       key: `tangible_assets:${asset.id}`,
@@ -103,7 +111,7 @@ export function buildSnapshotSections(profile: Profile, source: Snapshot): Snaps
     },
     {
       id: 'investments',
-      fields: (profile.investments ?? []).map((investment) => ({
+      fields: (held.investments ?? []).map((investment) => ({
         key: `investments:${investment.id}`,
         itemId: investment.id,
         label: investment.name,
@@ -172,6 +180,13 @@ export function snapshotFromFields(
     sections.find((section) => section.id === id)?.fields ?? []
   const valueOf = (field: SnapshotField) => edits[field.key] ?? field.value
 
+  // The dialog edits no loan terms — the design draws none — but a snapshot
+  // records them alongside the balance, so the recorded term rides through a
+  // save. Dropping it would restart the loan's clock the next time the profile
+  // is re-baselined onto this snapshot.
+  const baseAssets = byId(base.tangible_assets)
+  const baseLiabilities = byId(base.liabilities)
+
   const tangibleFields = fieldsOf('tangible_assets')
   const tangible = tangibleFields
     .filter((field) => field.kind === 'value')
@@ -183,6 +198,7 @@ export function snapshotFromFields(
         id: field.itemId,
         value: valueOf(field),
         outstanding_balance: debt ? valueOf(debt) : undefined,
+        remaining_term: debt ? baseAssets.get(field.itemId)?.remaining_term : undefined,
       }
     })
 
@@ -209,6 +225,7 @@ export function snapshotFromFields(
       fieldsOf('liabilities').map((field) => ({
         id: field.itemId,
         outstanding_balance: valueOf(field),
+        remaining_term: baseLiabilities.get(field.itemId)?.remaining_term,
       })),
     ),
     incomes: merged(base.incomes, cashFlow('incomes')),
