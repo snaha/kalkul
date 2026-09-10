@@ -14,46 +14,17 @@
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
   import { createListEditor } from '$lib/list-editor.svelte'
-  import type {
-    CompoundingFrequency,
-    Frequency,
-    InterestType,
-    ProfileTangibleAsset,
-    RemainingTermUnit,
-    TangibleAssetStatus,
-  } from '$lib/schemas'
+  import type { ProfileTangibleAsset } from '$lib/schemas'
   import {
-    getCompoundingFrequencyItems,
     getFrequencyItems,
-    getInterestTypeItems,
     getRemainingTermUnitItems,
     getTangibleAssetStatusItems,
+    getValueOverTimeItems,
   } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
+  import { type TangibleAssetUI, toStoredTangibleAsset } from '$lib/tangible-asset-form'
 
-  interface AssetUI {
-    id: string
-    name: string
-    value: number | undefined
-    status: TangibleAssetStatus
-    outstanding_balance: number | undefined
-    installment_frequency: Frequency
-    annual_rate: number | undefined
-    installment_amount: number | undefined
-    remaining_term: number | undefined
-    remaining_term_unit: RemainingTermUnit
-    interest_type: InterestType
-    // Absent until the user picks one: the engine's default is to compound at
-    // the installment frequency, and merely revealing the advanced block must
-    // not silently switch the loan to another cadence.
-    compounding_frequency: CompoundingFrequency | undefined
-    // UI-only: whether the financing's interest options are revealed, toggled
-    // from the card menu.
-    showAdvanced: boolean
-    editing: boolean
-  }
-
-  const editor = createListEditor<ProfileTangibleAsset, AssetUI>({
+  const editor = createListEditor<ProfileTangibleAsset, TangibleAssetUI>({
     load: () => appStore.profile.tangible_assets,
     toUI: (a) => ({
       id: a.id,
@@ -73,11 +44,12 @@
       remaining_term:
         a.remaining_term !== undefined && a.remaining_term > 0 ? a.remaining_term : undefined,
       remaining_term_unit: a.remaining_term_unit ?? 'years',
-      interest_type: a.interest_type ?? 'compound',
-      compounding_frequency: a.compounding_frequency,
-      // Reveal the options when the financing already has them, so values set
-      // in the plan dialog are not hidden here.
-      showAdvanced: a.interest_type !== undefined || a.compounding_frequency !== undefined,
+      value_over_time: a.value_over_time ?? 'appreciate',
+      value_rate: a.value_rate,
+      property_tax_rate: a.property_tax_rate,
+      // Reveal the options when the asset already has them set, so values are
+      // not hidden here.
+      showAdvanced: a.value_rate !== undefined || a.property_tax_rate !== undefined,
       editing: false,
     }),
     makeBlank: (index) => ({
@@ -91,36 +63,15 @@
       installment_amount: undefined,
       remaining_term: undefined,
       remaining_term_unit: 'years',
-      interest_type: 'compound',
-      compounding_frequency: undefined,
+      value_over_time: 'appreciate',
+      value_rate: undefined,
+      property_tax_rate: undefined,
       showAdvanced: false,
       editing: true,
     }),
     copyName: (name) => $_('page.setup.common.copySuffix', { values: { name } }),
     hasValue: (a) => (a.value ?? 0) > 0,
-    // Spread the stored asset first so the plan-dialog-only fields — planned
-    // purchase/sale, value_over_time, value_rate, property_tax_rate — survive
-    // an edit here. Only the rendered fields override it.
-    toStored: (a, prev) => ({
-      ...prev,
-      id: a.id,
-      name: a.name,
-      value: a.value ?? 0,
-      status: a.status,
-      outstanding_balance: a.status === 'financed' ? (a.outstanding_balance ?? 0) : undefined,
-      installment_frequency: a.status === 'financed' ? a.installment_frequency : undefined,
-      annual_rate: a.status === 'financed' ? (a.annual_rate ?? 0) : undefined,
-      installment_amount: a.status === 'financed' ? (a.installment_amount ?? 0) : undefined,
-      remaining_term: a.status === 'financed' ? (a.remaining_term ?? 0) : undefined,
-      remaining_term_unit: a.remaining_term_unit,
-      // Financing-only, like the fields above. 'compound' is the calculation
-      // default so it collapses to undefined; the frequency is only stored
-      // once the user actually picks one. Showing/hiding the advanced block
-      // is a display toggle and never changes what is stored.
-      interest_type:
-        a.status === 'financed' && a.interest_type !== 'compound' ? a.interest_type : undefined,
-      compounding_frequency: a.status === 'financed' ? a.compounding_frequency : undefined,
-    }),
+    toStored: toStoredTangibleAsset,
     // has_tangible_assets belongs to the Get started checkbox, not to this
     // list: re-deriving it here unchecked the box (and dropped the step from
     // the flow) the moment a seeded card was collapsed without a value.
@@ -136,9 +87,7 @@
 
   let remainingTermUnitItems = $derived(getRemainingTermUnitItems($_))
 
-  let interestTypeItems = $derived(getInterestTypeItems($_))
-
-  let compoundingFrequencyItems = $derived(getCompoundingFrequencyItems($_))
+  let valueOverTimeItems = $derived(getValueOverTimeItems($_))
 
   function formatValue(val: number | undefined): string {
     if (val === undefined || val === 0) return ''
@@ -154,11 +103,9 @@
         collapsedValue={formatValue(asset.value)}
         badge={asset.status === 'financed' ? $_('page.setup.tangibleAssets.financed') : undefined}
         advancedChecked={asset.showAdvanced}
-        onAdvancedChange={asset.status === 'financed'
-          ? (checked) => {
-              asset.showAdvanced = checked
-            }
-          : undefined}
+        onAdvancedChange={(checked) => {
+          asset.showAdvanced = checked
+        }}
         onToggleEditing={() => {
           asset.editing = !asset.editing
         }}
@@ -281,43 +228,52 @@
                 </div>
               </div>
             </div>
+          {/if}
 
-            {#if asset.showAdvanced}
-              <Separator />
+          {#if asset.showAdvanced}
+            <Separator />
 
-              <div class="flex items-end gap-2">
-                <div class="flex flex-1 flex-col gap-2">
-                  <Label for="interestType-{asset.id}">{$_('page.plan.interestType')}</Label>
-                  <SelectField
-                    id="interestType-{asset.id}"
-                    value={asset.interest_type}
-                    items={interestTypeItems}
-                    onValueChange={(v) => {
-                      if (v) asset.interest_type = v
-                    }}
-                  />
-                </div>
-                {#if asset.interest_type === 'compound'}
-                  <div class="flex flex-1 flex-col gap-2">
-                    <Label for="compoundingFrequency-{asset.id}">
-                      {$_('page.plan.compoundingFrequency')}
-                    </Label>
-                    <SelectField
-                      id="compoundingFrequency-{asset.id}"
-                      value={asset.compounding_frequency}
-                      items={compoundingFrequencyItems}
-                      placeholder={$_('page.plan.compoundingDefault')}
-                      onValueChange={(v) => {
-                        if (v) asset.compounding_frequency = v
-                      }}
-                    />
-                  </div>
-                {:else}
-                  <div class="flex-1"></div>
-                {/if}
-                <HelpTooltip text={$_('page.plan.interestDescription')} class="mb-2" />
+            <div class="flex items-end gap-2">
+              <div class="flex flex-1 flex-col gap-2">
+                <Label for="valueOverTime-{asset.id}">{$_('page.plan.valueOverTime')}</Label>
+                <SelectField
+                  id="valueOverTime-{asset.id}"
+                  value={asset.value_over_time}
+                  items={valueOverTimeItems}
+                  onValueChange={(v) => {
+                    if (v) asset.value_over_time = v
+                  }}
+                />
               </div>
-            {/if}
+              <div class="flex flex-1 flex-col gap-2">
+                <Label for="valueRate-{asset.id}">{$_('page.plan.valueAnnualRate')}</Label>
+                <SuffixedInput
+                  id="valueRate-{asset.id}"
+                  value={asset.value_rate}
+                  suffix="%"
+                  formatNumber={appStore.formatNumber}
+                  onValueChange={(v) => {
+                    asset.value_rate = v
+                  }}
+                />
+              </div>
+            </div>
+
+            <div class="flex items-end gap-2">
+              <div class="flex flex-1 flex-col gap-2">
+                <Label for="propertyTax-{asset.id}">{$_('page.plan.propertyTax')}</Label>
+                <SuffixedInput
+                  id="propertyTax-{asset.id}"
+                  value={asset.property_tax_rate}
+                  suffix="%"
+                  formatNumber={appStore.formatNumber}
+                  onValueChange={(v) => {
+                    asset.property_tax_rate = v
+                  }}
+                />
+              </div>
+              <HelpTooltip text={$_('page.plan.propertyTaxDescription')} class="mb-2" />
+            </div>
           {/if}
         {/snippet}
       </EditableItemCard>
