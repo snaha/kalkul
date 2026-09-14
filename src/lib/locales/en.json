@@ -593,6 +593,7 @@
     "end_month_before_start_month": "End month must not be before start month in the same year",
     "required_when_financed": "Required when asset is financed",
     "required_when_pay_off_at_specific_date": "Required when pay-off is at a specific date",
+    "required_when_compound": "Required when interest type is compound",
     "required_for_one_time_transfer": "Required for a one-time transfer",
     "required_for_recurring_transfer": "Required for a recurring transfer",
     "required_for_one_time_cash_flow": "Required for a one-time item",

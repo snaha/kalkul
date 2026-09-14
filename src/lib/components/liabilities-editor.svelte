@@ -68,7 +68,10 @@
       installment_amount: l.installment_amount > 0 ? l.installment_amount : undefined,
       remaining_term: l.remaining_term > 0 ? l.remaining_term : undefined,
       remaining_term_unit: l.remaining_term_unit ?? 'years',
-      interest_type: l.interest_type ?? 'compound',
+      // Legacy rows omit interest_type (the engine compounds at the installment
+      // frequency); a stored compounding frequency means they were compound,
+      // otherwise simple is the exact equivalent.
+      interest_type: l.interest_type ?? (l.compounding_frequency ? 'compound' : 'simple'),
       compounding_frequency: l.compounding_frequency,
       // Reveal the options when the liability already has them, so values set
       // in the plan dialog are not hidden here.
@@ -85,7 +88,7 @@
       installment_amount: undefined,
       remaining_term: undefined,
       remaining_term_unit: 'years',
-      interest_type: 'compound',
+      interest_type: 'simple',
       compounding_frequency: undefined,
       showAdvanced: false,
       editing: true,
@@ -102,13 +105,10 @@
       installment_amount: l.installment_amount ?? 0,
       remaining_term: l.remaining_term ?? 0,
       remaining_term_unit: l.remaining_term_unit,
-      // 'compound' is the calculation default, so it collapses to undefined;
-      // the frequency is only stored once the user actually picks one, so an
-      // untouched liability keeps the legacy default (compounding at the
-      // installment frequency). Showing/hiding the advanced block is a display
-      // toggle and never changes what is stored.
-      interest_type: l.interest_type !== 'compound' ? l.interest_type : undefined,
-      compounding_frequency: l.compounding_frequency,
+      // Compound interest requires a cadence (enforced by the schema);
+      // 'simple' has none, so any stale frequency is dropped.
+      interest_type: l.interest_type,
+      compounding_frequency: l.interest_type === 'compound' ? l.compounding_frequency : undefined,
     }),
     // has_liabilities belongs to the Get started checkbox, not to this list:
     // re-deriving it here unchecked the box (and dropped the step from the

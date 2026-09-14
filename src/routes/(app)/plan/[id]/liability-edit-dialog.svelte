@@ -99,7 +99,7 @@
       pay_off: 'at_term',
       pay_off_year: undefined,
       pay_off_month: undefined,
-      interest_type: 'compound',
+      interest_type: 'simple',
       compounding_frequency: undefined,
     }
   }
@@ -127,7 +127,10 @@
     f.pay_off = src.pay_off ?? 'at_term'
     f.pay_off_year = src.pay_off_year
     f.pay_off_month = src.pay_off_month
-    f.interest_type = src.interest_type ?? 'compound'
+    // Legacy rows omit interest_type (the engine then compounds at the
+    // installment frequency); a stored compounding frequency means they were
+    // compound, otherwise simple is the exact equivalent.
+    f.interest_type = src.interest_type ?? (src.compounding_frequency ? 'compound' : 'simple')
     f.compounding_frequency = src.compounding_frequency
     return f
   }
@@ -155,8 +158,8 @@
       ...(f.pay_off === 'at_specific_date'
         ? { pay_off: f.pay_off, pay_off_year: f.pay_off_year, pay_off_month: f.pay_off_month }
         : {}),
-      interest_type: f.interest_type !== 'compound' ? f.interest_type : undefined,
-      compounding_frequency: f.compounding_frequency,
+      interest_type: f.interest_type,
+      compounding_frequency: f.interest_type === 'compound' ? f.compounding_frequency : undefined,
     }
   }
 
@@ -246,7 +249,9 @@
     (form.outstanding_balance ?? 0) > 0 &&
       timingComplete(form.start, form.start_year, form.start_month, form.start_age) &&
       (form.pay_off !== 'at_specific_date' ||
-        (form.pay_off_year !== undefined && form.pay_off_month !== undefined)),
+        (form.pay_off_year !== undefined && form.pay_off_month !== undefined)) &&
+      // Compound interest must state its cadence.
+      (form.interest_type !== 'compound' || form.compounding_frequency !== undefined),
   )
 
   function close(): void {

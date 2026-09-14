@@ -517,6 +517,15 @@ export const profileLiabilitySchema = z
       if (obj.pay_off_month === undefined)
         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['pay_off_month'], message: message() })
     }
+    // Compound interest needs a cadence; without one the engine would silently
+    // fall back to compounding at the installment frequency.
+    if (obj.interest_type === 'compound' && obj.compounding_frequency === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['compounding_frequency'],
+        message: get(_)('validation.required_when_compound'),
+      })
+    }
   })
 
 // --- Snapshots ---

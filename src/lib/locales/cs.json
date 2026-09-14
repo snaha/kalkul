@@ -593,6 +593,7 @@
     "end_month_before_start_month": "Koncový měsíc nesmí být před počátečním měsícem ve stejném roce",
     "required_when_financed": "Povinné při financování",
     "required_when_pay_off_at_specific_date": "Povinné při splacení ke konkrétnímu datu",
+    "required_when_compound": "Povinné při složeném úročení",
     "required_for_one_time_transfer": "Povinné pro jednorázový převod",
     "required_for_recurring_transfer": "Povinné pro opakovaný převod",
     "required_for_one_time_cash_flow": "Povinné pro jednorázovou položku",
