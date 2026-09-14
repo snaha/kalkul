@@ -13,6 +13,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
   import { Switch } from '$lib/components/ui/switch'
+  import { itemsForPlan } from '$lib/plan-owned'
   import { installmentAmountForLoan, termYearsForLoan } from '$lib/plan-projection'
   import type {
     CashFlowStart,
@@ -81,7 +82,7 @@
   }
 
   function blankForm(): FormState {
-    const counter = (appStore.profile.liabilities ?? []).length + 1
+    const counter = itemsForPlan(appStore.profile.liabilities, plan.id).length + 1
     return {
       id: crypto.randomUUID(),
       name: $_('page.setup.liabilities.defaultName', { values: { index: counter } }),
@@ -217,7 +218,7 @@
         ...loanTerms(),
         remaining_term: form.remaining_term as number,
       })
-      if (amount !== undefined) form.installment_amount = round(amount, 0)
+      if (amount !== undefined) form.installment_amount = round(amount, 2)
     } else {
       if ((form.installment_amount ?? 0) <= 0) return
       const term = termYearsForLoan({

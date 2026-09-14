@@ -96,7 +96,10 @@
     }),
     copyName: (name) => $_('page.setup.common.copySuffix', { values: { name } }),
     hasValue: (l) => (l.outstanding_balance ?? 0) > 0,
-    toStored: (l) => ({
+    // Spread the stored item first so the fields this card does not edit
+    // (the plan dialog's start* and pay_off* timing) survive a save here.
+    toStored: (l, prev) => ({
+      ...prev,
       id: l.id,
       name: l.name,
       outstanding_balance: l.outstanding_balance ?? 0,
@@ -157,7 +160,7 @@
         interest_type: liability.interest_type,
         compounding_frequency: liability.compounding_frequency,
       })
-      if (amount !== undefined) liability.installment_amount = round(amount, 0)
+      if (amount !== undefined) liability.installment_amount = round(amount, 2)
     } else {
       const amount = liability.installment_amount
       if (amount === undefined || amount <= 0) return
