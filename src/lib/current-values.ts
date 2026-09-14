@@ -394,8 +394,9 @@ export function getCurrentProfile(profile: Profile, today: Date): Profile {
   // the way the projection's planned buy/sell does — a start debits cash and
   // the position receives the amount after the upfront entry fee, an exit
   // credits cash with the balance after the exit fee and leaves the position
-  // empty, so the projection beside it does not sell it a second time. An edge
-  // before the snapshot is already in its balances and stays out.
+  // empty, so the projection beside it does not sell it a second time. Both
+  // edges in the window do both, netting to the fees. An edge before the
+  // snapshot is already in its balances and stays out.
   const snapshotAt = monthIndex(yearOf(snapshot.date), Number(snapshot.date.slice(5, 7)))
   const todayAt = monthIndex(today.getFullYear(), today.getMonth() + 1)
   const crossedSince = (edge: number | undefined) =>
@@ -407,24 +408,41 @@ export function getCurrentProfile(profile: Profile, today: Date): Profile {
     const endsAt = plannedEndsAt(investmentToTemporal(investment), birthYear)
     return endsAt !== undefined && crossedSince(endsAt + 1)
   }
+  // A position bought in the window has only been held since its start, so it
+  // compounds from that edge rather than from the snapshot.
+  const heldFraction = (investment: ProfileInvestment) => {
+    const startsAt = plannedStartsAt(investmentToTemporal(investment), birthYear)
+    if (startsAt === undefined || !crossedSince(startsAt)) return yearFraction
+    const year = Math.floor((startsAt - 1) / 12)
+    const from = toDateOnlyString(new Date(year, startsAt - year * 12 - 1, 1))
+    return new Decimal(daysBetween(from, todayDate)).div(DAYS_PER_YEAR)
+  }
+  // What the position holds before growth: the balance, less the entry fee
+  // when the buy fell in the window.
+  const paidIn = (investment: ProfileInvestment) => {
+    const balance = new Decimal(investment.balance)
+    return boughtInWindow(investment) ? applyEntryFee(investment, balance) : balance
+  }
   let cashBefore = new Decimal(profile.cash_amount ?? 0).plus(flows.cash.mul(yearFraction))
   for (const investment of profile.investments ?? []) {
-    const balance = new Decimal(investment.balance)
-    if (soldInWindow(investment)) cashBefore = cashBefore.plus(applyExitFee(investment, balance))
-    else if (boughtInWindow(investment)) cashBefore = cashBefore.minus(balance)
+    if (boughtInWindow(investment)) cashBefore = cashBefore.minus(investment.balance)
+    if (soldInWindow(investment)) {
+      cashBefore = cashBefore.plus(applyExitFee(investment, paidIn(investment)))
+    }
   }
 
   const before = new Map<string, Decimal>([
     [CASH_ENDPOINT, cashBefore],
     ...(profile.investments ?? []).map((investment): [string, Decimal] => {
       if (soldInWindow(investment)) return [investment.id, DECIMAL_0]
-      const balance = new Decimal(investment.balance)
-      const paidIn = boughtInWindow(investment) ? applyEntryFee(investment, balance) : balance
+      const held = paidIn(investment)
       return [
         investment.id,
         isHeldOn(investment, today, birthYear)
-          ? paidIn.mul(effectiveInvestmentApy(investment).div(100).plus(1).pow(yearFraction))
-          : paidIn,
+          ? held.mul(
+              effectiveInvestmentApy(investment).div(100).plus(1).pow(heldFraction(investment)),
+            )
+          : held,
       ]
     }),
   ])

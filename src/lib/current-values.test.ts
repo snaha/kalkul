@@ -596,6 +596,51 @@ describe('getCurrentProfile and the holding window', () => {
     expect(current.investments?.[0].balance).toBe(5_000)
   })
 
+  test('grows a position bought since the snapshot only from its start', () => {
+    // Bought 2026-03-01, today 2026-07-02: 123 days held, not the 182 since
+    // the snapshot: 5000 * 1.1^(123/365.25), rounded to whole units.
+    const profile: Profile = {
+      ...PROFILE,
+      investments: [
+        {
+          ...PROFILE.investments![0],
+          balance: 5_000,
+          start: 'at_specific_date',
+          start_year: 2026,
+          start_month: 3,
+        },
+        PROFILE.investments![1],
+      ],
+    }
+    expect(getCurrentProfile(profile, TODAY).investments?.[0].balance).toBe(5163)
+  })
+
+  test('sells a position bought and sold since the snapshot', () => {
+    // Both edges crossed: the buy debits cash, the sale credits it back, and
+    // the position ends empty.
+    const profile: Profile = {
+      ...PROFILE,
+      investments: [
+        {
+          ...PROFILE.investments![0],
+          balance: 5_000,
+          apy: 0,
+          start: 'at_specific_date',
+          start_year: 2026,
+          start_month: 2,
+          exit: 'at_specific_date',
+          exit_year: 2026,
+          exit_month: 4,
+        },
+        PROFILE.investments![1],
+      ],
+    }
+    const baseline = getCurrentProfile(PROFILE, TODAY).cash_amount ?? 0
+    const current = getCurrentProfile(profile, TODAY)
+    expect(current.cash_amount).toBeCloseTo(baseline, 2)
+    expect(current.investments?.[0].balance).toBe(0)
+  })
+
   test('does not amortize the financing of a property not bought yet', () => {
     // Nobody is paying installments on a purchase that has not happened, and
     // the cash side does not charge them either.
