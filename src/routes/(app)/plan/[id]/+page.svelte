@@ -110,7 +110,7 @@
     liabilityDialogOpen = true
   }
 
-  function openAssetCreateDialog(kind: Exclude<AddAssetKind, 'cash'>) {
+  function openAssetCreateDialog(kind: AddAssetKind) {
     if (kind === 'liability') {
       openLiabilityEditDialog(undefined)
       return
@@ -118,14 +118,6 @@
     // Spelled out per kind so each branch is a valid AssetTarget literal.
     assetDialogTarget = kind === 'investment' ? { kind: 'investment' } : { kind: 'tangibleAsset' }
     assetDialogOpen = true
-  }
-
-  function handleAddAssetContinue(kind: AddAssetKind) {
-    if (kind === 'cash') {
-      cashDialogOpen = true
-    } else {
-      openAssetCreateDialog(kind)
-    }
   }
 
   function openTransferDialog(item: Transfer) {
@@ -973,7 +965,7 @@
     <AddAssetDialog
       bind:open={addAssetDialogOpen}
       onOpenChange={(v) => (addAssetDialogOpen = v)}
-      onContinue={handleAddAssetContinue}
+      onContinue={openAssetCreateDialog}
     />
 
     <!-- Asset edit dialog -->
