@@ -15,6 +15,7 @@
   import { Separator } from '$lib/components/ui/separator'
   import { createListEditor } from '$lib/list-editor.svelte'
   import { planOwnedItems, sharedItems } from '$lib/plan-owned'
+  import { installmentAmountForLoan, termYearsForLoan } from '$lib/plan-projection'
   import type {
     CompoundingFrequency,
     Frequency,
@@ -127,6 +128,45 @@
     if (val === undefined || val === 0) return ''
     return appStore.formatCurrencyCode(val)
   }
+
+  function round(value: number, decimals: number): number {
+    const factor = 10 ** decimals
+    return Math.round((value + Number.EPSILON) * factor) / factor
+  }
+
+  // Installment amount ⇄ Remaining term (issue #258): entering either side
+  // derives the other from the outstanding balance, rate and frequency. The
+  // term is stored in the card's chosen unit (years or months).
+  function onInstallmentAmountChange(liability: LiabilityUI, v: number | undefined): void {
+    liability.installment_amount = v
+    if (v === undefined || v <= 0) return
+    const termYears = termYearsForLoan({
+      outstanding_balance: liability.outstanding_balance ?? 0,
+      installment_frequency: liability.installment_frequency,
+      annual_rate: liability.annual_rate ?? 0,
+      remaining_term: 0,
+      installment_amount: v,
+      interest_type: liability.interest_type,
+      compounding_frequency: liability.compounding_frequency,
+    })
+    if (termYears === undefined) return
+    liability.remaining_term =
+      liability.remaining_term_unit === 'months' ? round(termYears * 12, 2) : round(termYears, 2)
+  }
+
+  function onRemainingTermChange(liability: LiabilityUI, v: number | undefined): void {
+    liability.remaining_term = v
+    if (v === undefined || v <= 0) return
+    const amount = installmentAmountForLoan({
+      outstanding_balance: liability.outstanding_balance ?? 0,
+      installment_frequency: liability.installment_frequency,
+      annual_rate: liability.annual_rate ?? 0,
+      remaining_term: liability.remaining_term_unit === 'months' ? v / 12 : v,
+      interest_type: liability.interest_type,
+      compounding_frequency: liability.compounding_frequency,
+    })
+    if (amount !== undefined) liability.installment_amount = round(amount, 0)
+  }
 </script>
 
 <div class="flex w-full flex-col gap-4">
@@ -201,9 +241,7 @@
                 value={liability.installment_amount}
                 suffix={currencyLabel}
                 formatNumber={appStore.formatNumber}
-                onValueChange={(v) => {
-                  liability.installment_amount = v
-                }}
+                onValueChange={(v) => onInstallmentAmountChange(liability, v)}
               />
             </div>
             <span class="inline-flex h-8 items-center text-muted-foreground">
@@ -219,9 +257,7 @@
                   value={liability.remaining_term}
                   formatNumber={appStore.formatNumber}
                   class="w-24"
-                  onValueChange={(v) => {
-                    liability.remaining_term = v
-                  }}
+                  onValueChange={(v) => onRemainingTermChange(liability, v)}
                 />
                 <SelectField
                   id="remainingTermUnit-{liability.id}"
