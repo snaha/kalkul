@@ -1,3 +1,4 @@
+import { sharedItems } from '$lib/plan-owned'
 import { isHeldOn, isOwnedOn, yearOf } from '$lib/plan-projection'
 import { type Profile, type Snapshot, normalizeSnapshots } from '$lib/schemas'
 import { parseDateOnly, toDateOnlyString } from '$lib/utils'
@@ -20,15 +21,15 @@ export type SnapshotBalances = Omit<Snapshot, 'date'>
 export function snapshotBalances(profile: Profile): SnapshotBalances {
   return {
     cash_amount: profile.cash_amount ?? 0,
-    investments: (profile.investments ?? []).map((i) => ({ id: i.id, balance: i.balance })),
-    tangible_assets: (profile.tangible_assets ?? []).map((a) => ({
+    investments: sharedItems(profile.investments).map((i) => ({ id: i.id, balance: i.balance })),
+    tangible_assets: sharedItems(profile.tangible_assets).map((a) => ({
       id: a.id,
       value: a.value,
       // Only financed assets carry debt; `status` can flip back to fully owned
       // while a stale balance lingers on the item, so gate on the status.
       outstanding_balance: a.status === 'financed' ? a.outstanding_balance : undefined,
     })),
-    liabilities: (profile.liabilities ?? []).map((l) => ({
+    liabilities: sharedItems(profile.liabilities).map((l) => ({
       id: l.id,
       outstanding_balance: l.outstanding_balance,
     })),
@@ -69,8 +70,10 @@ export function heldProfile(profile: Profile, asOf: Date): Profile {
   const birthYear = profile.birth_date ? yearOf(profile.birth_date) : undefined
   return {
     ...profile,
-    investments: (profile.investments ?? []).filter((i) => isHeldOn(i, asOf, birthYear)),
-    tangible_assets: (profile.tangible_assets ?? []).filter((a) => isOwnedOn(a, asOf, birthYear)),
+    investments: sharedItems(profile.investments).filter((i) => isHeldOn(i, asOf, birthYear)),
+    tangible_assets: sharedItems(profile.tangible_assets).filter((a) =>
+      isOwnedOn(a, asOf, birthYear),
+    ),
   }
 }
 

@@ -113,3 +113,14 @@ describe('getPrevStepUrl', () => {
     )
   })
 })
+
+describe('getOnboardingSteps plan-owned items', () => {
+  it('does not open an optional step for items only a plan owns', () => {
+    const steps = getOnboardingSteps(
+      makeProfile({
+        investments: [{ id: 'x', name: 'x', balance: 1, apy: 1, plan_id: 'plan-1' }],
+      }),
+    )
+    expect(steps).not.toContain(routes.FINANCES_EDIT_INVESTMENTS)
+  })
+})

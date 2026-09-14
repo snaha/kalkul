@@ -31,7 +31,8 @@
   import { Input } from '$lib/components/ui/input'
   import { Separator } from '$lib/components/ui/separator'
   import { Slider } from '$lib/components/ui/slider'
-  import { getYearlyPlanProjection, transfersForPlan, yearOf } from '$lib/plan-projection'
+  import { itemsForPlan } from '$lib/plan-owned'
+  import { getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
   import routes from '$lib/routes'
   import type { Expense, Income, Transfer } from '$lib/schemas'
   import { getFrequencyShortLabel } from '$lib/select-options'
@@ -169,7 +170,7 @@
   }
 
   function reopenTransferDialog(id: string) {
-    const item = transfersForPlan(appStore.profile.transfers, planId).find((t) => t.id === id)
+    const item = itemsForPlan(appStore.profile.transfers, planId).find((t) => t.id === id)
     if (!item) return
     setTimeout(() => openTransferDialog(item), REOPEN_DELAY_MS)
   }
@@ -219,20 +220,22 @@
   })
 
   // Category counts from profile data
-  // Shared profile transfers plus this plan's own; other plans' stay out.
-  const planTransfers = $derived(transfersForPlan(appStore.profile.transfers, planId))
+  // Shared profile items plus this plan's own; other plans' stay out.
+  const planTransfers = $derived(itemsForPlan(appStore.profile.transfers, planId))
   const transfersCount = $derived(planTransfers.length)
 
   function transferValueSuffix(t: Transfer): string {
     if (t.schedule === 'one_time') return `(${$_('page.plan.scheduleOneTime').toLowerCase()})`
     return `/ ${getFrequencyShortLabel($_, t.frequency ?? 'monthly')}`
   }
-  const incomesCount = $derived((appStore.profile.incomes ?? []).length)
-  const expensesCount = $derived((appStore.profile.expenses ?? []).length)
+  const incomesCount = $derived(itemsForPlan(appStore.profile.incomes, planId).length)
+  const expensesCount = $derived(itemsForPlan(appStore.profile.expenses, planId).length)
   const cashCount = $derived(appStore.profile.cash_amount ? 1 : 0)
-  const investmentsCount = $derived((appStore.profile.investments ?? []).length)
-  const tangibleAssetsCount = $derived((appStore.profile.tangible_assets ?? []).length)
-  const liabilitiesCount = $derived((appStore.profile.liabilities ?? []).length)
+  const investmentsCount = $derived(itemsForPlan(appStore.profile.investments, planId).length)
+  const tangibleAssetsCount = $derived(
+    itemsForPlan(appStore.profile.tangible_assets, planId).length,
+  )
+  const liabilitiesCount = $derived(itemsForPlan(appStore.profile.liabilities, planId).length)
 
   // Yearly projection (real / inflation-adjusted values)
   const projection = $derived(plan ? getYearlyPlanProjection(plan, appStore.profile) : [])
@@ -308,7 +311,7 @@
       id: 'incomes',
       label: $_('page.plan.incomes'),
       count: incomesCount,
-      items: (appStore.profile.incomes ?? [])
+      items: itemsForPlan(appStore.profile.incomes, planId)
         .filter((i) => matchesSearch(i.name, searchQuery))
         .map((i) => ({
           id: i.id,
@@ -323,7 +326,7 @@
       id: 'expenses',
       label: $_('page.plan.expenses'),
       count: expensesCount,
-      items: (appStore.profile.expenses ?? [])
+      items: itemsForPlan(appStore.profile.expenses, planId)
         .filter((e) => matchesSearch(e.name, searchQuery))
         .map((e) => ({
           id: e.id,
@@ -357,7 +360,7 @@
       id: 'investments',
       label: $_('page.plan.investments'),
       count: investmentsCount,
-      items: (appStore.profile.investments ?? [])
+      items: itemsForPlan(appStore.profile.investments, planId)
         .filter((inv) => matchesSearch(inv.name, searchQuery))
         .map((inv) => ({
           id: inv.id,
@@ -371,7 +374,7 @@
       id: 'tangibleAssets',
       label: $_('page.plan.tangibleAssets'),
       count: tangibleAssetsCount,
-      items: (appStore.profile.tangible_assets ?? [])
+      items: itemsForPlan(appStore.profile.tangible_assets, planId)
         .filter((a) => matchesSearch(a.name, searchQuery))
         .map((a) => ({
           id: a.id,
@@ -385,7 +388,7 @@
       id: 'liabilities',
       label: $_('page.plan.liabilities'),
       count: liabilitiesCount,
-      items: (appStore.profile.liabilities ?? [])
+      items: itemsForPlan(appStore.profile.liabilities, planId)
         .filter((l) => matchesSearch(l.name, searchQuery))
         .map((l) => ({
           id: l.id,

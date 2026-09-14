@@ -186,6 +186,22 @@ describe('buildPlanInclusions', () => {
     expect(buildPlanInclusions(withOwned, true).included_transfer_ids).toEqual(['tr-1'])
   })
 
+  it('leaves every kind of item owned by another plan out of a new plan', () => {
+    const owned = { plan_id: 'plan-x' }
+    const withOwned: Profile = {
+      ...profile,
+      investments: [...profile.investments!, { ...profile.investments![0], id: 'inv-2', ...owned }],
+      tangible_assets: [
+        ...profile.tangible_assets!,
+        { ...profile.tangible_assets![0], id: 'ta-2', ...owned },
+      ],
+      liabilities: [...profile.liabilities!, { ...profile.liabilities![0], id: 'li-2', ...owned }],
+      incomes: [...profile.incomes!, { ...profile.incomes![0], id: 'in-2', ...owned }],
+      expenses: [...profile.expenses!, { ...profile.expenses![0], id: 'ex-2', ...owned }],
+    }
+    expect(buildPlanInclusions(withOwned, true)).toEqual(buildPlanInclusions(profile, true))
+  })
+
   it('includes nothing when not starting from current finances', () => {
     expect(buildPlanInclusions(profile, false)).toEqual({
       include_cash: false,

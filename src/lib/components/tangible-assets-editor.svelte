@@ -14,6 +14,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
   import { createListEditor } from '$lib/list-editor.svelte'
+  import { planOwnedItems, sharedItems } from '$lib/plan-owned'
   import type { ProfileTangibleAsset } from '$lib/schemas'
   import {
     getFrequencyItems,
@@ -25,7 +26,9 @@
   import { type TangibleAssetUI, toStoredTangibleAsset } from '$lib/tangible-asset-form'
 
   const editor = createListEditor<ProfileTangibleAsset, TangibleAssetUI>({
-    load: () => appStore.profile.tangible_assets,
+    // Financial data holds the shared items only. Those created in a plan
+    // carry its id, stay hidden here and are carried through every save.
+    load: () => sharedItems(appStore.profile.tangible_assets),
     toUI: (a) => ({
       id: a.id,
       name: a.name,
@@ -75,7 +78,10 @@
     // has_tangible_assets belongs to the Get started checkbox, not to this
     // list: re-deriving it here unchecked the box (and dropped the step from
     // the flow) the moment a seeded card was collapsed without a value.
-    persist: (data) => appStore.updateProfile({ tangible_assets: data }),
+    persist: (data) =>
+      appStore.updateProfile({
+        tangible_assets: [...data, ...planOwnedItems(appStore.profile.tangible_assets)],
+      }),
   })
   onDestroy(editor.flushSave)
 

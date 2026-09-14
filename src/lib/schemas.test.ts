@@ -908,3 +908,36 @@ describe('transferSchema plan ownership', () => {
     expect(transferSchema.parse(owned)).toEqual(owned)
   })
 })
+
+describe('plan ownership', () => {
+  it('keeps plan_id on every kind of item created in a plan', () => {
+    const owned = { plan_id: 'plan-1' }
+    const flow = {
+      id: 'f',
+      name: 'Side gig',
+      amount: 100,
+      frequency: 'monthly',
+      start: 'immediately',
+      end: 'never',
+      change_over_time: 'none',
+      ...owned,
+    }
+    expect(incomeSchema.parse(flow)).toEqual(flow)
+    expect(expenseSchema.parse(flow)).toEqual(flow)
+    const investment = { id: 'v', name: 'ETF', balance: 1, apy: 1, ...owned }
+    expect(profileInvestmentSchema.parse(investment)).toEqual(investment)
+    const asset = { id: 'a', name: 'Flat', value: 1, status: 'fully_owned', ...owned }
+    expect(profileTangibleAssetSchema.parse(asset)).toEqual(asset)
+    const liability = {
+      id: 'l',
+      name: 'Loan',
+      outstanding_balance: 1,
+      installment_frequency: 'monthly',
+      annual_rate: 1,
+      installment_amount: 1,
+      remaining_term: 1,
+      ...owned,
+    }
+    expect(profileLiabilitySchema.parse(liability)).toEqual(liability)
+  })
+})

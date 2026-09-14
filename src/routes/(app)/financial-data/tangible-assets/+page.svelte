@@ -5,9 +5,10 @@
   import DonutChart from '$lib/components/donut-chart.svelte'
   import TangibleAssetsEditor from '$lib/components/tangible-assets-editor.svelte'
   import { getTangibleAssetsTotal } from '$lib/financial-totals'
+  import { sharedItems } from '$lib/plan-owned'
   import { appStore } from '$lib/stores/app.svelte'
 
-  const tangibleAssets = $derived(appStore.profile.tangible_assets ?? [])
+  const tangibleAssets = $derived(sharedItems(appStore.profile.tangible_assets))
   const total = $derived(getTangibleAssetsTotal(appStore.profile))
 
   const segments = $derived(
