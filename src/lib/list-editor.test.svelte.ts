@@ -25,7 +25,11 @@ interface ThingUI {
   editing: boolean
 }
 
-function setup(options?: { initial?: StoredThing[]; persist?: (items: StoredThing[]) => void }): {
+function setup(options?: {
+  initial?: StoredThing[]
+  persist?: (items: StoredThing[]) => void
+  seedBlank?: boolean
+}): {
   editor: ListEditor<ThingUI>
   persisted: StoredThing[][]
   cleanup: () => void
@@ -53,6 +57,7 @@ function setup(options?: { initial?: StoredThing[]; persist?: (items: StoredThin
       hasValue: (i) => (i.value ?? 0) > 0,
       toStored: (i, stored) => ({ ...stored, id: i.id, name: i.name, value: i.value ?? 0 }),
       persist: options?.persist ?? ((items) => persisted.push(items)),
+      seedBlank: options?.seedBlank,
     })
   })
   flushSync()
@@ -79,6 +84,14 @@ describe('createListEditor', () => {
   it('seeds one editing blank when there is nothing stored, so the user can type without pressing Add', () => {
     const { editor, cleanup } = setup()
     expect(editor.items).toEqual([{ id: 'new-1', name: 'Item 1', value: undefined, editing: true }])
+    cleanup()
+  })
+
+  it('opens empty with seedBlank: false, and numbers the first added item from 1', () => {
+    const { editor, cleanup } = setup({ seedBlank: false })
+    expect(editor.items).toEqual([])
+    editor.add()
+    expect(editor.items.map((i) => i.name)).toEqual(['Item 1'])
     cleanup()
   })
 
