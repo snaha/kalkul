@@ -162,6 +162,7 @@ When linking from a bare `<a>` tag (not the `Button` component), the `svelte/no-
 
 - Use [conventional commits](https://www.conventionalcommits.org/) (e.g. `fix:`, `feat:`, `chore:`).
 - Keep PR titles and descriptions concise.
+- Omit testing details from PR descriptions — TDD process, test counts, or "checks pass" statements. CI runs the full suite on every PR, so these add nothing.
 - Omit the issue number from branch names and titles
 - When a PR resolves an issue, reference it with a closing keyword (e.g. `Closes #53`) so GitHub closes the issue automatically on merge.
 - The repo deletes the head branch automatically when a PR is merged, so don't pass `--delete-branch` or delete branches by hand. Deleting a branch that another open PR is stacked on auto-closes that PR, so let the merge do it.
