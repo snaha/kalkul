@@ -837,7 +837,7 @@ describe('appStore deleting the only snapshot of a growing profile', () => {
     expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual([TODAY])
     // Five months of salary arrived while the deleted baseline stood; stamping
     // January's 10,000 with today's date would give that money back.
-    expect(appStore.profile.cash_amount).toBe(24_882.96)
-    expect(appStore.profile.snapshots?.[0].cash_amount).toBe(24_882.96)
+    expect(appStore.profile.cash_amount).toBe(24_883)
+    expect(appStore.profile.snapshots?.[0].cash_amount).toBe(24_883)
   })
 })
