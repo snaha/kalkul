@@ -1,14 +1,27 @@
 import { sharedItems } from '$lib/plan-owned'
 import { isHeldOn, isOwnedOn, yearOf } from '$lib/plan-projection'
-import { type Profile, type Snapshot, normalizeSnapshots } from '$lib/schemas'
+import {
+  type Expense,
+  type Income,
+  type Profile,
+  type ProfileInvestment,
+  type ProfileLiability,
+  type ProfileTangibleAsset,
+  type Snapshot,
+  normalizeSnapshots,
+} from '$lib/schemas'
 import { parseDateOnly, toDateOnlyString } from '$lib/utils'
 
 /**
- * The balances a snapshot records, without the date it was recorded on. Net
+ * The figures a snapshot records, without the date it was recorded on. Net
  * worth, "did anything move?" and "is there anything to record?" are all
- * questions about the balances alone.
+ * questions about the figures alone.
  */
 export type SnapshotBalances = Omit<Snapshot, 'date'>
+
+/** The items indexed by id, for looking one up without a linear scan. */
+export const byId = <T extends { id: string }>(items: T[] | undefined) =>
+  new Map((items ?? []).map((item) => [item.id, item]))
 
 /**
  * Every balance the profile records, whether or not it is held right now.
@@ -28,10 +41,19 @@ export function snapshotBalances(profile: Profile): SnapshotBalances {
       // Only financed assets carry debt; `status` can flip back to fully owned
       // while a stale balance lingers on the item, so gate on the status.
       outstanding_balance: a.status === 'financed' ? a.outstanding_balance : undefined,
+      remaining_term: a.status === 'financed' ? a.remaining_term : undefined,
+      remaining_term_unit: a.status === 'financed' ? a.remaining_term_unit : undefined,
     })),
     liabilities: sharedItems(profile.liabilities).map((l) => ({
       id: l.id,
       outstanding_balance: l.outstanding_balance,
+      // The term is recorded next to the balance because it moves with it:
+      // every installment that comes off the balance comes off the term too.
+      // A balance restored without its term would restart the loan's clock and
+      // walk the payoff date into the future. The unit goes with the term — the
+      // number means nothing without it.
+      remaining_term: l.remaining_term,
+      remaining_term_unit: l.remaining_term_unit,
     })),
   }
 }
@@ -77,9 +99,36 @@ export function heldProfile(profile: Profile, asOf: Date): Profile {
   }
 }
 
-/** Point-in-time record of every balance that makes up net worth. */
+/**
+ * Point-in-time record of a user's finances: every balance that makes up net
+ * worth on the date — what the profile held that day — plus the recurring cash
+ * flows that were running on it.
+ */
 export function captureSnapshot(profile: Profile, date: string): Snapshot {
-  return { date, ...heldBalances(profile, parseDateOnly(date)) }
+  return {
+    date,
+    ...heldBalances(profile, parseDateOnly(date)),
+    incomes: recordedFlows(profile.incomes),
+    expenses: recordedFlows(profile.expenses),
+  }
+}
+
+/**
+ * The cash flows the profile's own figures run on: the recurring ones it
+ * carries itself. A one-time income or expense is an event rather than a rate,
+ * and one a plan owns is not the user's current data. The savings rate, FI %
+ * and runway leave both out, and a snapshot records exactly what they count.
+ */
+export function countedCashFlows<T extends CashFlow>(flows: T[] | undefined): T[] {
+  return sharedItems(flows).filter((flow) => flow.schedule !== 'one_time')
+}
+
+/** The figures a cash flow contributes to a snapshot; the rest stays on the profile. */
+function recordedFlows(flows: CashFlow[] | undefined): SnapshotCashFlow[] {
+  // A recurring flow always has a frequency; the check only satisfies the type.
+  return countedCashFlows(flows).flatMap(({ id, amount, frequency }) =>
+    frequency === undefined ? [] : [{ id, amount, frequency }],
+  )
 }
 
 /**
@@ -116,11 +165,16 @@ export function hasAnyBalance(snapshot: SnapshotBalances): boolean {
 
 /**
  * Adds `snapshot` to the list, replacing any existing entry with the same date
- * so a day's balances are recorded once. Returns a new, date-ascending list.
+ * so a day's figures are recorded once. Returns a new, date-ascending list.
  */
 export function upsertSnapshot(snapshots: Snapshot[] | undefined, snapshot: Snapshot): Snapshot[] {
   // Last entry wins on a shared date, so appending is what replaces.
   return normalizeSnapshots([...(snapshots ?? []), snapshot])
+}
+
+/** Drops the snapshot dated `date`, if there is one. Returns a new list. */
+export function removeSnapshot(snapshots: Snapshot[] | undefined, date: string): Snapshot[] {
+  return (snapshots ?? []).filter((s) => s.date !== date)
 }
 
 export function latestSnapshot(snapshots: Snapshot[] | undefined): Snapshot | undefined {
@@ -128,66 +182,449 @@ export function latestSnapshot(snapshots: Snapshot[] | undefined): Snapshot | un
   return snapshots.reduce((latest, s) => (s.date > latest.date ? s : latest))
 }
 
-function sameItems<T>(
+/**
+ * Whether two recorded sections hold the same entries. Matched by id rather
+ * than by position: reordering a profile's list — a drag, an import, a future
+ * refactor — moves no money, so it must not read as a change and re-date the
+ * projection baseline.
+ */
+function sameEntries<T extends { id: string }>(
   a: T[] | undefined,
   b: T[] | undefined,
   same: (x: T, y: T) => boolean,
 ): boolean {
   const left = a ?? []
-  const right = b ?? []
-  return left.length === right.length && left.every((item, i) => same(item, right[i]))
+  const right = byId(b)
+  if (left.length !== right.size) return false
+  return left.every((item) => {
+    const other = right.get(item.id)
+    return other !== undefined && same(item, other)
+  })
 }
 
 /**
- * Whether two snapshots hold identical balances, ignoring their dates. Used to
- * skip recording a snapshot when an edit left every balance untouched.
+ * Whether `next` holds the same *balances* `previous` recorded, ignoring their
+ * dates. Used to skip recording a snapshot when an edit left every balance
+ * untouched.
  *
- * Compared field by field rather than by serialized shape: only `captureSnapshot`
- * emits the canonical form, while the schema makes every balance field
- * optional, so a snapshot restored from a backup can legitimately omit a value
- * that is simply zero or an empty list. Reading those omissions as "changed"
- * made a rename record a snapshot and re-date the projection baseline.
+ * Cash flows are deliberately not compared. Recording a snapshot re-dates the
+ * baseline the dashboard projects from, which replaces every untouched balance
+ * with its projection and clears the staleness banner — far too much to happen
+ * because the user added a gym membership. A snapshot recorded for another
+ * reason still captures the flows as they stand; what they must not do is
+ * trigger one. The corollary is that the newest snapshot's flows can lag the
+ * profile's, which is why re-baselining (`withSnapshotValues`) leaves the
+ * profile's flows alone. Loan terms are left out for the same reason, but a
+ * term changed on its own is written into the newest snapshot instead
+ * (`withLatestTermsRecorded`): unlike a flow, re-baselining restores it.
  *
- * Items are matched positionally, as they were before: both sides are captured
- * from the same profile's lists, which an edit rebuilds in order.
+ * Compared field by field rather than by serialized shape: only
+ * `captureSnapshot` emits the canonical form, while the schema makes every
+ * field optional, so a snapshot restored from a backup can legitimately omit a
+ * balance that is simply zero or an empty list. Reading those omissions as
+ * "changed" made a rename record a snapshot and re-date the projection
+ * baseline.
  */
 export function hasSameBalances(
-  a: SnapshotBalances | undefined,
-  b: SnapshotBalances | undefined,
+  previous: SnapshotBalances | undefined,
+  next: SnapshotBalances | undefined,
 ): boolean {
-  if (!a || !b) return false
-  if ((a.cash_amount ?? 0) !== (b.cash_amount ?? 0)) return false
-  if (!sameItems(a.investments, b.investments, (x, y) => x.id === y.id && x.balance === y.balance))
+  if (!previous || !next) return false
+  if ((previous.cash_amount ?? 0) !== (next.cash_amount ?? 0)) return false
+  if (!sameEntries(previous.investments, next.investments, (x, y) => x.balance === y.balance))
     return false
   if (
-    !sameItems(
-      a.tangible_assets,
-      b.tangible_assets,
+    !sameEntries(
+      previous.tangible_assets,
+      next.tangible_assets,
       (x, y) =>
-        x.id === y.id &&
-        x.value === y.value &&
-        (x.outstanding_balance ?? 0) === (y.outstanding_balance ?? 0),
+        x.value === y.value && (x.outstanding_balance ?? 0) === (y.outstanding_balance ?? 0),
     )
   )
     return false
-  return sameItems(
-    a.liabilities,
-    b.liabilities,
-    (x, y) => x.id === y.id && x.outstanding_balance === y.outstanding_balance,
+  if (
+    !sameEntries(
+      previous.liabilities,
+      next.liabilities,
+      (x, y) => x.outstanding_balance === y.outstanding_balance,
+    )
+  )
+    return false
+
+  return true
+}
+
+/**
+ * The date the profile's figures were last recorded, when that is earlier than
+ * `todayDate`: what the staleness banner names, and what the dashboard's
+ * projected figures are projected from. Undefined when the newest snapshot is
+ * today's — nothing to project and nothing to nudge about — or when there is
+ * no snapshot at all.
+ */
+export function staleSince(
+  snapshots: Snapshot[] | undefined,
+  todayDate: string,
+): string | undefined {
+  const recorded = latestSnapshot(snapshots)?.date
+  return recorded && recorded < todayDate ? recorded : undefined
+}
+
+// Incomes and expenses share one shape (`cashFlowSchema`), so one type and one
+// helper cover both sections everywhere below.
+type CashFlow = Income | Expense
+type SnapshotInvestment = NonNullable<Snapshot['investments']>[number]
+type SnapshotTangibleAsset = NonNullable<Snapshot['tangible_assets']>[number]
+type SnapshotLiability = NonNullable<Snapshot['liabilities']>[number]
+type SnapshotCashFlow = NonNullable<Snapshot['incomes']>[number]
+
+/**
+ * One profile item wearing the figures a snapshot recorded for it.
+ *
+ * Shared by `profileAtSnapshot`, which reports a past date, and
+ * `withSnapshotValues`, which re-baselines the profile onto a snapshot: the two
+ * ask the same question of an entry — "what did this item look like then?" — so
+ * they answer it with the same code and cannot drift apart.
+ */
+const withRecordedBalance = (
+  item: ProfileInvestment,
+  entry: SnapshotInvestment,
+): ProfileInvestment => ({ ...item, balance: entry.balance })
+
+/**
+ * Whether a recorded asset entry carries a debt — the one fact that decides
+ * whether the asset was financed on the date.
+ */
+export const recordsDebt = (entry: { outstanding_balance?: number }): boolean =>
+  entry.outstanding_balance !== undefined
+
+/** A loan's remaining term and the unit it is stated in. */
+type LoanTerm = Pick<ProfileTangibleAsset, 'remaining_term' | 'remaining_term_unit'>
+
+/**
+ * The term a recorded debt restores, to spread over the loan. The unit comes
+ * with it — 25 read in months is not 25 years, and a loan restated in the other
+ * unit since would otherwise reinterpret the recorded number. A term is not a
+ * balance, so there is no "none" for an omission to mean: a snapshot that
+ * recorded no term restores nothing, and the loan's own term stands.
+ */
+const recordedTerm = (entry: LoanTerm) =>
+  entry.remaining_term === undefined
+    ? {}
+    : { remaining_term: entry.remaining_term, remaining_term_unit: entry.remaining_term_unit }
+
+const withRecordedValue = (
+  item: ProfileTangibleAsset,
+  entry: SnapshotTangibleAsset,
+): ProfileTangibleAsset => {
+  // The recorded debt decides the status. An asset paid off since has to keep
+  // counting its debt on a date it still owed; one financed since must not
+  // carry today's mortgage back onto a date it was owned outright. Financing
+  // fields left over from the other state are harmless — the schema only
+  // requires them while the status is 'financed'.
+  if (!recordsDebt(entry)) {
+    return { ...item, value: entry.value, status: 'fully_owned', outstanding_balance: undefined }
+  }
+  return {
+    ...item,
+    ...recordedTerm(entry),
+    value: entry.value,
+    status: 'financed',
+    outstanding_balance: entry.outstanding_balance,
+    // The terms are descriptive and stay on the profile — unless the asset has
+    // been paid off since, which the financial-data form records by clearing
+    // them. The schema requires terms on a financed asset, so the blanks are
+    // filled with the least that can be said: no interest, no installment.
+    installment_frequency: item.installment_frequency ?? 'monthly',
+    annual_rate: item.annual_rate ?? 0,
+    installment_amount: item.installment_amount ?? 0,
+    remaining_term: entry.remaining_term ?? item.remaining_term ?? 0,
+  }
+}
+
+const withRecordedDebt = (item: ProfileLiability, entry: SnapshotLiability): ProfileLiability => ({
+  ...item,
+  ...recordedTerm(entry),
+  outstanding_balance: entry.outstanding_balance,
+})
+
+const withRecordedAmount = (item: CashFlow, entry: SnapshotCashFlow): CashFlow => ({
+  ...item,
+  amount: entry.amount,
+  frequency: entry.frequency,
+})
+
+/**
+ * Stands in for an item the profile no longer has: the snapshot recorded its
+ * figures, not its name or its timing, so a total taken for that date still
+ * counts it.
+ */
+const MISSING_INVESTMENT = { name: '', balance: 0, apy: 0 } as const
+const MISSING_ASSET = { name: '', value: 0, status: 'fully_owned' } as const
+const MISSING_LIABILITY = {
+  name: '',
+  outstanding_balance: 0,
+  installment_frequency: 'monthly',
+  annual_rate: 0,
+  installment_amount: 0,
+  remaining_term: 0,
+} as const
+const MISSING_CASH_FLOW = {
+  name: '',
+  amount: 0,
+  schedule: 'recurring',
+  frequency: 'monthly',
+  start: 'immediately',
+  end: 'never',
+  change_over_time: 'none',
+} as const
+
+/**
+ * The profile as it stood on a snapshot's date: the snapshot's figures wearing
+ * the profile's descriptive fields (names, APYs, tax rates, loan terms).
+ *
+ * The snapshot decides which items exist — one the profile has since gained is
+ * dropped, one it has since lost is kept with a placeholder name — which makes
+ * every profile-level total in `financial-totals.ts` (total assets, liabilities,
+ * FI %) available per snapshot without a second implementation.
+ *
+ * `getNetWorth` is the exception: it counts only what the profile holds *on a
+ * date*, which is a question about today's timing fields rather than about what
+ * the snapshot recorded. Net worth for a recorded date comes from
+ * `snapshotNetWorth` instead, so it always equals the row's own assets less its
+ * own debt.
+ *
+ * Every section reads an omission the same way: nothing was recorded, so
+ * nothing counts. Snapshots written before cash flows were recorded are filled
+ * in from the profile at the load boundary (`repairStoredData` in
+ * `schemas.ts`), so by the time one reaches here undefined has one meaning.
+ */
+export function profileAtSnapshot(profile: Profile, snapshot: Snapshot): Profile {
+  const investments = byId(profile.investments)
+  const assets = byId(profile.tangible_assets)
+  const liabilities = byId(profile.liabilities)
+
+  const flowsOf = (section: 'incomes' | 'expenses'): CashFlow[] => {
+    const items = byId(profile[section])
+    return (snapshot[section] ?? []).map((entry) =>
+      withRecordedAmount(items.get(entry.id) ?? { id: entry.id, ...MISSING_CASH_FLOW }, entry),
+    )
+  }
+
+  return {
+    ...profile,
+    cash_amount: snapshot.cash_amount ?? 0,
+    investments: (snapshot.investments ?? []).map((entry) =>
+      withRecordedBalance(
+        investments.get(entry.id) ?? { id: entry.id, ...MISSING_INVESTMENT },
+        entry,
+      ),
+    ),
+    tangible_assets: (snapshot.tangible_assets ?? []).map((entry) =>
+      withRecordedValue(assets.get(entry.id) ?? { id: entry.id, ...MISSING_ASSET }, entry),
+    ),
+    liabilities: (snapshot.liabilities ?? []).map((entry) =>
+      withRecordedDebt(liabilities.get(entry.id) ?? { id: entry.id, ...MISSING_LIABILITY }, entry),
+    ),
+    incomes: flowsOf('incomes'),
+    expenses: flowsOf('expenses'),
+  }
+}
+
+/**
+ * The profile re-baselined onto a snapshot: every balance the snapshot records
+ * replaces the profile's, and every item it does not record is left alone.
+ *
+ * Deliberately not `profileAtSnapshot`, which drops items the snapshot has no
+ * entry for. That is right for reporting a past date, but wrong here: an
+ * investment opened after the snapshot was taken is still owned today, and
+ * re-baselining must not delete it from the profile — `withHistory` records it
+ * in the snapshot instead, so the two agree again. Cash is the exception —
+ * there is only one, and `snapshotNetWorth` counts a missing amount as zero, so
+ * the profile has to as well or its net worth would disagree with the
+ * snapshot it was just baselined onto.
+ *
+ * Cash flows are not re-baselined at all. A snapshot's recorded flows are what
+ * ran on its date; the profile's are what runs now, and the two part ways the
+ * moment a raise is entered — which records no snapshot, because no balance
+ * moved. Writing the snapshot's flows back onto the profile would silently
+ * undo that raise on every save the History page makes.
+ */
+function withSnapshotValues(profile: Profile, snapshot: Snapshot): Profile {
+  const overlay = <P extends { id: string }, S extends { id: string }>(
+    items: P[] | undefined,
+    recorded: S[] | undefined,
+    merge: (item: P, entry: S) => P,
+  ): P[] | undefined => {
+    if (!items) return items
+    const entries = byId(recorded)
+    return items.map((item) => {
+      const entry = entries.get(item.id)
+      return entry ? merge(item, entry) : item
+    })
+  }
+
+  return {
+    ...profile,
+    cash_amount: snapshot.cash_amount ?? 0,
+    investments: overlay(profile.investments, snapshot.investments, withRecordedBalance),
+    tangible_assets: overlay(profile.tangible_assets, snapshot.tangible_assets, withRecordedValue),
+    liabilities: overlay(profile.liabilities, snapshot.liabilities, withRecordedDebt),
+  }
+}
+
+/**
+ * `entries`, followed by every entry of `others` whose id they do not cover.
+ * Hands back `entries` itself when there is nothing to add, so a section that
+ * was never recorded stays unrecorded.
+ */
+export function withMissingEntries<T extends { id: string }>(
+  entries: T[] | undefined,
+  others: T[] | undefined,
+): T[] | undefined {
+  const covered = new Set((entries ?? []).map((entry) => entry.id))
+  const missing = (others ?? []).filter((entry) => !covered.has(entry.id))
+  return missing.length > 0 ? [...(entries ?? []), ...missing] : entries
+}
+
+/**
+ * `snapshot` recording every holding the profile has on its date, each one it
+ * has no entry for at the profile's figure.
+ */
+function withUnrecordedHoldings(snapshot: Snapshot, profile: Profile): Snapshot {
+  const held = heldBalances(profile, parseDateOnly(snapshot.date))
+  return {
+    ...snapshot,
+    investments: withMissingEntries(snapshot.investments, held.investments),
+    tangible_assets: withMissingEntries(snapshot.tangible_assets, held.tangible_assets),
+    liabilities: withMissingEntries(snapshot.liabilities, held.liabilities),
+  }
+}
+
+/**
+ * Attaches a new history to the profile, keeping the invariant the rest of the
+ * app relies on: the profile holds the balances as they stood on its most
+ * recent snapshot's date. `getCurrentProfile` projects forward from exactly
+ * that pair, so a history whose newest entry disagrees with the profile would
+ * show the dashboard compounding a value the user has already replaced.
+ *
+ * Both sides move to meet. The profile takes every figure the newest snapshot
+ * records, and the snapshot records every holding it had no entry for — one
+ * opened after it was taken, which a rewind onto it keeps. Left unrecorded, the
+ * dashboard would count that holding and the History chart's last recorded
+ * point would not, and the next rename would read as a balance moving and
+ * re-date the baseline.
+ */
+function withHistory(profile: Profile, snapshots: Snapshot[]): Profile {
+  const latest = latestSnapshot(snapshots)
+  if (!latest) return { ...profile, snapshots }
+  const rebased = withSnapshotValues(profile, latest)
+  return {
+    ...rebased,
+    snapshots: upsertSnapshot(snapshots, withUnrecordedHoldings(latest, rebased)),
+  }
+}
+
+/**
+ * Records an edited or newly added snapshot. Pass `originalDate` when editing
+ * one whose date the user changed, so the entry does not survive at both dates.
+ */
+export function withSavedSnapshot(
+  profile: Profile,
+  snapshot: Snapshot,
+  originalDate?: string,
+): Profile {
+  const kept =
+    originalDate && originalDate !== snapshot.date
+      ? removeSnapshot(profile.snapshots, originalDate)
+      : profile.snapshots
+  return withHistory(profile, upsertSnapshot(kept, snapshot))
+}
+
+/**
+ * Deletes the snapshot dated `date`. Deleting the most recent one rewinds the
+ * profile's baseline to the one before it — the figures the user last recorded
+ * that still stand. Deleting the last one leaves the history empty and the
+ * profile as it is; `appStore.deleteSnapshot` then records today's figures in
+ * its place while there is anything held to record, so a profile with balances
+ * never loses its baseline.
+ */
+export function withDeletedSnapshot(profile: Profile, date: string): Profile {
+  return withHistory(profile, removeSnapshot(profile.snapshots, date))
+}
+
+/**
+ * Whether deleting the snapshot dated `date` would change anything.
+ *
+ * Deleting the only one does not while it is today's and anything is held: a
+ * profile with balances is never left without a baseline, so
+ * `appStore.deleteSnapshot` carries the figures forward to today and records
+ * them in its place — and carried forward no time at all, they are the deleted
+ * snapshot's own. The row would stay, after the user was told the deletion
+ * cannot be undone.
+ */
+export function canDeleteSnapshot(profile: Profile, date: string, today: Date): boolean {
+  const snapshots = profile.snapshots ?? []
+  const onlyOne = snapshots.length === 1 && snapshots[0].date === date
+  return (
+    !onlyOne || date !== toDateOnlyString(today) || !hasAnyBalance(heldBalances(profile, today))
   )
 }
 
 /**
- * Gives a profile that predates snapshots a single baseline dated `asOf` (the
- * last time its data was written). Without it, balances saved months ago would
- * read as confirmed-today: no staleness banner, no projection, and a History
- * chart with one point.
+ * The profile with its newest snapshot stating the loan terms the profile does.
  *
- * A no-op once any snapshot exists, or when there are no balances to record.
+ * The profile holds its figures as of that snapshot's date, terms included:
+ * `getCurrentProfile` amortizes every loan from there on the profile's own
+ * term. A term changed since — a refinance, a correction, a restatement in
+ * months — moves no balance, so it records no snapshot, and the snapshot would
+ * go on stating the old term. Every History-page save re-baselines the profile
+ * onto the newest snapshot, so each would silently put that old term back, and
+ * so would a rewind onto the snapshot once a newer one is deleted.
+ */
+export function withLatestTermsRecorded(profile: Profile): Profile {
+  const latest = latestSnapshot(profile.snapshots)
+  if (!latest) return profile
+  const assets = byId(profile.tangible_assets)
+  const liabilities = byId(profile.liabilities)
+  const withTermOf = <E extends { id: string }>(entry: E, loan: LoanTerm | undefined): E =>
+    loan
+      ? {
+          ...entry,
+          remaining_term: loan.remaining_term,
+          remaining_term_unit: loan.remaining_term_unit,
+        }
+      : entry
+
+  return {
+    ...profile,
+    snapshots: upsertSnapshot(profile.snapshots, {
+      ...latest,
+      tangible_assets: latest.tangible_assets?.map((entry) => {
+        const asset = assets.get(entry.id)
+        return withTermOf(
+          entry,
+          asset?.status === 'financed' && recordsDebt(entry) ? asset : undefined,
+        )
+      }),
+      liabilities: latest.liabilities?.map((entry) => withTermOf(entry, liabilities.get(entry.id))),
+    }),
+  }
+}
+
+/**
+ * Gives a profile with no history a single baseline dated `asOf` (the last time
+ * its data was written). Without it, figures saved months ago would read as
+ * confirmed-today: no staleness banner, no projection, and a History chart with
+ * one point.
+ *
+ * An absent list and an empty one are the same thing — a profile holding
+ * balances that nothing says a date for. Nothing else can leave one behind:
+ * deleting the last snapshot re-baselines onto today rather than clearing the
+ * history, precisely so a profile with balances always has a baseline. A no-op
+ * when there are no balances to record.
  */
 export function withSeededSnapshot(profile: Profile, asOf: Date): Profile {
   if ((profile.snapshots ?? []).length > 0) return profile
-  const balances = heldBalances(profile, asOf)
-  if (!hasAnyBalance(balances)) return profile
-  return { ...profile, snapshots: [{ date: toDateOnlyString(asOf), ...balances }] }
+  if (!hasAnyBalance(heldBalances(profile, asOf))) return profile
+  return { ...profile, snapshots: [captureSnapshot(profile, toDateOnlyString(asOf))] }
 }

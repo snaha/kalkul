@@ -1,14 +1,26 @@
+import { init } from 'svelte-i18n'
+
 import { describe, expect, test } from 'vitest'
 
-import type { Profile, Snapshot } from './schemas'
+import { getNetWorth } from './financial-totals'
+import { type Profile, type Snapshot, profileSchema } from './schemas'
 import {
   captureSnapshot,
   hasSameBalances,
   latestSnapshot,
+  profileAtSnapshot,
+  removeSnapshot,
   snapshotNetWorth,
+  staleSince,
   upsertSnapshot,
+  withDeletedSnapshot,
+  withSavedSnapshot,
   withSeededSnapshot,
 } from './snapshots'
+
+// The schema's conditional-requirement messages are translations, and one is
+// formatted the moment a check fails.
+init({ fallbackLocale: 'en', initialLocale: 'en' })
 
 const PROFILE: Profile = {
   name: 'Alice',
@@ -43,6 +55,30 @@ const PROFILE: Profile = {
       remaining_term: 3,
     },
   ],
+  incomes: [
+    {
+      id: 'i1',
+      name: 'Salary',
+      amount: 4_000,
+      schedule: 'recurring',
+      frequency: 'monthly',
+      start: 'immediately',
+      end: 'never',
+      change_over_time: 'none',
+    },
+  ],
+  expenses: [
+    {
+      id: 'e1',
+      name: 'Living',
+      amount: 2_000,
+      schedule: 'recurring',
+      frequency: 'monthly',
+      start: 'immediately',
+      end: 'never',
+      change_over_time: 'none',
+    },
+  ],
 }
 
 describe('captureSnapshot', () => {
@@ -55,10 +91,38 @@ describe('captureSnapshot', () => {
         { id: 'inv2', balance: 78_000 },
       ],
       tangible_assets: [
-        { id: 't1', value: 20_000, outstanding_balance: undefined },
-        { id: 't2', value: 170_000, outstanding_balance: 80_000 },
+        { id: 't1', value: 20_000, outstanding_balance: undefined, remaining_term: undefined },
+        { id: 't2', value: 170_000, outstanding_balance: 80_000, remaining_term: 20 },
       ],
-      liabilities: [{ id: 'l1', outstanding_balance: 6_000 }],
+      // The term is recorded with the balance it moves with.
+      liabilities: [{ id: 'l1', outstanding_balance: 6_000, remaining_term: 3 }],
+      incomes: [{ id: 'i1', amount: 4_000, frequency: 'monthly' }],
+      expenses: [{ id: 'e1', amount: 2_000, frequency: 'monthly' }],
+    })
+  })
+
+  test('records the unit a loan term is stated in beside the term', () => {
+    // 36 read in years is not 36 months: a term restored without its unit
+    // would be reinterpreted in whatever unit the loan is stated in by then.
+    const inMonths: Profile = {
+      ...PROFILE,
+      tangible_assets: PROFILE.tangible_assets?.map((a) =>
+        a.id === 't2' ? { ...a, remaining_term: 240, remaining_term_unit: 'months' as const } : a,
+      ),
+      liabilities: PROFILE.liabilities?.map((l) => ({
+        ...l,
+        remaining_term: 36,
+        remaining_term_unit: 'months' as const,
+      })),
+    }
+    const snapshot = captureSnapshot(inMonths, '2026-04-27')
+    expect(snapshot.tangible_assets?.[1]).toMatchObject({
+      remaining_term: 240,
+      remaining_term_unit: 'months',
+    })
+    expect(snapshot.liabilities?.[0]).toMatchObject({
+      remaining_term: 36,
+      remaining_term_unit: 'months',
     })
   })
 
@@ -69,6 +133,8 @@ describe('captureSnapshot', () => {
       investments: [],
       tangible_assets: [],
       liabilities: [],
+      incomes: [],
+      expenses: [],
     })
   })
 })
@@ -91,7 +157,7 @@ describe('captureSnapshot and the holding window', () => {
     const snapshot = captureSnapshot(profile, '2026-04-27')
     expect(snapshot.investments).toEqual([{ id: 'inv1', balance: 100_000 }])
     expect(snapshot.tangible_assets).toEqual([
-      { id: 't1', value: 20_000, outstanding_balance: undefined },
+      { id: 't1', value: 20_000, outstanding_balance: undefined, remaining_term: undefined },
     ])
   })
 })
@@ -149,6 +215,23 @@ describe('latestSnapshot', () => {
   })
 })
 
+describe('staleSince', () => {
+  const snapshots: Snapshot[] = [{ date: '2026-01-01' }, { date: '2026-03-01' }]
+
+  test('names the date the figures were last recorded on', () => {
+    expect(staleSince(snapshots, '2026-06-15')).toBe('2026-03-01')
+  })
+
+  test('is undefined when the newest snapshot is today', () => {
+    expect(staleSince(snapshots, '2026-03-01')).toBeUndefined()
+  })
+
+  test('is undefined when nothing was ever recorded', () => {
+    expect(staleSince(undefined, '2026-06-15')).toBeUndefined()
+    expect(staleSince([], '2026-06-15')).toBeUndefined()
+  })
+})
+
 describe('hasSameBalances', () => {
   test('ignores the date when comparing', () => {
     const one = captureSnapshot(PROFILE, '2026-01-01')
@@ -175,6 +258,29 @@ describe('hasSameBalances', () => {
       '2026-01-01',
     )
     expect(hasSameBalances(one, two)).toBe(false)
+  })
+
+  test('reads a snapshot stored before cash flows were recorded as unchanged', () => {
+    const legacy: Snapshot = {
+      date: '2020-01-01',
+      cash_amount: 15_000,
+      investments: [
+        { id: 'inv1', balance: 100_000 },
+        { id: 'inv2', balance: 78_000 },
+      ],
+      tangible_assets: [
+        { id: 't1', value: 20_000, outstanding_balance: undefined },
+        { id: 't2', value: 170_000, outstanding_balance: 80_000 },
+      ],
+      liabilities: [{ id: 'l1', outstanding_balance: 6_000 }],
+    }
+    expect(hasSameBalances(legacy, captureSnapshot(PROFILE, '2026-06-15'))).toBe(true)
+  })
+
+  test('still detects a balance that moved since a legacy snapshot', () => {
+    const legacy: Snapshot = { date: '2020-01-01', cash_amount: 15_000 }
+    const moved = captureSnapshot({ ...PROFILE, cash_amount: 16_000 }, '2026-06-15')
+    expect(hasSameBalances(legacy, moved)).toBe(false)
   })
 
   test('treats a missing snapshot as different', () => {
@@ -207,6 +313,56 @@ describe('hasSameBalances', () => {
     }
     expect(hasSameBalances(one, two)).toBe(true)
   })
+
+  test('ignores a cash flow whose amount moved', () => {
+    // A raise moves no balance. Reading it as a change would re-date the
+    // projection baseline: every untouched balance replaced by its projection,
+    // today stamped onto them, and the staleness banner gone — all because the
+    // user corrected their salary.
+    const one = captureSnapshot(PROFILE, '2026-01-01')
+    const raised = { ...(PROFILE.incomes ?? [])[0], amount: 4_500 }
+    const two = captureSnapshot({ ...PROFILE, incomes: [raised] }, '2026-01-01')
+    expect(hasSameBalances(one, two)).toBe(true)
+  })
+
+  test('ignores a cash flow the profile gained or lost', () => {
+    const none = captureSnapshot({ ...PROFILE, incomes: [] }, '2026-01-01')
+    expect(hasSameBalances(none, captureSnapshot(PROFILE, '2026-01-01'))).toBe(true)
+  })
+
+  test("ignores a loan's term, which moves with the balance it is compared beside", () => {
+    const one = captureSnapshot(PROFILE, '2026-01-01')
+    const two: Snapshot = {
+      ...one,
+      liabilities: [{ id: 'l1', outstanding_balance: 6_000, remaining_term: 2 }],
+    }
+    expect(hasSameBalances(one, two)).toBe(true)
+  })
+
+  test('ignores the order the items are stored in', () => {
+    // Reordering a profile's lists moves no money. Reading it as a change
+    // would record a snapshot and re-date the projection baseline.
+    const one = captureSnapshot(PROFILE, '2026-01-01')
+    const reordered = captureSnapshot(
+      { ...PROFILE, investments: [...(PROFILE.investments ?? [])].reverse() },
+      '2026-01-01',
+    )
+    expect(hasSameBalances(one, reordered)).toBe(true)
+  })
+
+  test('detects an item swapped for another with the same balance', () => {
+    // Matching by id, not by position: same length, same figures, different
+    // holdings.
+    const one = captureSnapshot(PROFILE, '2026-01-01')
+    const swapped: Snapshot = {
+      ...one,
+      investments: [
+        { id: 'inv1', balance: 100_000 },
+        { id: 'inv3', balance: 78_000 },
+      ],
+    }
+    expect(hasSameBalances(one, swapped)).toBe(false)
+  })
 })
 
 describe('withSeededSnapshot', () => {
@@ -226,6 +382,16 @@ describe('withSeededSnapshot', () => {
     const profile: Profile = { name: '', email: '' }
     expect(withSeededSnapshot(profile, asOf).snapshots).toBeUndefined()
   })
+
+  test('seeds a profile whose snapshot list is empty', () => {
+    // An empty list means the same as no list: balances with no date attached.
+    // Nothing can leave one behind on purpose — deleting the last snapshot
+    // re-baselines onto today rather than clearing the history.
+    const profile: Profile = { ...PROFILE, snapshots: [] }
+    expect(withSeededSnapshot(profile, asOf).snapshots).toEqual([
+      captureSnapshot(PROFILE, '2026-04-27'),
+    ])
+  })
 })
 
 describe('captureSnapshot plan-owned items', () => {
@@ -242,7 +408,9 @@ describe('captureSnapshot plan-owned items', () => {
         { id: 'x', name: 'x', value: 999, status: 'fully_owned', ...owned },
       ],
       liabilities: [...PROFILE.liabilities!, { ...PROFILE.liabilities![0], id: 'x', ...owned }],
+      // Beside the profile's own salary: a snapshot records cash flows too.
       incomes: [
+        ...PROFILE.incomes!,
         {
           id: 'x',
           name: 'x',
@@ -257,5 +425,332 @@ describe('captureSnapshot plan-owned items', () => {
       ],
     }
     expect(captureSnapshot(withOwned, '2026-01-01')).toEqual(captureSnapshot(PROFILE, '2026-01-01'))
+  })
+})
+
+describe('captureSnapshot and one-time cash flows', () => {
+  test('records only the recurring flows, as a snapshot the profile can store', () => {
+    // A one-time expense is an event, not a rate: the savings rate and FI %
+    // leave it out, and it has no frequency to record. An entry without one
+    // is one the schema rejects, and a rejected snapshot fails the whole
+    // dataset the next time it loads.
+    const withTrip: Profile = {
+      ...PROFILE,
+      expenses: [
+        ...PROFILE.expenses!,
+        {
+          id: 'trip',
+          name: 'Trip',
+          amount: 3_000,
+          schedule: 'one_time',
+          transaction_year: 2026,
+          transaction_month: 8,
+        },
+      ],
+    }
+    const snapshot = captureSnapshot(withTrip, '2026-04-27')
+    expect(snapshot.expenses).toEqual([{ id: 'e1', amount: 2_000, frequency: 'monthly' }])
+    expect(profileSchema.safeParse({ ...withTrip, snapshots: [snapshot] }).success).toBe(true)
+  })
+})
+
+describe('removeSnapshot', () => {
+  const a: Snapshot = { date: '2026-01-01', cash_amount: 100 }
+  const b: Snapshot = { date: '2026-03-01', cash_amount: 300 }
+
+  test('drops the snapshot with the given date', () => {
+    expect(removeSnapshot([a, b], '2026-01-01')).toEqual([b])
+  })
+
+  test('leaves the list alone when no snapshot has that date', () => {
+    expect(removeSnapshot([a, b], '2026-02-01')).toEqual([a, b])
+  })
+
+  test('treats a missing list as empty', () => {
+    expect(removeSnapshot(undefined, '2026-01-01')).toEqual([])
+  })
+
+  test('does not mutate the input list', () => {
+    const input = [a, b]
+    removeSnapshot(input, '2026-01-01')
+    expect(input).toEqual([a, b])
+  })
+})
+
+describe('profileAtSnapshot', () => {
+  const snapshot = captureSnapshot(PROFILE, '2026-04-27')
+
+  test('round-trips a snapshot captured from the profile', () => {
+    const at = profileAtSnapshot(PROFILE, snapshot)
+    expect(at.cash_amount).toBe(15_000)
+    expect(at.investments).toEqual(PROFILE.investments)
+    expect(at.tangible_assets).toEqual(PROFILE.tangible_assets)
+    expect(at.liabilities).toEqual(PROFILE.liabilities)
+    expect(at.incomes).toEqual(PROFILE.incomes)
+    expect(at.expenses).toEqual(PROFILE.expenses)
+  })
+
+  test('restores the recorded values over the profile ones', () => {
+    const at = profileAtSnapshot(PROFILE, {
+      ...snapshot,
+      cash_amount: 1_000,
+      investments: [{ id: 'inv1', balance: 50_000 }],
+      incomes: [{ id: 'i1', amount: 3_000, frequency: 'monthly' }],
+    })
+    expect(at.cash_amount).toBe(1_000)
+    // Only the recorded investment survives — inv2 did not exist on that date.
+    expect(at.investments).toEqual([{ id: 'inv1', name: 'ETF', balance: 50_000, apy: 5 }])
+    // Everything but the amount comes from the profile item.
+    expect(at.incomes?.[0]).toMatchObject({ name: 'Salary', amount: 3_000, end: 'never' })
+  })
+
+  test('keeps its net worth equal to the snapshot it was built from', () => {
+    expect(getNetWorth(profileAtSnapshot(PROFILE, snapshot))).toBe(snapshotNetWorth(snapshot))
+  })
+
+  test("follows the snapshot's financing status, not the profile's", () => {
+    // The house was paid off since; the snapshot still records its debt, so
+    // net worth on that date has to keep counting it.
+    const paidOff: Profile = {
+      ...PROFILE,
+      tangible_assets: [
+        { id: 't1', name: 'Car', value: 20_000, status: 'fully_owned' },
+        { id: 't2', name: 'House', value: 170_000, status: 'fully_owned' },
+      ],
+    }
+    const at = profileAtSnapshot(paidOff, snapshot)
+    expect(at.tangible_assets?.[1]).toMatchObject({
+      status: 'financed',
+      outstanding_balance: 80_000,
+    })
+    expect(getNetWorth(at)).toBe(snapshotNetWorth(snapshot))
+  })
+
+  test('reads a missing cash-flow list the way it reads a missing balance', () => {
+    // Undefined means "none recorded" in every section. Snapshots written
+    // before cash flows were recorded are filled in from the profile at the
+    // load boundary (`repairStoredData`), so nothing downstream has to guess.
+    const legacy: Snapshot = { ...snapshot, incomes: undefined, expenses: undefined }
+    const at = profileAtSnapshot(PROFILE, legacy)
+    expect(at.incomes).toEqual([])
+    expect(at.expenses).toEqual([])
+  })
+
+  test('reads a recorded but empty cash-flow list as no cash flow', () => {
+    const at = profileAtSnapshot(PROFILE, { ...snapshot, incomes: [], expenses: [] })
+    expect(at.incomes).toEqual([])
+    expect(at.expenses).toEqual([])
+  })
+
+  test("restores a loan's recorded term alongside its balance", () => {
+    const at = profileAtSnapshot(PROFILE, {
+      ...snapshot,
+      liabilities: [{ id: 'l1', outstanding_balance: 6_000, remaining_term: 12 }],
+    })
+    expect(at.liabilities?.[0]).toMatchObject({ outstanding_balance: 6_000, remaining_term: 12 })
+  })
+
+  test('still reads a missing balance list as nothing owned', () => {
+    // Balances get no such fallback: `snapshotNetWorth` counts a missing list
+    // as zero, and the two have to agree.
+    const bare: Snapshot = { date: '2026-04-27', cash_amount: 5 }
+    expect(getNetWorth(profileAtSnapshot(PROFILE, bare))).toBe(snapshotNetWorth(bare))
+  })
+
+  test('keeps a recorded item the profile no longer has', () => {
+    const withoutInvestments: Profile = { ...PROFILE, investments: [] }
+    const at = profileAtSnapshot(withoutInvestments, snapshot)
+    expect(at.investments).toHaveLength(2)
+    expect(getNetWorth(at)).toBe(snapshotNetWorth(snapshot))
+  })
+})
+
+describe('withSavedSnapshot', () => {
+  const JAN = captureSnapshot({ ...PROFILE, cash_amount: 1_000 }, '2026-01-01')
+  const JUN = captureSnapshot({ ...PROFILE, cash_amount: 9_000 }, '2026-06-01')
+  const HISTORY: Profile = { ...PROFILE, cash_amount: 9_000, snapshots: [JAN, JUN] }
+
+  test('adds a snapshot and keeps the list date-ascending', () => {
+    const saved = withSavedSnapshot(HISTORY, { ...JAN, date: '2026-03-01', cash_amount: 5_000 })
+    expect(saved.snapshots?.map((s) => s.date)).toEqual(['2026-01-01', '2026-03-01', '2026-06-01'])
+  })
+
+  test('re-dates a snapshot, leaving nothing behind at the old date', () => {
+    const saved = withSavedSnapshot(HISTORY, { ...JAN, date: '2026-02-01' }, '2026-01-01')
+    expect(saved.snapshots?.map((s) => s.date)).toEqual(['2026-02-01', '2026-06-01'])
+  })
+
+  test("carries the latest snapshot's figures onto the profile", () => {
+    // The profile holds the balances as of its newest snapshot, so editing
+    // that snapshot has to move the profile with it — otherwise the dashboard
+    // keeps projecting from the value the user just replaced.
+    const saved = withSavedSnapshot(HISTORY, { ...JUN, cash_amount: 12_345 })
+    expect(saved.cash_amount).toBe(12_345)
+  })
+
+  test('leaves the profile alone when an older snapshot is edited', () => {
+    const saved = withSavedSnapshot(HISTORY, { ...JAN, cash_amount: 2 })
+    expect(saved.cash_amount).toBe(9_000)
+  })
+
+  test('re-baselines the profile when the new snapshot becomes the latest', () => {
+    const saved = withSavedSnapshot(HISTORY, { ...JUN, date: '2026-08-01', cash_amount: 20_000 })
+    expect(saved.cash_amount).toBe(20_000)
+  })
+
+  test('keeps a profile item the snapshot never recorded', () => {
+    // An investment added after the snapshot was taken has no recorded value
+    // in it. Re-baselining must not delete it from the profile.
+    const extra = { id: 'inv3', name: 'Gold', balance: 500, apy: 1 }
+    const withExtra: Profile = { ...HISTORY, investments: [...(PROFILE.investments ?? []), extra] }
+    const saved = withSavedSnapshot(withExtra, { ...JUN, cash_amount: 1 })
+    expect(saved.investments).toContainEqual(extra)
+    // And records it in that snapshot, which the profile now projects from —
+    // otherwise the dashboard would count Gold and the snapshot would not.
+    const newest = latestSnapshot(saved.snapshots)
+    expect(newest?.investments).toContainEqual({ id: 'inv3', balance: 500 })
+    expect(getNetWorth(saved, new Date(2026, 5, 1))).toBe(snapshotNetWorth(newest ?? JUN))
+  })
+
+  test("leaves the profile's cash flows alone", () => {
+    // A raise entered in financial data records no snapshot, so the newest
+    // snapshot still carries the old salary. Saving it must not put that old
+    // salary back onto the profile: the profile's flows are what runs now, and
+    // a snapshot's are what ran on its date.
+    const raised: Profile = {
+      ...HISTORY,
+      incomes: [{ ...PROFILE.incomes![0], amount: 5_000 }],
+    }
+    const saved = withSavedSnapshot(raised, { ...JUN, cash_amount: 12_345 })
+    expect(saved.incomes?.[0].amount).toBe(5_000)
+    expect(saved.expenses).toEqual(PROFILE.expenses)
+  })
+
+  test('reads an unrecorded cash amount as zero, like the net worth it records', () => {
+    // There is only one cash balance, so "not recorded" cannot mean "left
+    // alone" the way it does for an item: `snapshotNetWorth` counts a missing
+    // amount as zero, and the profile has to read it the same way.
+    const bare: Snapshot = { date: '2026-08-01', investments: [{ id: 'inv1', balance: 1 }] }
+    expect(withSavedSnapshot(HISTORY, bare).cash_amount).toBe(0)
+  })
+})
+
+describe('withDeletedSnapshot', () => {
+  const JAN = captureSnapshot({ ...PROFILE, cash_amount: 1_000 }, '2026-01-01')
+  const JUN = captureSnapshot({ ...PROFILE, cash_amount: 9_000 }, '2026-06-01')
+  const HISTORY: Profile = { ...PROFILE, cash_amount: 9_000, snapshots: [JAN, JUN] }
+
+  test('drops the snapshot', () => {
+    expect(withDeletedSnapshot(HISTORY, '2026-01-01').snapshots?.map((s) => s.date)).toEqual([
+      '2026-06-01',
+    ])
+  })
+
+  test('rewinds the profile to the snapshot that becomes the latest', () => {
+    expect(withDeletedSnapshot(HISTORY, '2026-06-01').cash_amount).toBe(1_000)
+  })
+
+  test('leaves the profile alone when an older snapshot goes', () => {
+    expect(withDeletedSnapshot(HISTORY, '2026-01-01').cash_amount).toBe(9_000)
+  })
+
+  test('records a holding the older snapshot never recorded at the figure the profile keeps', () => {
+    // Gold was opened after JAN and recorded in JUN. Rewinding onto JAN keeps
+    // it — deleting a snapshot must not delete an investment — so JAN has to
+    // record it too. Otherwise the profile holds more than the baseline it now
+    // projects from: the dashboard counts Gold, the History chart's last
+    // recorded point does not, and the next rename reads as a balance moving.
+    const gold = { id: 'inv3', name: 'Gold', balance: 500, apy: 0 }
+    const withGold: Profile = { ...PROFILE, investments: [...(PROFILE.investments ?? []), gold] }
+    const jun = captureSnapshot(withGold, '2026-06-01')
+    const deleted = withDeletedSnapshot({ ...withGold, snapshots: [JAN, jun] }, '2026-06-01')
+
+    expect(deleted.investments).toContainEqual(gold)
+    const newest = latestSnapshot(deleted.snapshots)
+    expect(newest?.date).toBe('2026-01-01')
+    expect(newest?.investments).toContainEqual({ id: 'inv3', balance: 500 })
+    expect(getNetWorth(deleted, new Date(2026, 0, 1))).toBe(snapshotNetWorth(newest ?? JAN))
+  })
+
+  test('restores a recorded term in the unit it was recorded in', () => {
+    // JAN recorded the car loan's three years; the loan has been restated in
+    // months since. Rewinding restores the recorded figure — three years, not
+    // three months, which would settle the loan on a balloon payment.
+    const inYears: Profile = {
+      ...PROFILE,
+      liabilities: PROFILE.liabilities?.map((l) => ({
+        ...l,
+        remaining_term_unit: 'years' as const,
+      })),
+    }
+    const inMonths: Profile = {
+      ...PROFILE,
+      liabilities: PROFILE.liabilities?.map((l) => ({
+        ...l,
+        remaining_term: 30,
+        remaining_term_unit: 'months' as const,
+      })),
+    }
+    const jan = captureSnapshot(inYears, '2026-01-01')
+    const jun = captureSnapshot(inMonths, '2026-06-01')
+    const deleted = withDeletedSnapshot({ ...inMonths, snapshots: [jan, jun] }, '2026-06-01')
+    expect(deleted.liabilities?.[0]).toMatchObject({
+      remaining_term: 3,
+      remaining_term_unit: 'years',
+    })
+  })
+
+  test('leaves the profile alone when the last snapshot goes', () => {
+    const only: Profile = { ...PROFILE, snapshots: [JUN] }
+    const deleted = withDeletedSnapshot(only, '2026-06-01')
+    expect(deleted.snapshots).toEqual([])
+    expect(deleted.cash_amount).toBe(PROFILE.cash_amount)
+  })
+
+  test("drops a financed asset's debt when the older snapshot recorded none", () => {
+    // The house was fully owned when JAN was taken and financed since.
+    // Rewinding onto JAN restores that state: keeping today's mortgage against
+    // January's value would leave the profile disagreeing with the very
+    // snapshot it was just re-baselined onto, so the dashboard would report a
+    // net worth the History chart never plots. Financing fields left on the
+    // item are harmless — the schema only requires them while it is financed.
+    const ownedOutright = PROFILE.tangible_assets?.map((a) =>
+      a.id === 't2' ? { ...a, status: 'fully_owned' as const, outstanding_balance: undefined } : a,
+    )
+    const jan = captureSnapshot({ ...PROFILE, tangible_assets: ownedOutright }, '2026-01-01')
+    const deleted = withDeletedSnapshot({ ...PROFILE, snapshots: [jan, JUN] }, '2026-06-01')
+    const house = deleted.tangible_assets?.find((a) => a.id === 't2')
+    expect(house?.status).toBe('fully_owned')
+    expect(house?.outstanding_balance).toBeUndefined()
+    // Which leaves the profile matching its newest snapshot again.
+    expect(getNetWorth(deleted)).toBe(snapshotNetWorth(jan))
+  })
+
+  test('keeps a recorded debt on an asset paid off and cleared since', () => {
+    // The mirror case: the house was financed when JAN was taken and has been
+    // paid off since, which the financial-data form records by clearing every
+    // financing field. Rewinding onto JAN has to restore the debt — and leave
+    // behind a profile the schema accepts, which requires terms on a financed
+    // asset. With nothing on the profile to restore them from, the least it can
+    // say is no interest and no installment.
+    const paidOff: Profile = {
+      ...PROFILE,
+      tangible_assets: [
+        { id: 't1', name: 'Car', value: 20_000, status: 'fully_owned' },
+        { id: 't2', name: 'House', value: 170_000, status: 'fully_owned' },
+      ],
+    }
+    const jun = captureSnapshot(paidOff, '2026-06-01')
+    const deleted = withDeletedSnapshot({ ...paidOff, snapshots: [JAN, jun] }, '2026-06-01')
+    expect(deleted.tangible_assets?.[1]).toMatchObject({
+      status: 'financed',
+      outstanding_balance: 80_000,
+      installment_frequency: 'monthly',
+      annual_rate: 0,
+      installment_amount: 0,
+      remaining_term: 20,
+    })
+    expect(profileSchema.safeParse(deleted).success).toBe(true)
+    expect(getNetWorth(deleted)).toBe(snapshotNetWorth(JAN))
   })
 })

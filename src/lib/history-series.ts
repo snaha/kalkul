@@ -1,7 +1,7 @@
 import { addDays, daysBetween } from '$lib/@snaha/kalkul-maths'
 import { getCurrentProfile } from '$lib/current-values'
 import { hasAnyFinancialData } from '$lib/financial-totals'
-import type { Profile } from '$lib/schemas'
+import { type Profile, normalizeSnapshots } from '$lib/schemas'
 import { captureSnapshot, snapshotNetWorth } from '$lib/snapshots'
 import { parseDateOnly, toDateOnlyString } from '$lib/utils'
 
@@ -31,6 +31,18 @@ function netWorthOn(profile: Profile, date: string): number {
 }
 
 /**
+ * Whether there is a History to show at all: figures on the profile, or dates
+ * recorded for figures it no longer has.
+ *
+ * A profile that spent its way to zero has no balances left but a history worth
+ * reading — the drop to zero is recorded deliberately — so gating on balances
+ * alone would make it unreachable at exactly the moment it became interesting.
+ */
+export function hasHistoryToShow(profile: Profile): boolean {
+  return hasAnyFinancialData(profile) || (profile.snapshots ?? []).length > 0
+}
+
+/**
  * Net worth over time for the History chart: one point per recorded snapshot,
  * then a sampled projection running from the last of them to today.
  *
@@ -38,10 +50,16 @@ function netWorthOn(profile: Profile, date: string): number {
  * snapshot. Each projected sample is computed by carrying those balances
  * forward to that sample's date, so the tail follows the same model the
  * dashboard's headline figures come from.
+ *
+ * The history is normalized here rather than assumed sorted: the last recorded
+ * point is the baseline the projected tail runs from, so a hand-edited backup
+ * or a file from another tool listing its snapshots out of order would
+ * otherwise project from the wrong one and draw the area path zig-zagging back
+ * through time.
  */
 export function buildHistorySeries(profile: Profile, today: Date): HistoryPoint[] {
-  const snapshots = profile.snapshots ?? []
-  if (snapshots.length === 0 && !hasAnyFinancialData(profile)) return []
+  if (!hasHistoryToShow(profile)) return []
+  const snapshots = normalizeSnapshots(profile.snapshots ?? [])
 
   const todayDate = toDateOnlyString(today)
   const points: HistoryPoint[] = snapshots

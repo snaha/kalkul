@@ -1,25 +1,39 @@
 <script lang="ts">
+  import { locale } from 'svelte-i18n'
+
   import { daysBetween } from '$lib/@snaha/kalkul-maths'
   import { monthTicks, niceAxisBounds } from '$lib/chart-axis'
   import type { HistoryPoint } from '$lib/history-series'
-  import { cn } from '$lib/utils'
+  import { cn, parseDateOnly } from '$lib/utils'
 
   interface Props {
     points: HistoryPoint[]
     /** Y-axis labels — pass appStore.formatCompactCurrency (or similar). */
     formatValue: (value: number) => string
-    /**
-     * X-axis month labels. `isFirst` marks the leading tick, which carries the
-     * year — which tick that is depends on how far the labels had to be thinned.
-     */
-    formatMonth: (date: string, isFirst: boolean) => string
     /** Label for the trailing point, e.g. "Now". */
     nowLabel: string
     ariaLabel: string
     class?: string
   }
 
-  let { points, formatValue, formatMonth, nowLabel, ariaLabel, class: className }: Props = $props()
+  let { points, formatValue, nowLabel, ariaLabel, class: className }: Props = $props()
+
+  // Month names are translations, so the X-axis ticks follow the UI language
+  // rather than the profile's number-formatting locale (which the caller's
+  // `formatValue` resolves for the Y axis). Read here rather than passed in:
+  // every chart labels its axis the same way, and a locale string has no
+  // business travelling through props.
+  const shortMonth = $derived(new Intl.DateTimeFormat($locale ?? undefined, { month: 'short' }))
+  const monthWithYear = $derived(
+    new Intl.DateTimeFormat($locale ?? undefined, { month: 'short', year: 'numeric' }),
+  )
+
+  // Only the leading tick carries a year, matching the spec. Which tick that is
+  // depends on how far the labels had to be thinned.
+  function formatMonth(date: string, isFirst: boolean): string {
+    const parsed = parseDateOnly(date)
+    return isFirst ? monthWithYear.format(parsed) : shortMonth.format(parsed)
+  }
 
   // Geometry is computed in real pixels rather than a stretched viewBox so
   // strokes and dots keep their shape at any panel width.

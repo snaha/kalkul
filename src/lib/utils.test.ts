@@ -9,6 +9,7 @@ import {
   formatNumber,
   formatPercent,
   getFormattingLocale,
+  msUntilNextMidnight,
   parseDateOnly,
   slugify,
   toDateOnlyString,
@@ -140,6 +141,20 @@ describe('toDateOnlyString', () => {
   it('round-trips with parseDateOnly (no drift on repeated save/load)', () => {
     expect(toDateOnlyString(parseDateOnly('1985-03-01'))).toBe('1985-03-01')
     expect(toDateOnlyString(parseDateOnly('1990-01-01'))).toBe('1990-01-01')
+  })
+})
+
+describe('msUntilNextMidnight', () => {
+  it('counts to the next local midnight', () => {
+    expect(msUntilNextMidnight(new Date(2026, 0, 1, 23, 59, 0))).toBe(60_000)
+  })
+
+  it('is a full day at midnight itself', () => {
+    expect(msUntilNextMidnight(new Date(2026, 0, 1, 0, 0, 0))).toBe(86_400_000)
+  })
+
+  it('counts calendar days, not 24-hour blocks, across a month end', () => {
+    expect(msUntilNextMidnight(new Date(2026, 0, 31, 12, 0, 0))).toBe(12 * 3_600_000)
   })
 })
 
