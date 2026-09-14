@@ -21,6 +21,7 @@ const PROFILE: Profile = {
       id: 'i1',
       name: 'Salary',
       amount: 5_000,
+      schedule: 'recurring',
       frequency: 'monthly',
       start: 'immediately',
       end: 'never',
@@ -32,6 +33,7 @@ const PROFILE: Profile = {
       id: 'e1',
       name: 'Living',
       amount: 3_000,
+      schedule: 'recurring',
       frequency: 'monthly',
       start: 'immediately',
       end: 'never',
@@ -86,6 +88,38 @@ describe('getCurrentProfile', () => {
     }
     // 15,000 + (60,000 − 2,400) × 0.4982888.
     expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(43_701)
+  })
+
+  // One-time items are events rather than rates — the accrual is a rate, so a
+  // one-time expense or income must not move today's cash either way
+  // (mirrors one-time transfers).
+  test('does not accrue one-time incomes or expenses', () => {
+    const profile: Profile = {
+      ...PROFILE,
+      incomes: [
+        ...PROFILE.incomes!,
+        {
+          id: 'i2',
+          name: 'Lottery',
+          amount: 1_000_000,
+          schedule: 'one_time',
+          transaction_year: 2026,
+          transaction_month: 3,
+        },
+      ],
+      expenses: [
+        ...PROFILE.expenses!,
+        {
+          id: 'e2',
+          name: 'New car',
+          amount: 50_000,
+          schedule: 'one_time',
+          transaction_year: 2026,
+          transaction_month: 3,
+        },
+      ],
+    }
+    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(25_763.04)
   })
 
   test('counts a flow whose start month has arrived', () => {

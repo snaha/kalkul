@@ -247,6 +247,7 @@ describe('captureSnapshot plan-owned items', () => {
           id: 'x',
           name: 'x',
           amount: 999,
+          schedule: 'recurring',
           frequency: 'monthly',
           start: 'immediately',
           end: 'never',

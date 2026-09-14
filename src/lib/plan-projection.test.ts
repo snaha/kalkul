@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { getYearlyPlanProjection, summarizeTransfer } from './plan-projection'
+import { getYearlyPlanProjection, summarizeCashFlow, summarizeTransfer } from './plan-projection'
 import type {
   Expense,
   Income,
@@ -70,6 +70,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'inc1',
         name: 'Salary',
         amount: 1000,
+        schedule: 'recurring',
         frequency: 'monthly',
         start: 'immediately',
         end: 'never',
@@ -332,6 +333,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'inc1',
         name: 'Salary',
         amount: 1000,
+        schedule: 'recurring',
         frequency: 'monthly',
         start: 'immediately',
         end: 'never',
@@ -343,6 +345,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'exp1',
         name: 'Rent',
         amount: 500,
+        schedule: 'recurring',
         frequency: 'monthly',
         start: 'immediately',
         end: 'never',
@@ -362,6 +365,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'inc1',
         name: 'Salary',
         amount: 1000,
+        schedule: 'recurring',
         frequency: 'yearly',
         start: 'immediately',
         end: 'never',
@@ -382,6 +386,7 @@ describe('getYearlyPlanProjection', () => {
             id: 'inc1',
             name: 'Salary',
             amount: 1000,
+            schedule: 'recurring',
             frequency: 'yearly',
             start: 'immediately',
             end: 'never',
@@ -398,6 +403,7 @@ describe('getYearlyPlanProjection', () => {
             id: 'inc1',
             name: 'Salary',
             amount: 1000,
+            schedule: 'recurring',
             frequency: 'yearly',
             start: 'immediately',
             end: 'never',
@@ -424,6 +430,7 @@ describe('getYearlyPlanProjection', () => {
           id: 'inc1',
           name: 'Salary',
           amount: 1200,
+          schedule: 'recurring',
           frequency: 'yearly',
           start: 'now',
           end: 'never',
@@ -452,6 +459,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'inc1',
         name: 'Pension',
         amount: 1200,
+        schedule: 'recurring',
         frequency: 'yearly',
         start: 'when_age_is',
         start_age: 65,
@@ -479,6 +487,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'exp1',
         name: 'Daycare',
         amount: 1000,
+        schedule: 'recurring',
         frequency: 'yearly',
         start: 'immediately',
         end: 'at_specific_date',
@@ -507,6 +516,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'inc1',
         name: 'Salary',
         amount: 1200,
+        schedule: 'recurring',
         frequency: 'yearly',
         start: 'at_specific_date',
         start_year: 2025,
@@ -531,6 +541,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'exp1',
         name: 'Daycare',
         amount: 1200,
+        schedule: 'recurring',
         frequency: 'yearly',
         start: 'immediately',
         end: 'at_specific_date',
@@ -558,6 +569,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'exp1',
         name: 'Course',
         amount: 1200,
+        schedule: 'recurring',
         frequency: 'yearly',
         start: 'at_specific_date',
         start_year: 2026,
@@ -585,6 +597,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'inc1',
         name: 'Salary',
         amount: 1200,
+        schedule: 'recurring',
         frequency: 'yearly',
         start: 'at_specific_date',
         start_year: 2025,
@@ -835,6 +848,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'inc1',
         name: 'Stipend',
         amount: 100,
+        schedule: 'recurring',
         frequency: 'weekly',
         start: 'immediately',
         end: 'never',
@@ -855,6 +869,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'exp1',
         name: 'Subscription',
         amount: 1200,
+        schedule: 'recurring',
         frequency: 'yearly',
         start: 'immediately',
         end: 'never',
@@ -949,6 +964,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'inc1',
         name: 'Salary',
         amount: 1000,
+        schedule: 'recurring',
         frequency: 'monthly',
         start: 'immediately',
         end: 'never',
@@ -960,6 +976,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'exp1',
         name: 'Rent',
         amount: 500,
+        schedule: 'recurring',
         frequency: 'monthly',
         start: 'immediately',
         end: 'never',
@@ -978,6 +995,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'inc1',
         name: 'Salary',
         amount: 1200,
+        schedule: 'recurring',
         frequency: 'yearly',
         start: 'at_specific_date',
         start_year: 2025,
@@ -1053,6 +1071,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'exp1',
         name: 'Big spend',
         amount: 1000,
+        schedule: 'recurring',
         frequency: 'yearly',
         start: 'immediately',
         end: 'never',
@@ -1382,6 +1401,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'inc1',
         name: 'Salary',
         amount: 1000,
+        schedule: 'recurring',
         frequency: 'yearly',
         start: 'immediately',
         end: 'never',
@@ -1514,6 +1534,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'inc1',
         name: 'Salary',
         amount: 1000,
+        schedule: 'recurring',
         frequency: 'yearly',
         start: 'immediately',
         end: 'never',
@@ -1540,6 +1561,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'a',
         name: 'A',
         amount: 1000,
+        schedule: 'recurring',
         frequency: 'yearly',
         start: 'immediately',
         end: 'never',
@@ -1551,6 +1573,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'b',
         name: 'B',
         amount: 1000,
+        schedule: 'recurring',
         frequency: 'yearly',
         start: 'immediately',
         end: 'never',
@@ -1578,6 +1601,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'inc1',
         name: 'Salary',
         amount: 1000,
+        schedule: 'recurring',
         frequency: 'yearly',
         start: 'immediately',
         end: 'never',
@@ -2481,6 +2505,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'inc1',
         name: 'Salary',
         amount: 1000,
+        schedule: 'recurring',
         frequency: 'monthly',
         start: 'immediately',
         end: 'never',
@@ -2492,6 +2517,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'exp1',
         name: 'Rent',
         amount: 500,
+        schedule: 'recurring',
         frequency: 'monthly',
         start: 'immediately',
         end: 'never',
@@ -2516,6 +2542,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'inc1',
         name: 'Short-term gig',
         amount: 1200,
+        schedule: 'recurring',
         frequency: 'yearly',
         start: 'immediately',
         end: 'at_specific_date',
@@ -2609,6 +2636,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'exp1',
         name: 'Living costs',
         amount: 2700,
+        schedule: 'recurring',
         frequency: 'monthly',
         start: 'immediately',
         end: 'never',
@@ -2664,6 +2692,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'exp1',
         name: 'Living costs',
         amount: 2700,
+        schedule: 'recurring',
         frequency: 'monthly',
         start: 'immediately',
         end: 'never',
@@ -2703,6 +2732,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'exp1',
         name: 'Big spend',
         amount: 5000,
+        schedule: 'recurring',
         frequency: 'yearly',
         start: 'immediately',
         end: 'never',
@@ -2725,6 +2755,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'rent',
         name: 'Rent',
         amount: 800,
+        schedule: 'recurring',
         frequency: 'monthly',
         start: 'immediately',
         end: 'never',
@@ -2734,6 +2765,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'food',
         name: 'Food',
         amount: 400,
+        schedule: 'recurring',
         frequency: 'monthly',
         start: 'immediately',
         end: 'never',
@@ -2755,6 +2787,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'exp1',
         name: 'Small spend',
         amount: 100,
+        schedule: 'recurring',
         frequency: 'yearly',
         start: 'immediately',
         end: 'never',
@@ -2784,6 +2817,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'exp1',
         name: 'Living',
         amount: 10_000,
+        schedule: 'recurring',
         frequency: 'yearly',
         start: 'immediately',
         end: 'never',
@@ -2853,6 +2887,7 @@ describe('getYearlyPlanProjection', () => {
         id: 'exp1',
         name: 'Living',
         amount: 10_000,
+        schedule: 'recurring',
         frequency: 'yearly',
         start: 'immediately',
         end: 'never',
@@ -3035,6 +3070,189 @@ describe('summarizeTransfer', () => {
   })
 })
 
+describe('summarizeCashFlow', () => {
+  const recurring: Expense = {
+    id: 'e1',
+    name: 'Rent',
+    amount: 1000,
+    schedule: 'recurring',
+    frequency: 'monthly',
+    start: 'immediately',
+    end: 'never',
+    change_over_time: 'none',
+  }
+  const oneTime: Expense = {
+    id: 'e2',
+    name: 'New car',
+    amount: 1000,
+    schedule: 'one_time',
+    transaction_year: 2027,
+    transaction_month: 6,
+  }
+
+  it('counts a one-time expense once at face value without inflation', () => {
+    expect(summarizeCashFlow(oneTime, makePlan(), undefined)).toEqual({
+      occurrences: 1,
+      nominalTotal: 1000,
+      realTotal: 1000,
+    })
+  })
+
+  it('scales a one-time inflation-adjusted expense forward to its transaction year', () => {
+    const result = summarizeCashFlow(
+      { ...oneTime, inflation_adjusted: true },
+      makePlan({ inflation_rate: 0.02 }),
+      undefined,
+    )
+    expect(result.occurrences).toBe(1)
+    expect(result.nominalTotal).toBeCloseTo(1040.4, 6)
+    expect(result.realTotal).toBe(1000)
+  })
+
+  it('reports zero occurrences for a one-time expense outside the plan', () => {
+    expect(
+      summarizeCashFlow({ ...oneTime, transaction_year: 2035 }, makePlan(), undefined),
+    ).toEqual({ occurrences: 0, nominalTotal: 0, realTotal: 0 })
+  })
+
+  it('counts every month of a never-ending recurring expense over the plan', () => {
+    expect(summarizeCashFlow(recurring, makePlan(), undefined)).toEqual({
+      occurrences: 72,
+      nominalTotal: 72000,
+      realTotal: 72000,
+    })
+  })
+
+  it('stops counting at an at_specific_date end (inclusive of the end month)', () => {
+    const result = summarizeCashFlow(
+      { ...recurring, end: 'at_specific_date', end_year: 2026, end_month: 6 },
+      makePlan(),
+      undefined,
+    )
+    expect(result).toEqual({ occurrences: 18, nominalTotal: 18000, realTotal: 18000 })
+  })
+
+  it('stops counting at a when_age_is end when a birth year is given', () => {
+    // born 1990 -> age 36 in 2026
+    const result = summarizeCashFlow(
+      { ...recurring, end: 'when_age_is', end_age: 36 },
+      makePlan(),
+      1990,
+    )
+    expect(result.occurrences).toBe(24)
+    expect(result.nominalTotal).toBe(24000)
+  })
+
+  it('grows the nominal total with inflation while the real total stays flat', () => {
+    const result = summarizeCashFlow(
+      { ...recurring, inflation_adjusted: true },
+      makePlan({ inflation_rate: 0.02 }),
+      undefined,
+    )
+    expect(result.occurrences).toBe(72)
+    // 12000 * (1 + 1.02 + 1.02^2 + ... + 1.02^5)
+    expect(result.nominalTotal).toBeCloseTo(75697.4515584, 6)
+    expect(result.realTotal).toBe(72000)
+  })
+
+  it('counts yearly incomes once per plan year', () => {
+    const income: Income = {
+      ...recurring,
+      id: 'i1',
+      name: 'Bonus',
+      schedule: 'recurring',
+      frequency: 'yearly',
+    }
+    expect(summarizeCashFlow(income, makePlan(), undefined)).toEqual({
+      occurrences: 6,
+      nominalTotal: 6000,
+      realTotal: 6000,
+    })
+  })
+
+  it('grows a recurring expense with change_over_time alongside inflation', () => {
+    const result = summarizeCashFlow(
+      {
+        ...recurring,
+        inflation_adjusted: true,
+        change_over_time: 'increase_yearly',
+        change_percentage: 100,
+      },
+      makePlan({ inflation_rate: 0 }),
+      undefined,
+    )
+    expect(result.occurrences).toBe(72)
+    // 12000 * (1 + 2 + 4 + ... + 2^5) = 12000 * 63
+    expect(result.nominalTotal).toBe(756_000)
+    expect(result.realTotal).toBe(756_000)
+  })
+})
+
+describe('one-time cash flows in the projection', () => {
+  const oneTimeExpense: Expense = {
+    id: 'e1',
+    name: 'New car',
+    amount: 1000,
+    schedule: 'one_time',
+    transaction_year: 2027,
+    transaction_month: 6,
+  }
+
+  it('subtracts a one-time expense from cash in its transaction year only', () => {
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ cash_amount: 1000, expenses: [oneTimeExpense] }),
+    )
+    const year2027 = result.find((r) => r.year === 2027)
+    expect(year2027?.cash).toBeCloseTo(0, 6)
+    expect(year2027?.totalExpenses).toBeCloseTo(1000, 6)
+    const year2026 = result.find((r) => r.year === 2026)
+    expect(year2026?.cash).toBeCloseTo(1000, 6)
+    expect(year2026?.totalExpenses).toBe(0)
+  })
+
+  it('scales a one-time inflation-adjusted expense from plan start to the transaction year', () => {
+    const result = getYearlyPlanProjection(
+      makePlan({ inflation_rate: 0.02 }),
+      makeProfile({
+        cash_amount: 10_000,
+        expenses: [{ ...oneTimeExpense, inflation_adjusted: true }],
+      }),
+    )
+    const year2027 = result.find((r) => r.year === 2027)
+    // 1000 * 1.02^2 nominal, deflated back by the same factor → 1000 real.
+    expect(year2027?.totalExpenses).toBeCloseTo(1000, 4)
+    // Cash is what is left of 10,000 nominal after the 1040.4 payment.
+    expect(year2027?.cash).toBeCloseTo(8959.6 / 1.02 ** 2, 4)
+  })
+
+  it('adds a one-time income to cash in its transaction year only', () => {
+    const oneTimeIncome: Income = {
+      id: 'i1',
+      name: 'Lottery',
+      amount: 5000,
+      schedule: 'one_time',
+      transaction_year: 2028,
+      transaction_month: 3,
+    }
+    const result = getYearlyPlanProjection(makePlan(), makeProfile({ incomes: [oneTimeIncome] }))
+    const year2028 = result.find((r) => r.year === 2028)
+    expect(year2028?.totalIncome).toBeCloseTo(5000, 6)
+    expect(year2028?.cash).toBeCloseTo(5000, 6)
+    const year2027 = result.find((r) => r.year === 2027)
+    expect(year2027?.totalIncome).toBe(0)
+  })
+
+  it('flags a one-time expense when cash cannot cover it', () => {
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ cash_amount: 100, expenses: [{ ...oneTimeExpense, amount: 2000 }] }),
+    )
+    const year2027 = result.find((r) => r.year === 2027)
+    expect(year2027?.insufficientFundExpenseIds).toContain('e1')
+  })
+})
+
 describe('capital gains tax on withdrawals', () => {
   // Investment doubles in year 2 (apy 100 %), so half of any withdrawal is gain.
   const doubling: ProfileInvestment[] = [{ id: 'i1', name: 'Fund', balance: 1000, apy: 100 }]
@@ -3157,6 +3375,7 @@ describe('plan ownership', () => {
     id: 'f',
     name: 'Flow',
     amount: 100,
+    schedule: 'recurring',
     frequency: 'monthly',
     start: 'immediately',
     end: 'never',

@@ -34,6 +34,9 @@
       id: crypto.randomUUID(),
       name: $_('page.setup.income.defaultName', { values: { index } }),
       amount: undefined,
+      // Financial data records the current, repeating income; one-time items
+      // belong to plans.
+      schedule: 'recurring',
       frequency: 'monthly',
       start: 'immediately',
       end: 'never',

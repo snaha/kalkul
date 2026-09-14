@@ -164,6 +164,7 @@ describe('cash-flow lists', () => {
         id: 'inc1',
         name: 'Salary',
         amount: 100,
+        schedule: 'recurring',
         frequency: 'monthly',
         start: 'immediately',
         end: 'never',
@@ -191,6 +192,31 @@ describe('plan ownership', () => {
       makePlan({ id: 'plan-1' }),
     )
     expect(profile.investments).toEqual([makeInvestment('i1', 'renamed')])
+  })
+
+  it('keeps a plan-owned item owned when it is edited', () => {
+    // The projected item the dialog hands back carries no plan_id; the
+    // ownership must survive the edit or the item would leak into financial
+    // data as current data.
+    profile.investments = [{ ...makeInvestment('i1'), plan_id: 'plan-1' }]
+    upsertProfileItem(
+      PROFILE_LISTS.investment,
+      makeInvestment('i1', 'renamed'),
+      makePlan({ id: 'plan-1' }),
+    )
+    expect(profile.investments).toEqual([{ ...makeInvestment('i1', 'renamed'), plan_id: 'plan-1' }])
+  })
+
+  it('keeps the plan-owned item owned when edited from another plan', () => {
+    // A plan-owned item is only visible in its own plan, so this can only
+    // happen via a stale dialog; ownership must not flip either way.
+    profile.investments = [{ ...makeInvestment('i1'), plan_id: 'plan-1' }]
+    upsertProfileItem(
+      PROFILE_LISTS.investment,
+      makeInvestment('i1', 'renamed'),
+      makePlan({ id: 'plan-2' }),
+    )
+    expect(profile.investments).toEqual([{ ...makeInvestment('i1', 'renamed'), plan_id: 'plan-1' }])
   })
 
   it('owns the copy made inside a plan even when the source is shared', () => {

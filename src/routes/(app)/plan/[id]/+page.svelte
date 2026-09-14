@@ -228,6 +228,13 @@
     if (t.schedule === 'one_time') return `(${$_('page.plan.scheduleOneTime').toLowerCase()})`
     return `/ ${getFrequencyShortLabel($_, t.frequency ?? 'monthly')}`
   }
+
+  // Mirrors the transfer suffix: a one-time income/expense is an event, not a
+  // rate, so it reads "(one-time)" instead of a frequency.
+  function cashFlowValueSuffix(f: Income | Expense): string {
+    if (f.schedule === 'one_time') return `(${$_('page.plan.scheduleOneTime').toLowerCase()})`
+    return `/ ${getFrequencyShortLabel($_, f.frequency ?? 'monthly')}`
+  }
   const incomesCount = $derived(itemsForPlan(appStore.profile.incomes, planId).length)
   const expensesCount = $derived(itemsForPlan(appStore.profile.expenses, planId).length)
   const cashCount = $derived(appStore.profile.cash_amount ? 1 : 0)
@@ -318,7 +325,7 @@
           name: i.name,
           // Figma shows the same neutral foreground color for incomes and
           // expenses; the leading sign carries the direction.
-          value: `+${appStore.formatCurrencyCode(i.amount)} / ${getFrequencyShortLabel($_, i.frequency)}`,
+          value: `+${appStore.formatCurrencyCode(i.amount)} ${cashFlowValueSuffix(i)}`,
           onClick: () => openEditDialog('income', i),
         })),
     },
@@ -331,7 +338,7 @@
         .map((e) => ({
           id: e.id,
           name: e.name,
-          value: `-${appStore.formatCurrencyCode(e.amount)} / ${getFrequencyShortLabel($_, e.frequency)}`,
+          value: `-${appStore.formatCurrencyCode(e.amount)} ${cashFlowValueSuffix(e)}`,
           hasInsufficientFunds: failingExpenseIds.has(e.id),
           onClick: () => openEditDialog('expense', e),
         })),

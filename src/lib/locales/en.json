@@ -172,7 +172,24 @@
       "transferOccurrences": "{count, plural, one {# occurrence} other {# occurrences}}",
       "transferNominalValue": "Nominal value: {nominal} ({real} in today's money)",
       "transferNominalTotal": "Nominal total: {nominal} ({real} in today's money)",
-      "transferTotal": "Total: {total}"
+      "transferTotal": "Total: {total}",
+      "newIncome": "Add income",
+      "newExpense": "Add expense",
+      "cashFlowLabelLabel": "Label",
+      "incomeScheduleLabel": "Schedule",
+      "expenseScheduleLabel": "Type",
+      "expenseStartDescription": "When you plan to start paying this expense.",
+      "expenseEndDescription": "When you plan to stop paying this expense.",
+      "expenseChangeDescription": "How this expense amount changes throughout the projection period.",
+      "incomeStartDescription": "When you plan to start receiving this income.",
+      "incomeEndDescription": "When you plan to stop receiving this income.",
+      "incomeChangeDescription": "How this income amount changes throughout the projection period.",
+      "cashFlowEndNever": "Indefinite — no planned end",
+      "cashFlowChangeNone": "None — stays the same",
+      "cashFlowOccurrences": "{count, plural, one {# occurrence} other {# occurrences}}",
+      "cashFlowNominalValue": "Nominal value: {nominal} ({real} in today's money)",
+      "cashFlowNominalTotal": "Nominal total: {nominal} ({real} in today's money)",
+      "cashFlowTotal": "Total: {total}"
     },
     "home": {
       "heroTitle": "See where your money could take you",
@@ -569,6 +586,8 @@
     "required_when_financed": "Required when asset is financed",
     "required_for_one_time_transfer": "Required for a one-time transfer",
     "required_for_recurring_transfer": "Required for a recurring transfer",
+    "required_for_one_time_cash_flow": "Required for a one-time item",
+    "required_for_recurring_cash_flow": "Required for a recurring item",
     "transfer_same_endpoints": "From and To must be different assets"
   }
 }

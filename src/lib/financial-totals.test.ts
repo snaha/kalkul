@@ -311,6 +311,7 @@ function expense(amount: number, frequency: Expense['frequency']): Expense {
     id: `e-${amount}-${frequency}`,
     name: 'Expense',
     amount,
+    schedule: 'recurring',
     frequency,
     start: 'now',
     end: 'never',
@@ -329,6 +330,26 @@ describe('getAnnualExpensesTotal', () => {
       expenses: [expense(100, 'weekly'), expense(100, 'monthly'), expense(100, 'yearly')],
     }
     expect(getAnnualExpensesTotal(profile)).toBeCloseTo(100 * (365.25 / 7) + 1_200 + 100, 6)
+  })
+
+  // A one-time expense is an event, not a yearly rate: it must not distort the
+  // savings rate, FI % or runway (mirrors one-time transfers).
+  test('skips one-time expenses', () => {
+    const profile: Profile = {
+      ...EMPTY_PROFILE,
+      expenses: [
+        expense(1200, 'monthly'),
+        {
+          id: 'e-once',
+          name: 'New car',
+          amount: 50_000,
+          schedule: 'one_time',
+          transaction_year: 2030,
+          transaction_month: 4,
+        },
+      ],
+    }
+    expect(getAnnualExpensesTotal(profile)).toBe(14_400)
   })
 })
 
@@ -376,6 +397,7 @@ function income(amount: number, frequency: Income['frequency']): Income {
     id: `i-${amount}-${frequency}`,
     name: 'Income',
     amount,
+    schedule: 'recurring',
     frequency,
     start: 'now',
     end: 'never',
@@ -394,6 +416,24 @@ describe('getAnnualIncomeTotal', () => {
       incomes: [income(100, 'weekly'), income(100, 'monthly'), income(100, 'yearly')],
     }
     expect(getAnnualIncomeTotal(profile)).toBeCloseTo(100 * (365.25 / 7) + 1_200 + 100, 6)
+  })
+
+  test('skips one-time incomes', () => {
+    const profile: Profile = {
+      ...EMPTY_PROFILE,
+      incomes: [
+        income(1200, 'monthly'),
+        {
+          id: 'i-once',
+          name: 'Lottery',
+          amount: 1_000_000,
+          schedule: 'one_time',
+          transaction_year: 2030,
+          transaction_month: 4,
+        },
+      ],
+    }
+    expect(getAnnualIncomeTotal(profile)).toBe(14_400)
   })
 })
 
@@ -618,6 +658,7 @@ describe('plan-owned items', () => {
         id: 'x',
         name: 'x',
         amount: 999,
+        schedule: 'recurring',
         frequency: 'monthly',
         start: 'immediately',
         end: 'never',
@@ -631,6 +672,7 @@ describe('plan-owned items', () => {
         id: 'x',
         name: 'x',
         amount: 999,
+        schedule: 'recurring',
         frequency: 'monthly',
         start: 'immediately',
         end: 'never',

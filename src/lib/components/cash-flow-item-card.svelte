@@ -13,12 +13,14 @@
   // keeps pace with inflation. Start/End/Change over time are planned modelling
   // and live in the plan dialog, not here (matches the Figma financial-data
   // cards). The item still carries those fields so an edit here round-trips
-  // whatever a plan set.
+  // whatever a plan set. The frequency is optional only because the stored
+  // shape allows a one-time schedule — financial data never creates one, so
+  // it reads back as monthly.
   interface CashFlowItem {
     id: string
     name: string
     amount: number | undefined
-    frequency: Frequency
+    frequency?: Frequency
     inflation_adjusted?: boolean
     editing: boolean
   }
@@ -53,7 +55,7 @@
   let collapsedValueClass = $derived(sentiment === 'positive' ? 'text-success' : 'text-destructive')
   let formattedAmount = $derived.by(() => {
     if (item.amount === undefined || item.amount === 0) return ''
-    return `${sign}${formatCurrencyCode(item.amount)} / ${getFrequencyShortLabel($_, item.frequency)}`
+    return `${sign}${formatCurrencyCode(item.amount)} / ${getFrequencyShortLabel($_, item.frequency ?? 'monthly')}`
   })
 </script>
 
@@ -84,7 +86,7 @@
         <Label for="frequency-{item.id}">{$_('page.setup.common.frequency')}</Label>
         <SelectField
           id="frequency-{item.id}"
-          value={item.frequency}
+          value={item.frequency ?? 'monthly'}
           items={frequencyItems}
           onValueChange={(v) => {
             if (v) item.frequency = v

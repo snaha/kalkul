@@ -18,6 +18,11 @@ export const changeOverTimeSchema = z.enum([
   'decrease_yearly',
 ])
 
+// One duality for every scheduled money movement — transfers, incomes and
+// expenses: a one-time item fires once on a specific month (transaction
+// date), a recurring one runs on a frequency between a start and an end.
+export const cashFlowScheduleSchema = z.enum(['one_time', 'recurring'])
+
 export const tangibleAssetStatusSchema = z.enum(['fully_owned', 'financed'])
 
 // Unit of `remaining_term` on financed tangible assets and liabilities.
@@ -205,24 +210,88 @@ const cashFlowSchema = z
     id: z.string(),
     name: z.string(),
     amount: z.number(),
-    frequency: frequencySchema,
-    start: cashFlowStartSchema,
+    // One-time items fire on the transaction date only; recurring ones carry
+    // the frequency/start/end/change_over_time machinery. Defaults to
+    // recurring so data stored before the schedule existed keeps parsing.
+    schedule: cashFlowScheduleSchema.default('recurring'),
+    // one-time fields
+    transaction_year: z.number().optional(),
+    transaction_month: z.number().optional(),
+    // recurring fields
+    frequency: frequencySchema.optional(),
+    start: cashFlowStartSchema.optional(),
     start_year: z.number().optional(),
     start_month: z.number().optional(),
     start_age: z.number().optional(),
-    end: cashFlowEndSchema,
+    end: cashFlowEndSchema.optional(),
     end_year: z.number().optional(),
     end_month: z.number().optional(),
     end_age: z.number().optional(),
     // Independent toggle: grows the nominal amount with the plan's inflation
     // rate each year. Compounds with change_over_time (e.g. a salary that's
-    // both inflation-adjusted and gets a 2% real raise).
+    // both inflation-adjusted and gets a 2% real raise). For one-time items
+    // the amount scales from plan start to the transaction year instead.
     inflation_adjusted: z.boolean().optional(),
-    change_over_time: changeOverTimeSchema,
+    change_over_time: changeOverTimeSchema.optional(),
     change_percentage: z.number().optional(),
     ...planOwnership,
   })
-  .superRefine(cashFlowTemporalRefinement)
+  .superRefine((obj, ctx) => {
+    if (obj.schedule === 'one_time') {
+      if (obj.transaction_year === undefined)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['transaction_year'],
+          message: get(_)('validation.required_for_one_time_cash_flow'),
+        })
+      if (obj.transaction_month === undefined)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['transaction_month'],
+          message: get(_)('validation.required_for_one_time_cash_flow'),
+        })
+      return
+    }
+    if (obj.frequency === undefined)
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['frequency'],
+        message: get(_)('validation.required_for_recurring_cash_flow'),
+      })
+    if (obj.start === undefined)
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['start'],
+        message: get(_)('validation.required_for_recurring_cash_flow'),
+      })
+    if (obj.end === undefined)
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['end'],
+        message: get(_)('validation.required_for_recurring_cash_flow'),
+      })
+    if (obj.change_over_time === undefined)
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['change_over_time'],
+        message: get(_)('validation.required_for_recurring_cash_flow'),
+      })
+    if (obj.start !== undefined && obj.end !== undefined) {
+      cashFlowTemporalRefinement(
+        {
+          start: obj.start,
+          start_year: obj.start_year,
+          start_month: obj.start_month,
+          start_age: obj.start_age,
+          end: obj.end,
+          end_year: obj.end_year,
+          end_month: obj.end_month,
+          end_age: obj.end_age,
+        },
+        ctx,
+      )
+    }
+  })
 
 export const incomeSchema = cashFlowSchema
 export const expenseSchema = cashFlowSchema
@@ -479,8 +548,6 @@ export function normalizeSnapshots(snapshots: Snapshot[]): Snapshot[] {
   return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date))
 }
 
-export const transferScheduleSchema = z.enum(['one_time', 'recurring'])
-
 export const transferSchema = z
   .object({
     id: z.string(),
@@ -495,7 +562,7 @@ export const transferSchema = z
     // rate. For one-time transfers, scales from plan start to the transaction
     // year. For recurring transfers, compounds yearly alongside change_over_time.
     inflation_adjusted: z.boolean().optional(),
-    schedule: transferScheduleSchema,
+    schedule: cashFlowScheduleSchema,
     // one-time fields
     transaction_year: z.number().optional(),
     transaction_month: z.number().optional(),
@@ -661,7 +728,8 @@ export type Expense = z.infer<typeof expenseSchema>
 export type Profile = z.infer<typeof profileSchema>
 export type Portfolio = z.infer<typeof portfolioSchema>
 export type Transfer = z.infer<typeof transferSchema>
-export type TransferSchedule = z.infer<typeof transferScheduleSchema>
+export type TransferSchedule = z.infer<typeof cashFlowScheduleSchema>
+export type CashFlowSchedule = z.infer<typeof cashFlowScheduleSchema>
 export type StoredData = z.infer<typeof storedDataSchema>
 export type Frequency = z.infer<typeof frequencySchema>
 export type CashFlowStart = z.infer<typeof cashFlowStartSchema>
