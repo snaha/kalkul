@@ -231,11 +231,13 @@
             variant="ghost"
             size="icon"
             aria-label={$_('page.settings.taxRules.removeRule')}
-            onclick={() =>
+            onclick={() => {
+              delete drafts[rule.id]
               saveRules(
                 key,
                 stored.filter((r) => r.id !== rule.id),
-              )}
+              )
+            }}
           >
             <Trash2 class="size-4" />
           </Button>
@@ -251,6 +253,8 @@
       {/if}
     {/each}
     <div>
+      <!-- Appends to the stored rules, not the drafts, so an in-progress
+           invalid edit on another row survives the add. -->
       <Button variant="outline" onclick={() => saveRules(key, [...rows, blankRule()])}>
         <Plus class="size-4" />
         {$_('page.settings.taxRules.addRule')}
