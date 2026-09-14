@@ -12,10 +12,9 @@
   import { Separator } from '$lib/components/ui/separator'
   import type { Snapshot } from '$lib/schemas'
   import { getFrequencyShortLabel } from '$lib/select-options'
+  import type { SnapshotField, SnapshotSectionId } from '$lib/snapshot-form'
+  import { buildSnapshotSections, openingDate, snapshotFromFields } from '$lib/snapshot-form'
   import { appStore } from '$lib/stores/app.svelte'
-
-  import type { SnapshotField, SnapshotSectionId } from './snapshot-form'
-  import { buildSnapshotSections, openingDate, snapshotFromFields } from './snapshot-form'
 
   interface Props {
     open: boolean

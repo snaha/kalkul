@@ -12,6 +12,7 @@
   import { buildHistorySeries, hasHistoryToShow } from '$lib/history-series'
   import routes from '$lib/routes'
   import type { Snapshot } from '$lib/schemas'
+  import { seedSnapshotOn } from '$lib/snapshot-form'
   import { buildSnapshotRows } from '$lib/snapshot-rows'
   import { staleSince as staleSinceOf } from '$lib/snapshots'
   import { appStore } from '$lib/stores/app.svelte'
@@ -21,7 +22,6 @@
   import QuickUpdateDialog from '../quick-update-dialog.svelte'
   import StaleDataAlert from '../stale-data-alert.svelte'
   import SnapshotDialog from './snapshot-dialog.svelte'
-  import { seedSnapshotOn } from './snapshot-form'
   import SnapshotsTable from './snapshots-table.svelte'
 
   // One clock for the whole page, following the calendar past midnight.

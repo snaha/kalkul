@@ -3,11 +3,10 @@ import { init } from 'svelte-i18n'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { Profile } from '$lib/schemas'
+import { buildSnapshotSections, seedSnapshotOn, snapshotFromFields } from '$lib/snapshot-form'
 import storageKeys from '$lib/storage-keys'
 import { toDateOnlyString } from '$lib/utils'
 
-import { seedSnapshotOn } from '../../routes/(app)/history/snapshot-form'
-import { buildSnapshotSections, snapshotFromFields } from '../../routes/(app)/history/snapshot-form'
 import { appStore } from './app.svelte'
 
 // The schema's conditional-requirement messages are translations, and one is
