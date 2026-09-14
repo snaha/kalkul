@@ -1,0 +1,1 @@
+import{n as e}from"./hugCPvJR.js";var t=`current-projection`;function n(n,r){return{id:t,name:``,...e(n,r)}}export{n,t};
