@@ -215,11 +215,10 @@
     }
   })
 
-  const canSave = $derived(
-    form.from_asset_id !== '' &&
-      form.to_asset_id !== '' &&
-      form.from_asset_id !== form.to_asset_id &&
-      (form.transfer_all || (form.amount ?? 0) > 0) &&
+  // Amount and timing alone decide what the transfer moves; From/To only
+  // decide where. The summary needs the former, saving needs both.
+  const amountAndTimingValid = $derived(
+    (form.transfer_all || (form.amount ?? 0) > 0) &&
       (form.schedule === 'one_time' ||
         (timingComplete(form.start, form.start_year, form.start_month, form.start_age) &&
           timingComplete(form.end, form.end_year, form.end_month, form.end_age) &&
@@ -233,11 +232,18 @@
           ))),
   )
 
+  const canSave = $derived(
+    amountAndTimingValid &&
+      form.from_asset_id !== '' &&
+      form.to_asset_id !== '' &&
+      form.from_asset_id !== form.to_asset_id,
+  )
+
   // Preview of what the transfer moves over the plan (Figma frames 1340-1345).
   // A one-time transfer without inflation has nothing to add beyond the
   // amount itself, so the box is hidden for it; "Max" has no fixed amount.
   const summary = $derived.by(() => {
-    if (!canSave || form.transfer_all) return undefined
+    if (!amountAndTimingValid || form.transfer_all) return undefined
     if (form.schedule === 'one_time' && !form.inflation_adjusted) return undefined
     return summarizeTransfer(
       transferFromFields(form),
