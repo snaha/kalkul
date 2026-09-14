@@ -119,7 +119,7 @@ describe('getCurrentProfile', () => {
         },
       ],
     }
-    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(25_763.04)
+    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(25_763)
   })
 
   test('counts a flow whose start month has arrived', () => {
@@ -831,10 +831,11 @@ describe('getCurrentProfile plan-owned items', () => {
     const owned = { plan_id: 'plan-1' }
     const withOwned: Profile = {
       ...PROFILE,
+      // Distinct amounts so the two cannot cancel each other out.
       incomes: [...PROFILE.incomes!, { ...PROFILE.incomes![0], id: 'x', amount: 9_999, ...owned }],
       expenses: [
         ...PROFILE.expenses!,
-        { ...PROFILE.expenses![0], id: 'x', amount: 9_999, ...owned },
+        { ...PROFILE.expenses![0], id: 'x', amount: 4_444, ...owned },
       ],
       transfers: [
         {

@@ -22,7 +22,6 @@ import {
   remainingInstallmentPeriods,
   yearOf,
 } from '$lib/plan-projection'
-import type { TimingWindow } from '$lib/plan-projection'
 import type {
   Expense,
   Income,
@@ -74,18 +73,14 @@ interface AnnualFlows {
  * ended last spring must not keep draining it.
  */
 function netAnnualCashFlowOn(profile: Profile, asOf: Date, birthYear: number | undefined): Decimal {
-  // Recurring items only: a one-time income or expense is an event rather
-  // than a rate, and this accrual only knows rates (mirrors one-time
-  // transfers). The window check runs on the temporal shape the projection
-  // resolves, with the same defaults for unset edges.
-  // One-time items only are excluded: they are events rather than rates, and
-  // this accrual only knows rates (mirrors one-time transfers). Anything else
-  // counts — an absent schedule means recurring, matching the schema's
-  // default for data stored before schedules existed. The window check runs
-  // on the temporal shape the projection resolves, with the same defaults for
-  // unset edges.
+  // Shared, recurring items only. A plan-owned item is a scenario, not
+  // today's cash. A one-time item is an event rather than a rate, and this
+  // accrual only knows rates (mirrors one-time transfers); an absent schedule
+  // means recurring, matching the schema's default for data stored before
+  // schedules existed. The window check runs on the temporal shape the
+  // projection resolves, with the same defaults for unset edges.
   const running = (flows: (Income | Expense)[] | undefined): (Income | Expense)[] =>
-    (flows ?? []).filter(
+    sharedItems(flows).filter(
       (flow) =>
         flow.schedule !== 'one_time' && isActiveOn(cashFlowToTemporal(flow), asOf, birthYear),
     )
