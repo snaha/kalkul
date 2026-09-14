@@ -25,12 +25,16 @@
   }: Props = $props()
 </script>
 
-<button
-  type="button"
+<!-- A row with no handler is information, not a control: rendered as a div so
+     it stays out of the tab order and is not announced as a dead button. -->
+<svelte:element
+  this={onclick ? 'button' : 'div'}
+  type={onclick ? 'button' : undefined}
   {onclick}
   class={cn(
     'flex w-full items-center justify-between gap-2 rounded-md px-2 text-left text-sm',
-    dense ? 'h-7' : 'h-8 hover:bg-accent',
+    dense ? 'h-7' : 'h-8',
+    onclick && !dense && 'hover:bg-accent',
   )}
 >
   <span class={cn('min-w-0 flex-1 truncate', hasInsufficientFunds && 'text-destructive')}>
@@ -71,4 +75,4 @@
       {value}
     </span>
   {/if}
-</button>
+</svelte:element>

@@ -12,7 +12,7 @@
   import { Badge } from '$lib/components/ui/badge'
   import { Button } from '$lib/components/ui/button'
   import * as Card from '$lib/components/ui/card'
-  import { buildCurrentProjectionPlan } from '$lib/current-projection'
+  import { CURRENT_PROJECTION_ID, buildCurrentProjectionPlan } from '$lib/current-projection'
   import { type YearlyProjection, getYearlyPlanProjection } from '$lib/plan-projection'
   import routes from '$lib/routes'
   import type { Portfolio, Profile } from '$lib/schemas'
@@ -88,25 +88,26 @@
            Without them there is nothing to carry forward, so it is left out —
            the saved plans below still stand on their own. -->
       {#if hasFinancialData}
-        <Card.Root class="gap-0 bg-accent py-0 shadow-xs">
-          <Card.Content class="flex items-center gap-4 p-4">
-            <div class="h-[81px] w-[144px] shrink-0 overflow-hidden rounded-lg">
-              <ProjectionThumbnail
-                data={currentProjection}
-                ariaLabel={$_('page.dashboard.projections.current.chartLabel')}
-              />
+        <a
+          href={resolve(`${routes.PLAN_VIEW}/${CURRENT_PROJECTION_ID}`)}
+          class="flex items-center gap-4 rounded-xl border bg-accent p-4 shadow-xs transition-colors hover:bg-accent/60"
+        >
+          <div class="h-[81px] w-[144px] shrink-0 overflow-hidden rounded-lg">
+            <ProjectionThumbnail
+              data={currentProjection}
+              ariaLabel={$_('page.dashboard.projections.current.chartLabel')}
+            />
+          </div>
+          <div class="flex min-w-0 flex-1 flex-col gap-1">
+            <div class="flex items-center gap-1">
+              <p class="font-bold">{$_('page.dashboard.projections.current.title')}</p>
+              <Badge variant="outline" class="bg-background">
+                {$_('page.dashboard.projections.current.badge')}
+              </Badge>
             </div>
-            <div class="flex min-w-0 flex-1 flex-col gap-1">
-              <div class="flex items-center gap-1">
-                <p class="font-bold">{$_('page.dashboard.projections.current.title')}</p>
-                <Badge variant="outline" class="bg-background">
-                  {$_('page.dashboard.projections.current.badge')}
-                </Badge>
-              </div>
-              <p class="text-sm">{$_('page.dashboard.projections.current.description')}</p>
-            </div>
-          </Card.Content>
-        </Card.Root>
+            <p class="text-sm">{$_('page.dashboard.projections.current.description')}</p>
+          </div>
+        </a>
       {/if}
 
       {#if hasPlans}
