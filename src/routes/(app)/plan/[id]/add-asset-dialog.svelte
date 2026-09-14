@@ -1,11 +1,9 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import { appStore } from '$lib/stores/app.svelte'
-
   import KindPickerDialog, { type KindPickerOption } from './kind-picker-dialog.svelte'
 
-  export type AssetKind = 'cash' | 'investment' | 'tangibleAsset' | 'liability'
+  export type AssetKind = 'investment' | 'tangibleAsset' | 'liability'
 
   interface Props {
     open: boolean
@@ -15,34 +13,21 @@
 
   let { open = $bindable(), onOpenChange, onContinue }: Props = $props()
 
-  const cashAlreadyExists = $derived(
-    appStore.profile.cash_amount !== undefined && appStore.profile.cash_amount > 0,
-  )
-
   const options: KindPickerOption<AssetKind>[] = $derived([
-    {
-      id: 'cash',
-      label: $_('page.plan.cash'),
-      description: cashAlreadyExists
-        ? $_('page.plan.cashAlreadyExists')
-        : $_('page.plan.cashDescription'),
-      // Editing cash via the add flow doesn't make sense when one already exists.
-      disabled: cashAlreadyExists,
-    },
     {
       id: 'investment',
       label: $_('page.plan.investment'),
-      description: $_('page.plan.investmentDescription'),
+      description: $_('page.setup.finances.investmentsDescription'),
     },
     {
       id: 'tangibleAsset',
       label: $_('page.plan.tangibleAsset'),
-      description: $_('page.plan.tangibleAssetDescription'),
+      description: $_('page.setup.finances.tangibleAssetsDescription'),
     },
     {
       id: 'liability',
       label: $_('page.plan.liability'),
-      description: $_('page.plan.liabilityDescription'),
+      description: $_('page.setup.finances.liabilitiesDescription'),
     },
   ])
 </script>
@@ -54,5 +39,5 @@
   {options}
   title={$_('page.plan.addAsset')}
   question={$_('page.plan.addAssetQuestion')}
-  defaultId={cashAlreadyExists ? 'investment' : 'cash'}
+  defaultId="investment"
 />
