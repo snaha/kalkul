@@ -243,6 +243,20 @@ function withAppStore() {
     if (idx !== -1) portfolios.splice(idx, 1)
     // Everything created in the plan goes with it; nothing else can show it.
     const stored = profile.toJSON()
+    const ownsNothing = !(
+      [
+        stored.investments,
+        stored.tangible_assets,
+        stored.liabilities,
+        stored.incomes,
+        stored.expenses,
+        stored.transfers,
+      ] as (PlanOwned[] | undefined)[]
+    ).some((items) => items?.some((item) => item.plan_id === id))
+    if (ownsNothing) {
+      persist()
+      return
+    }
     const disown = <T extends PlanOwned>(items: T[] | undefined) =>
       items?.filter((item) => item.plan_id !== id)
     profile = enrichProfile(

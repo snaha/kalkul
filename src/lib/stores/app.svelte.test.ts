@@ -428,4 +428,29 @@ describe('appStore.deletePortfolio plan-owned items', () => {
     expect(ids(appStore.profile.incomes)).toEqual(['shared'])
     expect(ids(appStore.profile.expenses)).toEqual(['shared'])
   })
+
+  it('leaves the profile untouched when the plan owns nothing', () => {
+    appStore.importBackup(
+      JSON.stringify({
+        profile: {
+          name: 'Jane',
+          email: '',
+          investments: [{ id: 'shared', name: 'ETF', balance: 0, apy: 0 }],
+        },
+        portfolios: [
+          {
+            id: 'plan-1',
+            name: 'Plan',
+            start_date: '2026-01-01',
+            end_date: '2060-01-01',
+            inflation_rate: 2,
+          },
+        ],
+      }),
+    )
+    const before = appStore.profile
+    appStore.portfolios[0].delete()
+    expect(appStore.portfolios).toEqual([])
+    expect(appStore.profile).toBe(before)
+  })
 })
