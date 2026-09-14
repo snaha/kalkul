@@ -26,6 +26,11 @@ export interface ListEditorConfig<TStored extends { id: string }, TUI extends Li
   toStored: (item: TUI, stored: TStored | undefined) => TStored
   /** Persist the mapped items — usually a single appStore.updateProfile call. */
   persist: (items: TStored[]) => void
+  /**
+   * Whether an empty list opens with one blank card (default true). Off for
+   * lists most people have nothing to put in, so the page doesn't imply one.
+   */
+  seedBlank?: boolean
 }
 
 export interface ListEditor<TUI extends ListEditorItem> {
@@ -57,14 +62,17 @@ export function createListEditor<TStored extends { id: string }, TUI extends Lis
   // An empty list opens with one expanded card so the user can start typing
   // without pressing "Add" first. It stays out of the profile until it has a
   // value — see the `placeholderId` check in save().
-  const initial = stored.length > 0 ? stored.map(config.toUI) : [config.makeBlank(1)]
+  const initial =
+    stored.length > 0 || config.seedBlank === false
+      ? stored.map(config.toUI)
+      : [config.makeBlank(1)]
   // Stored shape by id, so toStored can carry through the fields no card
   // renders (a transfer's schedule, a tangible asset's planned purchase).
   // A plain record rather than a Map: nothing reads it reactively.
   const originals: Record<string, TStored> = Object.fromEntries(
     stored.map((item) => [item.id, item]),
   )
-  const placeholderId = stored.length > 0 ? undefined : initial[0].id
+  const placeholderId = stored.length > 0 || initial.length === 0 ? undefined : initial[0].id
   // The seeded card only stays out of the profile while it is untouched:
   // naming it is enough to make it worth keeping across a remount.
   const placeholderName = placeholderId === undefined ? undefined : initial[0].name

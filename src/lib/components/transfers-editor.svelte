@@ -60,6 +60,9 @@
       appStore.updateProfile({
         transfers: [...data, ...planOwnedItems(appStore.profile.transfers)],
       }),
+    // Unlike incomes or expenses, a regular transfer is not something to
+    // assume everyone has — the page opens empty and waits for Add (#259).
+    seedBlank: false,
   })
   onDestroy(editor.flushSave)
 
