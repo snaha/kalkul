@@ -1,6 +1,19 @@
 import { getCurrentProfile } from '$lib/current-values'
-import { type Frequency, type Profile, type Snapshot, normalizeSnapshots } from '$lib/schemas'
-import { byId, captureSnapshot, heldProfile, profileAtSnapshot, recordsDebt } from '$lib/snapshots'
+import {
+  type Frequency,
+  type Profile,
+  type RemainingTermUnit,
+  type Snapshot,
+  normalizeSnapshots,
+} from '$lib/schemas'
+import {
+  byId,
+  captureSnapshot,
+  heldProfile,
+  profileAtSnapshot,
+  recordsDebt,
+  withMissingEntries,
+} from '$lib/snapshots'
 import { parseDateOnly } from '$lib/utils'
 
 /** The six groups the snapshot dialog is laid out in, in the design's order. */
@@ -29,6 +42,13 @@ export interface SnapshotField {
    * frequency has to survive the round trip.
    */
   frequency?: Frequency
+  /**
+   * Carried through untouched for a debt, the same way: the design draws no
+   * term control, but a snapshot records the term beside the balance, and
+   * restoring the one without the other would restart the loan's clock.
+   */
+  remaining_term?: number
+  remaining_term_unit?: RemainingTermUnit
   /** Figure the field opens with, and what it falls back to when cleared. */
   value: number
 }
@@ -47,10 +67,23 @@ export interface SnapshotSection {
  * profile holds on `date` is offered: every field is written back into the
  * snapshot, and the newest snapshot is overlaid onto the profile, so a field
  * for a position that only starts in 2030 would let an untouched Confirm zero
- * it. An item held on the date but never recorded opens at zero (it may have
- * existed, and the user can say otherwise); an entry recorded for an item the
- * profile has since deleted gets no field, and `snapshotFromFields` carries it
- * through untouched rather than dropping it.
+ * it. An entry recorded for an item the profile has since deleted gets no
+ * field, and `snapshotFromFields` carries it through untouched rather than
+ * dropping it.
+ *
+ * A figure `source` never recorded opens at the app's estimate for `date`
+ * (`seedSnapshotOn`) rather than at zero. For a snapshot moved past the newest
+ * one — a Duplicate, or a re-dated row — that is the item carried forward from
+ * the profile: the copy becomes the baseline, and a zero would wipe a holding
+ * opened since on an untouched Confirm. On an older snapshot's own date the
+ * estimate is that snapshot itself, so an item it never recorded still opens
+ * at zero — it did not exist yet as far as the history knows.
+ *
+ * Cash flows make one exception, on the newest snapshot's own date. They are
+ * history rather than baseline — the profile's may have moved on since without
+ * recording anything — so there the estimate, which runs on the profile's
+ * flows, would put today's onto that day. A flow opens at what the history
+ * recorded for the date whenever it has a snapshot for it.
  */
 export function buildSnapshotSections(
   profile: Profile,
@@ -58,20 +91,32 @@ export function buildSnapshotSections(
   date: string,
 ): SnapshotSection[] {
   const held = heldProfile(profile, parseDateOnly(date))
-  const recordedInvestments = byId(source.investments)
-  const recordedAssets = byId(source.tangible_assets)
-  const recordedLiabilities = byId(source.liabilities)
+  const estimate = seedSnapshotOn(profile, date)
+  // Where a cash flow `source` never recorded is read from: see the exception above.
+  const flowFallback =
+    (profile.snapshots ?? []).find((snapshot) => snapshot.date === date) ?? estimate
+
+  /** An item's entry in `source`, or in the estimate when `source` has none. */
+  const lookup = <T extends { id: string }>(
+    recorded: T[] | undefined,
+    estimated: T[] | undefined,
+  ) => {
+    const inSource = byId(recorded)
+    const inEstimate = byId(estimated)
+    return (id: string) => inSource.get(id) ?? inEstimate.get(id)
+  }
+  const investmentEntry = lookup(source.investments, estimate.investments)
+  const assetEntry = lookup(source.tangible_assets, estimate.tangible_assets)
+  const liabilityEntry = lookup(source.liabilities, estimate.liabilities)
 
   // Incomes and expenses are the same shape and the same rules; one section
-  // builder covers both. An amount the snapshot has no entry for opens at zero,
-  // like every other figure — snapshots stored before cash flows were recorded
-  // are filled in from the profile at the load boundary (`repairStoredData`).
+  // builder covers both.
   const cashFlowSection = (id: 'incomes' | 'expenses'): SnapshotSection => {
-    const recorded = byId(source[id])
+    const entryOf = lookup(source[id], flowFallback[id])
     return {
       id,
       fields: (profile[id] ?? []).map((flow) => {
-        const entry = recorded.get(flow.id)
+        const entry = entryOf(flow.id)
         return {
           key: `${id}:${flow.id}`,
           itemId: flow.id,
@@ -85,19 +130,18 @@ export function buildSnapshotSections(
   }
 
   const tangibleFields = (held.tangible_assets ?? []).flatMap((asset): SnapshotField[] => {
-    const recorded = recordedAssets.get(asset.id)
+    const entry = assetEntry(asset.id)
     const value: SnapshotField = {
       key: `tangible_assets:${asset.id}`,
       itemId: asset.id,
       label: asset.name,
       kind: 'value',
-      value: recorded?.value ?? 0,
+      value: entry?.value ?? 0,
     }
     // A snapshot that recorded debt keeps its field even once the asset is paid
     // off, so the figure stays the user's to correct instead of disappearing on
     // the next confirm.
-    const financed =
-      asset.status === 'financed' || (recorded !== undefined && recordsDebt(recorded))
+    const financed = asset.status === 'financed' || (entry !== undefined && recordsDebt(entry))
     if (!financed) return [value]
     return [
       value,
@@ -106,7 +150,9 @@ export function buildSnapshotSections(
         itemId: asset.id,
         label: asset.name,
         kind: 'debt',
-        value: recorded?.outstanding_balance ?? 0,
+        remaining_term: entry?.remaining_term,
+        remaining_term_unit: entry?.remaining_term_unit,
+        value: entry?.outstanding_balance ?? 0,
       },
     ]
   })
@@ -115,7 +161,13 @@ export function buildSnapshotSections(
     {
       id: 'cash',
       fields: [
-        { key: 'cash', itemId: 'cash', label: '', kind: 'cash', value: source.cash_amount ?? 0 },
+        {
+          key: 'cash',
+          itemId: 'cash',
+          label: '',
+          kind: 'cash',
+          value: source.cash_amount ?? estimate.cash_amount ?? 0,
+        },
       ],
     },
     {
@@ -125,29 +177,28 @@ export function buildSnapshotSections(
         itemId: investment.id,
         label: investment.name,
         kind: 'balance',
-        value: recordedInvestments.get(investment.id)?.balance ?? 0,
+        value: investmentEntry(investment.id)?.balance ?? 0,
       })),
     },
     { id: 'tangible_assets', fields: tangibleFields },
     {
       id: 'liabilities',
-      fields: (profile.liabilities ?? []).map((liability) => ({
-        key: `liabilities:${liability.id}`,
-        itemId: liability.id,
-        label: liability.name,
-        kind: 'debt',
-        value: recordedLiabilities.get(liability.id)?.outstanding_balance ?? 0,
-      })),
+      fields: (profile.liabilities ?? []).map((liability) => {
+        const entry = liabilityEntry(liability.id)
+        return {
+          key: `liabilities:${liability.id}`,
+          itemId: liability.id,
+          label: liability.name,
+          kind: 'debt',
+          remaining_term: entry?.remaining_term,
+          remaining_term_unit: entry?.remaining_term_unit,
+          value: entry?.outstanding_balance ?? 0,
+        }
+      }),
     },
     cashFlowSection('incomes'),
     cashFlowSection('expenses'),
   ]
-}
-
-/** Entries the dialog wrote, followed by the ones from `base` it never covered. */
-function merged<T extends { id: string }>(base: T[] | undefined, written: T[]): T[] {
-  const covered = new Set(written.map((entry) => entry.id))
-  return [...written, ...(base ?? []).filter((entry) => !covered.has(entry.id))]
 }
 
 /**
@@ -169,13 +220,10 @@ export function snapshotFromFields(
     sections.find((section) => section.id === id)?.fields ?? []
   const valueOf = (field: SnapshotField) => edits[field.key] ?? field.value
 
-  // The dialog edits no loan terms — the design draws none — but a snapshot
-  // records them alongside the balance, so the recorded term rides through a
-  // save. Dropping it would restart the loan's clock the next time the profile
-  // is re-baselined onto this snapshot.
-  const baseAssets = byId(base.tangible_assets)
-  const baseLiabilities = byId(base.liabilities)
-
+  // The dialog edits no loan terms — the design draws none — so each debt is
+  // written back with the term its field carried, which is the one recorded
+  // beside the figure it opened at. Dropping it would restart the loan's clock
+  // the next time the profile is re-baselined onto this snapshot.
   const tangibleFields = fieldsOf('tangible_assets')
   const tangible = tangibleFields
     .filter((field) => field.kind === 'value')
@@ -187,7 +235,8 @@ export function snapshotFromFields(
         id: field.itemId,
         value: valueOf(field),
         outstanding_balance: debt ? valueOf(debt) : undefined,
-        remaining_term: debt ? baseAssets.get(field.itemId)?.remaining_term : undefined,
+        remaining_term: debt?.remaining_term,
+        remaining_term_unit: debt?.remaining_term_unit,
       }
     })
 
@@ -201,24 +250,26 @@ export function snapshotFromFields(
 
   const cashField = fieldsOf('cash')[0]
 
+  // Entries the dialog wrote, followed by the ones from `base` it never covered.
   return {
     date,
     cash_amount: cashField ? valueOf(cashField) : base.cash_amount,
-    investments: merged(
-      base.investments,
+    investments: withMissingEntries(
       fieldsOf('investments').map((field) => ({ id: field.itemId, balance: valueOf(field) })),
+      base.investments,
     ),
-    tangible_assets: merged(base.tangible_assets, tangible),
-    liabilities: merged(
-      base.liabilities,
+    tangible_assets: withMissingEntries(tangible, base.tangible_assets),
+    liabilities: withMissingEntries(
       fieldsOf('liabilities').map((field) => ({
         id: field.itemId,
         outstanding_balance: valueOf(field),
-        remaining_term: baseLiabilities.get(field.itemId)?.remaining_term,
+        remaining_term: field.remaining_term,
+        remaining_term_unit: field.remaining_term_unit,
       })),
+      base.liabilities,
     ),
-    incomes: merged(base.incomes, cashFlows('incomes')),
-    expenses: merged(base.expenses, cashFlows('expenses')),
+    incomes: withMissingEntries(cashFlows('incomes'), base.incomes),
+    expenses: withMissingEntries(cashFlows('expenses'), base.expenses),
   }
 }
 

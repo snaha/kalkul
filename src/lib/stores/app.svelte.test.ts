@@ -695,6 +695,126 @@ describe('appStore snapshot editing', () => {
       (stored as { profile: { snapshots: { cash_amount: number }[] } }).profile.snapshots[0],
     ).toMatchObject({ cash_amount: 2_000 })
   })
+
+  describe('with a holding opened between the two snapshots', () => {
+    // Gold has no timing, so it counts as held on every date — January's
+    // included — but only June recorded it.
+    const GOLD = { id: 'gold', name: 'Gold', balance: 5_000, apy: 0 }
+
+    beforeEach(() => {
+      appStore.updateProfile({
+        investments: [GOLD],
+        snapshots: [JAN, { ...JUN, investments: [{ id: 'gold', balance: 5_000 }] }],
+      })
+    })
+
+    it('records nothing on an unrelated edit after rewinding onto January', () => {
+      // Deleting June keeps Gold on the profile. Unless January records it too,
+      // the profile holds more than the baseline it projects from and a rename
+      // reads as a balance moving: it stamps today onto January's figures and
+      // clears a staleness banner the user never confirmed away.
+      appStore.deleteSnapshot('2026-06-01')
+      expect(appStore.profile.investments).toEqual([GOLD])
+
+      const rewound = appStore.profile.snapshots
+      appStore.updateProfile({ name: 'Renamed' })
+      expect(appStore.profile.snapshots).toEqual(rewound)
+    })
+
+    it('keeps Gold when January is duplicated onto today and confirmed untouched', () => {
+      // Duplicate opens dated today, so the copy becomes the newest snapshot
+      // and the profile is re-baselined onto it. January never recorded Gold;
+      // its field has to open at what Gold is worth today, not at zero.
+      const stored = appStore.profile.toJSON()
+      const copy = { ...JAN, date: TODAY }
+      appStore.saveSnapshot(
+        snapshotFromFields(copy, buildSnapshotSections(stored, copy, TODAY), {}, TODAY),
+      )
+      expect(appStore.profile.investments?.[0].balance).toBe(5_000)
+    })
+  })
+})
+
+describe('appStore keeping a loan term changed since the newest snapshot', () => {
+  // Refinancing a mortgage, correcting its term or restating it in months moves
+  // no balance, so it records no snapshot — and the newest one goes on stating
+  // the old term. Every History-page save re-baselines the profile onto that
+  // snapshot, so none of them may put the old term back.
+  const MORTGAGE = {
+    id: 'l1',
+    name: 'Mortgage',
+    outstanding_balance: 200_000,
+    installment_frequency: 'monthly' as const,
+    annual_rate: 4,
+    installment_amount: 1_100,
+    remaining_term: 25,
+    remaining_term_unit: 'years' as const,
+  }
+  const JAN = {
+    date: '2026-01-01',
+    cash_amount: 4_000,
+    investments: [],
+    tangible_assets: [],
+    liabilities: [],
+    incomes: [],
+    expenses: [],
+  }
+
+  /** What the History dialog confirms after the user retypes one cash figure. */
+  function editCash(date: string, cash: number): void {
+    const stored = appStore.profile.toJSON()
+    const snapshot = stored.snapshots?.find((s) => s.date === date)
+    if (!snapshot) throw new Error(`No snapshot dated ${date}`)
+    appStore.saveSnapshot(
+      snapshotFromFields(snapshot, buildSnapshotSections(stored, snapshot, date), { cash }, date),
+    )
+  }
+
+  const loan = () => appStore.profile.liabilities?.[0]
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
+    stubLocalStorage()
+    appStore.clear()
+    // Records today's snapshot beside January's, the mortgage at 25 years.
+    appStore.updateProfile({
+      name: 'Alice',
+      cash_amount: 5_000,
+      liabilities: [MORTGAGE],
+      snapshots: [JAN],
+    })
+  })
+
+  afterEach(() => {
+    appStore.clear()
+    vi.unstubAllGlobals()
+    vi.useRealTimers()
+  })
+
+  it('keeps a refinanced term through a save of the newest snapshot', () => {
+    appStore.updateProfile({ liabilities: [{ ...MORTGAGE, remaining_term: 20 }] })
+    expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual(['2026-01-01', TODAY])
+
+    editCash(TODAY, 6_000)
+    expect(loan()?.remaining_term).toBe(20)
+  })
+
+  it('keeps it through a save of an older snapshot', () => {
+    appStore.updateProfile({ liabilities: [{ ...MORTGAGE, remaining_term: 20 }] })
+    editCash('2026-01-01', 4_500)
+    expect(loan()?.remaining_term).toBe(20)
+  })
+
+  it('keeps a term restated in months', () => {
+    // Left as it was, the snapshot's 25 would be read in the new unit: a
+    // 25-year mortgage turned into a 25-month one.
+    appStore.updateProfile({
+      liabilities: [{ ...MORTGAGE, remaining_term: 300, remaining_term_unit: 'months' }],
+    })
+    editCash(TODAY, 6_000)
+    expect(loan()).toMatchObject({ remaining_term: 300, remaining_term_unit: 'months' })
+  })
 })
 
 describe('appStore saving a snapshot the History dialog produced', () => {

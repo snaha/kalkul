@@ -42,6 +42,7 @@ export function snapshotBalances(profile: Profile): SnapshotBalances {
       // while a stale balance lingers on the item, so gate on the status.
       outstanding_balance: a.status === 'financed' ? a.outstanding_balance : undefined,
       remaining_term: a.status === 'financed' ? a.remaining_term : undefined,
+      remaining_term_unit: a.status === 'financed' ? a.remaining_term_unit : undefined,
     })),
     liabilities: sharedItems(profile.liabilities).map((l) => ({
       id: l.id,
@@ -49,8 +50,10 @@ export function snapshotBalances(profile: Profile): SnapshotBalances {
       // The term is recorded next to the balance because it moves with it:
       // every installment that comes off the balance comes off the term too.
       // A balance restored without its term would restart the loan's clock and
-      // walk the payoff date into the future.
+      // walk the payoff date into the future. The unit goes with the term — the
+      // number means nothing without it.
       remaining_term: l.remaining_term,
+      remaining_term_unit: l.remaining_term_unit,
     })),
   }
 }
@@ -198,8 +201,9 @@ function sameEntries<T extends { id: string }>(
  * reason still captures the flows as they stand; what they must not do is
  * trigger one. The corollary is that the newest snapshot's flows can lag the
  * profile's, which is why re-baselining (`withSnapshotValues`) leaves the
- * profile's flows alone. Loan terms are left out for the same reason: they
- * move with the balance that is compared here.
+ * profile's flows alone. Loan terms are left out for the same reason, but a
+ * term changed on its own is written into the newest snapshot instead
+ * (`withLatestTermsRecorded`): unlike a flow, re-baselining restores it.
  *
  * Compared field by field rather than by serialized shape: only
  * `captureSnapshot` emits the canonical form, while the schema makes every
@@ -280,6 +284,21 @@ const withRecordedBalance = (
 export const recordsDebt = (entry: { outstanding_balance?: number }): boolean =>
   entry.outstanding_balance !== undefined
 
+/** A loan's remaining term and the unit it is stated in. */
+type LoanTerm = Pick<ProfileTangibleAsset, 'remaining_term' | 'remaining_term_unit'>
+
+/**
+ * The term a recorded debt restores, to spread over the loan. The unit comes
+ * with it — 25 read in months is not 25 years, and a loan restated in the other
+ * unit since would otherwise reinterpret the recorded number. A term is not a
+ * balance, so there is no "none" for an omission to mean: a snapshot that
+ * recorded no term restores nothing, and the loan's own term stands.
+ */
+const recordedTerm = (entry: LoanTerm) =>
+  entry.remaining_term === undefined
+    ? {}
+    : { remaining_term: entry.remaining_term, remaining_term_unit: entry.remaining_term_unit }
+
 const withRecordedValue = (
   item: ProfileTangibleAsset,
   entry: SnapshotTangibleAsset,
@@ -294,6 +313,7 @@ const withRecordedValue = (
   }
   return {
     ...item,
+    ...recordedTerm(entry),
     value: entry.value,
     status: 'financed',
     outstanding_balance: entry.outstanding_balance,
@@ -310,10 +330,8 @@ const withRecordedValue = (
 
 const withRecordedDebt = (item: ProfileLiability, entry: SnapshotLiability): ProfileLiability => ({
   ...item,
+  ...recordedTerm(entry),
   outstanding_balance: entry.outstanding_balance,
-  // A term is not a balance: there is no "none" for an omission to mean, so a
-  // snapshot that recorded none leaves the loan's own term standing.
-  remaining_term: entry.remaining_term ?? item.remaining_term,
 })
 
 const withRecordedAmount = (item: CashFlow, entry: SnapshotCashFlow): CashFlow => ({
@@ -405,7 +423,8 @@ export function profileAtSnapshot(profile: Profile, snapshot: Snapshot): Profile
  * Deliberately not `profileAtSnapshot`, which drops items the snapshot has no
  * entry for. That is right for reporting a past date, but wrong here: an
  * investment opened after the snapshot was taken is still owned today, and
- * re-baselining must not delete it from the profile. Cash is the exception —
+ * re-baselining must not delete it from the profile — `withHistory` records it
+ * in the snapshot instead, so the two agree again. Cash is the exception —
  * there is only one, and `snapshotNetWorth` counts a missing amount as zero, so
  * the profile has to as well or its net worth would disagree with the
  * snapshot it was just baselined onto.
@@ -440,15 +459,55 @@ function withSnapshotValues(profile: Profile, snapshot: Snapshot): Profile {
 }
 
 /**
+ * `entries`, followed by every entry of `others` whose id they do not cover.
+ * Hands back `entries` itself when there is nothing to add, so a section that
+ * was never recorded stays unrecorded.
+ */
+export function withMissingEntries<T extends { id: string }>(
+  entries: T[] | undefined,
+  others: T[] | undefined,
+): T[] | undefined {
+  const covered = new Set((entries ?? []).map((entry) => entry.id))
+  const missing = (others ?? []).filter((entry) => !covered.has(entry.id))
+  return missing.length > 0 ? [...(entries ?? []), ...missing] : entries
+}
+
+/**
+ * `snapshot` recording every holding the profile has on its date, each one it
+ * has no entry for at the profile's figure.
+ */
+function withUnrecordedHoldings(snapshot: Snapshot, profile: Profile): Snapshot {
+  const held = heldBalances(profile, parseDateOnly(snapshot.date))
+  return {
+    ...snapshot,
+    investments: withMissingEntries(snapshot.investments, held.investments),
+    tangible_assets: withMissingEntries(snapshot.tangible_assets, held.tangible_assets),
+    liabilities: withMissingEntries(snapshot.liabilities, held.liabilities),
+  }
+}
+
+/**
  * Attaches a new history to the profile, keeping the invariant the rest of the
  * app relies on: the profile holds the balances as they stood on its most
  * recent snapshot's date. `getCurrentProfile` projects forward from exactly
  * that pair, so a history whose newest entry disagrees with the profile would
  * show the dashboard compounding a value the user has already replaced.
+ *
+ * Both sides move to meet. The profile takes every figure the newest snapshot
+ * records, and the snapshot records every holding it had no entry for — one
+ * opened after it was taken, which a rewind onto it keeps. Left unrecorded, the
+ * dashboard would count that holding and the History chart's last recorded
+ * point would not, and the next rename would read as a balance moving and
+ * re-date the baseline.
  */
 function withHistory(profile: Profile, snapshots: Snapshot[]): Profile {
   const latest = latestSnapshot(snapshots)
-  return { ...(latest ? withSnapshotValues(profile, latest) : profile), snapshots }
+  if (!latest) return { ...profile, snapshots }
+  const rebased = withSnapshotValues(profile, latest)
+  return {
+    ...rebased,
+    snapshots: upsertSnapshot(snapshots, withUnrecordedHoldings(latest, rebased)),
+  }
 }
 
 /**
@@ -477,6 +536,65 @@ export function withSavedSnapshot(
  */
 export function withDeletedSnapshot(profile: Profile, date: string): Profile {
   return withHistory(profile, removeSnapshot(profile.snapshots, date))
+}
+
+/**
+ * Whether deleting the snapshot dated `date` would change anything.
+ *
+ * Deleting the only one does not while it is today's and anything is held: a
+ * profile with balances is never left without a baseline, so
+ * `appStore.deleteSnapshot` carries the figures forward to today and records
+ * them in its place — and carried forward no time at all, they are the deleted
+ * snapshot's own. The row would stay, after the user was told the deletion
+ * cannot be undone.
+ */
+export function canDeleteSnapshot(profile: Profile, date: string, today: Date): boolean {
+  const snapshots = profile.snapshots ?? []
+  const onlyOne = snapshots.length === 1 && snapshots[0].date === date
+  return (
+    !onlyOne || date !== toDateOnlyString(today) || !hasAnyBalance(heldBalances(profile, today))
+  )
+}
+
+/**
+ * The profile with its newest snapshot stating the loan terms the profile does.
+ *
+ * The profile holds its figures as of that snapshot's date, terms included:
+ * `getCurrentProfile` amortizes every loan from there on the profile's own
+ * term. A term changed since — a refinance, a correction, a restatement in
+ * months — moves no balance, so it records no snapshot, and the snapshot would
+ * go on stating the old term. Every History-page save re-baselines the profile
+ * onto the newest snapshot, so each would silently put that old term back, and
+ * so would a rewind onto the snapshot once a newer one is deleted.
+ */
+export function withLatestTermsRecorded(profile: Profile): Profile {
+  const latest = latestSnapshot(profile.snapshots)
+  if (!latest) return profile
+  const assets = byId(profile.tangible_assets)
+  const liabilities = byId(profile.liabilities)
+  const withTermOf = <E extends { id: string }>(entry: E, loan: LoanTerm | undefined): E =>
+    loan
+      ? {
+          ...entry,
+          remaining_term: loan.remaining_term,
+          remaining_term_unit: loan.remaining_term_unit,
+        }
+      : entry
+
+  return {
+    ...profile,
+    snapshots: upsertSnapshot(profile.snapshots, {
+      ...latest,
+      tangible_assets: latest.tangible_assets?.map((entry) => {
+        const asset = assets.get(entry.id)
+        return withTermOf(
+          entry,
+          asset?.status === 'financed' && recordsDebt(entry) ? asset : undefined,
+        )
+      }),
+      liabilities: latest.liabilities?.map((entry) => withTermOf(entry, liabilities.get(entry.id))),
+    }),
+  }
 }
 
 /**

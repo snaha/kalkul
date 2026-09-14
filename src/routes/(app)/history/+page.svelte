@@ -38,7 +38,7 @@
   const staleSince = $derived(staleSinceOf(storedProfile.snapshots, todayDate))
 
   const historyPoints = $derived(buildHistorySeries(storedProfile, today))
-  const rows = $derived(buildSnapshotRows(storedProfile))
+  const rows = $derived(buildSnapshotRows(storedProfile, today))
   const takenDates = $derived((storedProfile.snapshots ?? []).map((s) => s.date))
 
   let quickUpdateOpen = $state(false)

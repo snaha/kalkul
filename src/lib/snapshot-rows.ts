@@ -1,6 +1,6 @@
 import { getFiPercent, getLiabilitiesTotal, getTotalAssets } from '$lib/financial-totals'
 import type { Profile } from '$lib/schemas'
-import { profileAtSnapshot, snapshotNetWorth } from '$lib/snapshots'
+import { canDeleteSnapshot, profileAtSnapshot, snapshotNetWorth } from '$lib/snapshots'
 
 /** One row of the History page's Snapshots table. */
 export interface SnapshotRow {
@@ -11,6 +11,8 @@ export interface SnapshotRow {
   netWorth: number
   /** Undefined when the recorded day had no outflows to measure against. */
   fiPercent: number | undefined
+  /** Whether deleting the row would change anything; see `canDeleteSnapshot`. */
+  deletable: boolean
 }
 
 /**
@@ -27,7 +29,7 @@ export interface SnapshotRow {
  * so the row would not add up and would disagree with the point the chart plots
  * for the same date.
  */
-export function buildSnapshotRows(profile: Profile): SnapshotRow[] {
+export function buildSnapshotRows(profile: Profile, today: Date): SnapshotRow[] {
   return (profile.snapshots ?? [])
     .map((snapshot) => {
       const at = profileAtSnapshot(profile, snapshot)
@@ -37,6 +39,7 @@ export function buildSnapshotRows(profile: Profile): SnapshotRow[] {
         liabilities: getLiabilitiesTotal(at),
         netWorth: snapshotNetWorth(snapshot),
         fiPercent: getFiPercent(at),
+        deletable: canDeleteSnapshot(profile, snapshot.date, today),
       }
     })
     .sort((a, b) => b.date.localeCompare(a.date))

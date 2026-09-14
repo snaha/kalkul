@@ -22,6 +22,7 @@ import {
   latestSnapshot,
   upsertSnapshot,
   withDeletedSnapshot,
+  withLatestTermsRecorded,
   withSavedSnapshot,
   withSeededSnapshot,
 } from '$lib/snapshots'
@@ -261,7 +262,10 @@ function withAppStore() {
             ...validated,
             snapshots: upsertSnapshot(validated.snapshots, captureSnapshot(validated, todayDate)),
           }
-        : validated,
+        : // Nothing recorded, but a loan term may still have changed — it moves
+          // no balance — and the newest snapshot has to state it, or the next
+          // History-page save would re-baseline the old one back.
+          withLatestTermsRecorded(validated),
     )
     persist()
   }

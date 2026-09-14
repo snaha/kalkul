@@ -93,7 +93,15 @@ describe('buildSnapshotSections', () => {
       { key: 'investments:inv1', itemId: 'inv1', label: 'ETF', kind: 'balance', value: 80_000 },
     ])
     expect(fieldsOf(sections, 'liabilities')).toEqual([
-      { key: 'liabilities:l1', itemId: 'l1', label: 'Card', kind: 'debt', value: 5_000 },
+      {
+        key: 'liabilities:l1',
+        itemId: 'l1',
+        label: 'Card',
+        kind: 'debt',
+        // Carried through for the write-back, the way a cash flow's frequency is.
+        remaining_term: 2,
+        value: 5_000,
+      },
     ])
   })
 
@@ -106,6 +114,7 @@ describe('buildSnapshotSections', () => {
         itemId: 't2',
         label: 'House',
         kind: 'debt',
+        remaining_term: 20,
         value: 100_000,
       },
     ])
@@ -137,9 +146,14 @@ describe('buildSnapshotSections', () => {
     // the load boundary (`repairStoredData`), so they never reach the dialog
     // empty. The frequency still comes from the profile — a field opening at
     // zero has to carry some cadence in its suffix.
+    //
+    // This holds on the newest snapshot's own date too, where the estimate runs
+    // on the profile's flows: a salary entered since records nothing, and an
+    // untouched Confirm must not write it onto a day it was not recorded for.
     const partial: Snapshot = { ...SOURCE, incomes: [] }
+    const history: Profile = { ...PROFILE, snapshots: [partial] }
     expect(
-      fieldsOf(buildSnapshotSections(PROFILE, partial, '2026-06-01'), 'incomes')[0],
+      fieldsOf(buildSnapshotSections(history, partial, '2026-06-01'), 'incomes')[0],
     ).toMatchObject({ value: 0, frequency: 'monthly' })
   })
 
@@ -186,7 +200,9 @@ describe('buildSnapshotSections', () => {
     ).toEqual([])
   })
 
-  test('still offers a field at zero for an item held on the date but never recorded', () => {
+  test('still offers a field for an item held on the date but never recorded', () => {
+    // SOURCE predates Gold. With no history to say otherwise, the app's
+    // estimate for the date is the profile's own figure.
     const withNewItem: Profile = {
       ...PROFILE,
       investments: [
@@ -196,7 +212,7 @@ describe('buildSnapshotSections', () => {
     }
     expect(
       fieldsOf(buildSnapshotSections(withNewItem, SOURCE, '2026-06-01'), 'investments')[1],
-    ).toMatchObject({ label: 'Gold', value: 0 })
+    ).toMatchObject({ label: 'Gold', value: 9 })
   })
 
   test('leaves out a section the profile has no items for', () => {
@@ -352,6 +368,78 @@ describe('seedSnapshotOn', () => {
     expect(seed).toEqual(
       captureSnapshot(getCurrentProfile(raised, parseDateOnly('2026-09-01')), '2026-09-01'),
     )
+  })
+})
+
+describe('buildSnapshotSections on a date the snapshot does not record', () => {
+  // Nothing accrues, compounds or amortizes except the loan below, so the
+  // estimates can be compared exactly.
+  const GOLD = { id: 'inv2', name: 'Gold', balance: 500, apy: 0 }
+  const STATIC: Profile = {
+    name: 'Alice',
+    email: 'a@example.com',
+    cash_amount: 9_000,
+    investments: [{ id: 'inv1', name: 'ETF', balance: 80_000, apy: 0 }, GOLD],
+  }
+  // January predates Gold; June records it.
+  const JAN: Snapshot = {
+    date: '2026-01-01',
+    cash_amount: 1_000,
+    investments: [{ id: 'inv1', balance: 50_000 }],
+  }
+  const HISTORY: Profile = { ...STATIC, snapshots: [JAN, captureSnapshot(STATIC, '2026-06-01')] }
+
+  test('opens an item the snapshot never recorded at the estimate for the date', () => {
+    // A copy of January dated after June — a Duplicate, or January re-dated.
+    // Gold exists by then, and saving the copy re-baselines the profile onto
+    // it, so a field opening at zero would wipe Gold on an untouched Confirm.
+    const copy: Snapshot = { ...JAN, date: '2026-07-01' }
+    expect(fieldsOf(buildSnapshotSections(HISTORY, copy, '2026-07-01'), 'investments')).toEqual([
+      { key: 'investments:inv1', itemId: 'inv1', label: 'ETF', kind: 'balance', value: 50_000 },
+      { key: 'investments:inv2', itemId: 'inv2', label: 'Gold', kind: 'balance', value: 500 },
+    ])
+  })
+
+  test('still opens it at zero on a date before it was ever recorded', () => {
+    // Editing January on its own date: as far as the history knows, Gold did
+    // not exist yet, and an untouched Confirm must not change the row.
+    expect(
+      fieldsOf(buildSnapshotSections(HISTORY, JAN, '2026-01-01'), 'investments')[1],
+    ).toMatchObject({ label: 'Gold', value: 0 })
+  })
+
+  test('opens a cash flow a copy never recorded at the one running on its new date', () => {
+    const history: Profile = {
+      ...PROFILE,
+      snapshots: [JAN, captureSnapshot(PROFILE, '2026-06-01')],
+    }
+    const copy: Snapshot = { ...JAN, date: '2026-07-01' }
+    expect(
+      fieldsOf(buildSnapshotSections(history, copy, '2026-07-01'), 'incomes')[0],
+    ).toMatchObject({ label: 'Salary', value: 4_000 })
+  })
+
+  test('records an estimated debt with the term it was estimated at', () => {
+    // PROFILE's card and mortgage are unknown to January but running by
+    // September. Their fields open at the carried-forward balances, and each
+    // has to be written back with the term carried forward beside it —
+    // restoring that balance against the original term would restart the
+    // loan's clock.
+    const history: Profile = {
+      ...PROFILE,
+      snapshots: [JAN, captureSnapshot(PROFILE, '2026-06-01')],
+    }
+    const copy: Snapshot = { ...JAN, date: '2026-09-01' }
+    const saved = snapshotFromFields(
+      copy,
+      buildSnapshotSections(history, copy, '2026-09-01'),
+      {},
+      '2026-09-01',
+    )
+    const estimate = seedSnapshotOn(history, '2026-09-01')
+    expect(saved.liabilities).toEqual(estimate.liabilities)
+    expect(saved.tangible_assets).toEqual(estimate.tangible_assets)
+    expect(estimate.liabilities?.[0].remaining_term).toBeLessThan(2)
   })
 })
 

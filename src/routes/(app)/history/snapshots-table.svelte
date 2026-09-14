@@ -77,7 +77,13 @@
                 {$_('page.history.row.duplicate')}
               </DropdownMenu.Item>
               <DropdownMenu.Separator />
-              <DropdownMenu.Item class="text-destructive" onclick={() => onDelete(row.date)}>
+              <!-- Disabled when deleting would record the same snapshot again:
+                   the only one, dated today, while anything is held. -->
+              <DropdownMenu.Item
+                class="text-destructive"
+                disabled={!row.deletable}
+                onclick={() => onDelete(row.date)}
+              >
                 <Trash2 class="size-4" />
                 {$_('page.history.row.delete')}
               </DropdownMenu.Item>

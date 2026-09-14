@@ -99,6 +99,31 @@ describe('captureSnapshot', () => {
     })
   })
 
+  test('records the unit a loan term is stated in beside the term', () => {
+    // 36 read in years is not 36 months: a term restored without its unit
+    // would be reinterpreted in whatever unit the loan is stated in by then.
+    const inMonths: Profile = {
+      ...PROFILE,
+      tangible_assets: PROFILE.tangible_assets?.map((a) =>
+        a.id === 't2' ? { ...a, remaining_term: 240, remaining_term_unit: 'months' as const } : a,
+      ),
+      liabilities: PROFILE.liabilities?.map((l) => ({
+        ...l,
+        remaining_term: 36,
+        remaining_term_unit: 'months' as const,
+      })),
+    }
+    const snapshot = captureSnapshot(inMonths, '2026-04-27')
+    expect(snapshot.tangible_assets?.[1]).toMatchObject({
+      remaining_term: 240,
+      remaining_term_unit: 'months',
+    })
+    expect(snapshot.liabilities?.[0]).toMatchObject({
+      remaining_term: 36,
+      remaining_term_unit: 'months',
+    })
+  })
+
   test('captures an empty profile as zero cash and empty lists', () => {
     expect(captureSnapshot({ name: '', email: '' }, '2026-04-27')).toEqual({
       date: '2026-04-27',
@@ -550,6 +575,11 @@ describe('withSavedSnapshot', () => {
     const withExtra: Profile = { ...HISTORY, investments: [...(PROFILE.investments ?? []), extra] }
     const saved = withSavedSnapshot(withExtra, { ...JUN, cash_amount: 1 })
     expect(saved.investments).toContainEqual(extra)
+    // And records it in that snapshot, which the profile now projects from —
+    // otherwise the dashboard would count Gold and the snapshot would not.
+    const newest = latestSnapshot(saved.snapshots)
+    expect(newest?.investments).toContainEqual({ id: 'inv3', balance: 500 })
+    expect(getNetWorth(saved, new Date(2026, 5, 1))).toBe(snapshotNetWorth(newest ?? JUN))
   })
 
   test("leaves the profile's cash flows alone", () => {
@@ -592,6 +622,52 @@ describe('withDeletedSnapshot', () => {
 
   test('leaves the profile alone when an older snapshot goes', () => {
     expect(withDeletedSnapshot(HISTORY, '2026-01-01').cash_amount).toBe(9_000)
+  })
+
+  test('records a holding the older snapshot never recorded at the figure the profile keeps', () => {
+    // Gold was opened after JAN and recorded in JUN. Rewinding onto JAN keeps
+    // it — deleting a snapshot must not delete an investment — so JAN has to
+    // record it too. Otherwise the profile holds more than the baseline it now
+    // projects from: the dashboard counts Gold, the History chart's last
+    // recorded point does not, and the next rename reads as a balance moving.
+    const gold = { id: 'inv3', name: 'Gold', balance: 500, apy: 0 }
+    const withGold: Profile = { ...PROFILE, investments: [...(PROFILE.investments ?? []), gold] }
+    const jun = captureSnapshot(withGold, '2026-06-01')
+    const deleted = withDeletedSnapshot({ ...withGold, snapshots: [JAN, jun] }, '2026-06-01')
+
+    expect(deleted.investments).toContainEqual(gold)
+    const newest = latestSnapshot(deleted.snapshots)
+    expect(newest?.date).toBe('2026-01-01')
+    expect(newest?.investments).toContainEqual({ id: 'inv3', balance: 500 })
+    expect(getNetWorth(deleted, new Date(2026, 0, 1))).toBe(snapshotNetWorth(newest ?? JAN))
+  })
+
+  test('restores a recorded term in the unit it was recorded in', () => {
+    // JAN recorded the car loan's three years; the loan has been restated in
+    // months since. Rewinding restores the recorded figure — three years, not
+    // three months, which would settle the loan on a balloon payment.
+    const inYears: Profile = {
+      ...PROFILE,
+      liabilities: PROFILE.liabilities?.map((l) => ({
+        ...l,
+        remaining_term_unit: 'years' as const,
+      })),
+    }
+    const inMonths: Profile = {
+      ...PROFILE,
+      liabilities: PROFILE.liabilities?.map((l) => ({
+        ...l,
+        remaining_term: 30,
+        remaining_term_unit: 'months' as const,
+      })),
+    }
+    const jan = captureSnapshot(inYears, '2026-01-01')
+    const jun = captureSnapshot(inMonths, '2026-06-01')
+    const deleted = withDeletedSnapshot({ ...inMonths, snapshots: [jan, jun] }, '2026-06-01')
+    expect(deleted.liabilities?.[0]).toMatchObject({
+      remaining_term: 3,
+      remaining_term_unit: 'years',
+    })
   })
 
   test('leaves the profile alone when the last snapshot goes', () => {

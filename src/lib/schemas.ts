@@ -609,8 +609,9 @@ export const snapshotSchema = z.object({
   // worth can be computed without consulting the current profile. The remaining
   // term rides along with every recorded debt: it moves with the balance —
   // each installment comes off both — so restoring one without the other would
-  // restart the loan's clock. The unit it is stated in is descriptive and stays
-  // on the profile.
+  // restart the loan's clock. So does the unit the term is stated in: 25 read in
+  // months is not 25 years, and a loan restated in the other unit since would
+  // otherwise reinterpret the recorded number.
   tangible_assets: z
     .array(
       z.object({
@@ -618,6 +619,7 @@ export const snapshotSchema = z.object({
         value: z.number(),
         outstanding_balance: z.number().optional(),
         remaining_term: z.number().optional(),
+        remaining_term_unit: remainingTermUnitSchema.optional(),
       }),
     )
     .optional(),
@@ -627,6 +629,7 @@ export const snapshotSchema = z.object({
         id: z.string(),
         outstanding_balance: z.number(),
         remaining_term: z.number().optional(),
+        remaining_term_unit: remainingTermUnitSchema.optional(),
       }),
     )
     .optional(),
