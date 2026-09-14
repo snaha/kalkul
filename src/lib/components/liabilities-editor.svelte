@@ -49,6 +49,10 @@
     // card menu.
     showAdvanced: boolean
     editing: boolean
+    // UI-only: which of Installment amount / Remaining term the user last
+    // edited, so changing the rate/principal/frequency re-derives its
+    // counterpart instead of leaving both stale.
+    derivedFrom: 'amount' | 'term'
   }
 
   const editor = createListEditor<ProfileLiability, LiabilityUI>({
@@ -70,6 +74,7 @@
       // in the plan dialog are not hidden here.
       showAdvanced: l.interest_type !== undefined || l.compounding_frequency !== undefined,
       editing: false,
+      derivedFrom: 'term',
     }),
     makeBlank: (index) => ({
       id: crypto.randomUUID(),
@@ -84,6 +89,7 @@
       compounding_frequency: undefined,
       showAdvanced: false,
       editing: true,
+      derivedFrom: 'term',
     }),
     copyName: (name) => $_('page.setup.common.copySuffix', { values: { name } }),
     hasValue: (l) => (l.outstanding_balance ?? 0) > 0,
@@ -134,38 +140,63 @@
     return Math.round((value + Number.EPSILON) * factor) / factor
   }
 
-  // Installment amount ⇄ Remaining term (issue #258): entering either side
-  // derives the other from the outstanding balance, rate and frequency. The
-  // term is stored in the card's chosen unit (years or months).
+  // Installment amount ⇄ Remaining term (issue #258). The field the user last
+  // edited anchors the pair; the other is derived from the outstanding balance,
+  // rate and frequency. Changing any of those inputs (or the interest options)
+  // re-derives the anchor's counterpart, so editing the percentage updates the
+  // payment — or the term. The term is written in the card's chosen unit.
+  function rederive(liability: LiabilityUI): void {
+    if (liability.derivedFrom === 'term') {
+      const years = termYearsFromUnit(liability)
+      if (years === undefined) return
+      const amount = installmentAmountForLoan({
+        outstanding_balance: liability.outstanding_balance ?? 0,
+        installment_frequency: liability.installment_frequency,
+        annual_rate: liability.annual_rate ?? 0,
+        remaining_term: years,
+        interest_type: liability.interest_type,
+        compounding_frequency: liability.compounding_frequency,
+      })
+      if (amount !== undefined) liability.installment_amount = round(amount, 0)
+    } else {
+      const amount = liability.installment_amount
+      if (amount === undefined || amount <= 0) return
+      const termYears = termYearsForLoan({
+        outstanding_balance: liability.outstanding_balance ?? 0,
+        installment_frequency: liability.installment_frequency,
+        annual_rate: liability.annual_rate ?? 0,
+        remaining_term: 0,
+        installment_amount: amount,
+        interest_type: liability.interest_type,
+        compounding_frequency: liability.compounding_frequency,
+      })
+      if (termYears === undefined) return
+      liability.remaining_term =
+        liability.remaining_term_unit === 'months' ? round(termYears * 12, 2) : round(termYears, 2)
+    }
+  }
+
+  function termYearsFromUnit(liability: LiabilityUI): number | undefined {
+    if (liability.remaining_term === undefined || liability.remaining_term <= 0) return undefined
+    return liability.remaining_term_unit === 'months'
+      ? liability.remaining_term / 12
+      : liability.remaining_term
+  }
+
   function onInstallmentAmountChange(liability: LiabilityUI, v: number | undefined): void {
     liability.installment_amount = v
-    if (v === undefined || v <= 0) return
-    const termYears = termYearsForLoan({
-      outstanding_balance: liability.outstanding_balance ?? 0,
-      installment_frequency: liability.installment_frequency,
-      annual_rate: liability.annual_rate ?? 0,
-      remaining_term: 0,
-      installment_amount: v,
-      interest_type: liability.interest_type,
-      compounding_frequency: liability.compounding_frequency,
-    })
-    if (termYears === undefined) return
-    liability.remaining_term =
-      liability.remaining_term_unit === 'months' ? round(termYears * 12, 2) : round(termYears, 2)
+    liability.derivedFrom = 'amount'
+    rederive(liability)
   }
 
   function onRemainingTermChange(liability: LiabilityUI, v: number | undefined): void {
     liability.remaining_term = v
-    if (v === undefined || v <= 0) return
-    const amount = installmentAmountForLoan({
-      outstanding_balance: liability.outstanding_balance ?? 0,
-      installment_frequency: liability.installment_frequency,
-      annual_rate: liability.annual_rate ?? 0,
-      remaining_term: liability.remaining_term_unit === 'months' ? v / 12 : v,
-      interest_type: liability.interest_type,
-      compounding_frequency: liability.compounding_frequency,
-    })
-    if (amount !== undefined) liability.installment_amount = round(amount, 0)
+    liability.derivedFrom = 'term'
+    rederive(liability)
+  }
+
+  function onLoanInputChange(liability: LiabilityUI): void {
+    rederive(liability)
   }
 </script>
 
@@ -197,6 +228,7 @@
               formatNumber={appStore.formatNumber}
               onValueChange={(v) => {
                 liability.outstanding_balance = v
+                onLoanInputChange(liability)
               }}
             />
           </div>
@@ -211,7 +243,10 @@
                 value={liability.installment_frequency}
                 items={frequencyItems}
                 onValueChange={(v) => {
-                  liability.installment_frequency = v
+                  if (v) {
+                    liability.installment_frequency = v
+                    onLoanInputChange(liability)
+                  }
                 }}
               />
             </div>
@@ -226,6 +261,7 @@
                 formatNumber={appStore.formatNumber}
                 onValueChange={(v) => {
                   liability.annual_rate = v
+                  onLoanInputChange(liability)
                 }}
               />
             </div>
@@ -264,7 +300,10 @@
                   value={liability.remaining_term_unit}
                   items={remainingTermUnitItems}
                   onValueChange={(v) => {
-                    if (v) liability.remaining_term_unit = v
+                    if (v) {
+                      liability.remaining_term_unit = v
+                      onLoanInputChange(liability)
+                    }
                   }}
                 />
               </div>
@@ -282,7 +321,10 @@
                   value={liability.interest_type}
                   items={interestTypeItems}
                   onValueChange={(v) => {
-                    if (v) liability.interest_type = v
+                    if (v) {
+                      liability.interest_type = v
+                      onLoanInputChange(liability)
+                    }
                   }}
                 />
               </div>
@@ -297,7 +339,10 @@
                     items={compoundingFrequencyItems}
                     placeholder={$_('page.plan.compoundingDefault')}
                     onValueChange={(v) => {
-                      if (v) liability.compounding_frequency = v
+                      if (v) {
+                        liability.compounding_frequency = v
+                        onLoanInputChange(liability)
+                      }
                     }}
                   />
                 </div>

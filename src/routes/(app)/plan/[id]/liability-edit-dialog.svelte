@@ -170,6 +170,7 @@
     if (open && !wasOpen) {
       form = seedForm(initial)
       showAdvanced = initial !== undefined
+      derivedFrom = 'term'
     }
     wasOpen = open
   })
@@ -200,21 +201,45 @@
     }
   }
 
-  // Installment amount ⇄ Term (issue #258): entering either side derives the
-  // other from the principal, rate and frequency. Neither field overwrites the
-  // user's typed value, so only the counterpart moves.
+  // Installment amount ⇄ Term (issue #258): the field the user last edited is
+  // the anchor and the other is derived from the principal, rate and frequency.
+  // Changing any of those inputs re-derives the anchor's counterpart, so
+  // editing the percentage updates the payment (or the term).
+  let derivedFrom = $state<'amount' | 'term'>('term')
+
+  function rederiveFromAnchor(): void {
+    if (derivedFrom === 'term') {
+      if ((form.remaining_term ?? 0) <= 0) return
+      const amount = installmentAmountForLoan({
+        ...loanTerms(),
+        remaining_term: form.remaining_term as number,
+      })
+      if (amount !== undefined) form.installment_amount = round(amount, 0)
+    } else {
+      if ((form.installment_amount ?? 0) <= 0) return
+      const term = termYearsForLoan({
+        ...loanTerms(),
+        remaining_term: 0,
+        installment_amount: form.installment_amount as number,
+      })
+      if (term !== undefined) form.remaining_term = round(term, 2)
+    }
+  }
+
   function onInstallmentAmountChange(v: number | undefined): void {
     form.installment_amount = v
-    if (v === undefined || v <= 0) return
-    const term = termYearsForLoan({ ...loanTerms(), remaining_term: 0, installment_amount: v })
-    if (term !== undefined) form.remaining_term = round(term, 2)
+    derivedFrom = 'amount'
+    rederiveFromAnchor()
   }
 
   function onTermChange(v: number | undefined): void {
     form.remaining_term = v
-    if (v === undefined || v <= 0) return
-    const amount = installmentAmountForLoan({ ...loanTerms(), remaining_term: v })
-    if (amount !== undefined) form.installment_amount = round(amount, 0)
+    derivedFrom = 'term'
+    rederiveFromAnchor()
+  }
+
+  function onLoanInputChange(): void {
+    rederiveFromAnchor()
   }
 
   const canSave = $derived(
@@ -344,7 +369,10 @@
         value={form.outstanding_balance}
         suffix={currencyLabel}
         formatNumber={appStore.formatNumber}
-        onValueChange={(v) => (form.outstanding_balance = v)}
+        onValueChange={(v) => {
+          form.outstanding_balance = v
+          onLoanInputChange()
+        }}
       />
     </div>
     <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">
@@ -363,7 +391,10 @@
         value={form.installment_frequency}
         items={frequencyItems}
         onValueChange={(v) => {
-          if (v) form.installment_frequency = v
+          if (v) {
+            form.installment_frequency = v
+            onLoanInputChange()
+          }
         }}
       />
     </div>
@@ -374,7 +405,10 @@
         value={form.annual_rate}
         suffix="%"
         formatNumber={appStore.formatNumber}
-        onValueChange={(v) => (form.annual_rate = v)}
+        onValueChange={(v) => {
+          form.annual_rate = v
+          onLoanInputChange()
+        }}
       />
     </div>
   </div>
@@ -459,7 +493,10 @@
           value={form.interest_type}
           items={interestTypeItems}
           onValueChange={(v) => {
-            if (v) form.interest_type = v
+            if (v) {
+              form.interest_type = v
+              onLoanInputChange()
+            }
           }}
         />
       </div>
@@ -472,7 +509,10 @@
             items={compoundingFrequencyItems}
             placeholder={$_('page.plan.compoundingDefault')}
             onValueChange={(v) => {
-              if (v) form.compounding_frequency = v
+              if (v) {
+                form.compounding_frequency = v
+                onLoanInputChange()
+              }
             }}
           />
         </div>
