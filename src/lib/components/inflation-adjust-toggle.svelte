@@ -9,16 +9,21 @@
   interface Props {
     checked: boolean
     onCheckedChange: (v: boolean) => void
+    disabled?: boolean
   }
 
-  let { checked, onCheckedChange }: Props = $props()
+  let { checked, onCheckedChange, disabled = false }: Props = $props()
 
   let tooltipOpen = $state(false)
 </script>
 
 <div class="flex items-center gap-2">
-  <label class="flex cursor-pointer items-center gap-2">
-    <Switch {checked} onCheckedChange={(v) => onCheckedChange(v === true)} />
+  <label
+    class="flex items-center gap-2"
+    class:cursor-pointer={!disabled}
+    class:opacity-50={disabled}
+  >
+    <Switch {disabled} {checked} onCheckedChange={(v) => onCheckedChange(v === true)} />
     <span class="text-sm font-medium">{$_('page.plan.adjustForInflation')}</span>
   </label>
   <Tooltip.Provider delayDuration={150}>
