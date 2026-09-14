@@ -23,20 +23,16 @@
     hasInsufficientFunds = false,
     onclick,
   }: Props = $props()
+
+  const rowClass = $derived(
+    cn(
+      'flex w-full items-center justify-between gap-2 rounded-md px-2 text-left text-sm',
+      dense ? 'h-7' : 'h-8',
+    ),
+  )
 </script>
 
-<!-- A row with no handler is information, not a control: rendered as a div so
-     it stays out of the tab order and is not announced as a dead button. -->
-<svelte:element
-  this={onclick ? 'button' : 'div'}
-  type={onclick ? 'button' : undefined}
-  {onclick}
-  class={cn(
-    'flex w-full items-center justify-between gap-2 rounded-md px-2 text-left text-sm',
-    dense ? 'h-7' : 'h-8',
-    onclick && !dense && 'hover:bg-accent',
-  )}
->
+{#snippet content()}
   <span class={cn('min-w-0 flex-1 truncate', hasInsufficientFunds && 'text-destructive')}>
     {name}
   </span>
@@ -75,4 +71,16 @@
       {value}
     </span>
   {/if}
-</svelte:element>
+{/snippet}
+
+<!-- A row with no handler is information, not a control: rendered as a div so
+     it stays out of the tab order and is not announced as a dead button. -->
+{#if onclick}
+  <button type="button" {onclick} class={cn(rowClass, !dense && 'hover:bg-accent')}>
+    {@render content()}
+  </button>
+{:else}
+  <div class={rowClass}>
+    {@render content()}
+  </div>
+{/if}
