@@ -8,6 +8,7 @@ import {
   annualizedAmount,
   applyEntryFee,
   applyExitFee,
+  cashFlowToTemporal,
   effectiveInvestmentApy,
   financingToLiability,
   installmentPeriodRate,
@@ -21,8 +22,14 @@ import {
   remainingInstallmentPeriods,
   yearOf,
 } from '$lib/plan-projection'
-import type { TimingWindow } from '$lib/plan-projection'
-import type { Profile, ProfileInvestment, ProfileLiability, RemainingTermUnit } from '$lib/schemas'
+import type {
+  Expense,
+  Income,
+  Profile,
+  ProfileInvestment,
+  ProfileLiability,
+  RemainingTermUnit,
+} from '$lib/schemas'
 import { latestSnapshot } from '$lib/snapshots'
 import { toDateOnlyString } from '$lib/utils'
 
@@ -66,15 +73,24 @@ interface AnnualFlows {
  * ended last spring must not keep draining it.
  */
 function netAnnualCashFlowOn(profile: Profile, asOf: Date, birthYear: number | undefined): Decimal {
-  const active = <T extends TimingWindow>(items: T[] | undefined): T[] =>
-    (items ?? []).filter((item) => isActiveOn(item, asOf, birthYear))
+  // Shared, recurring items only. A plan-owned item is a scenario, not
+  // today's cash. A one-time item is an event rather than a rate, and this
+  // accrual only knows rates (mirrors one-time transfers); an absent schedule
+  // means recurring, matching the schema's default for data stored before
+  // schedules existed. The window check runs on the temporal shape the
+  // projection resolves, with the same defaults for unset edges.
+  const running = (flows: (Income | Expense)[] | undefined): (Income | Expense)[] =>
+    sharedItems(flows).filter(
+      (flow) =>
+        flow.schedule !== 'one_time' && isActiveOn(cashFlowToTemporal(flow), asOf, birthYear),
+    )
 
-  const income = active(sharedItems(profile.incomes)).reduce<Decimal>(
-    (sum, i) => sum.plus(annualizedAmount(new Decimal(i.amount), i.frequency)),
+  const income = running(profile.incomes).reduce<Decimal>(
+    (sum, i) => sum.plus(annualizedAmount(new Decimal(i.amount), i.frequency ?? 'monthly')),
     DECIMAL_0,
   )
-  const expenses = active(sharedItems(profile.expenses)).reduce<Decimal>(
-    (sum, e) => sum.plus(annualizedAmount(new Decimal(e.amount), e.frequency)),
+  const expenses = running(profile.expenses).reduce<Decimal>(
+    (sum, e) => sum.plus(annualizedAmount(new Decimal(e.amount), e.frequency ?? 'monthly')),
     DECIMAL_0,
   )
   // Standalone loans carry no start/end window of their own — one is serviced

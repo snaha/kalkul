@@ -1,23 +1,27 @@
 <script lang="ts">
   import { _, locale } from 'svelte-i18n'
 
+  import TrendingUp from '@lucide/svelte/icons/trending-up'
+
+  import {
+    type CashFlowFields,
+    blankCashFlowFields,
+    cashFlowFromFields,
+    cashFlowToFields,
+    endMinMonth,
+  } from '$lib/cash-flow-form'
   import ChangeOverTimeSelector from '$lib/components/change-over-time-selector.svelte'
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
   import InflationAdjustToggle from '$lib/components/inflation-adjust-toggle.svelte'
-  import SelectField from '$lib/components/select-field.svelte'
+  import SelectField, { type SelectFieldItem } from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
+  import { Button } from '$lib/components/ui/button'
+  import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
-  import { Separator } from '$lib/components/ui/separator'
   import { itemsForPlan } from '$lib/plan-owned'
+  import { summarizeCashFlow } from '$lib/plan-projection'
   import { sameYearMonthsInverted, timingComplete } from '$lib/schemas'
-  import type {
-    CashFlowEnd,
-    CashFlowStart,
-    ChangeOverTime,
-    Expense,
-    Frequency,
-    Income,
-  } from '$lib/schemas'
+  import type { CashFlowSchedule, Expense, Income } from '$lib/schemas'
   import { getFrequencyItems } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
@@ -49,89 +53,36 @@
 
   let { open = $bindable(), onOpenChange, kind, initial, plan, onDuplicated }: Props = $props()
 
-  interface FormState {
-    id: string
-    name: string
-    amount: number | undefined
-    frequency: Frequency
-    inflation_adjusted: boolean
-    start: CashFlowStart
-    start_year: number | undefined
-    start_month: number | undefined
-    start_age: number | undefined
-    end: CashFlowEnd
-    end_year: number | undefined
-    end_month: number | undefined
-    end_age: number | undefined
-    change_over_time: ChangeOverTime
-    change_percentage: number | undefined
-  }
-
   const years = getYearOptions()
   let months = $derived(getMonthOptions($locale ?? undefined))
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
   let frequencyItems = $derived(getFrequencyItems($_))
+  let scheduleItems: SelectFieldItem<CashFlowSchedule>[] = $derived([
+    { value: 'one_time', label: $_('page.plan.scheduleOneTime') },
+    { value: 'recurring', label: $_('page.plan.scheduleRecurring') },
+  ])
+  let yearItems = $derived(years.map((y) => ({ value: y, label: y })))
 
-  function blankForm(): FormState {
+  const isNew = $derived(initial === undefined)
+
+  function blankForm(): CashFlowFields {
     const counter =
       kind === 'income'
         ? itemsForPlan(appStore.profile.incomes, plan.id).length + 1
         : itemsForPlan(appStore.profile.expenses, plan.id).length + 1
-    return {
-      id: crypto.randomUUID(),
-      name:
-        kind === 'income'
-          ? $_('page.setup.income.defaultName', { values: { index: counter } })
-          : $_('page.setup.expenses.defaultName', { values: { index: counter } }),
-      amount: undefined,
-      frequency: 'monthly',
-      // Default ON — most income/expense streams track inflation in real
-      // terms, so this matches user intent for the common case.
-      inflation_adjusted: true,
-      start: 'immediately',
-      // Timing fields start empty so 'at_specific_date'/'when_age_is' force an
-      // explicit choice instead of silently defaulting to "now" (= plan year 1).
-      start_year: undefined,
-      start_month: undefined,
-      start_age: undefined,
-      end: 'never',
-      end_year: undefined,
-      end_month: undefined,
-      end_age: undefined,
-      change_over_time: 'none',
-      change_percentage: undefined,
-    }
+    const name =
+      kind === 'income'
+        ? $_('page.setup.income.defaultName', { values: { index: counter } })
+        : $_('page.setup.expenses.defaultName', { values: { index: counter } })
+    return blankCashFlowFields(crypto.randomUUID(), name)
   }
 
-  function seedForm(src: CashFlow | undefined): FormState {
-    if (!src) return blankForm()
-    // Legacy migration: the old 'match_inflation' dropdown value maps onto
-    // the new toggle so old data keeps behaving the same and saves into the
-    // new shape on the next edit.
-    const legacyInflation = src.change_over_time === 'match_inflation'
-    const inflationAdjusted = src.inflation_adjusted === true || legacyInflation
-    const changeOverTime: ChangeOverTime = legacyInflation ? 'none' : src.change_over_time
-    return {
-      id: src.id,
-      name: src.name,
-      amount: src.amount > 0 ? src.amount : undefined,
-      frequency: src.frequency,
-      inflation_adjusted: inflationAdjusted,
-      start: src.start,
-      start_year: src.start_year,
-      start_month: src.start_month,
-      start_age: src.start_age,
-      end: src.end,
-      end_year: src.end_year,
-      end_month: src.end_month,
-      end_age: src.end_age,
-      change_over_time: changeOverTime,
-      change_percentage: src.change_percentage,
-    }
+  function seedForm(src: CashFlow | undefined): CashFlowFields {
+    return src ? cashFlowToFields(src) : blankForm()
   }
 
-  let form = $state<FormState>(blankForm())
+  let form = $state<CashFlowFields>(blankForm())
 
   // Re-seed form whenever the dialog opens, so reopening discards prior edits.
   let wasOpen = false
@@ -142,70 +93,13 @@
     wasOpen = open
   })
 
-  const isNew = $derived(initial === undefined)
-
   const listConfig = $derived(PROFILE_LISTS[kind])
 
   const isIncluded = $derived(isNew ? true : isIncludedInPlan(listConfig, form.id, plan))
 
-  function projectIncome(f: FormState): Income {
-    return {
-      id: f.id,
-      name: f.name,
-      amount: f.amount ?? 0,
-      frequency: f.frequency,
-      inflation_adjusted: f.inflation_adjusted ? true : undefined,
-      start: f.start,
-      start_year: f.start === 'at_specific_date' ? f.start_year : undefined,
-      start_month: f.start === 'at_specific_date' ? f.start_month : undefined,
-      start_age: f.start === 'when_age_is' ? f.start_age : undefined,
-      end: f.end,
-      end_year: f.end === 'at_specific_date' ? f.end_year : undefined,
-      end_month: f.end === 'at_specific_date' ? f.end_month : undefined,
-      end_age: f.end === 'when_age_is' ? f.end_age : undefined,
-      change_over_time: f.change_over_time,
-      change_percentage:
-        f.change_over_time === 'increase_yearly' || f.change_over_time === 'decrease_yearly'
-          ? (f.change_percentage ?? 0)
-          : undefined,
-    }
-  }
-
-  function projectExpense(f: FormState): Expense {
-    return {
-      id: f.id,
-      name: f.name,
-      amount: f.amount ?? 0,
-      frequency: f.frequency,
-      inflation_adjusted: f.inflation_adjusted ? true : undefined,
-      start: f.start,
-      start_year: f.start === 'at_specific_date' ? f.start_year : undefined,
-      start_month: f.start === 'at_specific_date' ? f.start_month : undefined,
-      start_age: f.start === 'when_age_is' ? f.start_age : undefined,
-      end: f.end,
-      end_year: f.end === 'at_specific_date' ? f.end_year : undefined,
-      end_month: f.end === 'at_specific_date' ? f.end_month : undefined,
-      end_age: f.end === 'when_age_is' ? f.end_age : undefined,
-      change_over_time: f.change_over_time,
-      change_percentage:
-        f.change_over_time === 'increase_yearly' || f.change_over_time === 'decrease_yearly'
-          ? (f.change_percentage ?? 0)
-          : undefined,
-    }
-  }
-
-  // Same-year ranges can't end before they start: months before the start
-  // month are disabled in the end dropdown, and an end month that a later
-  // start/year change turned invalid is cleared so the user picks again
-  // (Save stays disabled until they do).
-  const endMinMonth = $derived(
-    form.start === 'at_specific_date' &&
-      form.end === 'at_specific_date' &&
-      form.start_year !== undefined &&
-      form.start_year === form.end_year
-      ? form.start_month
-      : undefined,
-  )
+  // Same-year ranges can't end before they start: an end month that a later
+  // start/year change turned invalid is cleared so the user picks again (Save
+  // stays disabled until they do).
   $effect(() => {
     if (
       sameYearMonthsInverted(
@@ -222,16 +116,18 @@
   })
 
   const canSave = $derived(
-    timingComplete(form.start, form.start_year, form.start_month, form.start_age) &&
-      timingComplete(form.end, form.end_year, form.end_month, form.end_age) &&
-      !sameYearMonthsInverted(
-        form.start,
-        form.start_year,
-        form.start_month,
-        form.end,
-        form.end_year,
-        form.end_month,
-      ),
+    (form.amount ?? 0) > 0 &&
+      (form.schedule === 'one_time' ||
+        (timingComplete(form.start, form.start_year, form.start_month, form.start_age) &&
+          timingComplete(form.end, form.end_year, form.end_month, form.end_age) &&
+          !sameYearMonthsInverted(
+            form.start,
+            form.start_year,
+            form.start_month,
+            form.end,
+            form.end_year,
+            form.end_month,
+          ))),
   )
 
   function close() {
@@ -239,11 +135,7 @@
   }
 
   function save() {
-    if (kind === 'income') {
-      upsertProfileItem(PROFILE_LISTS.income, projectIncome(form), plan)
-    } else {
-      upsertProfileItem(PROFILE_LISTS.expense, projectExpense(form), plan)
-    }
+    upsertProfileItem(listConfig, cashFlowFromFields(form), plan)
     close()
   }
 
@@ -274,8 +166,36 @@
     removeProfileItem(listConfig, form.id)
     close()
   }
+
+  // Preview of what the cash flow moves over the plan (Figma 941-71859 and
+  // 941-72501). A one-time item without inflation has nothing to add beyond
+  // the amount itself, so the box is hidden for it — mirrors the transfer
+  // dialog.
+  const summary = $derived.by(() => {
+    if (!canSave) return undefined
+    if (form.schedule === 'one_time' && !form.inflation_adjusted) return undefined
+    return summarizeCashFlow(
+      cashFlowFromFields(form),
+      plan,
+      appStore.profile.birthDate?.getFullYear(),
+    )
+  })
 </script>
 
+{#snippet cashFlowFooter()}
+  <!-- Figma 941-71859: Create + Cancel on the left in a muted footer. -->
+  <div class="flex flex-1 items-center gap-2">
+    <Button disabled={!canSave} onclick={save}>
+      {isNew ? $_('page.plan.createItem') : $_('page.plan.saveChanges')}
+    </Button>
+    <Button variant="outline" onclick={() => onOpenChange(false)}>
+      {$_('page.plan.cancel')}
+    </Button>
+  </div>
+{/snippet}
+
+<!-- Figma 941-71859 / 941-72501: the header carries the title and the close X
+     only — no rename/duplicate/include/delete toolbar. -->
 <ItemEditDialogShell
   bind:open
   {onOpenChange}
@@ -283,16 +203,92 @@
   onNameChange={(v) => (form.name = v)}
   {isNew}
   {isIncluded}
-  saveDisabled={!canSave}
+  renamable={false}
+  toolbar={false}
+  newTitle={isNew
+    ? kind === 'income'
+      ? $_('page.plan.newIncome')
+      : $_('page.plan.newExpense')
+    : undefined}
+  footer={cashFlowFooter}
+  footerClass="bg-muted"
   onSave={save}
   onDuplicate={duplicate}
   onToggleInclude={toggleExclude}
   onDelete={remove}
 >
-  <!-- Amount + Frequency -->
+  <!-- Label -->
+  <div class="flex flex-col gap-2">
+    <Label for="{uid}-cashFlowName">{$_('page.plan.cashFlowLabelLabel')}</Label>
+    <Input
+      id="{uid}-cashFlowName"
+      value={form.name}
+      oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
+    />
+  </div>
+
+  <!-- Type + (one-time) Date / (recurring) Frequency -->
   <div class="flex items-end gap-2">
     <div class="flex flex-1 flex-col gap-2">
-      <Label for="{uid}-amount">{$_('page.setup.common.amount')}</Label>
+      <Label for="{uid}-schedule">
+        {kind === 'income'
+          ? $_('page.plan.incomeScheduleLabel')
+          : $_('page.plan.expenseScheduleLabel')}
+      </Label>
+      <SelectField
+        id="{uid}-schedule"
+        value={form.schedule}
+        items={scheduleItems}
+        onValueChange={(v) => {
+          if (v) form.schedule = v
+        }}
+      />
+    </div>
+    {#if form.schedule === 'one_time'}
+      <div class="flex flex-1 flex-col gap-2">
+        <Label for="{uid}-transactionYear">{$_('page.plan.transactionDateLabel')}</Label>
+        <div class="flex items-center gap-2">
+          <SelectField
+            id="{uid}-transactionYear"
+            class="max-w-24"
+            aria-label={$_('page.setup.aboutYou.selectYear')}
+            value={form.transaction_year !== undefined ? String(form.transaction_year) : ''}
+            items={yearItems}
+            onValueChange={(v) => {
+              if (v) form.transaction_year = Number(v)
+            }}
+          />
+          <SelectField
+            aria-label={$_('page.setup.aboutYou.selectMonth')}
+            value={form.transaction_month !== undefined ? String(form.transaction_month - 1) : ''}
+            items={months}
+            onValueChange={(v) => {
+              if (v) form.transaction_month = Number(v) + 1
+            }}
+          />
+        </div>
+      </div>
+    {:else}
+      <div class="flex flex-1 flex-col gap-2">
+        <Label for="{uid}-frequency">{$_('page.setup.common.frequency')}</Label>
+        <SelectField
+          id="{uid}-frequency"
+          value={form.frequency}
+          items={frequencyItems}
+          onValueChange={(v) => {
+            if (v) form.frequency = v
+          }}
+        />
+      </div>
+    {/if}
+  </div>
+
+  <!-- Amount + Adjust for inflation -->
+  <div class="flex items-end gap-2">
+    <div class="flex flex-1 flex-col gap-2">
+      <Label for="{uid}-amount">
+        {kind === 'income' ? $_('page.setup.income.netAmount') : $_('page.setup.common.amount')}
+      </Label>
       <SuffixedInput
         id="{uid}-amount"
         value={form.amount}
@@ -301,64 +297,101 @@
         onValueChange={(v) => (form.amount = v)}
       />
     </div>
-    <div class="flex flex-1 flex-col gap-2">
-      <Label for="{uid}-frequency">{$_('page.setup.common.frequency')}</Label>
-      <SelectField
-        id="{uid}-frequency"
-        value={form.frequency}
-        items={frequencyItems}
-        onValueChange={(v) => {
-          if (v) form.frequency = v
-        }}
+    <div class="flex h-8 flex-1 items-center">
+      <InflationAdjustToggle
+        checked={form.inflation_adjusted}
+        onCheckedChange={(v) => (form.inflation_adjusted = v)}
       />
     </div>
   </div>
 
-  <InflationAdjustToggle
-    checked={form.inflation_adjusted}
-    onCheckedChange={(v) => (form.inflation_adjusted = v)}
-  />
+  {#if form.schedule === 'recurring'}
+    <DateAgeSelector
+      mode="start"
+      value={form.start}
+      year={form.start_year}
+      month={form.start_month}
+      age={form.start_age}
+      {years}
+      {months}
+      birthDateSet={appStore.profile.birthDate !== undefined}
+      description={kind === 'income'
+        ? $_('page.plan.incomeStartDescription')
+        : $_('page.plan.expenseStartDescription')}
+      formatNumber={appStore.formatNumber}
+      onValueChange={(v) => (form.start = v)}
+      onYearChange={(v) => (form.start_year = v)}
+      onMonthChange={(v) => (form.start_month = v)}
+      onAgeChange={(v) => (form.start_age = v)}
+    />
 
-  <Separator />
+    <DateAgeSelector
+      mode="end"
+      value={form.end}
+      year={form.end_year}
+      month={form.end_month}
+      age={form.end_age}
+      {years}
+      {months}
+      minMonth={endMinMonth(form)}
+      birthDateSet={appStore.profile.birthDate !== undefined}
+      neverLabel={$_('page.plan.cashFlowEndNever')}
+      description={kind === 'income'
+        ? $_('page.plan.incomeEndDescription')
+        : $_('page.plan.expenseEndDescription')}
+      formatNumber={appStore.formatNumber}
+      onValueChange={(v) => (form.end = v)}
+      onYearChange={(v) => (form.end_year = v)}
+      onMonthChange={(v) => (form.end_month = v)}
+      onAgeChange={(v) => (form.end_age = v)}
+    />
 
-  <DateAgeSelector
-    mode="start"
-    value={form.start}
-    year={form.start_year}
-    month={form.start_month}
-    age={form.start_age}
-    {years}
-    {months}
-    birthDateSet={appStore.profile.birthDate !== undefined}
-    formatNumber={appStore.formatNumber}
-    onValueChange={(v) => (form.start = v)}
-    onYearChange={(v) => (form.start_year = v)}
-    onMonthChange={(v) => (form.start_month = v)}
-    onAgeChange={(v) => (form.start_age = v)}
-  />
+    <ChangeOverTimeSelector
+      value={form.change_over_time}
+      percentage={form.change_percentage}
+      noneLabel={$_('page.plan.cashFlowChangeNone')}
+      changeDescription={kind === 'income'
+        ? $_('page.plan.incomeChangeDescription')
+        : $_('page.plan.expenseChangeDescription')}
+      formatNumber={appStore.formatNumber}
+      onValueChange={(v) => (form.change_over_time = v)}
+      onPercentageChange={(v) => (form.change_percentage = v)}
+    />
+  {/if}
 
-  <DateAgeSelector
-    mode="end"
-    value={form.end}
-    year={form.end_year}
-    month={form.end_month}
-    age={form.end_age}
-    {years}
-    {months}
-    minMonth={endMinMonth}
-    birthDateSet={appStore.profile.birthDate !== undefined}
-    formatNumber={appStore.formatNumber}
-    onValueChange={(v) => (form.end = v)}
-    onYearChange={(v) => (form.end_year = v)}
-    onMonthChange={(v) => (form.end_month = v)}
-    onAgeChange={(v) => (form.end_age = v)}
-  />
-
-  <ChangeOverTimeSelector
-    value={form.change_over_time}
-    percentage={form.change_percentage}
-    formatNumber={appStore.formatNumber}
-    onValueChange={(v) => (form.change_over_time = v)}
-    onPercentageChange={(v) => (form.change_percentage = v)}
-  />
+  {#if summary}
+    <div class="flex flex-col gap-1 rounded-md bg-muted p-3 text-sm text-muted-foreground">
+      {#if form.schedule === 'recurring'}
+        <span>
+          {$_('page.plan.cashFlowOccurrences', { values: { count: summary.occurrences } })}
+        </span>
+      {/if}
+      {#if !form.inflation_adjusted}
+        <span>
+          {$_('page.plan.cashFlowTotal', {
+            values: { total: appStore.formatCurrencyCode(summary.nominalTotal) },
+          })}
+        </span>
+      {:else}
+        <span class="flex items-center gap-2">
+          <TrendingUp class="size-4 shrink-0" />
+          {#if form.schedule === 'one_time'}
+            {$_('page.plan.cashFlowNominalValue', {
+              values: {
+                nominal: appStore.formatCurrencyCode(summary.nominalTotal),
+                real: appStore.formatCurrencyCode(summary.realTotal),
+              },
+            })}
+          {:else}
+            {$_('page.plan.cashFlowNominalTotal', {
+              values: {
+                nominal: appStore.formatCurrencyCode(summary.nominalTotal),
+                real: appStore.formatCurrencyCode(summary.realTotal),
+              },
+            })}
+          {/if}
+        </span>
+      {/if}
+    </div>
+  {/if}
 </ItemEditDialogShell>

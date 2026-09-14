@@ -4,6 +4,7 @@ import { DECIMAL_0, DECIMAL_1 } from '$lib/@snaha/kalkul-maths'
 import { type PlanOwned, itemsForPlan } from '$lib/plan-owned'
 import type {
   CashFlowEnd,
+  CashFlowSchedule,
   CashFlowStart,
   ChangeOverTime,
   Expense,
@@ -651,6 +652,77 @@ function isTransferActiveThisYear(
   return !activeMonthFraction(temporal, year, tStart, tEnd).isZero()
 }
 
+/**
+ * The fields of a stored cash flow the per-year amount math reads. The
+ * recurring fields are optional because a one-time schedule leaves them
+ * unset; `cashFlowToTemporal` applies the projection's defaults.
+ */
+type ScheduledCashFlow = {
+  schedule?: CashFlowSchedule
+  // one-time fields
+  transaction_year?: number
+  // recurring fields
+  frequency?: Frequency
+  start?: CashFlowStart
+  start_year?: number
+  start_month?: number
+  start_age?: number
+  end?: CashFlowEnd
+  end_year?: number
+  end_month?: number
+  end_age?: number
+  inflation_adjusted?: boolean
+  change_over_time?: ChangeOverTime
+  change_percentage?: number
+}
+
+/**
+ * A stored cash flow as the temporal shape the engine resolves, with the
+ * projection's defaults applied for the optional fields. Exported so the
+ * carry-forward in `current-values.ts` asks whether an income/expense is
+ * running on exactly one way.
+ */
+export function cashFlowToTemporal(flow: ScheduledCashFlow): CashFlowTemporal {
+  // Recurring cash flows reuse the same temporal shape as transfers. Defaults
+  // are defensive — schema validation should already guarantee these are set
+  // when schedule === 'recurring'.
+  return {
+    start: flow.start ?? 'immediately',
+    start_year: flow.start_year,
+    start_month: flow.start_month,
+    start_age: flow.start_age,
+    end: flow.end ?? 'never',
+    end_year: flow.end_year,
+    end_month: flow.end_month,
+    end_age: flow.end_age,
+    inflation_adjusted: flow.inflation_adjusted,
+    change_over_time: flow.change_over_time ?? 'none',
+    change_percentage: flow.change_percentage,
+  }
+}
+
+/**
+ * Nominal amount a one-time schedule contributes in `year`: zero outside the
+ * transaction year, and otherwise the base amount scaled from plan start to
+ * the transaction year when inflation-adjusted — the entered amount is
+ * interpreted as today's money. yearsForward can't go negative: a schedule
+ * before the plan's first year only fires when the plan contains its year,
+ * and then year >= planStartYear. Shared by one-time transfers and cash
+ * flows so both inflate identically.
+ */
+function oneTimeAmountForYear(
+  schedule: { transaction_year?: number; inflation_adjusted?: boolean },
+  amount: Decimal,
+  year: number,
+  planStartYear: number,
+  inflationRate: Decimal,
+): Decimal {
+  if (year !== schedule.transaction_year) return DECIMAL_0
+  if (!schedule.inflation_adjusted) return amount
+  const yearsForward = Math.max(0, year - planStartYear)
+  return amount.mul(DECIMAL_1.plus(inflationRate).pow(yearsForward))
+}
+
 // Nominal transfer amount that should be applied in the given year (for
 // fixed-amount transfers only — caller should use the live source balance
 // instead when `transfer.transfer_all` is true).
@@ -662,16 +734,13 @@ function transferAmountForYear(
   inflationRate: Decimal,
 ): Decimal {
   if (transfer.schedule === 'one_time') {
-    if (year !== transfer.transaction_year) return DECIMAL_0
-    // For one-time transfers the amount is interpreted as today's-money when
-    // inflation_adjusted is on, so we scale it forward to the transaction
-    // year. yearsSinceStart can't go negative — a transfer before plan start
-    // is already filtered by the year === transaction_year check above only
-    // when the plan contains that year.
-    const base = new Decimal(transfer.amount)
-    if (!transfer.inflation_adjusted) return base
-    const yearsForward = Math.max(0, year - planStartYear)
-    return base.mul(DECIMAL_1.plus(inflationRate).pow(yearsForward))
+    return oneTimeAmountForYear(
+      transfer,
+      new Decimal(transfer.amount),
+      year,
+      planStartYear,
+      inflationRate,
+    )
   }
   const temporal = transferToTemporal(transfer)
   const tStart = resolveStartYear(temporal, planStartYear, birthYear)
@@ -742,15 +811,100 @@ export function summarizeTransfer(
   return { occurrences, nominalTotal: nominalTotal.toNumber(), realTotal: realTotal.toNumber() }
 }
 
+export interface CashFlowSummary {
+  /** How many times the cash flow fires within the plan. */
+  occurrences: number
+  /** Sum of the amounts actually paid or received, after inflation and change over time. */
+  nominalTotal: number
+  /** The same sum in today's money (inflation factor stripped). */
+  realTotal: number
+}
+
 /**
- * Sum the annualized, grown, month-fractioned nominal amounts of the cash
- * flows active in `year`, and report which items were active. `growthFactor`
- * takes both the years-since-the-cash-flow-started (for change_over_time
- * growth) and the years-since-plan-start (for the inflation factor, which is
- * always anchored to plan start so the entered amount is consistently
- * interpreted as today's-money).
+ * Preview totals for the income/expense dialogs: how often a cash flow fires
+ * within the plan and how much it moves in nominal and in today's money.
+ * Reuses the per-year amount the projection itself applies, so the preview
+ * and the chart cannot disagree.
  */
-function accumulateCashFlows<T extends CashFlowTemporal & { id: string; frequency: Frequency }>(
+export function summarizeCashFlow(
+  flow: Income | Expense,
+  plan: Pick<Portfolio, 'start_date' | 'end_date' | 'inflation_rate'>,
+  birthYear: number | undefined,
+): CashFlowSummary {
+  const startYear = yearOf(plan.start_date)
+  const endYear = yearOf(plan.end_date)
+  const inflationRate = new Decimal(plan.inflation_rate)
+  // Same flow with the inflation factor off: growthFactor then yields the
+  // real-terms amount, change over time included.
+  const real: Income | Expense = { ...flow, inflation_adjusted: false }
+  let occurrences = 0
+  let nominalTotal = DECIMAL_0
+  let realTotal = DECIMAL_0
+  for (let year = startYear; year <= endYear; year++) {
+    if (flow.schedule === 'one_time') {
+      if (year !== flow.transaction_year) continue
+      occurrences += 1
+    } else {
+      const temporal = cashFlowToTemporal(flow)
+      const itemStart = resolveStartYear(temporal, startYear, birthYear)
+      const itemEnd = resolveEndYear(temporal, birthYear)
+      if (year < itemStart || year > itemEnd) continue
+      const fraction = activeMonthFraction(temporal, year, itemStart, itemEnd)
+      if (fraction.isZero()) continue
+      occurrences += Math.round(
+        FLOW_PERIODS_PER_YEAR[flow.frequency ?? 'monthly'] * fraction.toNumber(),
+      )
+    }
+    const amount = new Decimal(flow.amount)
+    nominalTotal = nominalTotal.plus(
+      cashFlowAmountForYear(flow, amount, year, startYear, birthYear, inflationRate),
+    )
+    realTotal = realTotal.plus(
+      cashFlowAmountForYear(real, amount, year, startYear, birthYear, inflationRate),
+    )
+  }
+  return { occurrences, nominalTotal: nominalTotal.toNumber(), realTotal: realTotal.toNumber() }
+}
+
+/**
+ * Nominal amount one cash flow contributes in `year` (0 when inactive): the
+ * transaction-year amount for a one-time schedule, or the annualized, grown,
+ * month-fractioned amount for a recurring one.
+ */
+function cashFlowAmountForYear(
+  flow: ScheduledCashFlow,
+  amount: Decimal,
+  year: number,
+  planStartYear: number,
+  birthYear: number | undefined,
+  inflationRate: Decimal,
+): Decimal {
+  if (flow.schedule === 'one_time') {
+    return oneTimeAmountForYear(flow, amount, year, planStartYear, inflationRate)
+  }
+  const temporal = cashFlowToTemporal(flow)
+  const itemStart = resolveStartYear(temporal, planStartYear, birthYear)
+  const itemEnd = resolveEndYear(temporal, birthYear)
+  if (year < itemStart || year > itemEnd) return DECIMAL_0
+  const fraction = activeMonthFraction(temporal, year, itemStart, itemEnd)
+  if (fraction.isZero()) return DECIMAL_0
+  return annualizedAmount(amount, flow.frequency ?? 'monthly')
+    .mul(growthFactor(temporal, year - itemStart, year - planStartYear, inflationRate))
+    .mul(fraction)
+}
+
+/**
+ * Sum the nominal amounts of the cash flows active in `year`, and report
+ * which items were active. Recurring flows annualize by frequency, grow with
+ * inflation (anchored to plan start) and change_over_time, and take the
+ * active-month fraction; one-time flows fire their inflation-scaled amount in
+ * the transaction year. `growthFactor` takes both the
+ * years-since-the-cash-flow-started (for change_over_time growth) and the
+ * years-since-plan-start (for the inflation factor, which is always anchored
+ * to plan start so the entered amount is consistently interpreted as
+ * today's-money).
+ */
+function accumulateCashFlows<T extends ScheduledCashFlow & { id: string }>(
   items: T[],
   year: number,
   planStartYear: number,
@@ -761,16 +915,17 @@ function accumulateCashFlows<T extends CashFlowTemporal & { id: string; frequenc
   let total = DECIMAL_0
   const activeIds: string[] = []
   for (const item of items) {
-    const itemStart = resolveStartYear(item, planStartYear, birthYear)
-    const itemEnd = resolveEndYear(item, birthYear)
-    if (year < itemStart || year > itemEnd) continue
-    const fraction = activeMonthFraction(item, year, itemStart, itemEnd)
-    if (fraction.isZero()) continue
-    const annual = annualizedAmount(getAmount(item), item.frequency)
+    if (item.schedule === 'one_time') {
+      if (year !== item.transaction_year) continue
+    } else {
+      const temporal = cashFlowToTemporal(item)
+      const itemStart = resolveStartYear(temporal, planStartYear, birthYear)
+      const itemEnd = resolveEndYear(temporal, birthYear)
+      if (year < itemStart || year > itemEnd) continue
+      if (activeMonthFraction(temporal, year, itemStart, itemEnd).isZero()) continue
+    }
     total = total.plus(
-      annual
-        .mul(growthFactor(item, year - itemStart, year - planStartYear, inflationRate))
-        .mul(fraction),
+      cashFlowAmountForYear(item, getAmount(item), year, planStartYear, birthYear, inflationRate),
     )
     activeIds.push(item.id)
   }

@@ -73,7 +73,10 @@ function persistList<K extends ProfileListKey>(
  * is owned by it: financial data and other plans never list it. It is also
  * appended to the plan's include list when one exists, so it is visible in
  * this plan by default (an undefined include list already means "all
- * included"). Editing an existing item leaves its ownership as it is.
+ * included"). Editing an existing item leaves its ownership as it is — the
+ * projected item the dialogs hand back carries no `plan_id`, so an edit must
+ * re-attach the stored one or a plan-owned item would silently leak into
+ * financial data as current data.
  */
 export function upsertProfileItem<K extends ProfileListKey>(
   config: ProfileListConfig<K>,
@@ -85,7 +88,11 @@ export function upsertProfileItem<K extends ProfileListKey>(
   const next =
     idx === -1
       ? [...existing, { ...item, plan_id: plan.id }]
-      : existing.map((it, i) => (i === idx ? item : it))
+      : existing.map((it, i) =>
+          i === idx
+            ? { ...item, ...(it.plan_id !== undefined ? { plan_id: it.plan_id } : {}) }
+            : it,
+        )
   persistList(config, next)
   if (idx === -1) {
     const included = plan[config.includedKey]

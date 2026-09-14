@@ -13,6 +13,7 @@
   import { Button } from '$lib/components/ui/button'
   import * as Dialog from '$lib/components/ui/dialog'
   import { Input } from '$lib/components/ui/input'
+  import { cn } from '$lib/utils'
 
   interface Props {
     open: boolean
@@ -39,6 +40,8 @@
     toolbar?: boolean
     /** Replaces the default Cancel/Save footer when given. */
     footer?: Snippet
+    /** Extra footer classes, e.g. the muted background some Figma footers have. */
+    footerClass?: string
     /** Optional label shown next to the title, e.g. "Financed". */
     badge?: string
     saveDisabled?: boolean
@@ -62,6 +65,7 @@
     newTitle,
     toolbar = true,
     footer,
+    footerClass,
     badge,
     saveDisabled = false,
     saveLabel,
@@ -180,7 +184,7 @@
       {@render children()}
     </div>
 
-    <Dialog.Footer class="flex flex-row justify-end gap-2 border-t p-4">
+    <Dialog.Footer class={cn('flex flex-row justify-end gap-2 border-t p-4', footerClass)}>
       {#if footer}
         {@render footer()}
       {:else}

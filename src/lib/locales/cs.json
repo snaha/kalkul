@@ -172,7 +172,24 @@
       "transferOccurrences": "{count, plural, one {# výskyt} few {# výskyty} other {# výskytů}}",
       "transferNominalValue": "Nominální hodnota: {nominal} ({real} v dnešních penězích)",
       "transferNominalTotal": "Nominální součet: {nominal} ({real} v dnešních penězích)",
-      "transferTotal": "Celkem: {total}"
+      "transferTotal": "Celkem: {total}",
+      "newIncome": "Přidat příjem",
+      "newExpense": "Přidat výdaj",
+      "cashFlowLabelLabel": "Popisek",
+      "incomeScheduleLabel": "Plán",
+      "expenseScheduleLabel": "Typ",
+      "expenseStartDescription": "Kdy plánujete tento výdaj zaplatit.",
+      "expenseEndDescription": "Kdy plánujete tento výdaj ukončit.",
+      "expenseChangeDescription": "Jak se částka tohoto výdaje mění v průběhu projekce.",
+      "incomeStartDescription": "Kdy plánujete tento příjem pobírat.",
+      "incomeEndDescription": "Kdy plánujete tento příjem ukončit.",
+      "incomeChangeDescription": "Jak se částka tohoto příjmu mění v průběhu projekce.",
+      "cashFlowEndNever": "Neomezeně — bez plánovaného konce",
+      "cashFlowChangeNone": "Žádná — zůstává stejná",
+      "cashFlowOccurrences": "{count, plural, one {# výskyt} few {# výskyty} other {# výskytů}}",
+      "cashFlowNominalValue": "Nominální hodnota: {nominal} ({real} v dnešních penězích)",
+      "cashFlowNominalTotal": "Nominální součet: {nominal} ({real} v dnešních penězích)",
+      "cashFlowTotal": "Celkem: {total}"
     },
     "home": {
       "heroTitle": "Podívejte se, kam vás vaše peníze mohou dovést",
@@ -569,6 +586,8 @@
     "required_when_financed": "Povinné při financování",
     "required_for_one_time_transfer": "Povinné pro jednorázový převod",
     "required_for_recurring_transfer": "Povinné pro opakovaný převod",
+    "required_for_one_time_cash_flow": "Povinné pro jednorázovou položku",
+    "required_for_recurring_cash_flow": "Povinné pro opakovanou položku",
     "transfer_same_endpoints": "Odkud a Kam musí být různá aktiva"
   }
 }

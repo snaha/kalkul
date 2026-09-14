@@ -94,16 +94,21 @@ export function getOverviewSegments(profile: Profile): OverviewSegment[] {
 }
 
 /**
- * Yearly living expenses at today's levels, counting every expense regardless
- * of its start/end window. That is the convention the savings rate, FI % and
- * runway are stated in. The dashboard's cash accrual asks a different question
- * ("what is running right now") and uses its own window-aware totals in
- * `current-values.ts`.
+ * Yearly living expenses at today's levels, counting every recurring expense
+ * regardless of its start/end window. That is the convention the savings
+ * rate, FI % and runway are stated in. The dashboard's cash accrual asks a
+ * different question ("what is running right now") and uses its own
+ * window-aware totals in `current-values.ts`.
+ *
+ * One-time expenses are skipped: they are events rather than rates, and a
+ * car purchase planned for 2030 must not distort a yearly rate (mirrors
+ * one-time transfers).
  */
 export function getAnnualExpensesTotal(profile: Profile): number {
   return sharedItems(profile.expenses)
+    .filter((e) => e.schedule !== 'one_time')
     .reduce<Decimal>(
-      (sum, e) => sum.plus(annualizedAmount(new Decimal(e.amount), e.frequency)),
+      (sum, e) => sum.plus(annualizedAmount(new Decimal(e.amount), e.frequency ?? 'monthly')),
       DECIMAL_0,
     )
     .toNumber()
@@ -115,11 +120,13 @@ export function getAnnualExpensesTotal(profile: Profile): number {
  * projection card agree on what the user receives.
  *
  * Window-agnostic like `getAnnualExpensesTotal` — see the note there.
+ * One-time incomes are skipped as events rather than rates.
  */
 export function getAnnualIncomeTotal(profile: Profile): number {
   return sharedItems(profile.incomes)
+    .filter((i) => i.schedule !== 'one_time')
     .reduce<Decimal>(
-      (sum, i) => sum.plus(annualizedAmount(new Decimal(i.amount), i.frequency)),
+      (sum, i) => sum.plus(annualizedAmount(new Decimal(i.amount), i.frequency ?? 'monthly')),
       DECIMAL_0,
     )
     .toNumber()

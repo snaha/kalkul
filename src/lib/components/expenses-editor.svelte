@@ -34,6 +34,9 @@
       id: crypto.randomUUID(),
       name: $_('page.setup.expenses.defaultName', { values: { index } }),
       amount: undefined,
+      // Financial data records the current, repeating expense; one-time items
+      // belong to plans.
+      schedule: 'recurring',
       frequency: 'monthly',
       start: 'immediately',
       end: 'never',

@@ -113,6 +113,7 @@ const baseIncome: Income = {
   id: 'income-1',
   name: 'Salary',
   amount: 1000,
+  schedule: 'recurring',
   frequency: 'monthly',
   start: 'immediately',
   end: 'never',
@@ -123,6 +124,7 @@ const baseExpense: Expense = {
   id: 'expense-1',
   name: 'Rent',
   amount: 500,
+  schedule: 'recurring',
   frequency: 'monthly',
   start: 'immediately',
   end: 'never',
@@ -487,6 +489,86 @@ describe('transferSchema refinement', () => {
       expect(paths).toContainEqual(['start_year'])
       expect(paths).toContainEqual(['start_month'])
     }
+  })
+})
+
+describe('cashFlowSchema schedule refinement', () => {
+  const oneTime: Expense = {
+    id: 'expense-1',
+    name: 'New car',
+    amount: 30_000,
+    schedule: 'one_time',
+    transaction_year: 2030,
+    transaction_month: 4,
+  }
+
+  it('accepts a valid one-time expense and income', () => {
+    expect(expenseSchema.safeParse(oneTime).success).toBe(true)
+    expect(incomeSchema.safeParse({ ...oneTime, name: 'Bonus' }).success).toBe(true)
+  })
+
+  it('requires transaction year and month for one-time cash flows', () => {
+    const { transaction_year: _y, transaction_month: _m, ...bare } = oneTime
+    const result = expenseSchema.safeParse(bare)
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      const paths = result.error.issues.map((i) => i.path)
+      expect(paths).toContainEqual(['transaction_year'])
+      expect(paths).toContainEqual(['transaction_month'])
+    }
+  })
+
+  it('requires frequency, start, end, and change_over_time for recurring cash flows', () => {
+    const result = incomeSchema.safeParse({
+      id: 'income-1',
+      name: 'Salary',
+      amount: 1000,
+      schedule: 'recurring',
+    })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      const paths = result.error.issues.map((i) => i.path)
+      for (const field of ['frequency', 'start', 'end', 'change_over_time']) {
+        expect(paths).toContainEqual([field])
+      }
+    }
+  })
+
+  it('re-checks the nested temporal refinement for recurring cash flows', () => {
+    const result = expenseSchema.safeParse({
+      id: 'expense-1',
+      name: 'Rent',
+      amount: 500,
+      schedule: 'recurring',
+      frequency: 'monthly',
+      start: 'at_specific_date',
+      end: 'never',
+      change_over_time: 'none',
+    })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      const paths = result.error.issues.map((i) => i.path)
+      expect(paths).toContainEqual(['start_year'])
+      expect(paths).toContainEqual(['start_month'])
+    }
+  })
+
+  it('defaults a missing schedule to recurring so stored data keeps parsing', () => {
+    const result = expenseSchema.safeParse({
+      id: 'expense-1',
+      name: 'Rent',
+      amount: 500,
+      frequency: 'monthly',
+      start: 'immediately',
+      end: 'never',
+      change_over_time: 'none',
+    })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.schedule).toBe('recurring')
+  })
+
+  it('rejects an unknown schedule', () => {
+    expect(expenseSchema.safeParse({ ...oneTime, schedule: 'sometimes' }).success).toBe(false)
   })
 })
 
@@ -922,8 +1004,9 @@ describe('plan ownership', () => {
       change_over_time: 'none',
       ...owned,
     }
-    expect(incomeSchema.parse(flow)).toEqual(flow)
-    expect(expenseSchema.parse(flow)).toEqual(flow)
+    // The absent schedule parses as the 'recurring' default.
+    expect(incomeSchema.parse(flow)).toEqual({ ...flow, schedule: 'recurring' })
+    expect(expenseSchema.parse(flow)).toEqual({ ...flow, schedule: 'recurring' })
     const investment = { id: 'v', name: 'ETF', balance: 1, apy: 1, ...owned }
     expect(profileInvestmentSchema.parse(investment)).toEqual(investment)
     const asset = { id: 'a', name: 'Flat', value: 1, status: 'fully_owned', ...owned }
