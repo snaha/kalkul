@@ -412,7 +412,14 @@ function withAppStore() {
      * survive at both dates.
      */
     saveSnapshot(snapshot: Snapshot, originalDate?: string) {
-      writeProfile(withSavedSnapshot(profile.toJSON(), snapshot, originalDate), 'manage')
+      // A snapshot dated after the baseline moves the baseline forward, so the
+      // profile is carried to that date first — the way the dashboard and
+      // Quick update reach it. A planned sale in between otherwise reaches cash
+      // through the snapshot's figures while the sold position keeps its
+      // balance, and the plan sells it a second time. Carried to a date that
+      // is not later, nothing has elapsed and the profile is unchanged.
+      const carried = getCurrentProfile(profile.toJSON(), parseDateOnly(snapshot.date))
+      writeProfile(withSavedSnapshot(carried, snapshot, originalDate), 'manage')
     },
 
     /**
