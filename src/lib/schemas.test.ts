@@ -649,6 +649,88 @@ describe('remainingTermUnitSchema', () => {
   })
 })
 
+describe('profileLiabilitySchema timing', () => {
+  const base = {
+    id: 'liab-1',
+    name: 'Car loan',
+    outstanding_balance: 20_000,
+    installment_frequency: 'monthly' as const,
+    annual_rate: 6,
+    installment_amount: 400,
+    remaining_term: 4,
+  }
+
+  it('accepts a liability with no planned timing', () => {
+    expect(profileLiabilitySchema.safeParse(base).success).toBe(true)
+  })
+
+  it('requires a year and month when starting at a specific date', () => {
+    const result = profileLiabilitySchema.safeParse({ ...base, start: 'at_specific_date' })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((i) => i.path)).toContainEqual(['start_year'])
+    }
+  })
+
+  it('requires a date when paying off at a specific date', () => {
+    const result = profileLiabilitySchema.safeParse({ ...base, pay_off: 'at_specific_date' })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((i) => i.path)).toContainEqual(['pay_off_year'])
+    }
+  })
+
+  it('accepts complete start and pay-off timing', () => {
+    expect(
+      profileLiabilitySchema.safeParse({
+        ...base,
+        start: 'at_specific_date',
+        start_year: 2027,
+        start_month: 1,
+        pay_off: 'at_specific_date',
+        pay_off_year: 2028,
+        pay_off_month: 2,
+      }).success,
+    ).toBe(true)
+  })
+})
+
+describe('profileLiabilitySchema interest type', () => {
+  const base = {
+    id: 'liab-1',
+    name: 'Car loan',
+    outstanding_balance: 20_000,
+    installment_frequency: 'monthly' as const,
+    annual_rate: 6,
+    installment_amount: 400,
+    remaining_term: 4,
+  }
+
+  it('accepts simple interest without a compounding frequency', () => {
+    expect(profileLiabilitySchema.safeParse({ ...base, interest_type: 'simple' }).success).toBe(
+      true,
+    )
+  })
+
+  it('requires a compounding frequency for compound interest', () => {
+    const result = profileLiabilitySchema.safeParse({ ...base, interest_type: 'compound' })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((i) => i.path)).toContainEqual(['compounding_frequency'])
+    }
+  })
+
+  it('accepts compound interest with a compounding frequency', () => {
+    expect(
+      profileLiabilitySchema.safeParse({
+        ...base,
+        interest_type: 'compound',
+        compounding_frequency: 'daily',
+      }).success,
+    ).toBe(true)
+  })
+})
+
 describe('profileSchema language', () => {
   it('accepts a supported language', () => {
     expect(profileSchema.safeParse({ name: 'A', email: 'a@b.c', language: 'cs' }).success).toBe(

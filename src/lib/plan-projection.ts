@@ -7,9 +7,11 @@ import type {
   CashFlowSchedule,
   CashFlowStart,
   ChangeOverTime,
+  CompoundingFrequency,
   Expense,
   Frequency,
   Income,
+  InterestType,
   Portfolio,
   Profile,
   ProfileInvestment,
@@ -133,6 +135,32 @@ function resolveEndYear(cashFlow: CashFlowTemporal, birthYear: number | undefine
   if (cashFlow.end === 'when_age_is' && birthYear !== undefined && cashFlow.end_age !== undefined)
     return birthYear + cashFlow.end_age
   return Number.POSITIVE_INFINITY
+}
+
+/**
+ * The year a standalone liability is taken on. Undefined means "runs from the
+ * plan's first year", which is the absent/'immediately' case — so the schedule
+ * can defer the loan without needing the plan's start year here.
+ */
+function liabilityStartYear(
+  liability: ProfileLiability,
+  birthYear: number | undefined,
+): number | undefined {
+  if (liability.start === undefined || liability.start === 'immediately') return undefined
+  if (liability.start === 'now') return new Date().getFullYear()
+  if (liability.start === 'at_specific_date') return liability.start_year
+  if (
+    liability.start === 'when_age_is' &&
+    birthYear !== undefined &&
+    liability.start_age !== undefined
+  )
+    return birthYear + liability.start_age
+  return undefined
+}
+
+/** The year a standalone liability is paid off early, or undefined when it runs its term. */
+function liabilityPayOffYear(liability: ProfileLiability): number | undefined {
+  return liability.pay_off === 'at_specific_date' ? liability.pay_off_year : undefined
 }
 
 /**
@@ -268,16 +296,103 @@ function remainingTermPeriods(
  * today on exactly the terms the projection would use.
  */
 export function installmentPeriodRate(liability: ProfileLiability): Decimal {
-  const periodsPerYear = INSTALLMENT_PERIODS_PER_YEAR[liability.installment_frequency]
-  const annualRate = new Decimal(liability.annual_rate).div(100)
-  if (liability.interest_type === 'simple') return annualRate.div(periodsPerYear)
-  const compFreqKey = liability.compounding_frequency
+  return periodRate(
+    liability.annual_rate,
+    liability.installment_frequency,
+    liability.interest_type,
+    liability.compounding_frequency,
+  )
+}
+
+/**
+ * Interest charged on one installment period for a loan described by its raw
+ * terms. The single home of the rate maths, shared by `installmentPeriodRate`
+ * (a stored liability) and the dialog's installment/term derivation helpers.
+ */
+function periodRate(
+  annualRatePct: number,
+  frequency: Frequency,
+  interestType: InterestType | undefined,
+  compoundingFrequency: CompoundingFrequency | undefined,
+): Decimal {
+  const periodsPerYear = INSTALLMENT_PERIODS_PER_YEAR[frequency]
+  const annualRate = new Decimal(annualRatePct).div(100)
+  if (interestType === 'simple') return annualRate.div(periodsPerYear)
   const compoundingPeriodsPerYear =
-    compFreqKey !== undefined ? COMPOUNDING_PERIODS_PER_YEAR[compFreqKey] : periodsPerYear
+    compoundingFrequency !== undefined
+      ? COMPOUNDING_PERIODS_PER_YEAR[compoundingFrequency]
+      : periodsPerYear
   // EAR = (1 + r/n)^n − 1; installment rate = (1 + EAR)^(1/p) − 1
   const periodicCompoundRate = annualRate.div(compoundingPeriodsPerYear)
   const ear = DECIMAL_1.plus(periodicCompoundRate).pow(compoundingPeriodsPerYear).minus(DECIMAL_1)
   return DECIMAL_1.plus(ear).pow(new Decimal(1).div(periodsPerYear)).minus(DECIMAL_1)
+}
+
+/** The raw terms a loan's installment/term derivation needs. */
+export interface LoanTerms {
+  outstanding_balance: number
+  installment_frequency: Frequency
+  annual_rate: number
+  /** Term in years. */
+  remaining_term: number
+  interest_type?: InterestType
+  compounding_frequency?: CompoundingFrequency
+}
+
+/**
+ * The fully-amortizing installment for a loan: the payment that clears
+ * `outstanding_balance` over `remaining_term` at its rate. Undefined when the
+ * inputs can't describe a loan (no principal/term, or a payment that never
+ * covers the interest). Used by the liability dialog to derive one side of the
+ * Installment amount ⇄ Term pair from the other (issue #258).
+ */
+export function installmentAmountForLoan(loan: LoanTerms): number | undefined {
+  const principal = new Decimal(loan.outstanding_balance)
+  const periods = new Decimal(loan.remaining_term).mul(
+    INSTALLMENT_PERIODS_PER_YEAR[loan.installment_frequency],
+  )
+  if (principal.lessThanOrEqualTo(0) || periods.lessThanOrEqualTo(0)) return undefined
+  const rate = periodRate(
+    loan.annual_rate,
+    loan.installment_frequency,
+    loan.interest_type,
+    loan.compounding_frequency,
+  )
+  if (rate.isZero()) return principal.div(periods).toNumber()
+  const discount = DECIMAL_1.minus(DECIMAL_1.plus(rate).pow(periods.neg()))
+  if (discount.lessThanOrEqualTo(0)) return undefined
+  return principal.mul(rate).div(discount).toNumber()
+}
+
+/**
+ * The term (in years) a loan takes to clear `outstanding_balance` at the given
+ * installment amount and rate. Inverse of `installmentAmountForLoan`; undefined
+ * when the payment can't clear the loan (it never covers the period interest).
+ */
+export function termYearsForLoan(
+  loan: LoanTerms & { installment_amount: number },
+): number | undefined {
+  const periodsPerYear = INSTALLMENT_PERIODS_PER_YEAR[loan.installment_frequency]
+  const principal = new Decimal(loan.outstanding_balance)
+  const payment = new Decimal(loan.installment_amount)
+  if (principal.lessThanOrEqualTo(0) || payment.lessThanOrEqualTo(0)) return undefined
+  const rate = periodRate(
+    loan.annual_rate,
+    loan.installment_frequency,
+    loan.interest_type,
+    loan.compounding_frequency,
+  )
+  let periods: Decimal
+  if (rate.isZero()) {
+    periods = principal.div(payment)
+  } else {
+    const interestOnly = principal.mul(rate)
+    // A payment at or below the period interest never amortizes the loan.
+    if (payment.lessThanOrEqualTo(interestOnly)) return undefined
+    periods = payment.div(payment.minus(interestOnly)).ln().div(DECIMAL_1.plus(rate).ln())
+  }
+  if (periods.lessThanOrEqualTo(0) || !periods.isFinite()) return undefined
+  return periods.div(periodsPerYear).toNumber()
 }
 
 /**
@@ -311,10 +426,10 @@ function simulateLiability(
    * not exist before the purchase year, and a sale in `lastYear` settles
    * whatever is still owed out of the proceeds.
    */
-  window?: { firstYear: number; lastYear: number },
+  window?: { firstYear?: number; lastYear?: number },
 ): LiabilitySchedule {
   const periodsPerYear = INSTALLMENT_PERIODS_PER_YEAR[liability.installment_frequency]
-  const periodRate = installmentPeriodRate(liability)
+  const installmentPeriodInterestRate = installmentPeriodRate(liability)
   const installmentAmount = new Decimal(liability.installment_amount)
 
   let balance = new Decimal(liability.outstanding_balance)
@@ -329,16 +444,20 @@ function simulateLiability(
 
   for (let year = startYear; year <= endYear; year++) {
     let paidThisYear = DECIMAL_0
-    // Not taken out yet, or already settled: nothing owed, nothing paid.
-    if (window !== undefined && (year < window.firstYear || year > window.lastYear)) {
-      outstandingByYear.set(year, year < window.firstYear ? new Decimal(0) : DECIMAL_0)
+    // Not taken out yet, or already settled: nothing owed, nothing paid. An
+    // absent bound is open-ended, so a standalone liability with neither a
+    // planned start nor a planned pay-off runs from plan year one for its term.
+    const beforeStart = window?.firstYear !== undefined && year < window.firstYear
+    const afterEnd = window?.lastYear !== undefined && year > window.lastYear
+    if (beforeStart || afterEnd) {
+      outstandingByYear.set(year, DECIMAL_0)
       paidByYear.set(year, DECIMAL_0)
-      if (year > window.lastYear) balance = DECIMAL_0
+      if (afterEnd) balance = DECIMAL_0
       continue
     }
     for (let i = 0; i < periodsPerYear; i++) {
       if (periodsRemaining <= 0 || balance.lessThanOrEqualTo(0)) break
-      const interest = balance.mul(periodRate)
+      const interest = balance.mul(installmentPeriodInterestRate)
       const grossDue = balance.plus(interest)
       // Final scheduled installment: pay whatever is owed so the loan reaches
       // zero at the end of `remaining_term`. Without this balloon, slightly
@@ -353,8 +472,9 @@ function simulateLiability(
       paidThisYear = paidThisYear.plus(payment)
       periodsRemaining -= 1
     }
-    // Selling the asset settles the rest of the loan from the proceeds.
-    if (window !== undefined && year === window.lastYear && balance.greaterThan(0)) {
+    // Selling the asset settles the rest of the loan from the proceeds; for a
+    // standalone liability this is a planned pay-off date.
+    if (window?.lastYear !== undefined && year === window.lastYear && balance.greaterThan(0)) {
       paidThisYear = paidThisYear.plus(balance)
       balance = DECIMAL_0
     }
@@ -1046,8 +1166,9 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   ])
 
   // A financed asset's loan only runs while the asset is owned: it starts at
-  // the purchase year and a sale settles whatever is left. Standalone
-  // liabilities have no window and run for the whole plan, as before.
+  // the purchase year and a sale settles whatever is left. A standalone
+  // liability runs from its planned start (or plan year one when unset) to its
+  // planned pay-off (or its whole term when unset).
   const tangibleAssetLiabilities = tangibleAssets
     .map((asset) => ({ asset, liability: financingToLiability(asset) }))
     .filter(
@@ -1055,7 +1176,12 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
         x.liability !== undefined,
     )
 
-  const standaloneSchedules = liabilities.map((l) => simulateLiability(l, startYear, endYear))
+  const standaloneSchedules = liabilities.map((l) =>
+    simulateLiability(l, startYear, endYear, {
+      firstYear: liabilityStartYear(l, birthYear),
+      lastYear: liabilityPayOffYear(l),
+    }),
+  )
   const financedSchedules = tangibleAssetLiabilities.map(({ asset, liability }) => {
     const window = assetWindows.get(asset.id)
     return {
