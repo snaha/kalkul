@@ -409,6 +409,7 @@
     <div class="flex h-8 flex-1 items-center">
       <InflationAdjustToggle
         checked={form.inflation_adjusted}
+        disabled={form.transfer_all}
         onCheckedChange={(v) => (form.inflation_adjusted = v)}
       />
     </div>
