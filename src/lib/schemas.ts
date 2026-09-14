@@ -162,17 +162,23 @@ function repairCashFlowMonths(flow: unknown): void {
 }
 
 /**
- * Fills in the figures a stored snapshot predates, from the profile's current
- * items — the best estimate available for a date nothing was recorded for.
+ * Fills in the cash flows a stored snapshot predates, from the profile's
+ * current ones — the best estimate available for a date nothing was recorded
+ * for.
  *
- * Done once, here, so that everything downstream can read an omission as one
- * thing: nothing recorded. Snapshots written before cash flows were recorded
- * leave those arrays undefined, and reading that as "earned and spent nothing"
- * would state such a row's financial independence against debt service alone.
- * A recorded debt written before terms were recorded leaves the loan's clock
- * unstated, and a rewind onto it would restart the loan.
+ * Done once, here, so that everything downstream can read an omitted list as
+ * one thing: nothing recorded. Snapshots written before cash flows were
+ * recorded leave those arrays undefined, and reading that as "earned and spent
+ * nothing" would state such a row's financial independence against debt
+ * service alone. An empty array is a recorded fact — none were running — and
+ * stays as it is.
  *
- * An empty array is a recorded fact — none were running — and stays as it is.
+ * A recorded debt's missing loan term is deliberately *not* filled in. The
+ * profile's term is as of its newest snapshot, so writing it onto an older
+ * balance would pair January's debt with June's clock and persist that as if
+ * it had been recorded. Left unstated, a rewind falls back to the loan's own
+ * term at read time (`withRecordedDebt` in `snapshots.ts`) — the same estimate,
+ * without pretending to be more.
  */
 function repairSnapshot(snapshot: unknown, profile: Record<string, unknown>): void {
   if (!isRecord(snapshot)) return
@@ -182,28 +188,6 @@ function repairSnapshot(snapshot: unknown, profile: Record<string, unknown>): vo
     snapshot[key] = (Array.isArray(flows) ? flows : [])
       .filter(isRecord)
       .map(({ id, amount, frequency }) => ({ id, amount, frequency }))
-  }
-  // A liability entry always records a debt; an asset entry only sometimes,
-  // and an asset owned outright on the date has no term to state.
-  fillRecordedTerms(snapshot.liabilities, profile.liabilities, () => true)
-  fillRecordedTerms(
-    snapshot.tangible_assets,
-    profile.tangible_assets,
-    (entry) => entry.outstanding_balance !== undefined,
-  )
-}
-
-function fillRecordedTerms(
-  entries: unknown,
-  items: unknown,
-  recordsDebt: (entry: Record<string, unknown>) => boolean,
-): void {
-  if (!Array.isArray(entries) || !Array.isArray(items)) return
-  const terms = new Map(items.filter(isRecord).map((item) => [item.id, item.remaining_term]))
-  for (const entry of entries) {
-    if (!isRecord(entry) || entry.remaining_term !== undefined || !recordsDebt(entry)) continue
-    const term = terms.get(entry.id)
-    if (typeof term === 'number') entry.remaining_term = term
   }
 }
 

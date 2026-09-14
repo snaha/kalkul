@@ -1,7 +1,9 @@
+import { init } from 'svelte-i18n'
+
 import { describe, expect, test } from 'vitest'
 
 import { getNetWorth } from './financial-totals'
-import type { Profile, Snapshot } from './schemas'
+import { type Profile, type Snapshot, profileSchema } from './schemas'
 import {
   captureSnapshot,
   hasSameBalances,
@@ -15,6 +17,10 @@ import {
   withSavedSnapshot,
   withSeededSnapshot,
 } from './snapshots'
+
+// The schema's conditional-requirement messages are translations, and one is
+// formatted the moment a check fails.
+init({ fallbackLocale: 'en', initialLocale: 'en' })
 
 const PROFILE: Profile = {
   name: 'Alice',
@@ -545,6 +551,28 @@ describe('withSavedSnapshot', () => {
     const saved = withSavedSnapshot(withExtra, { ...JUN, cash_amount: 1 })
     expect(saved.investments).toContainEqual(extra)
   })
+
+  test("leaves the profile's cash flows alone", () => {
+    // A raise entered in financial data records no snapshot, so the newest
+    // snapshot still carries the old salary. Saving it must not put that old
+    // salary back onto the profile: the profile's flows are what runs now, and
+    // a snapshot's are what ran on its date.
+    const raised: Profile = {
+      ...HISTORY,
+      incomes: [{ ...PROFILE.incomes![0], amount: 5_000 }],
+    }
+    const saved = withSavedSnapshot(raised, { ...JUN, cash_amount: 12_345 })
+    expect(saved.incomes?.[0].amount).toBe(5_000)
+    expect(saved.expenses).toEqual(PROFILE.expenses)
+  })
+
+  test('reads an unrecorded cash amount as zero, like the net worth it records', () => {
+    // There is only one cash balance, so "not recorded" cannot mean "left
+    // alone" the way it does for an item: `snapshotNetWorth` counts a missing
+    // amount as zero, and the profile has to read it the same way.
+    const bare: Snapshot = { date: '2026-08-01', investments: [{ id: 'inv1', balance: 1 }] }
+    expect(withSavedSnapshot(HISTORY, bare).cash_amount).toBe(0)
+  })
 })
 
 describe('withDeletedSnapshot', () => {
@@ -590,5 +618,33 @@ describe('withDeletedSnapshot', () => {
     expect(house?.outstanding_balance).toBeUndefined()
     // Which leaves the profile matching its newest snapshot again.
     expect(getNetWorth(deleted)).toBe(snapshotNetWorth(jan))
+  })
+
+  test('keeps a recorded debt on an asset paid off and cleared since', () => {
+    // The mirror case: the house was financed when JAN was taken and has been
+    // paid off since, which the financial-data form records by clearing every
+    // financing field. Rewinding onto JAN has to restore the debt — and leave
+    // behind a profile the schema accepts, which requires terms on a financed
+    // asset. With nothing on the profile to restore them from, the least it can
+    // say is no interest and no installment.
+    const paidOff: Profile = {
+      ...PROFILE,
+      tangible_assets: [
+        { id: 't1', name: 'Car', value: 20_000, status: 'fully_owned' },
+        { id: 't2', name: 'House', value: 170_000, status: 'fully_owned' },
+      ],
+    }
+    const jun = captureSnapshot(paidOff, '2026-06-01')
+    const deleted = withDeletedSnapshot({ ...paidOff, snapshots: [JAN, jun] }, '2026-06-01')
+    expect(deleted.tangible_assets?.[1]).toMatchObject({
+      status: 'financed',
+      outstanding_balance: 80_000,
+      installment_frequency: 'monthly',
+      annual_rate: 0,
+      installment_amount: 0,
+      remaining_term: 20,
+    })
+    expect(profileSchema.safeParse(deleted).success).toBe(true)
+    expect(getNetWorth(deleted)).toBe(snapshotNetWorth(JAN))
   })
 })

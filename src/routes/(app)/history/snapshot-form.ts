@@ -1,6 +1,6 @@
 import { getCurrentProfile } from '$lib/current-values'
 import { type Frequency, type Profile, type Snapshot, normalizeSnapshots } from '$lib/schemas'
-import { byId, captureSnapshot, heldProfile, profileAtSnapshot } from '$lib/snapshots'
+import { byId, captureSnapshot, heldProfile, profileAtSnapshot, recordsDebt } from '$lib/snapshots'
 import { parseDateOnly } from '$lib/utils'
 
 /** The six groups the snapshot dialog is laid out in, in the design's order. */
@@ -96,7 +96,8 @@ export function buildSnapshotSections(
     // A snapshot that recorded debt keeps its field even once the asset is paid
     // off, so the figure stays the user's to correct instead of disappearing on
     // the next confirm.
-    const financed = asset.status === 'financed' || recorded?.outstanding_balance !== undefined
+    const financed =
+      asset.status === 'financed' || (recorded !== undefined && recordsDebt(recorded))
     if (!financed) return [value]
     return [
       value,
@@ -232,11 +233,20 @@ export function snapshotFromFields(
  * yet. A date before the first snapshot opens at that snapshot's figures, there
  * being nothing earlier to wind back from; a profile with no history opens at
  * its own.
+ *
+ * On or after the newest snapshot the profile itself is the baseline: it holds
+ * that snapshot's balances by construction, and — unlike the snapshot — the
+ * cash flows running now, which may have changed since without recording
+ * anything. That is exactly what the dashboard projects from, so the seed
+ * agrees with the figures the user sees there.
  */
 export function seedSnapshotOn(profile: Profile, date: string): Snapshot {
   const snapshots = normalizeSnapshots(profile.snapshots ?? [])
+  const latest = snapshots.at(-1)
+  if (!latest || date >= latest.date) {
+    return captureSnapshot(getCurrentProfile(profile, parseDateOnly(date)), date)
+  }
   const base = snapshots.findLast((snapshot) => snapshot.date <= date) ?? snapshots[0]
-  if (!base) return captureSnapshot(profile, date)
   const asOfBase: Profile = { ...profileAtSnapshot(profile, base), snapshots: [base] }
   return captureSnapshot(getCurrentProfile(asOfBase, parseDateOnly(date)), date)
 }

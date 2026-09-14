@@ -16,7 +16,9 @@ import {
 import type { Snapshot } from '$lib/schemas'
 import {
   captureSnapshot,
+  hasAnyBalance,
   hasSameBalances,
+  heldBalances,
   latestSnapshot,
   upsertSnapshot,
   withDeletedSnapshot,
@@ -425,7 +427,14 @@ function withAppStore() {
       const stored = profile.toJSON()
       const deleted = (stored.snapshots ?? []).find((snapshot) => snapshot.date === date)
       const next = withDeletedSnapshot(stored, date)
-      if (!deleted || (next.snapshots ?? []).length > 0 || !hasAnyFinancialData(next)) {
+      // Gated on what is held today, not on whether the profile has any data:
+      // a position that only starts in 2030 is nothing to project from, and
+      // recording an all-zero row for today would say otherwise.
+      if (
+        !deleted ||
+        (next.snapshots ?? []).length > 0 ||
+        !hasAnyBalance(heldBalances(next, today))
+      ) {
         writeProfile(next, 'manage')
         return
       }

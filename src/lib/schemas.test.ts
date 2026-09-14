@@ -351,7 +351,12 @@ describe('repairStoredData: snapshots', () => {
     expect(repaired.profile.snapshots?.[0].incomes).toEqual([])
   })
 
-  it("fills a recorded debt's missing term from the profile's loan", () => {
+  it("leaves a recorded debt's missing term unstated", () => {
+    // The profile's term is as of its newest snapshot, not this one's date.
+    // Writing it onto an older balance would pair January's debt with June's
+    // clock and have the loan pay off on a balloon. Left unstated, a rewind
+    // falls back to the loan's own term at read time — the same estimate, but
+    // never persisted as if it had been recorded.
     const repaired = storedDataSchema.parse(
       repairStoredData(
         storedWith({
@@ -363,56 +368,7 @@ describe('repairStoredData: snapshots', () => {
     expect(repaired.profile.snapshots?.[0].liabilities?.[0]).toEqual({
       id: 'l1',
       outstanding_balance: 6_000,
-      remaining_term: 3,
     })
-  })
-
-  it('leaves a recorded term alone', () => {
-    const repaired = storedDataSchema.parse(
-      repairStoredData(
-        storedWith({
-          date: '2026-01-01',
-          liabilities: [{ id: 'l1', outstanding_balance: 6_000, remaining_term: 12 }],
-        }),
-      ),
-    )
-    expect(repaired.profile.snapshots?.[0].liabilities?.[0].remaining_term).toBe(12)
-  })
-
-  it("fills a financed asset's missing term and leaves a fully owned one alone", () => {
-    const stored = storedWith({
-      date: '2026-01-01',
-      tangible_assets: [
-        { id: 't1', value: 200_000, outstanding_balance: 100_000 },
-        { id: 't2', value: 10_000 },
-      ],
-    })
-    stored.profile.snapshots = stored.profile.snapshots as Record<string, unknown>[]
-    const withAssets = {
-      ...stored,
-      profile: {
-        ...stored.profile,
-        tangible_assets: [
-          {
-            id: 't1',
-            name: 'House',
-            value: 200_000,
-            status: 'financed',
-            outstanding_balance: 100_000,
-            installment_frequency: 'monthly',
-            annual_rate: 3,
-            installment_amount: 1_000,
-            remaining_term: 20,
-          },
-          { id: 't2', name: 'Car', value: 10_000, status: 'fully_owned' },
-        ],
-      },
-    }
-    const repaired = storedDataSchema.parse(repairStoredData(withAssets))
-    expect(repaired.profile.snapshots?.[0].tangible_assets).toEqual([
-      { id: 't1', value: 200_000, outstanding_balance: 100_000, remaining_term: 20 },
-      { id: 't2', value: 10_000 },
-    ])
   })
 
   it('leaves a profile with no snapshots alone', () => {

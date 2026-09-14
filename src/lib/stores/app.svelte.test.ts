@@ -1,3 +1,5 @@
+import { init } from 'svelte-i18n'
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { Profile } from '$lib/schemas'
@@ -7,6 +9,10 @@ import { toDateOnlyString } from '$lib/utils'
 import { seedSnapshotOn } from '../../routes/(app)/history/snapshot-form'
 import { buildSnapshotSections, snapshotFromFields } from '../../routes/(app)/history/snapshot-form'
 import { appStore } from './app.svelte'
+
+// The schema's conditional-requirement messages are translations, and one is
+// formatted the moment a check fails.
+init({ fallbackLocale: 'en', initialLocale: 'en' })
 
 // The store stamps snapshots with its own `new Date()`, so a suite that read
 // the real clock could straddle midnight between the two reads and compare
@@ -604,6 +610,50 @@ describe('appStore snapshot editing', () => {
     const rewound = appStore.profile.snapshots
     appStore.updateProfile({ name: 'Bob' })
     expect(appStore.profile.snapshots).toEqual(rewound)
+  })
+
+  it('rewinds onto a snapshot that predates an asset being paid off', () => {
+    // The mirror case: financed when JAN was recorded, paid off since and
+    // marked fully owned, which clears every financing field. Rewinding has to
+    // restore the debt the snapshot records and still hand the schema a valid
+    // financed asset, or the delete is rejected and silently does nothing.
+    appStore.updateProfile({
+      tangible_assets: [{ id: 't1', name: 'House', value: 300_000, status: 'fully_owned' }],
+      snapshots: [
+        { ...JAN, tangible_assets: [{ id: 't1', value: 250_000, outstanding_balance: 120_000 }] },
+        { ...JUN, tangible_assets: [{ id: 't1', value: 300_000 }] },
+      ],
+    })
+    appStore.deleteSnapshot('2026-06-01')
+    expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual(['2026-01-01'])
+    expect(appStore.profile.tangible_assets?.[0]).toMatchObject({
+      value: 250_000,
+      status: 'financed',
+      outstanding_balance: 120_000,
+    })
+  })
+
+  it('leaves the history empty when nothing is held today', () => {
+    // A position that only starts in 2030 is data, but not a balance to
+    // project from — recording an all-zero row for today would say otherwise.
+    appStore.updateProfile({
+      cash_amount: 0,
+      investments: [
+        {
+          id: 'inv9',
+          name: 'Planned',
+          balance: 50_000,
+          apy: 5,
+          start: 'at_specific_date',
+          start_year: 2030,
+          start_month: 1,
+        },
+      ],
+    })
+    appStore.deleteSnapshot('2026-01-01')
+    appStore.deleteSnapshot('2026-06-01')
+    appStore.deleteSnapshot(TODAY)
+    expect(appStore.profile.snapshots).toEqual([])
   })
 
   it('re-baselines onto today when the last snapshot is deleted', () => {

@@ -337,6 +337,22 @@ describe('seedSnapshotOn', () => {
   test('opens a profile with no history at its own figures', () => {
     expect(seedSnapshotOn(STATIC, '2026-03-01')).toEqual(captureSnapshot(STATIC, '2026-03-01'))
   })
+
+  test('opens a date after the latest snapshot with the cash flows running now', () => {
+    // A raise entered since the latest snapshot records nothing, so that
+    // snapshot still says 4,000. The seed is an estimate of today, and today's
+    // estimate — the dashboard's — runs on the profile's own flows.
+    const raised: Profile = {
+      ...PROFILE,
+      incomes: [{ ...PROFILE.incomes![0], amount: 5_000 }],
+      snapshots: [SOURCE],
+    }
+    const seed = seedSnapshotOn(raised, '2026-09-01')
+    expect(seed.incomes).toEqual([{ id: 'i1', amount: 5_000, frequency: 'monthly' }])
+    expect(seed).toEqual(
+      captureSnapshot(getCurrentProfile(raised, parseDateOnly('2026-09-01')), '2026-09-01'),
+    )
+  })
 })
 
 describe('openingDate', () => {
