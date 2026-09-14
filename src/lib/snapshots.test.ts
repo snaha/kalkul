@@ -60,6 +60,7 @@ const PROFILE: Profile = {
       id: 'i1',
       name: 'Salary',
       amount: 4_000,
+      schedule: 'recurring',
       frequency: 'monthly',
       start: 'immediately',
       end: 'never',
@@ -71,6 +72,7 @@ const PROFILE: Profile = {
       id: 'e1',
       name: 'Living',
       amount: 2_000,
+      schedule: 'recurring',
       frequency: 'monthly',
       start: 'immediately',
       end: 'never',
@@ -406,7 +408,9 @@ describe('captureSnapshot plan-owned items', () => {
         { id: 'x', name: 'x', value: 999, status: 'fully_owned', ...owned },
       ],
       liabilities: [...PROFILE.liabilities!, { ...PROFILE.liabilities![0], id: 'x', ...owned }],
+      // Beside the profile's own salary: a snapshot records cash flows too.
       incomes: [
+        ...PROFILE.incomes!,
         {
           id: 'x',
           name: 'x',
@@ -421,6 +425,32 @@ describe('captureSnapshot plan-owned items', () => {
       ],
     }
     expect(captureSnapshot(withOwned, '2026-01-01')).toEqual(captureSnapshot(PROFILE, '2026-01-01'))
+  })
+})
+
+describe('captureSnapshot and one-time cash flows', () => {
+  test('records only the recurring flows, as a snapshot the profile can store', () => {
+    // A one-time expense is an event, not a rate: the savings rate and FI %
+    // leave it out, and it has no frequency to record. An entry without one
+    // is one the schema rejects, and a rejected snapshot fails the whole
+    // dataset the next time it loads.
+    const withTrip: Profile = {
+      ...PROFILE,
+      expenses: [
+        ...PROFILE.expenses!,
+        {
+          id: 'trip',
+          name: 'Trip',
+          amount: 3_000,
+          schedule: 'one_time',
+          transaction_year: 2026,
+          transaction_month: 8,
+        },
+      ],
+    }
+    const snapshot = captureSnapshot(withTrip, '2026-04-27')
+    expect(snapshot.expenses).toEqual([{ id: 'e1', amount: 2_000, frequency: 'monthly' }])
+    expect(profileSchema.safeParse({ ...withTrip, snapshots: [snapshot] }).success).toBe(true)
   })
 })
 

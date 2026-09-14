@@ -1,4 +1,5 @@
 import { getCurrentProfile } from '$lib/current-values'
+import { sharedItems } from '$lib/plan-owned'
 import {
   type Frequency,
   type Profile,
@@ -9,6 +10,7 @@ import {
 import {
   byId,
   captureSnapshot,
+  countedCashFlows,
   heldProfile,
   profileAtSnapshot,
   recordsDebt,
@@ -67,9 +69,10 @@ export interface SnapshotSection {
  * profile holds on `date` is offered: every field is written back into the
  * snapshot, and the newest snapshot is overlaid onto the profile, so a field
  * for a position that only starts in 2030 would let an untouched Confirm zero
- * it. An entry recorded for an item the profile has since deleted gets no
- * field, and `snapshotFromFields` carries it through untouched rather than
- * dropping it.
+ * it. Nor is anything a snapshot never records: an item a plan owns, or a
+ * one-time cash flow (`countedCashFlows`). An entry recorded for an item the
+ * profile has since deleted gets no field, and `snapshotFromFields` carries it
+ * through untouched rather than dropping it.
  *
  * A figure `source` never recorded opens at the app's estimate for `date`
  * (`seedSnapshotOn`) rather than at zero. For a snapshot moved past the newest
@@ -115,7 +118,7 @@ export function buildSnapshotSections(
     const entryOf = lookup(source[id], flowFallback[id])
     return {
       id,
-      fields: (profile[id] ?? []).map((flow) => {
+      fields: countedCashFlows(profile[id]).map((flow) => {
         const entry = entryOf(flow.id)
         return {
           key: `${id}:${flow.id}`,
@@ -183,7 +186,7 @@ export function buildSnapshotSections(
     { id: 'tangible_assets', fields: tangibleFields },
     {
       id: 'liabilities',
-      fields: (profile.liabilities ?? []).map((liability) => {
+      fields: sharedItems(profile.liabilities).map((liability) => {
         const entry = liabilityEntry(liability.id)
         return {
           key: `liabilities:${liability.id}`,

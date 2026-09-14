@@ -47,6 +47,7 @@ const PROFILE: Profile = {
       id: 'i1',
       name: 'Salary',
       amount: 4_000,
+      schedule: 'recurring',
       frequency: 'monthly',
       start: 'immediately',
       end: 'never',
@@ -58,6 +59,7 @@ const PROFILE: Profile = {
       id: 'e1',
       name: 'Living',
       amount: 1_000,
+      schedule: 'recurring',
       frequency: 'monthly',
       start: 'immediately',
       end: 'never',
@@ -198,6 +200,43 @@ describe('buildSnapshotSections', () => {
     expect(
       fieldsOf(buildSnapshotSections(planned, source, '2026-06-01'), 'tangible_assets'),
     ).toEqual([])
+  })
+
+  test('offers no field for an item a plan owns or a one-time cash flow', () => {
+    // A snapshot records neither — a plan's items are not the user's current
+    // data, and a one-time expense is an event rather than a rate — so a field
+    // for one would write into the snapshot what capturing it leaves out.
+    const owned = { plan_id: 'plan-1' }
+    const withExtras: Profile = {
+      ...PROFILE,
+      investments: [
+        ...PROFILE.investments!,
+        { id: 'inv9', name: 'Plan ETF', balance: 1, apy: 0, ...owned },
+      ],
+      liabilities: [...PROFILE.liabilities!, { ...PROFILE.liabilities![0], id: 'l9', ...owned }],
+      incomes: [...PROFILE.incomes!, { ...PROFILE.incomes![0], id: 'i9', ...owned }],
+      expenses: [
+        ...PROFILE.expenses!,
+        {
+          id: 'trip',
+          name: 'Trip',
+          amount: 3_000,
+          schedule: 'one_time',
+          transaction_year: 2026,
+          transaction_month: 8,
+        },
+      ],
+    }
+    const sections = buildSnapshotSections(
+      withExtras,
+      captureSnapshot(withExtras, '2026-06-01'),
+      '2026-06-01',
+    )
+    const ids = (id: string) => fieldsOf(sections, id).map((field) => field.itemId)
+    expect(ids('investments')).toEqual(['inv1'])
+    expect(ids('liabilities')).toEqual(['l1'])
+    expect(ids('incomes')).toEqual(['i1'])
+    expect(ids('expenses')).toEqual(['e1'])
   })
 
   test('still offers a field for an item held on the date but never recorded', () => {

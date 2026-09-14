@@ -173,6 +173,11 @@ function repairCashFlowMonths(flow: unknown): void {
  * service alone. An empty array is a recorded fact — none were running — and
  * stays as it is.
  *
+ * Only the flows a snapshot records are filled in (`countedCashFlows` in
+ * `snapshots.ts`, which this raw data cannot go through): none a plan owns, and
+ * no one-time flow. A one-time flow has no frequency, so copying it would
+ * write an entry the very validation this repair runs ahead of rejects.
+ *
  * A recorded debt's missing loan term is deliberately *not* filled in. The
  * profile's term is as of its newest snapshot, so writing it onto an older
  * balance would pair January's debt with June's clock and persist that as if
@@ -187,6 +192,7 @@ function repairSnapshot(snapshot: unknown, profile: Record<string, unknown>): vo
     const flows = profile[key]
     snapshot[key] = (Array.isArray(flows) ? flows : [])
       .filter(isRecord)
+      .filter((flow) => flow.plan_id === undefined && flow.schedule !== 'one_time')
       .map(({ id, amount, frequency }) => ({ id, amount, frequency }))
   }
 }

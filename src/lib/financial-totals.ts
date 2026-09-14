@@ -5,7 +5,13 @@ import { CATEGORY_COLORS } from '$lib/chart-colors'
 import { sharedItems } from '$lib/plan-owned'
 import { annualizedAmount } from '$lib/plan-projection'
 import type { Frequency, Profile } from '$lib/schemas'
-import { hasAnyBalance, heldBalances, snapshotBalances, snapshotNetWorth } from '$lib/snapshots'
+import {
+  countedCashFlows,
+  hasAnyBalance,
+  heldBalances,
+  snapshotBalances,
+  snapshotNetWorth,
+} from '$lib/snapshots'
 
 export type CategoryLabel = 'cash' | 'investments' | 'tangible-assets' | 'liabilities'
 
@@ -105,8 +111,7 @@ export function getOverviewSegments(profile: Profile): OverviewSegment[] {
  * one-time transfers).
  */
 export function getAnnualExpensesTotal(profile: Profile): number {
-  return sharedItems(profile.expenses)
-    .filter((e) => e.schedule !== 'one_time')
+  return countedCashFlows(profile.expenses)
     .reduce<Decimal>(
       (sum, e) => sum.plus(annualizedAmount(new Decimal(e.amount), e.frequency ?? 'monthly')),
       DECIMAL_0,
@@ -123,8 +128,7 @@ export function getAnnualExpensesTotal(profile: Profile): number {
  * One-time incomes are skipped as events rather than rates.
  */
 export function getAnnualIncomeTotal(profile: Profile): number {
-  return sharedItems(profile.incomes)
-    .filter((i) => i.schedule !== 'one_time')
+  return countedCashFlows(profile.incomes)
     .reduce<Decimal>(
       (sum, i) => sum.plus(annualizedAmount(new Decimal(i.amount), i.frequency ?? 'monthly')),
       DECIMAL_0,

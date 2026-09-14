@@ -40,6 +40,7 @@ const PROFILE: Profile = {
       id: 'e1',
       name: 'Living',
       amount: 1_000,
+      schedule: 'recurring',
       frequency: 'monthly',
       start: 'immediately',
       end: 'never',

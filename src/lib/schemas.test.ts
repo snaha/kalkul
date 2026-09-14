@@ -344,6 +344,43 @@ describe('repairStoredData: snapshots', () => {
     ])
   })
 
+  it('fills them with only the flows a snapshot records', () => {
+    // A one-time expense has no frequency, so copying it would write an entry
+    // the schema rejects — failing the whole dataset, which then falls back to
+    // the empty profile. A plan's own income is not the user's current data.
+    // Both are left out, exactly as `captureSnapshot` leaves them out.
+    const stored = storedWith({ date: '2026-01-01', cash_amount: 1_000 })
+    const repaired = storedDataSchema.parse(
+      repairStoredData({
+        ...stored,
+        profile: {
+          ...stored.profile,
+          incomes: [
+            ...stored.profile.incomes,
+            { ...baseIncome, id: 'plan-income', amount: 900, plan_id: 'plan-1' },
+          ],
+          expenses: [
+            ...stored.profile.expenses,
+            {
+              id: 'trip',
+              name: 'Trip',
+              amount: 3_000,
+              schedule: 'one_time',
+              transaction_year: 2026,
+              transaction_month: 8,
+            },
+          ],
+        },
+      }),
+    )
+    expect(repaired.profile.snapshots?.[0].incomes).toEqual([
+      { id: baseIncome.id, amount: 4_000, frequency: 'monthly' },
+    ])
+    expect(repaired.profile.snapshots?.[0].expenses).toEqual([
+      { id: baseExpense.id, amount: 1_000, frequency: 'monthly' },
+    ])
+  })
+
   it('leaves a recorded empty list empty', () => {
     const repaired = storedDataSchema.parse(
       repairStoredData(storedWith({ date: '2026-01-01', incomes: [], expenses: [] })),

@@ -113,9 +113,22 @@ export function captureSnapshot(profile: Profile, date: string): Snapshot {
   }
 }
 
+/**
+ * The cash flows the profile's own figures run on: the recurring ones it
+ * carries itself. A one-time income or expense is an event rather than a rate,
+ * and one a plan owns is not the user's current data. The savings rate, FI %
+ * and runway leave both out, and a snapshot records exactly what they count.
+ */
+export function countedCashFlows<T extends CashFlow>(flows: T[] | undefined): T[] {
+  return sharedItems(flows).filter((flow) => flow.schedule !== 'one_time')
+}
+
 /** The figures a cash flow contributes to a snapshot; the rest stays on the profile. */
 function recordedFlows(flows: CashFlow[] | undefined): SnapshotCashFlow[] {
-  return (flows ?? []).map(({ id, amount, frequency }) => ({ id, amount, frequency }))
+  // A recurring flow always has a frequency; the check only satisfies the type.
+  return countedCashFlows(flows).flatMap(({ id, amount, frequency }) =>
+    frequency === undefined ? [] : [{ id, amount, frequency }],
+  )
 }
 
 /**
@@ -358,6 +371,7 @@ const MISSING_LIABILITY = {
 const MISSING_CASH_FLOW = {
   name: '',
   amount: 0,
+  schedule: 'recurring',
   frequency: 'monthly',
   start: 'immediately',
   end: 'never',

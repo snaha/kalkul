@@ -330,6 +330,7 @@ describe('appStore.updateProfile on a stale profile', () => {
           id: 'e2',
           name: 'Gym',
           amount: 500,
+          schedule: 'recurring',
           frequency: 'monthly',
           start: 'immediately',
           end: 'never',
@@ -441,6 +442,7 @@ describe('appStore.deletePortfolio plan-owned items', () => {
     const flow = {
       name: 'Flow',
       amount: 100,
+      schedule: 'recurring',
       frequency: 'monthly',
       start: 'immediately',
       end: 'never',
@@ -1043,6 +1045,46 @@ describe('appStore saving a snapshot dated past a planned sale', () => {
   })
 })
 
+describe('appStore with a one-time cash flow', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
+    stubLocalStorage()
+    appStore.clear()
+  })
+
+  afterEach(() => {
+    appStore.clear()
+    vi.unstubAllGlobals()
+    vi.useRealTimers()
+  })
+
+  it('keeps the dataset loadable after recording a snapshot', () => {
+    // Recording today's snapshot must not write an entry the schema rejects:
+    // loading would then fail validation and fall back to the empty profile,
+    // which the next save persists over the user's data.
+    appStore.updateProfile({
+      name: 'Alice',
+      cash_amount: 1_000,
+      expenses: [
+        {
+          id: 'trip',
+          name: 'Trip',
+          amount: 3_000,
+          schedule: 'one_time',
+          transaction_year: 2026,
+          transaction_month: 8,
+        },
+      ],
+    })
+    expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual([TODAY])
+
+    appStore.load()
+    expect(appStore.profile.name).toBe('Alice')
+    expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual([TODAY])
+  })
+})
+
 describe('appStore deleting the only snapshot of a growing profile', () => {
   // 3,000 a month arriving since 2026-01-15, read on 2026-06-15: 151 days.
   const PROFILE: Profile = {
@@ -1054,6 +1096,7 @@ describe('appStore deleting the only snapshot of a growing profile', () => {
         id: 'i1',
         name: 'Salary',
         amount: 3_000,
+        schedule: 'recurring',
         frequency: 'monthly',
         start: 'immediately',
         end: 'never',
