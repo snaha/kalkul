@@ -255,6 +255,7 @@
   {isNew}
   {isIncluded}
   renamable={false}
+  toolbar={false}
   newTitle={$_('page.plan.newTransfer')}
   saveDisabled={!canSave}
   saveLabel={isNew ? $_('page.plan.createItem') : undefined}
