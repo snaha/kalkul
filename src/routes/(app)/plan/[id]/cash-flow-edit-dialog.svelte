@@ -194,6 +194,8 @@
   </div>
 {/snippet}
 
+<!-- Figma 941-71859 / 941-72501: the header carries the title and the close X
+     only — no rename/duplicate/include/delete toolbar. -->
 <ItemEditDialogShell
   bind:open
   {onOpenChange}
@@ -202,6 +204,7 @@
   {isNew}
   {isIncluded}
   renamable={false}
+  toolbar={false}
   newTitle={isNew
     ? kind === 'income'
       ? $_('page.plan.newIncome')
