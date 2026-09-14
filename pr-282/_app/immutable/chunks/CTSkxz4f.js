@@ -1,0 +1,1 @@
+import{n as e}from"./DLZ9t7XY.js";var t=`current-projection`;function n(n,r){return{id:t,name:``,...e(n,r)}}export{n,t};
