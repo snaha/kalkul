@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { getYearlyPlanProjection, summarizeCashFlow, summarizeTransfer } from './plan-projection'
+import {
+  getYearlyPlanProjection,
+  installmentAmountForLoan,
+  summarizeCashFlow,
+  summarizeTransfer,
+  termYearsForLoan,
+} from './plan-projection'
 import type {
   Expense,
   Income,
@@ -3459,5 +3465,102 @@ describe('plan ownership', () => {
     )
     expect(result[0].totalIncome).toBe(1200)
     expect(result[0].investments).toBe(100)
+  })
+})
+
+describe('liability start and pay-off', () => {
+  it('defers a liability until its planned start year', () => {
+    const liabilities: ProfileLiability[] = [
+      {
+        id: 'l1',
+        name: 'Loan',
+        outstanding_balance: 1000,
+        installment_frequency: 'yearly',
+        annual_rate: 0,
+        installment_amount: 250,
+        remaining_term: 4,
+        start: 'at_specific_date',
+        start_year: 2027,
+        start_month: 1,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ start_date: '2025-01-01', end_date: '2030-01-01' }),
+      makeProfile({ liabilities }),
+    )
+    expect(result.map((r) => Math.round(r.liabilities))).toEqual([0, 0, 750, 500, 250, 0])
+  })
+
+  it('settles the remaining balance in the planned pay-off year', () => {
+    const liabilities: ProfileLiability[] = [
+      {
+        id: 'l1',
+        name: 'Loan',
+        outstanding_balance: 1000,
+        installment_frequency: 'yearly',
+        annual_rate: 0,
+        installment_amount: 250,
+        remaining_term: 8,
+        pay_off: 'at_specific_date',
+        pay_off_year: 2027,
+        pay_off_month: 1,
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ start_date: '2025-01-01', end_date: '2030-01-01' }),
+      makeProfile({ liabilities }),
+    )
+    expect(result.map((r) => Math.round(r.liabilities))).toEqual([750, 500, 0, 0, 0, 0])
+  })
+})
+
+describe('loan installment / term derivation', () => {
+  const base = {
+    outstanding_balance: 12000,
+    installment_frequency: 'monthly' as const,
+    annual_rate: 6,
+    interest_type: 'compound' as const,
+    compounding_frequency: 'monthly' as const,
+  }
+
+  it('derives the fully-amortizing installment for a term', () => {
+    expect(installmentAmountForLoan({ ...base, remaining_term: 1 })).toBeCloseTo(1032.8, 1)
+  })
+
+  it('derives the term from an installment and back again', () => {
+    const payment = installmentAmountForLoan({ ...base, remaining_term: 1 })
+    expect(payment).toBeDefined()
+    expect(
+      termYearsForLoan({
+        ...base,
+        remaining_term: 0,
+        installment_amount: payment as number,
+      }),
+    ).toBeCloseTo(1, 3)
+  })
+
+  it('handles a zero-rate loan linearly', () => {
+    const terms = {
+      outstanding_balance: 1200,
+      installment_frequency: 'monthly' as const,
+      annual_rate: 0,
+      remaining_term: 1,
+    }
+    expect(installmentAmountForLoan(terms)).toBe(100)
+    expect(termYearsForLoan({ ...terms, installment_amount: 100 })).toBe(1)
+    expect(installmentAmountForLoan({ ...terms, outstanding_balance: 0 })).toBeUndefined()
+    expect(termYearsForLoan({ ...terms, installment_amount: 0 })).toBeUndefined()
+  })
+
+  it('returns undefined when the payment cannot cover the period interest', () => {
+    expect(
+      termYearsForLoan({
+        outstanding_balance: 12000,
+        installment_frequency: 'monthly',
+        annual_rate: 6,
+        remaining_term: 0,
+        installment_amount: 10,
+      }),
+    ).toBeUndefined()
   })
 })

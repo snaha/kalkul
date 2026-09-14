@@ -34,16 +34,17 @@
   import { itemsForPlan } from '$lib/plan-owned'
   import { getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
   import routes from '$lib/routes'
-  import type { Expense, Income, Transfer } from '$lib/schemas'
+  import type { Expense, Income, ProfileLiability, Transfer } from '$lib/schemas'
   import { getFrequencyShortLabel } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import { cn, notImplemented } from '$lib/utils'
 
   import AddAssetDialog, { type AssetKind as AddAssetKind } from './add-asset-dialog.svelte'
   import AddCashFlowDialog from './add-cash-flow-dialog.svelte'
-  import AssetEditDialog, { type AssetKind, type AssetTarget } from './asset-edit-dialog.svelte'
+  import AssetEditDialog, { type AssetTarget } from './asset-edit-dialog.svelte'
   import CashEditDialog from './cash-edit-dialog.svelte'
   import CashFlowEditDialog from './cash-flow-edit-dialog.svelte'
+  import LiabilityEditDialog from './liability-edit-dialog.svelte'
   import PlanSidebarRow from './plan-sidebar-row.svelte'
   import TransferEditDialog from './transfer-edit-dialog.svelte'
 
@@ -78,6 +79,11 @@
   let cashDialogOpen = $state(false)
   let addAssetDialogOpen = $state(false)
 
+  // Liability edit dialog state (separate from the asset dialog: its Figma is
+  // distinct enough to have its own component).
+  let liabilityDialogOpen = $state(false)
+  let liabilityDialogInitial = $state<ProfileLiability | undefined>(undefined)
+
   // Transfer edit dialog state
   let transferDialogOpen = $state(false)
   let transferDialogInitial = $state<Transfer | undefined>(undefined)
@@ -99,14 +105,18 @@
     assetDialogOpen = true
   }
 
-  function openAssetCreateDialog(kind: AssetKind) {
+  function openLiabilityEditDialog(initial: ProfileLiability | undefined) {
+    liabilityDialogInitial = initial
+    liabilityDialogOpen = true
+  }
+
+  function openAssetCreateDialog(kind: Exclude<AddAssetKind, 'cash'>) {
+    if (kind === 'liability') {
+      openLiabilityEditDialog(undefined)
+      return
+    }
     // Spelled out per kind so each branch is a valid AssetTarget literal.
-    assetDialogTarget =
-      kind === 'investment'
-        ? { kind: 'investment' }
-        : kind === 'tangibleAsset'
-          ? { kind: 'tangibleAsset' }
-          : { kind: 'liability' }
+    assetDialogTarget = kind === 'investment' ? { kind: 'investment' } : { kind: 'tangibleAsset' }
     assetDialogOpen = true
   }
 
@@ -153,10 +163,16 @@
     } else if (kind === 'tangibleAsset') {
       const initial = appStore.profile.tangible_assets?.find((a) => a.id === id)
       if (initial) reopen({ kind, initial })
-    } else {
-      const initial = appStore.profile.liabilities?.find((l) => l.id === id)
-      if (initial) reopen({ kind, initial })
     }
+  }
+
+  function reopenLiabilityDialog(id: string) {
+    const initial = appStore.profile.liabilities?.find((l) => l.id === id)
+    if (!initial) return
+    setTimeout(() => {
+      liabilityDialogInitial = initial
+      liabilityDialogOpen = true
+    }, REOPEN_DELAY_MS)
   }
 
   function reopenCashFlowDialog(id: string) {
@@ -402,7 +418,7 @@
           name: l.name,
           value: `-${appStore.formatCurrencyCode(l.outstanding_balance)}`,
           valueClass: 'text-destructive',
-          onClick: () => openAssetEditDialog({ kind: 'liability', initial: l }),
+          onClick: () => openLiabilityEditDialog(l),
         })),
     },
   ])
@@ -967,6 +983,15 @@
       target={assetDialogTarget}
       {plan}
       onDuplicated={reopenAssetDialog}
+    />
+
+    <!-- Liability edit dialog -->
+    <LiabilityEditDialog
+      bind:open={liabilityDialogOpen}
+      onOpenChange={(v) => (liabilityDialogOpen = v)}
+      initial={liabilityDialogInitial}
+      {plan}
+      onDuplicated={reopenLiabilityDialog}
     />
 
     <!-- Cash edit dialog -->

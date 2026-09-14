@@ -5,6 +5,7 @@ import {
   type ExitFeeType,
   type Frequency,
   type InterestType,
+  type LiabilityPayOff,
   type RemainingTermUnit,
   type TangibleAssetStatus,
   type ValueOverTime,
@@ -13,6 +14,7 @@ import {
   exitFeeTypeSchema,
   frequencySchema,
   interestTypeSchema,
+  liabilityPayOffSchema,
   remainingTermUnitSchema,
   tangibleAssetStatusSchema,
   valueOverTimeSchema,
@@ -41,6 +43,14 @@ export function getRemainingTermUnitItems($_: Translator): SelectFieldItem<Remai
     months: $_('page.setup.common.months'),
   } satisfies Record<RemainingTermUnit, string>
   return remainingTermUnitSchema.options.map((value) => ({ value, label: labels[value] }))
+}
+
+export function getLiabilityPayOffItems($_: Translator): SelectFieldItem<LiabilityPayOff>[] {
+  const labels = {
+    at_term: $_('page.plan.payOffAtTerm'),
+    at_specific_date: $_('page.plan.payOffAtSpecificDate'),
+  } satisfies Record<LiabilityPayOff, string>
+  return liabilityPayOffSchema.options.map((value) => ({ value, label: labels[value] }))
 }
 
 export function getFrequencyShortLabel($_: Translator, frequency: Frequency): string {

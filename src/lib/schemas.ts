@@ -386,6 +386,10 @@ export const valueOverTimeSchema = z.enum(['appreciate', 'depreciate'])
 export const interestTypeSchema = z.enum(['compound', 'simple'])
 export const compoundingFrequencySchema = z.enum(['daily', 'monthly', 'yearly'])
 
+// When a liability is settled. Absent (or 'at_term') amortizes it for its whole
+// term; 'at_specific_date' pays whatever is left in that year.
+export const liabilityPayOffSchema = z.enum(['at_term', 'at_specific_date'])
+
 export const profileTangibleAssetSchema = z
   .object({
     id: z.string(),
@@ -469,21 +473,51 @@ export const profileTangibleAssetSchema = z
     }
   })
 
-export const profileLiabilitySchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  outstanding_balance: z.number(),
-  installment_frequency: frequencySchema,
-  annual_rate: z.number(),
-  ...planOwnership,
-  installment_amount: z.number(),
-  remaining_term: z.number(),
-  remaining_term_unit: remainingTermUnitSchema.optional(),
-  // Advanced options. Defaults preserve the existing behaviour when omitted:
-  // compound interest at the installment frequency.
-  interest_type: interestTypeSchema.optional(),
-  compounding_frequency: compoundingFrequencySchema.optional(),
-})
+export const profileLiabilitySchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    outstanding_balance: z.number(),
+    installment_frequency: frequencySchema,
+    annual_rate: z.number(),
+    ...planOwnership,
+    installment_amount: z.number(),
+    remaining_term: z.number(),
+    remaining_term_unit: remainingTermUnitSchema.optional(),
+    // Planned timing. An absent start means the loan runs from the plan's first
+    // year (the pre-timing behaviour); a future start defers it until then.
+    start: cashFlowStartSchema.optional(),
+    start_year: z.number().optional(),
+    start_month: z.number().optional(),
+    start_age: z.number().optional(),
+    // When the loan is settled. Absent/'at_term' amortizes for the whole term;
+    // 'at_specific_date' pays the remaining balance off in that year.
+    pay_off: liabilityPayOffSchema.optional(),
+    pay_off_year: z.number().optional(),
+    pay_off_month: z.number().optional(),
+    // Advanced options. Defaults preserve the existing behaviour when omitted:
+    // compound interest at the installment frequency.
+    interest_type: interestTypeSchema.optional(),
+    compounding_frequency: compoundingFrequencySchema.optional(),
+  })
+  .superRefine((obj, ctx) => {
+    refineTimingEdge(
+      ctx,
+      'start',
+      'start',
+      obj.start,
+      obj.start_year,
+      obj.start_month,
+      obj.start_age,
+    )
+    if (obj.pay_off === 'at_specific_date') {
+      const message = () => get(_)('validation.required_when_pay_off_at_specific_date')
+      if (obj.pay_off_year === undefined)
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['pay_off_year'], message: message() })
+      if (obj.pay_off_month === undefined)
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['pay_off_month'], message: message() })
+    }
+  })
 
 // --- Snapshots ---
 
@@ -737,6 +771,7 @@ export type CashFlowEnd = z.infer<typeof cashFlowEndSchema>
 export type ChangeOverTime = z.infer<typeof changeOverTimeSchema>
 export type TangibleAssetStatus = z.infer<typeof tangibleAssetStatusSchema>
 export type RemainingTermUnit = z.infer<typeof remainingTermUnitSchema>
+export type LiabilityPayOff = z.infer<typeof liabilityPayOffSchema>
 export type PlanStartType = z.infer<typeof planStartTypeSchema>
 export type PlanEndType = z.infer<typeof planEndTypeSchema>
 export type HoldingPeriod = z.infer<typeof holdingPeriodSchema>

@@ -1,19 +1,13 @@
 <script lang="ts">
   import { _, locale } from 'svelte-i18n'
 
-  import Percent from '@lucide/svelte/icons/percent'
-  import Settings2 from '@lucide/svelte/icons/settings-2'
   import Trash2 from '@lucide/svelte/icons/trash-2'
 
-  import HelpTooltip from '$lib/components/help-tooltip.svelte'
   import InvestmentFields from '$lib/components/investment-fields.svelte'
-  import SelectField from '$lib/components/select-field.svelte'
-  import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import TangibleAssetFields from '$lib/components/tangible-asset-fields.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
-  import { Separator } from '$lib/components/ui/separator'
   import { Switch } from '$lib/components/ui/switch'
   import { itemsForPlan } from '$lib/plan-owned'
   import type {
@@ -25,18 +19,11 @@
     Frequency,
     InterestType,
     ProfileInvestment,
-    ProfileLiability,
     ProfileTangibleAsset,
     RemainingTermUnit,
     TangibleAssetStatus,
     ValueOverTime,
   } from '$lib/schemas'
-  import {
-    getCompoundingFrequencyItems,
-    getFrequencyItems,
-    getInterestTypeItems,
-    getRemainingTermUnitItems,
-  } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
   import { getMonthOptions, getYearOptions } from '$lib/utils'
@@ -51,7 +38,7 @@
     upsertProfileItem,
   } from './profile-lists'
 
-  export type AssetKind = 'investment' | 'tangibleAsset' | 'liability'
+  export type AssetKind = 'investment' | 'tangibleAsset'
 
   // Discriminated union: the kind determines which asset type `initial` may
   // carry, so a kind/initial mismatch fails the typecheck instead of seeding
@@ -59,7 +46,6 @@
   export type AssetTarget =
     | { kind: 'investment'; initial?: ProfileInvestment }
     | { kind: 'tangibleAsset'; initial?: ProfileTangibleAsset }
-    | { kind: 'liability'; initial?: ProfileLiability }
 
   interface Props {
     open: boolean
@@ -238,16 +224,6 @@
       f.value_over_time = a.value_over_time ?? 'appreciate'
       f.value_rate = a.value_rate
       f.property_tax_rate = a.property_tax_rate
-    } else {
-      const l = src.initial
-      f.outstanding_balance = l.outstanding_balance > 0 ? l.outstanding_balance : undefined
-      f.installment_frequency = l.installment_frequency
-      f.annual_rate = l.annual_rate > 0 ? l.annual_rate : undefined
-      f.installment_amount = l.installment_amount > 0 ? l.installment_amount : undefined
-      f.remaining_term = l.remaining_term > 0 ? l.remaining_term : undefined
-      f.remaining_term_unit = l.remaining_term_unit ?? 'years'
-      f.interest_type = l.interest_type ?? 'compound'
-      f.compounding_frequency = l.compounding_frequency
     }
     return f
   }
@@ -266,18 +242,12 @@
       if (target.kind === 'tangibleAsset') {
         const a = target.initial
         showAdvanced = a?.value_over_time !== undefined || a?.property_tax_rate !== undefined
-      } else if (target.kind === 'liability') {
-        showAdvanced =
-          target.initial?.interest_type !== undefined ||
-          target.initial?.compounding_frequency !== undefined
-      } else if (target.kind === 'investment') {
+      } else {
         // Auto-open when the investment already carries fees, so editing it
         // never hides values that drive the math.
         const inv = target.initial
         showAdvanced =
           inv?.ter !== undefined || inv?.entry_fee !== undefined || inv?.exit_fee !== undefined
-      } else {
-        showAdvanced = false
       }
     }
     wasOpen = open
@@ -288,14 +258,6 @@
   const listConfig = $derived(PROFILE_LISTS[kind])
 
   const isIncluded = $derived(isNew ? true : isIncludedInPlan(listConfig, form.id, plan))
-
-  let frequencyItems = $derived(getFrequencyItems($_))
-
-  let interestTypeItems = $derived(getInterestTypeItems($_))
-
-  let compoundingFrequencyItems = $derived(getCompoundingFrequencyItems($_))
-
-  let remainingTermUnitItems = $derived(getRemainingTermUnitItems($_))
 
   function projectInvestment(f: FormState): ProfileInvestment {
     // Persist only the fee fields that the user actually touched; default
@@ -354,29 +316,10 @@
       value_over_time: f.value_rate ? f.value_over_time : undefined,
       value_rate: f.value_rate,
       property_tax_rate: f.property_tax_rate,
-      // Same rule as projectLiability, scoped to the financing.
+      // Same rule as a standalone liability, scoped to the financing.
       interest_type:
         f.status === 'financed' && f.interest_type !== 'compound' ? f.interest_type : undefined,
       compounding_frequency: f.status === 'financed' ? f.compounding_frequency : undefined,
-    }
-  }
-
-  function projectLiability(f: FormState): ProfileLiability {
-    // interest_type collapses to undefined when 'compound' (matches the
-    // calculation default); compounding_frequency is only stored once the
-    // user picks one, so an untouched liability keeps compounding at its
-    // installment frequency instead of silently switching to daily.
-    return {
-      id: f.id,
-      name: f.name,
-      outstanding_balance: f.outstanding_balance ?? 0,
-      installment_frequency: f.installment_frequency,
-      annual_rate: f.annual_rate ?? 0,
-      installment_amount: f.installment_amount ?? 0,
-      remaining_term: f.remaining_term ?? 0,
-      remaining_term_unit: f.remaining_term_unit,
-      interest_type: f.interest_type !== 'compound' ? f.interest_type : undefined,
-      compounding_frequency: f.compounding_frequency,
     }
   }
 
@@ -387,10 +330,8 @@
   function save() {
     if (kind === 'investment') {
       upsertProfileItem(PROFILE_LISTS.investment, projectInvestment(form), plan)
-    } else if (kind === 'tangibleAsset') {
-      upsertProfileItem(PROFILE_LISTS.tangibleAsset, projectTangibleAsset(form), plan)
     } else {
-      upsertProfileItem(PROFILE_LISTS.liability, projectLiability(form), plan)
+      upsertProfileItem(PROFILE_LISTS.tangibleAsset, projectTangibleAsset(form), plan)
     }
     close()
   }
@@ -419,70 +360,12 @@
     const confirmMessage =
       kind === 'investment'
         ? $_('page.plan.deleteInvestmentConfirm')
-        : kind === 'tangibleAsset'
-          ? $_('page.plan.deleteTangibleAssetConfirm')
-          : $_('page.plan.deleteLiabilityConfirm')
+        : $_('page.plan.deleteTangibleAssetConfirm')
     if (!window.confirm(confirmMessage)) return
     removeProfileItem(listConfig, form.id)
     close()
   }
 </script>
-
-{#snippet interestAdvanced()}
-  <!-- Show / Hide advanced options -->
-  <button
-    type="button"
-    onclick={() => (showAdvanced = !showAdvanced)}
-    class="flex items-center gap-2 self-start text-sm text-muted-foreground hover:text-foreground"
-  >
-    <Settings2 class="size-4" />
-    <span>
-      {showAdvanced ? $_('page.plan.hideAdvancedOptions') : $_('page.plan.showAdvancedOptions')}
-    </span>
-  </button>
-
-  {#if showAdvanced}
-    <Separator />
-
-    <div class="flex items-center gap-2 text-sm text-muted-foreground">
-      <Percent class="size-4" />
-      <span class="text-xs font-medium uppercase tracking-wide">
-        {$_('page.plan.interestSection')}
-      </span>
-    </div>
-
-    <div class="flex items-end gap-2">
-      <div class="flex flex-1 flex-col gap-2">
-        <Label for="{uid}-interestType">{$_('page.plan.interestType')}</Label>
-        <SelectField
-          id="{uid}-interestType"
-          value={form.interest_type}
-          items={interestTypeItems}
-          onValueChange={(v) => {
-            if (v) form.interest_type = v
-          }}
-        />
-      </div>
-      {#if form.interest_type === 'compound'}
-        <div class="flex flex-1 flex-col gap-2">
-          <Label for="{uid}-compoundingFrequency">{$_('page.plan.compoundingFrequency')}</Label>
-          <SelectField
-            id="{uid}-compoundingFrequency"
-            value={form.compounding_frequency}
-            items={compoundingFrequencyItems}
-            placeholder={$_('page.plan.compoundingDefault')}
-            onValueChange={(v) => {
-              if (v) form.compounding_frequency = v
-            }}
-          />
-        </div>
-      {:else}
-        <div class="flex-1"></div>
-      {/if}
-      <HelpTooltip text={$_('page.plan.interestDescription')} class="mb-2" />
-    </div>
-  {/if}
-{/snippet}
 
 {#snippet assetFooter()}
   <!-- Figma 1320-1330: primary + cancel on the left, and on the right the
@@ -523,17 +406,15 @@
   onNameChange={(v) => (form.name = v)}
   {isNew}
   {isIncluded}
-  renamable={kind === 'liability'}
-  toolbar={kind === 'liability'}
+  renamable={false}
+  toolbar={false}
   badge={kind === 'tangibleAsset' && form.status === 'financed' && !isNew
     ? $_('page.setup.tangibleAssets.financed')
     : undefined}
   newTitle={kind === 'investment'
     ? $_('page.plan.addInvestmentTitle')
-    : kind === 'tangibleAsset'
-      ? $_('page.plan.addTangibleAssetTitle')
-      : undefined}
-  footer={kind === 'liability' ? undefined : assetFooter}
+    : $_('page.plan.addTangibleAssetTitle')}
+  footer={assetFooter}
   onSave={save}
   onDuplicate={duplicate}
   onToggleInclude={toggleExclude}
@@ -561,7 +442,7 @@
       birthDateSet={appStore.profile.birth_date !== undefined}
       formatNumber={appStore.formatNumber}
     />
-  {:else if kind === 'tangibleAsset'}
+  {:else}
     <div class="flex flex-col gap-2">
       <Label for="{uid}-tangibleLabel">{$_('page.plan.investmentLabel')}</Label>
       <Input
@@ -583,80 +464,5 @@
       formatNumber={appStore.formatNumber}
       formatCurrency={appStore.formatCurrencyCode}
     />
-  {:else}
-    <!-- liability -->
-    <div class="flex flex-col gap-2">
-      <Label for="{uid}-outstandingBalance2"
-        >{$_('page.setup.liabilities.outstandingBalance')}</Label
-      >
-      <SuffixedInput
-        id="{uid}-outstandingBalance2"
-        value={form.outstanding_balance}
-        suffix={currencyLabel}
-        formatNumber={appStore.formatNumber}
-        onValueChange={(v) => (form.outstanding_balance = v)}
-      />
-    </div>
-    <div class="flex items-end gap-2">
-      <div class="flex flex-1 flex-col gap-2">
-        <Label for="{uid}-installmentFrequency2"
-          >{$_('page.setup.liabilities.installmentFrequency')}</Label
-        >
-        <SelectField
-          id="{uid}-installmentFrequency2"
-          value={form.installment_frequency}
-          items={frequencyItems}
-          onValueChange={(v) => {
-            if (v) form.installment_frequency = v
-          }}
-        />
-      </div>
-      <div class="flex flex-1 flex-col gap-2">
-        <Label for="{uid}-annualRate2">{$_('page.setup.liabilities.annualRate')}</Label>
-        <SuffixedInput
-          id="{uid}-annualRate2"
-          value={form.annual_rate}
-          suffix="%"
-          formatNumber={appStore.formatNumber}
-          onValueChange={(v) => (form.annual_rate = v)}
-        />
-      </div>
-    </div>
-    <div class="flex items-end gap-2">
-      <div class="flex flex-1 flex-col gap-2">
-        <Label for="{uid}-installmentAmount2"
-          >{$_('page.setup.liabilities.installmentAmount')}</Label
-        >
-        <SuffixedInput
-          id="{uid}-installmentAmount2"
-          value={form.installment_amount}
-          suffix={currencyLabel}
-          formatNumber={appStore.formatNumber}
-          onValueChange={(v) => (form.installment_amount = v)}
-        />
-      </div>
-      <div class="flex flex-1 flex-col gap-2">
-        <Label for="{uid}-remainingTerm2">{$_('page.setup.liabilities.remainingTerm')}</Label>
-        <div class="flex items-center gap-2">
-          <SuffixedInput
-            id="{uid}-remainingTerm2"
-            value={form.remaining_term}
-            formatNumber={appStore.formatNumber}
-            class="w-24"
-            onValueChange={(v) => (form.remaining_term = v)}
-          />
-          <SelectField
-            id="{uid}-remainingTermUnit2"
-            value={form.remaining_term_unit}
-            items={remainingTermUnitItems}
-            onValueChange={(v) => {
-              if (v) form.remaining_term_unit = v
-            }}
-          />
-        </div>
-      </div>
-    </div>
-
-    {@render interestAdvanced()}
   {/if}
 </ItemEditDialogShell>
