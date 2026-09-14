@@ -31,10 +31,11 @@
   import { Input } from '$lib/components/ui/input'
   import { Separator } from '$lib/components/ui/separator'
   import { Slider } from '$lib/components/ui/slider'
+  import { CURRENT_PROJECTION_ID, buildCurrentProjectionPlan } from '$lib/current-projection'
   import { itemsForPlan } from '$lib/plan-owned'
   import { getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
   import routes from '$lib/routes'
-  import type { Expense, Income, ProfileLiability, Transfer } from '$lib/schemas'
+  import type { Expense, Income, Portfolio, ProfileLiability, Transfer } from '$lib/schemas'
   import { getFrequencyShortLabel } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import { cn, notImplemented } from '$lib/utils'
@@ -49,7 +50,19 @@
   import TransferEditDialog from './transfer-edit-dialog.svelte'
 
   const planId = $derived(page.params.id)
-  const plan = $derived(appStore.portfolios.find((p) => p.id === planId))
+  // The dashboard's "Current projection" opens here too: the same synthesized
+  // plan the thumbnail draws, read-only — the profile is edited under
+  // Financial data, not through a plan. Nothing can be saved to it, so the
+  // dialogs and the settings page stay reachable only for a saved plan.
+  const readOnly = $derived(planId === CURRENT_PROJECTION_ID)
+  const savedPlan = $derived(appStore.portfolios.find((p) => p.id === planId))
+  const plan = $derived<Portfolio | undefined>(
+    readOnly
+      ? appStore.loading
+        ? undefined
+        : buildCurrentProjectionPlan(appStore.profile, new Date())
+      : savedPlan,
+  )
 
   // Year range from portfolio dates (yearOf: date-only strings parse as UTC,
   // so new Date(...).getFullYear() would be off by one in UTC-negative zones)
@@ -643,7 +656,7 @@
                       value={item.value}
                       valueClass={item.valueClass}
                       hasInsufficientFunds={item.hasInsufficientFunds}
-                      onclick={item.onClick}
+                      onclick={readOnly ? undefined : item.onClick}
                     />
                   {/each}
                 </div>
@@ -653,19 +666,21 @@
         </div>
 
         <!-- Add button footer -->
-        <div class="shrink-0 p-4">
-          {#if activeTab === 'cashflows'}
-            <Button class="w-full" onclick={() => (addCashFlowDialogOpen = true)}>
-              <Plus class="size-4" />
-              {$_('page.plan.addCashFlow')}
-            </Button>
-          {:else}
-            <Button class="w-full" onclick={() => (addAssetDialogOpen = true)}>
-              <Plus class="size-4" />
-              {$_('page.plan.addAsset')}
-            </Button>
-          {/if}
-        </div>
+        {#if !readOnly}
+          <div class="shrink-0 p-4">
+            {#if activeTab === 'cashflows'}
+              <Button class="w-full" onclick={() => (addCashFlowDialogOpen = true)}>
+                <Plus class="size-4" />
+                {$_('page.plan.addCashFlow')}
+              </Button>
+            {:else}
+              <Button class="w-full" onclick={() => (addAssetDialogOpen = true)}>
+                <Plus class="size-4" />
+                {$_('page.plan.addAsset')}
+              </Button>
+            {/if}
+          </div>
+        {/if}
       </div>
     {/if}
 
@@ -686,16 +701,23 @@
           >
             <ArrowLeft class="size-4" />
           </Button>
-          <h2 class="text-xl font-bold">{plan?.name ?? ''}</h2>
+          {#if readOnly}
+            <h2 class="text-xl font-bold">{$_('page.dashboard.projections.current.title')}</h2>
+            <Badge variant="outline">{$_('page.dashboard.projections.current.badge')}</Badge>
+          {:else}
+            <h2 class="text-xl font-bold">{plan.name}</h2>
+          {/if}
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          href={resolve(`${routes.PLAN_VIEW}/${planId}/settings`)}
-          aria-label={$_('page.planSettings.title')}
-        >
-          <Settings2 class="size-4" />
-        </Button>
+        {#if !readOnly}
+          <Button
+            variant="ghost"
+            size="icon"
+            href={resolve(`${routes.PLAN_VIEW}/${planId}/settings`)}
+            aria-label={$_('page.planSettings.title')}
+          >
+            <Settings2 class="size-4" />
+          </Button>
+        {/if}
       </div>
 
       <!-- Chart -->
@@ -935,59 +957,65 @@
       </div>
     {/if}
 
-    <!-- Add cash flow type picker -->
-    <AddCashFlowDialog
-      bind:open={addCashFlowDialogOpen}
-      onOpenChange={(v) => (addCashFlowDialogOpen = v)}
-      onContinue={handleAddCashFlowContinue}
-    />
+    {#if savedPlan}
+      <!-- Add cash flow type picker -->
+      <AddCashFlowDialog
+        bind:open={addCashFlowDialogOpen}
+        onOpenChange={(v) => (addCashFlowDialogOpen = v)}
+        onContinue={handleAddCashFlowContinue}
+      />
 
-    <!-- Transfer edit dialog -->
-    <TransferEditDialog
-      bind:open={transferDialogOpen}
-      onOpenChange={(v) => (transferDialogOpen = v)}
-      initial={transferDialogInitial}
-      {plan}
-      onDuplicated={reopenTransferDialog}
-    />
+      <!-- Transfer edit dialog -->
+      <TransferEditDialog
+        bind:open={transferDialogOpen}
+        onOpenChange={(v) => (transferDialogOpen = v)}
+        initial={transferDialogInitial}
+        plan={savedPlan}
+        onDuplicated={reopenTransferDialog}
+      />
 
-    <!-- Cash-flow edit dialog -->
-    <CashFlowEditDialog
-      bind:open={editDialogOpen}
-      onOpenChange={(v) => (editDialogOpen = v)}
-      kind={editDialogKind}
-      initial={editDialogInitial}
-      {plan}
-      onDuplicated={reopenCashFlowDialog}
-    />
+      <!-- Cash-flow edit dialog -->
+      <CashFlowEditDialog
+        bind:open={editDialogOpen}
+        onOpenChange={(v) => (editDialogOpen = v)}
+        kind={editDialogKind}
+        initial={editDialogInitial}
+        plan={savedPlan}
+        onDuplicated={reopenCashFlowDialog}
+      />
 
-    <!-- Add asset type picker -->
-    <AddAssetDialog
-      bind:open={addAssetDialogOpen}
-      onOpenChange={(v) => (addAssetDialogOpen = v)}
-      onContinue={openAssetCreateDialog}
-    />
+      <!-- Add asset type picker -->
+      <AddAssetDialog
+        bind:open={addAssetDialogOpen}
+        onOpenChange={(v) => (addAssetDialogOpen = v)}
+        onContinue={openAssetCreateDialog}
+      />
 
-    <!-- Asset edit dialog -->
-    <AssetEditDialog
-      bind:open={assetDialogOpen}
-      onOpenChange={(v) => (assetDialogOpen = v)}
-      target={assetDialogTarget}
-      {plan}
-      onDuplicated={reopenAssetDialog}
-    />
+      <!-- Asset edit dialog -->
+      <AssetEditDialog
+        bind:open={assetDialogOpen}
+        onOpenChange={(v) => (assetDialogOpen = v)}
+        target={assetDialogTarget}
+        plan={savedPlan}
+        onDuplicated={reopenAssetDialog}
+      />
 
-    <!-- Liability edit dialog -->
-    <LiabilityEditDialog
-      bind:open={liabilityDialogOpen}
-      onOpenChange={(v) => (liabilityDialogOpen = v)}
-      initial={liabilityDialogInitial}
-      {plan}
-      onDuplicated={reopenLiabilityDialog}
-    />
+      <!-- Liability edit dialog -->
+      <LiabilityEditDialog
+        bind:open={liabilityDialogOpen}
+        onOpenChange={(v) => (liabilityDialogOpen = v)}
+        initial={liabilityDialogInitial}
+        plan={savedPlan}
+        onDuplicated={reopenLiabilityDialog}
+      />
 
-    <!-- Cash edit dialog -->
-    <CashEditDialog bind:open={cashDialogOpen} onOpenChange={(v) => (cashDialogOpen = v)} {plan} />
+      <!-- Cash edit dialog -->
+      <CashEditDialog
+        bind:open={cashDialogOpen}
+        onOpenChange={(v) => (cashDialogOpen = v)}
+        plan={savedPlan}
+      />
+    {/if}
 
     <!-- Hover tooltip - at page level to allow overlaying sidebars -->
     {#if hoveredData && tooltipPosition}
