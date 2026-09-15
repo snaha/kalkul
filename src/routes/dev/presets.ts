@@ -385,7 +385,7 @@ export function getDevPresets(today: Date): DevPreset[] {
   return [
     {
       name: 'Empty (fresh start)',
-      description: 'Clears all data. Shows the hero landing page.',
+      description: 'Clears all data. Shows the marketing landing page.',
       data: { profile: { name: '', email: '' }, portfolios: [] },
     },
     {

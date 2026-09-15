@@ -194,11 +194,74 @@
       "cashFlowNominalTotal": "Nominální součet: {nominal} ({real} v dnešních penězích)",
       "cashFlowTotal": "Celkem: {total}"
     },
-    "home": {
-      "heroTitle": "Podívejte se, kam vás vaše peníze mohou dovést",
-      "heroDescription": "Kalkul vám pomůže plánovat s kompletním přehledem o vašich financích — a otestovat každé rozhodnutí, než ho uděláte.",
-      "heroAlt": "Osoba plánující finance",
-      "getStarted": "Začít"
+    "landing": {
+      "nav": {
+        "howItWorks": "Jak to funguje",
+        "privacy": "Soukromí",
+        "github": "GitHub"
+      },
+      "cta": {
+        "startPlanning": "Začít plánovat",
+        "tryDemo": "Vyzkoušet ukázku"
+      },
+      "hero": {
+        "title": "Zjistěte, kam vaše peníze směřují.",
+        "lede": "Zadejte, co vlastníte, co dlužíte a co vám každý měsíc přijde a odejde. Kalkul spočítá vaše čisté jmění rok po roce na desítky let dopředu a velká rozhodnutí si můžete nejdřív vyzkoušet na kopii, než je uděláte doopravdy.",
+        "hint": "Bez registrace. První projekce zabere zhruba deset minut.",
+        "chartTitle": "Čisté jmění, projekce rok po roce",
+        "chartSubtitle": "Příklad: Claire, 40 let, Lyon"
+      },
+      "how": {
+        "title": "Sepište si své finance jednou, udržujte je aktuální a sledujte, kam vedou.",
+        "description": "Kalkul není rozpočtová aplikace ani broker. Je to místo, kde máte celou svou finanční situaci sepsanou, průběžně aktualizovanou a promítnutou do budoucna.",
+        "recordTitle": "Začněte tím, co máte",
+        "recordDescription": "Hotovost, investice, nemovitosti, úvěry, příjmy a výdaje. Když se něco změní, upravíte to. Mezi úpravami Kalkul zůstatky dopočítává a upozorní vás, až zastarají.",
+        "projectTitle": "Uvidíte desítky let dopředu",
+        "projectDescription": "Jakmile jsou čísla zadaná, dostanete projekci tak daleko dopředu, jak chcete: čisté jmění po letech, na kolik let by vám úspory vystačily a jak daleko jste od toho, abyste z nich mohli žít.",
+        "compareTitle": "Vyzkoušejte si rozhodnutí",
+        "compareDescription": "Koupit v roce 2028 byt, nebo zůstat v nájmu? Dát si rok pauzu? Odejít do důchodu v 55? Každý plán je kopie vašich skutečných financí, kterou můžete měnit a porovnávat s ostatními."
+      },
+      "compare": {
+        "title": "Porovnejte dvě budoucnosti vedle sebe.",
+        "description": "Každý plán vychází z vašich skutečných čísel, takže porovnáváte výsledky, kterých opravdu můžete dosáhnout.",
+        "currentSubtitle": "Současný směr",
+        "netWorthAt": "Čisté jmění v {age} letech",
+        "independent": "Finanční nezávislost",
+        "lowestCash": "Nejnižší hotovost",
+        "noFigure": "Nedosaženo",
+        "deltaMore": "+{amount}",
+        "deltaLess": "-{amount}",
+        "deltaEarlier": "{years, plural, one {o rok dřív} few {o # roky dřív} other {o # let dřív}}",
+        "deltaLater": "{years, plural, one {o rok později} few {o # roky později} other {o # let později}}",
+        "deltaSame": "Beze změny",
+        "deltaTight": "{year}, napjaté",
+        "note": "Ukázková čísla spočítaná ze vzorového profilu. Kalkul označí roky, na které plán nemá dost prostředků — tady rok {year}.",
+        "noteNoMarker": "Ukázková čísla spočítaná ze vzorového profilu. Kalkul označí roky, na které plán nemá dost prostředků."
+      },
+      "privacy": {
+        "title": "Vaše data zůstanou ve vašem zařízení.",
+        "description": "Většina finančních aplikací chce přihlášení do banky dřív, než vám cokoliv ukáže. Kalkul nemá účty ani server, takže není co předávat a není co uniknout.",
+        "storedTitle": "Uloženo ve vašem prohlížeči",
+        "storedDescription": "Všechno, co zadáte, se uloží v tomto zařízení. Až se vrátíte, bude to tam — a nikam se to neodesílalo.",
+        "backupTitle": "Záloha je jediný soubor",
+        "backupDescription": "Data si kdykoliv vyexportujete, přenesete na jiný počítač nebo uložíte ke svým ostatním dokladům.",
+        "openSourceTitle": "Otevřený kód",
+        "openSourceDescription": "Kód projekcí je veřejný, takže si můžete ověřit, jak se každé číslo spočítalo — nebo ho vylepšit."
+      },
+      "planned": {
+        "tag": "Plánujeme",
+        "title": "Rada, když o ni stojíte.",
+        "description": "Vezměte svou projekci k poradci, ať pracuje s vašimi skutečnými čísly, nebo se zeptejte AI poradce, který vidí stejný graf jako vy. V obou případech jsou čísla vaše a rada je druhý názor."
+      },
+      "final": {
+        "title": "První projekce zabere zhruba deset minut.",
+        "description": "Začněte s hrubými čísly a upřesněte je později. Graf se aktualizuje průběžně."
+      },
+      "footer": {
+        "discord": "Discord",
+        "terms": "Podmínky užití",
+        "madeBy": "Vytvořila Snaha · {year}"
+      }
     },
     "dashboard": {
       "finances": {

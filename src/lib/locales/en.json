@@ -194,11 +194,74 @@
       "cashFlowNominalTotal": "Nominal total: {nominal} ({real} in today's money)",
       "cashFlowTotal": "Total: {total}"
     },
-    "home": {
-      "heroTitle": "See where your money could take you",
-      "heroDescription": "Kalkul helps you plan with your complete financial picture — and stress-test every decision before you make it.",
-      "heroAlt": "Person planning finances",
-      "getStarted": "Get started"
+    "landing": {
+      "nav": {
+        "howItWorks": "How it works",
+        "privacy": "Privacy",
+        "github": "GitHub"
+      },
+      "cta": {
+        "startPlanning": "Start planning",
+        "tryDemo": "Try the demo"
+      },
+      "hero": {
+        "title": "Know where your money leads.",
+        "lede": "Enter what you own, what you owe, and what comes in and goes out each month. Kalkul projects your net worth year by year for the decades ahead, and you can try out big decisions on a copy before making them for real.",
+        "hint": "No account needed. The first projection takes about ten minutes.",
+        "chartTitle": "Net worth, projected year by year",
+        "chartSubtitle": "Example: Claire, 40, Lyon"
+      },
+      "how": {
+        "title": "Write your finances down once, keep them current, and see where they lead.",
+        "description": "Kalkul is not a budgeting app or a brokerage. It is where your whole financial situation is written down, kept up to date, and projected into the future.",
+        "recordTitle": "Start with what you have",
+        "recordDescription": "Cash, investments, property, loans, income and expenses. When something changes, update it. Between updates Kalkul carries the balances forward and tells you when they are out of date.",
+        "projectTitle": "See decades ahead",
+        "projectDescription": "As soon as your numbers are in you get a projection as far ahead as you want: net worth by year, how many years your savings would last, and how far you are from being able to live off them.",
+        "compareTitle": "Try out decisions",
+        "compareDescription": "Buy the flat in 2028 or keep renting? Take a year off? Retire at 55? Each plan is a copy of your real finances that you can change and compare with the others."
+      },
+      "compare": {
+        "title": "Compare two futures side by side.",
+        "description": "Every plan starts from your real numbers, so you are comparing outcomes you could actually reach.",
+        "currentSubtitle": "Current course",
+        "netWorthAt": "Net worth at {age}",
+        "independent": "Financially independent",
+        "lowestCash": "Lowest cash",
+        "noFigure": "Not reached",
+        "deltaMore": "+{amount}",
+        "deltaLess": "-{amount}",
+        "deltaEarlier": "{years, plural, one {a year earlier} other {# years earlier}}",
+        "deltaLater": "{years, plural, one {a year later} other {# years later}}",
+        "deltaSame": "No change",
+        "deltaTight": "{year}, tight",
+        "note": "Example figures, projected from the sample profile. Kalkul marks the years a plan cannot pay for, like {year} here.",
+        "noteNoMarker": "Example figures, projected from the sample profile. Kalkul marks the years a plan cannot pay for."
+      },
+      "privacy": {
+        "title": "Your data stays on your device.",
+        "description": "Most finance apps want your bank login before they show you anything. Kalkul has no account and no server, so there is nothing to hand over and nothing that can leak.",
+        "storedTitle": "Stored in your browser",
+        "storedDescription": "Everything you enter is saved on this device. It is still there when you come back, and it was never sent anywhere.",
+        "backupTitle": "Backups are a single file",
+        "backupDescription": "Export your data whenever you want, move it to another computer, or keep it with your other records.",
+        "openSourceTitle": "Open source",
+        "openSourceDescription": "The projection code is public, so you can check how any number was calculated, or improve it."
+      },
+      "planned": {
+        "tag": "Planned",
+        "title": "Advice when you want it.",
+        "description": "Take your projection to a human advisor so they work from your real figures, or ask an AI advisor that sees the same chart you do. In both cases the numbers are yours and the advice is a second opinion."
+      },
+      "final": {
+        "title": "Your first projection takes about ten minutes.",
+        "description": "Start with rough numbers and refine them later. The chart updates as you go."
+      },
+      "footer": {
+        "discord": "Discord",
+        "terms": "Terms of use",
+        "madeBy": "Made by Snaha · {year}"
+      }
     },
     "dashboard": {
       "finances": {
