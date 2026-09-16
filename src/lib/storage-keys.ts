@@ -21,4 +21,6 @@ export default {
   SYNC_URL: 'kalkul-sync-url',
   /** localStorage — 'true' when the tab exposes its tools to browser agents via WebMCP. */
   WEB_MCP: 'kalkul-web-mcp',
+  /** localStorage — random anonymous id handed to Umami so a returning browser counts once. */
+  ANALYTICS_ID: 'kalkul-analytics-id',
 } as const

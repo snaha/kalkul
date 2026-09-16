@@ -23,19 +23,21 @@ const config = {
     // response headers; kit.csp injects the policy as a <meta> tag into the
     // SPA fallback page at build time. 'hash' mode allowlists SvelteKit's own
     // inline init script. 'unsafe-inline' styles are required by Svelte
-    // transitions and the chart library's inline style attributes.
+    // transitions and the chart library's inline style attributes. The one
+    // remote host allowed is Umami Cloud: the root layout loads its tracker
+    // script on kalkul.app, and the script posts page views and events back.
     csp: {
       mode: 'hash',
       directives: {
         'default-src': ['self'],
-        'script-src': ['self'],
+        'script-src': ['self', 'https://cloud.umami.is'],
         'style-src': ['self', 'unsafe-inline'],
         'img-src': ['self', 'data:'],
         // Loopback websockets only: the optional local AI relay (server/index.ts).
         // Browsers treat localhost as trustworthy, so even the https production
         // site can reach a relay running on the user's machine (Chrome, Firefox;
         // Safari blocks it). A malicious script still cannot reach a remote host.
-        'connect-src': ['self', 'ws://localhost:*', 'ws://127.0.0.1:*'],
+        'connect-src': ['self', 'https://cloud.umami.is', 'ws://localhost:*', 'ws://127.0.0.1:*'],
         'object-src': ['none'],
         'base-uri': ['self'],
       },

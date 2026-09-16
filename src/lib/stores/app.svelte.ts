@@ -1,3 +1,4 @@
+import { EVENTS, track } from '$lib/analytics'
 import {
   type ExplicitBalances,
   getCurrentProfile,
@@ -268,6 +269,13 @@ function withAppStore() {
           withLatestTermsRecorded(validated),
     )
     persist()
+
+    // The two funnel steps a profile write can complete: onboarding naming the
+    // profile, and the first balances or cash flows going in.
+    if (!stored.name && validated.name) track(EVENTS.PROFILE_CREATED)
+    if (!hasAnyFinancialData(stored) && hasAnyFinancialData(validated)) {
+      track(EVENTS.FINANCES_SAVED)
+    }
   }
 
   function deletePortfolio(id: string): void {
@@ -402,6 +410,7 @@ function withAppStore() {
      */
     confirmBalances(updates: Partial<Profile>) {
       writeProfile(updates, 'confirm')
+      track(EVENTS.BALANCES_CONFIRMED)
     },
 
     // --- History ---
@@ -467,6 +476,7 @@ function withAppStore() {
       const enrichedPortf = withPortfolioStore(newPortfolio, appParent)
       portfolios.push(enrichedPortf)
       persist()
+      track(EVENTS.PLAN_CREATED)
       return portId
     },
 
@@ -512,6 +522,7 @@ function withAppStore() {
     // --- Backup / Restore ---
 
     exportBackup(): string {
+      track(EVENTS.BACKUP_EXPORTED)
       return JSON.stringify(
         { profile: profile.toJSON(), portfolios: portfolios.map((p) => p.toJSON()) },
         undefined,
@@ -530,6 +541,7 @@ function withAppStore() {
       portfolios = enrichAll(validated.portfolios)
       loading = false
       persist()
+      track(EVENTS.BACKUP_IMPORTED)
     },
   }
 }
