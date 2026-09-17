@@ -397,9 +397,9 @@ export function getDevPresets(today: Date): DevPreset[] {
       },
     },
     {
-      name: 'Tereza, 20 — student, cash only',
+      name: 'Tereza, 20 — student, first ETF',
       description:
-        'No investments or property, income that starts on a future date. Single-segment pie; savings rate driven entirely by cash flows. Last confirmed a month ago, so Quick update is available.',
+        'A small ETF fed by a monthly transfer, no property, income that starts on a future date. Savings rate driven almost entirely by cash flows. Last confirmed a month ago, so Quick update is available.',
       data: {
         ...terezaData,
         profile: withHistory(terezaData.profile, today, 11, { latestMonthsAgo: 1 }),

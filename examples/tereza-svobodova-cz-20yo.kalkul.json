@@ -6,6 +6,16 @@
     "location": "CZ",
     "currency": "CZK",
     "cash_amount": 48000,
+    "has_investments": true,
+    "investments": [
+      {
+        "id": "inv-1",
+        "name": "Index fund (ETF)",
+        "balance": 5000,
+        "apy": 7,
+        "ter": 0.2
+      }
+    ],
     "incomes": [
       {
         "id": "inc-1",
@@ -75,6 +85,21 @@
         "id": "exp-4",
         "name": "Phone & subscriptions",
         "amount": 550,
+        "frequency": "monthly",
+        "start": "immediately",
+        "end": "never",
+        "change_over_time": "none"
+      }
+    ],
+    "transfers": [
+      {
+        "id": "tr-1",
+        "name": "Monthly ETF savings",
+        "from_asset_id": "cash",
+        "to_asset_id": "inv-1",
+        "amount": 1000,
+        "inflation_adjusted": true,
+        "schedule": "recurring",
         "frequency": "monthly",
         "start": "immediately",
         "end": "never",
