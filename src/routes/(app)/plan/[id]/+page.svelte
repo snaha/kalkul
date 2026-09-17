@@ -7,6 +7,7 @@
   import PanelLeft from '@lucide/svelte/icons/panel-left'
   import PanelRight from '@lucide/svelte/icons/panel-right'
   import Plus from '@lucide/svelte/icons/plus'
+  import RefreshCw from '@lucide/svelte/icons/refresh-cw'
   import Rows2 from '@lucide/svelte/icons/rows-2'
   import Search from '@lucide/svelte/icons/search'
   import Settings2 from '@lucide/svelte/icons/settings-2'
@@ -17,6 +18,7 @@
   import { CATEGORY_COLORS } from '$lib/chart-colors'
   import AddProjectionDialog from '$lib/components/add-projection-dialog.svelte'
   import ChartTooltipContent from '$lib/components/chart-tooltip-content.svelte'
+  import DemoPersonaDialog from '$lib/components/demo-persona-dialog.svelte'
   import Loader from '$lib/components/loader.svelte'
   import StackedBarChart, {
     type BarData,
@@ -35,6 +37,7 @@
   import { CURRENT_PROJECTION_ID, buildCurrentProjectionPlan } from '$lib/current-projection'
   import { getCurrentProfile } from '$lib/current-values'
   import { type PlanListKey, planItems } from '$lib/plan-items'
+  import { DEMO_PLAN_ID } from '$lib/demo'
   import { getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
   import routes from '$lib/routes'
   import type {
@@ -65,6 +68,10 @@
   // Financial data, not through a plan. Nothing can be saved to it, so the
   // dialogs and the settings page stay reachable only for a saved plan.
   const readOnly = $derived(planId === CURRENT_PROJECTION_ID)
+  // The demo persona's plan: editable like any saved plan, but its title bar
+  // offers another persona instead of the way back to the dashboard.
+  const isDemoPlan = $derived(planId === DEMO_PLAN_ID)
+  let personaDialogOpen = $state(false)
   const savedPlan = $derived(appStore.portfolios.find((p) => p.id === planId))
   // One clock for the page, rolling over at midnight like the dashboard's.
   const clock = trackToday()
@@ -678,21 +685,34 @@
             <PanelLeft class="size-4" />
           </Button>
           <Separator orientation="vertical" class="!h-8" />
-          <Button
-            variant="ghost"
-            size="icon"
-            href={resolve(routes.HOME)}
-            aria-label={$_('page.plan.backToHome')}
-          >
-            <ArrowLeft class="size-4" />
-          </Button>
-          {#if readOnly}
-            <h2 class="text-xl font-bold whitespace-nowrap">
-              {$_('page.dashboard.projections.current.title')}
-            </h2>
-            <Badge variant="outline">{$_('page.dashboard.projections.current.badge')}</Badge>
-          {:else}
+          {#if isDemoPlan}
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={$_('page.demo.switchPersona')}
+              onclick={() => (personaDialogOpen = true)}
+            >
+              <RefreshCw class="size-4" />
+            </Button>
             <h2 class="text-xl font-bold">{plan.name}</h2>
+            <Badge variant="outline">{$_('page.demo.badge')}</Badge>
+          {:else}
+            <Button
+              variant="ghost"
+              size="icon"
+              href={resolve(routes.HOME)}
+              aria-label={$_('page.plan.backToHome')}
+            >
+              <ArrowLeft class="size-4" />
+            </Button>
+            {#if readOnly}
+              <h2 class="text-xl font-bold whitespace-nowrap">
+                {$_('page.dashboard.projections.current.title')}
+              </h2>
+              <Badge variant="outline">{$_('page.dashboard.projections.current.badge')}</Badge>
+            {:else}
+              <h2 class="text-xl font-bold">{plan.name}</h2>
+            {/if}
           {/if}
         </div>
         {#if readOnly}
@@ -1050,4 +1070,8 @@
 
 {#if readOnly}
   <AddProjectionDialog bind:open={modelChangesOpen} variant="modelChanges" />
+{/if}
+
+{#if isDemoPlan}
+  <DemoPersonaDialog bind:open={personaDialogOpen} />
 {/if}
