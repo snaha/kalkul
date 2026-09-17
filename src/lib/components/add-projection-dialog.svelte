@@ -19,9 +19,14 @@
 
   interface Props {
     open: boolean
+    /** The "Model changes" wording of the Current projection; the Add projection copy otherwise. */
+    title?: string
+    intro?: string
+    nameLabel?: string
+    createLabel?: string
   }
 
-  let { open = $bindable() }: Props = $props()
+  let { open = $bindable(), title, intro, nameLabel, createLabel }: Props = $props()
 
   const uid = $props.id()
 
@@ -68,7 +73,7 @@
   <Dialog.Content showCloseButton={false} class="gap-0 p-0 sm:max-w-xl">
     <Dialog.Header class="flex flex-row items-center border-b p-4">
       <Dialog.Title class="flex-1 text-base font-medium">
-        {$_('page.addProjection.title')}
+        {title ?? $_('page.addProjection.title')}
       </Dialog.Title>
       <Button variant="ghost" size="icon" onclick={close} aria-label={$_('page.plan.closeDialog')}>
         <X class="size-4" />
@@ -76,8 +81,11 @@
     </Dialog.Header>
 
     <div class="flex flex-col gap-4 p-4">
+      {#if intro}
+        <Dialog.Description class="text-base text-foreground">{intro}</Dialog.Description>
+      {/if}
       <div class="flex flex-col gap-2">
-        <Label for="{uid}-name">{$_('page.addProjection.name')}</Label>
+        <Label for="{uid}-name">{nameLabel ?? $_('page.addProjection.name')}</Label>
         <Input id="{uid}-name" bind:value={name} />
       </div>
 
@@ -107,7 +115,7 @@
 
     <Dialog.Footer class="flex flex-row bg-muted p-4 sm:justify-start">
       <Button onclick={handleCreate} disabled={name.trim().length === 0}>
-        {$_('page.addProjection.create')}
+        {createLabel ?? $_('page.addProjection.create')}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>

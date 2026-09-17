@@ -17,19 +17,14 @@ describe('buildCurrentProjectionPlan', () => {
     expect(buildCurrentProjectionPlan(PROFILE, TODAY).start_date).toBe('2026-06-01')
   })
 
-  test('runs to the year the user turns 85', () => {
-    expect(buildCurrentProjectionPlan(PROFILE, TODAY).end_date).toBe('2075-03-01')
-  })
-
-  test('falls back to 85 years out when no birth date is known', () => {
+  test('runs 20 years ahead, whatever the age', () => {
+    expect(buildCurrentProjectionPlan(PROFILE, TODAY).end_date).toBe('2046-06-01')
     const { birth_date: _birthDate, ...withoutBirthDate } = PROFILE
-    expect(buildCurrentProjectionPlan(withoutBirthDate, TODAY).end_date).toBe('2111-01-01')
+    expect(buildCurrentProjectionPlan(withoutBirthDate, TODAY).end_date).toBe('2046-06-01')
   })
 
-  test('still ends after it starts for someone already past 85', () => {
-    const profile: Profile = { ...PROFILE, birth_date: '1930-03-14' }
-    const plan = buildCurrentProjectionPlan(profile, TODAY)
-    expect(plan.end_date > plan.start_date).toBe(true)
+  test('takes an explicit end date instead', () => {
+    expect(buildCurrentProjectionPlan(PROFILE, TODAY, '2075-03-01').end_date).toBe('2075-03-01')
   })
 
   test('includes every asset, liability and cash flow', () => {

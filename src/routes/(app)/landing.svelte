@@ -4,6 +4,7 @@
   import type { BarData } from '$lib/components/stacked-bar-chart.svelte'
   import { Separator } from '$lib/components/ui/separator'
   import { buildCurrentProjectionPlan } from '$lib/current-projection'
+  import { getDefaultPlanDates } from '$lib/plan-defaults'
   import { sharedItems } from '$lib/plan-owned'
   import { type YearlyProjection, getYearlyPlanProjection } from '$lib/plan-projection'
   import { appStore } from '$lib/stores/app.svelte'
@@ -41,9 +42,14 @@
   const savedPlan = SAMPLE.portfolios[0]
 
   // Both projections are the real engine output for the shipped sample, so the
-  // marketing figures are the ones the app would show after importing it.
+  // marketing figures are the ones the app would show after importing it. The
+  // current projection runs to the sample's 85 here rather than the app's 20
+  // years: the comparison reads net worth at 65 off it.
   const currentYears = $derived(
-    getYearlyPlanProjection(buildCurrentProjectionPlan(profile, today), profile),
+    getYearlyPlanProjection(
+      buildCurrentProjectionPlan(profile, today, getDefaultPlanDates(profile, today).end_date),
+      profile,
+    ),
   )
   const planYears = $derived(getYearlyPlanProjection(savedPlan, profile))
 

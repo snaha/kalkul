@@ -1,3 +1,4 @@
+import { formatDate } from '$lib/@snaha/kalkul-maths'
 import { getDefaultPlanDates } from '$lib/plan-defaults'
 import type { Portfolio, Profile } from '$lib/schemas'
 
@@ -8,21 +9,34 @@ import type { Portfolio, Profile } from '$lib/schemas'
 export const CURRENT_PROJECTION_ID = 'current-projection'
 
 /**
+ * How far the automatic projection looks ahead. Today's income and expenses
+ * say little about the decades after that; a saved plan, where they can be
+ * changed, is the place to look further.
+ */
+export const CURRENT_PROJECTION_YEARS = 20
+
+/**
  * The dashboard's always-present "Current projection": where the user's money
  * goes if nothing changes. It is derived on the fly rather than stored, so it
  * follows the profile automatically and never needs migrating.
  *
- * The timeline is the one a plan created from the Add projection dialog gets,
- * so the automatic projection and the user's first saved plan span the same
- * years unless they change them.
+ * Starts on the first of the current month, like a new plan, and runs
+ * {@link CURRENT_PROJECTION_YEARS} ahead unless `endDate` says otherwise.
  *
  * Every asset, liability and cash flow is in scope — the projection reads an
  * omitted `included_*_ids` list as "all of them".
  */
-export function buildCurrentProjectionPlan(profile: Profile, today: Date): Portfolio {
+export function buildCurrentProjectionPlan(
+  profile: Profile,
+  today: Date,
+  endDate?: string,
+): Portfolio {
+  const dates = getDefaultPlanDates(profile, today)
+  const end = new Date(today.getFullYear() + CURRENT_PROJECTION_YEARS, today.getMonth(), 1)
   return {
     id: CURRENT_PROJECTION_ID,
     name: '',
-    ...getDefaultPlanDates(profile, today),
+    ...dates,
+    end_date: endDate ?? formatDate(end),
   }
 }
