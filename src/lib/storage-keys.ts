@@ -13,6 +13,8 @@
 export default {
   /** localStorage — persisted app data (profile, portfolios, plans). */
   DATA: 'kalkul-data',
+  /** localStorage — id of the demo persona in use; absent outside the demo. */
+  DEMO: 'kalkul-demo',
   /** localStorage — selected color theme ('light' | 'dark' | 'system'). */
   THEME: 'theme',
   /** localStorage — selected UI language override. */

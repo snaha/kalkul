@@ -1,8 +1,8 @@
 {
   "profile": {
-    "name": "Martin Kováč",
-    "email": "martin.kovac@example.com",
-    "birth_date": "1996-04-12",
+    "name": "Peter Kováč",
+    "email": "peter.kovac@example.com",
+    "birth_date": "1997-04-12",
     "location": "SK",
     "currency": "EUR",
     "cash_amount": 9500,

@@ -209,7 +209,7 @@
         "lede": "Enter what you own, what you owe, and what comes in and goes out each month. Kalkul projects your net worth year by year for the decades ahead, and you can try out big decisions on a copy before making them for real.",
         "hint": "No account needed. The first projection takes about ten minutes.",
         "chartTitle": "Net worth, projected year by year",
-        "chartSubtitle": "Example: Claire, 40, Lyon"
+        "chartSubtitle": "Example: Claire, 41, Lyon"
       },
       "how": {
         "title": "Write your finances down once, keep them current, and see where they lead.",
@@ -640,6 +640,20 @@
         "holdingYearsOutOfRange": "Enter 0 or more years",
         "cgtHelp": "Capital gains tax (CGT) is a tax levied on the profit (gain) made from selling an asset—such as stocks, bonds, real estate, or collectibles—that has increased in value. It only applies when the asset is sold (realized), not while it is held. Rates generally depend on how long the asset was held (short-term vs. long-term) and the owner's income level."
       }
+    },
+    "demo": {
+      "title": "Choose a demo persona",
+      "description": "Each persona comes with assets, cash flows, and a current projection already set up — so you can see Kalkul fully populated before adding your own data.",
+      "personas": {
+        "tereza": "Planning university, considering different careers and life plans.",
+        "peter": "Engaged, wants kids, considering buying a house.",
+        "claire": "Married with kids, low debt, on track for early retirement.",
+        "jan": "Approaching retirement, planning to travel more."
+      },
+      "startDemo": "Start demo",
+      "startWithOwnData": "Start with your own data",
+      "badge": "Demo",
+      "switchPersona": "Choose another persona"
     }
   },
   "common": {
@@ -688,7 +702,11 @@
       "visitGithub": "Visit our Github"
     },
     "help": "Help",
-    "settings": "Settings"
+    "settings": "Settings",
+    "demo": {
+      "notice": "Changes aren't saved in this demo. Get started to set up your own projection.",
+      "getStarted": "Get started"
+    }
   },
   "dev": {
     "confirm": {

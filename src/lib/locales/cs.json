@@ -209,7 +209,7 @@
         "lede": "Zadejte, co vlastníte, co dlužíte a co vám každý měsíc přijde a odejde. Kalkul spočítá vaše čisté jmění rok po roce na desítky let dopředu a velká rozhodnutí si můžete nejdřív vyzkoušet na kopii, než je uděláte doopravdy.",
         "hint": "Bez registrace. První projekce zabere zhruba deset minut.",
         "chartTitle": "Čisté jmění, projekce rok po roce",
-        "chartSubtitle": "Příklad: Claire, 40 let, Lyon"
+        "chartSubtitle": "Příklad: Claire, 41 let, Lyon"
       },
       "how": {
         "title": "Sepište si své finance jednou, udržujte je aktuální a sledujte, kam vedou.",
@@ -640,6 +640,20 @@
         "holdingYearsOutOfRange": "Zadejte 0 nebo více let",
         "cgtHelp": "Daň z kapitálových výnosů (CGT) je daň ze zisku z prodeje majetku – například akcií, dluhopisů, nemovitostí nebo sběratelských předmětů – jehož hodnota vzrostla. Platí se pouze při prodeji (realizaci), nikoli během držení. Sazby obvykle závisí na době držení (krátkodobé vs. dlouhodobé) a na výši příjmu vlastníka."
       }
+    },
+    "demo": {
+      "title": "Vyberte ukázkovou osobu",
+      "description": "Každá osoba má už nastavený majetek, peněžní toky a aktuální projekci — uvidíte tak Kalkul plně naplněný ještě předtím, než zadáte vlastní data.",
+      "personas": {
+        "tereza": "Plánuje vysokou školu, zvažuje různé kariéry a životní plány.",
+        "peter": "Zasnoubený, chce děti, zvažuje koupi domu.",
+        "claire": "Vdaná s dětmi, nízké dluhy, na cestě k předčasnému důchodu.",
+        "jan": "Blíží se důchodu, plánuje více cestovat."
+      },
+      "startDemo": "Spustit ukázku",
+      "startWithOwnData": "Začít s vlastními daty",
+      "badge": "Ukázka",
+      "switchPersona": "Vybrat jinou osobu"
     }
   },
   "common": {
@@ -688,7 +702,11 @@
       "visitGithub": "Navštívit náš GitHub"
     },
     "help": "Nápověda",
-    "settings": "Nastavení"
+    "settings": "Nastavení",
+    "demo": {
+      "notice": "Změny se v této ukázce neukládají. Začněte a nastavte si vlastní projekci.",
+      "getStarted": "Začít"
+    }
   },
   "dev": {
     "confirm": {
