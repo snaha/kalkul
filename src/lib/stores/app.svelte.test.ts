@@ -388,6 +388,14 @@ describe('appStore.updateProfile persistence', () => {
     ])
     expect(persisted.tangible_asset_tax_rules).toEqual([{ id: 'r2', holding_period: 'more_than' }])
   })
+
+  it('keeps the inflation rate when persisting', () => {
+    appStore.importBackup(JSON.stringify({ profile: { name: 'Jane', email: '' }, portfolios: [] }))
+    appStore.updateProfile({ inflation_rate: 0.035 })
+
+    const persisted = JSON.parse(backing.get(storageKeys.DATA) ?? '{}').profile
+    expect(persisted.inflation_rate).toBe(0.035)
+  })
 })
 
 describe('appStore.deletePortfolio', () => {

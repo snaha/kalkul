@@ -21,6 +21,7 @@
     type BarData,
     type HoverPosition,
   } from '$lib/components/stacked-bar-chart.svelte'
+  import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Badge } from '$lib/components/ui/badge'
   import { Button } from '$lib/components/ui/button'
   import {
@@ -31,7 +32,9 @@
   import { Input } from '$lib/components/ui/input'
   import { Separator } from '$lib/components/ui/separator'
   import { Slider } from '$lib/components/ui/slider'
+  import { Switch } from '$lib/components/ui/switch'
   import { CURRENT_PROJECTION_ID, buildCurrentProjectionPlan } from '$lib/current-projection'
+  import { toInflationPercent } from '$lib/plan-defaults'
   import { itemsForPlan } from '$lib/plan-owned'
   import { getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
   import routes from '$lib/routes'
@@ -265,8 +268,26 @@
   )
   const liabilitiesCount = $derived(itemsForPlan(appStore.profile.liabilities, planId).length)
 
+  // "Show inflation" off runs the projection as if inflation were zero. Not
+  // persisted: it is a way of looking at the plan, not part of it.
+  let showInflation = $state(true)
+  const inflationPercent = $derived(plan ? toInflationPercent(plan.inflation_rate) : undefined)
+  function setInflationPercent(percent: number | undefined) {
+    if (percent === undefined) return
+    const inflation_rate = percent / 100
+    if (readOnly) appStore.updateProfile({ inflation_rate })
+    else savedPlan?.update({ inflation_rate })
+  }
+
   // Yearly projection (real / inflation-adjusted values)
-  const projection = $derived(plan ? getYearlyPlanProjection(plan, appStore.profile) : [])
+  const projection = $derived(
+    plan
+      ? getYearlyPlanProjection(
+          showInflation ? plan : { ...plan, inflation_rate: 0 },
+          appStore.profile,
+        )
+      : [],
+  )
   const selectedYearProjection = $derived(projection.find((p) => p.year === selectedYear))
 
   // Union of per-year warning IDs — a transfer or expense that fails in any
@@ -746,14 +767,34 @@
         {/if}
       </div>
 
-      <!-- Legend -->
-      <div class="flex justify-center gap-6 px-4 py-3">
-        {#each legendItems as item (item.id)}
-          <div class="flex items-center gap-1.5">
-            <div class="size-2.5 rounded-[2px]" style="background-color: {item.color}"></div>
-            <span class="text-xs">{item.label}</span>
-          </div>
-        {/each}
+      <!-- Show inflation + legend -->
+      <div class="flex items-center gap-2.5 p-4">
+        <div class="flex items-center gap-2">
+          <label class="flex cursor-pointer items-center gap-2">
+            <Switch checked={showInflation} onCheckedChange={(v) => (showInflation = v === true)} />
+            <span class="text-sm font-medium">{$_('page.plan.showInflation')}</span>
+          </label>
+          {#if showInflation}
+            <div class="w-20">
+              <SuffixedInput
+                value={inflationPercent}
+                suffix="%"
+                class="h-8"
+                aria-label={$_('page.plan.showInflation')}
+                formatNumber={appStore.formatNumber}
+                onValueChange={setInflationPercent}
+              />
+            </div>
+          {/if}
+        </div>
+        <div class="flex flex-1 flex-wrap items-center justify-end gap-4">
+          {#each legendItems as item (item.id)}
+            <div class="flex items-center gap-1.5">
+              <div class="size-2 rounded-[2px]" style="background-color: {item.color}"></div>
+              <span class="text-xs">{item.label}</span>
+            </div>
+          {/each}
+        </div>
       </div>
 
       <!-- Compare button -->
