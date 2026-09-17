@@ -3,6 +3,7 @@
   import { locale } from 'svelte-i18n'
 
   import { browser } from '$app/environment'
+  import { base } from '$app/paths'
   import { page } from '$app/state'
 
   import { EVENTS, identify, track, trackerLoaded } from '$lib/analytics'
@@ -19,11 +20,13 @@
   let cleanupTheme: (() => void) | undefined
   let cleanupRemote: (() => void) | undefined
 
-  // Umami analytics on the production host only; previews and localhost send
-  // nothing. The iOS Instagram in-app browser drops scripts added to <head>,
-  // so there the same tag goes into the body instead (legacy #942).
+  // Umami analytics on production only. PR previews share the host under
+  // kalkul.app/pr-N/ and are built with that base path, so an empty base is
+  // what tells production apart; localhost fails the hostname check. The iOS
+  // Instagram in-app browser drops scripts added to <head>, so there the same
+  // tag goes into the body instead (legacy #942).
   const UMAMI_WEBSITE_ID = '792b102b-b18a-440b-9fce-58639490a4d2'
-  const production = $derived(page.url.hostname === 'kalkul.app')
+  const production = $derived(page.url.hostname === 'kalkul.app' && base === '')
   const instagramIos =
     browser &&
     /iPhone|iPad|iPod/.test(navigator.userAgent) &&

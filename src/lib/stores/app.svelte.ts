@@ -522,7 +522,6 @@ function withAppStore() {
     // --- Backup / Restore ---
 
     exportBackup(): string {
-      track(EVENTS.BACKUP_EXPORTED)
       return JSON.stringify(
         { profile: profile.toJSON(), portfolios: portfolios.map((p) => p.toJSON()) },
         undefined,
@@ -541,7 +540,6 @@ function withAppStore() {
       portfolios = enrichAll(validated.portfolios)
       loading = false
       persist()
-      track(EVENTS.BACKUP_IMPORTED)
     },
   }
 }

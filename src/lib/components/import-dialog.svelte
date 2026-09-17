@@ -4,6 +4,7 @@
   import FileDown from '@lucide/svelte/icons/file-down'
   import FileInput from '@lucide/svelte/icons/file-input'
 
+  import { EVENTS, track } from '$lib/analytics'
   import { Button } from '$lib/components/ui/button'
   import * as Dialog from '$lib/components/ui/dialog'
   import downloadBackup from '$lib/download-backup'
@@ -43,6 +44,9 @@
     try {
       const text = await file.text()
       appStore.importBackup(text)
+      // The landing demo and the dev presets import too; only a restore from
+      // the user's own file counts as a backup import.
+      track(EVENTS.BACKUP_IMPORTED)
       open = false
     } catch (e) {
       console.error('Failed to import backup', e)
