@@ -1,3 +1,4 @@
+import { EVENTS, track } from '$lib/analytics'
 import { appStore } from '$lib/stores/app.svelte'
 import { slugify } from '$lib/utils'
 
@@ -7,6 +8,9 @@ import { slugify } from '$lib/utils'
  * same "export" action.
  */
 export default function downloadBackup(): void {
+  // Tracked here rather than in the store: the MCP tools read the same export
+  // on every state request, and only the user's download is worth counting.
+  track(EVENTS.BACKUP_EXPORTED)
   const json = appStore.exportBackup()
   const blob = new Blob([json], { type: 'application/json' })
   const url = URL.createObjectURL(blob)

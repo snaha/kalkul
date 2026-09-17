@@ -4,6 +4,7 @@
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
 
+  import { EVENTS, track } from '$lib/analytics'
   import { Button } from '$lib/components/ui/button'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
@@ -21,13 +22,18 @@
   // when nothing is stored, so there is nothing to overwrite. The page turns
   // into the dashboard by itself once the import lands.
   async function tryDemo(): Promise<void> {
+    track(EVENTS.LANDING_TRY_DEMO)
     appStore.importBackup(JSON.stringify(SAMPLE))
     await goto(resolve(routes.HOME))
   }
 </script>
 
 <div class="flex flex-wrap items-center gap-3">
-  <Button size="lg" href={resolve(routes.PROFILE)}>
+  <Button
+    size="lg"
+    href={resolve(routes.PROFILE)}
+    onclick={() => track(EVENTS.LANDING_START_PLANNING)}
+  >
     {$_('page.landing.cta.startPlanning')}
   </Button>
   <Button variant="outline" size="lg" onclick={tryDemo}>
