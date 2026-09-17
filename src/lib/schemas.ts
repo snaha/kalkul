@@ -786,6 +786,9 @@ export const profileSchema = z.object({
   // UI language preference. Mirrors the supported locales in
   // `src/lib/locales/index.ts` — keep the two lists in sync.
   language: z.enum(['en', 'cs']).optional(),
+  // Inflation the automatic Current projection runs with (a rate, 0.02 = 2%).
+  // Saved plans carry their own; this one has no settings page to live on.
+  inflation_rate: z.number().optional(),
   // Usage/license terms accepted in the first Get started step. Persisted so
   // navigating Back does not force the user to accept them again.
   terms_accepted: z.boolean().optional(),
