@@ -35,11 +35,12 @@ const DELIBERATELY_TIGHT: Record<string, { firstUnfundedYear: number; maxUnfunde
 
 /**
  * A current projection that is *meant* to run out, with the first year it
- * does. Tereza is a student on a flat café wage whose rent rises 5% a year:
- * "if nothing changes" is exactly the problem her "After graduation" plan
- * is there to solve. Pinning the year keeps the data honest about it.
+ * does. Tereza is a student on a flat café wage whose rent rises 5% a year
+ * while she keeps putting 500 CZK a month into her ETF: "if nothing changes"
+ * is exactly the problem her "After graduation" plan is there to solve.
+ * Pinning the year keeps the data honest about it.
  */
-const CURRENT_PROJECTION_RUNS_DRY: Record<string, number> = { tereza: 2032 }
+const CURRENT_PROJECTION_RUNS_DRY: Record<string, number> = { tereza: 2031 }
 
 function parse(json: unknown) {
   return storedDataSchema.pick({ profile: true, portfolios: true }).parse(json)
