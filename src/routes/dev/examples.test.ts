@@ -35,9 +35,10 @@ const DELIBERATELY_TIGHT: Record<string, { firstUnfundedYear: number; maxUnfunde
 
 /**
  * Examples whose current projection runs out by design, with the first year it
- * does. Tereza: a flat café wage against rent rising 5% a year.
+ * does. Tereza: a flat café wage against rent rising 5% a year, with 500 CZK a
+ * month still going into her ETF.
  */
-const CURRENT_PROJECTION_RUNS_DRY: Record<string, number> = { tereza: 2032 }
+const CURRENT_PROJECTION_RUNS_DRY: Record<string, number> = { tereza: 2031 }
 
 function parse(json: unknown) {
   return storedDataSchema.pick({ profile: true, portfolios: true }).parse(json)
