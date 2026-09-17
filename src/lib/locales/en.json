@@ -194,7 +194,8 @@
       "cashFlowOccurrences": "{count, plural, one {# occurrence} other {# occurrences}}",
       "cashFlowNominalValue": "Nominal value: {nominal} ({real} in today's money)",
       "cashFlowNominalTotal": "Nominal total: {nominal} ({real} in today's money)",
-      "cashFlowTotal": "Total: {total}"
+      "cashFlowTotal": "Total: {total}",
+      "modelChanges": "Model changes"
     },
     "landing": {
       "nav": {
@@ -642,6 +643,12 @@
         "holdingYearsOutOfRange": "Enter 0 or more years",
         "cgtHelp": "Capital gains tax (CGT) is a tax levied on the profit (gain) made from selling an asset—such as stocks, bonds, real estate, or collectibles—that has increased in value. It only applies when the asset is sold (realized), not while it is held. Rates generally depend on how long the asset was held (short-term vs. long-term) and the owner's income level."
       }
+    },
+    "modelChanges": {
+      "title": "Model changes in a new projection",
+      "intro": "Create a new projection to add assets and cash flows, and explore what-ifs — your current financial data will not be changed.",
+      "name": "Projection name",
+      "create": "Create new projection"
     }
   },
   "common": {
