@@ -60,7 +60,7 @@ describe('dev presets', () => {
     const endsToday = presets.filter(
       (preset) => latestSnapshot(preset.data.profile.snapshots)?.date === toDateOnlyString(TODAY),
     )
-    expect(endsToday.map((preset) => preset.name)).toEqual(['Martin, 30 — updated today'])
+    expect(endsToday.map((preset) => preset.name)).toEqual(['Peter, 29 — updated today'])
   })
 
   test('covers a profile with years of history behind it', () => {

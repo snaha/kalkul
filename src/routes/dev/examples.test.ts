@@ -1,7 +1,7 @@
 import bence from '$examples/bence-toth-hu-25yo.kalkul.json'
-import claire from '$examples/claire-moreau-fr-40yo.kalkul.json'
-import martin from '$examples/martin-kovac-sk-30yo.kalkul.json'
-import pavel from '$examples/pavel-dvorak-cz-50yo.kalkul.json'
+import claire from '$examples/claire-moreau-fr-41yo.kalkul.json'
+import jan from '$examples/jan-dvorak-cz-56yo.kalkul.json'
+import peter from '$examples/peter-kovac-sk-29yo.kalkul.json'
 import tereza from '$examples/tereza-svobodova-cz-20yo.kalkul.json'
 import { describe, expect, test } from 'vitest'
 
@@ -20,7 +20,7 @@ import { storedDataSchema } from '$lib/schemas'
  */
 const TODAY = new Date(2026, 7, 12) // 2026-08-12
 
-const SAMPLES = { tereza, bence, martin, claire, pavel }
+const SAMPLES = { tereza, bence, peter, claire, jan }
 
 /**
  * Plans that are *meant* to run out, with the first year they do. The landing

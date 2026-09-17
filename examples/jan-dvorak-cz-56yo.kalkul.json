@@ -1,8 +1,8 @@
 {
   "profile": {
-    "name": "Pavel Dvořák",
-    "email": "pavel.dvorak@example.com",
-    "birth_date": "1976-11-08",
+    "name": "Jan Dvořák",
+    "email": "jan.dvorak@example.com",
+    "birth_date": "1970-06-08",
     "location": "CZ",
     "currency": "CZK",
     "cash_amount": 850000,
@@ -124,15 +124,15 @@
         "amount": 0,
         "transfer_all": true,
         "schedule": "one_time",
-        "transaction_year": 2041,
-        "transaction_month": 11
+        "transaction_year": 2035,
+        "transaction_month": 6
       },
       {
         "id": "tr-2",
         "name": "Monthly pension top-up from ETF",
         "from_asset_id": "inv-1",
         "to_asset_id": "cash",
-        "amount": 30000,
+        "amount": 24000,
         "inflation_adjusted": true,
         "schedule": "recurring",
         "frequency": "monthly",
@@ -149,7 +149,7 @@
       "name": "Retirement at 65",
       "notes": "Shift building savings into bonds at retirement, then draw down the ETF monthly.",
       "start_date": "2026-07-01",
-      "end_date": "2066-11-01",
+      "end_date": "2060-06-01",
       "inflation_rate": 0.025,
       "include_cash": true,
       "included_investment_ids": ["inv-1", "inv-2", "inv-3"],

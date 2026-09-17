@@ -390,6 +390,38 @@ describe('appStore.updateProfile persistence', () => {
   })
 })
 
+describe('appStore demo mode', () => {
+  beforeEach(stubLocalStorage)
+
+  afterEach(() => {
+    appStore.clear()
+    vi.unstubAllGlobals()
+  })
+
+  const DEMO = { profile: { name: 'Claire Moreau', email: '', cash_amount: 100 }, portfolios: [] }
+
+  it('holds the persona in memory and never writes to storage', () => {
+    appStore.loadDemo(DEMO)
+    appStore.updateProfile({ cash_amount: 200 })
+
+    expect(appStore.demo).toBe(true)
+    expect(appStore.profile.cash_amount).toBe(200)
+    expect(backing.has(storageKeys.DATA)).toBe(false)
+  })
+
+  it('exits to empty data and persists again afterwards', () => {
+    appStore.loadDemo(DEMO)
+    appStore.exitDemo()
+
+    expect(appStore.demo).toBe(false)
+    expect(appStore.profile.name).toBe('')
+    expect(appStore.portfolios).toEqual([])
+
+    appStore.updateProfile({ name: 'Jane' })
+    expect(JSON.parse(backing.get(storageKeys.DATA) ?? '{}').profile.name).toBe('Jane')
+  })
+})
+
 describe('appStore.deletePortfolio', () => {
   beforeEach(stubLocalStorage)
 
