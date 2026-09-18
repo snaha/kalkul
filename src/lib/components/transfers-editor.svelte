@@ -38,9 +38,7 @@
         crypto.randomUUID(),
         $_('page.setup.transfers.defaultName', { values: { index } }),
       ),
-      // Cash is the overwhelmingly common source, and seeding it keeps a
-      // named-but-unfinished card schema-valid (from !== to) so it survives
-      // a remount instead of being rejected as a self-transfer.
+      // Cash is the overwhelmingly common source.
       from_asset_id: 'cash',
       // Financial data holds recurring transfers only; one-time transfers are
       // created in the plan dialog.
@@ -56,9 +54,15 @@
       t.to_asset_id !== '' &&
       t.from_asset_id !== t.to_asset_id,
     toStored: (t) => transferFromFields(t),
+    // A card is named automatically, so it would be persisted before the user
+    // picks both endpoints; the schema rejects empty endpoint ids (#305), so
+    // unfinished cards are left out until they are complete.
     persist: (data) =>
       appStore.updateProfile({
-        transfers: [...data, ...planOwnedItems(appStore.profile.transfers)],
+        transfers: [
+          ...data.filter((t) => t.from_asset_id && t.to_asset_id),
+          ...planOwnedItems(appStore.profile.transfers),
+        ],
       }),
     // Unlike incomes or expenses, a regular transfer is not something to
     // assume everyone has — the page opens empty and waits for Add (#259).
