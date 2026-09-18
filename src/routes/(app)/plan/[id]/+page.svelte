@@ -5,11 +5,11 @@
   import ArrowLeft from '@lucide/svelte/icons/arrow-left'
   import ChevronRight from '@lucide/svelte/icons/chevron-right'
   import PanelLeft from '@lucide/svelte/icons/panel-left'
+  import PanelRight from '@lucide/svelte/icons/panel-right'
   import Plus from '@lucide/svelte/icons/plus'
   import Rows2 from '@lucide/svelte/icons/rows-2'
   import Search from '@lucide/svelte/icons/search'
   import Settings2 from '@lucide/svelte/icons/settings-2'
-  import X from '@lucide/svelte/icons/x'
 
   import { resolve } from '$app/paths'
   import { page } from '$app/state'
@@ -774,7 +774,7 @@
           <div class="flex items-center justify-between">
             <p class="text-lg font-bold">{selectedYear}</p>
             <Button variant="ghost" size="icon" onclick={() => (isPanelOpen = false)}>
-              <X class="size-4" />
+              <PanelRight class="size-4" />
             </Button>
           </div>
 
