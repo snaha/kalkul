@@ -220,6 +220,12 @@ export function repairStoredData(data: unknown): unknown {
       const flows = profile[key]
       if (Array.isArray(flows)) for (const flow of flows) repairCashFlowMonths(flow)
     }
+    // Transfers stored before endpoint ids were required (#305): an unfinished
+    // card carries an empty endpoint and would otherwise fail the whole load.
+    if (Array.isArray(profile.transfers))
+      profile.transfers = profile.transfers.filter(
+        (t) => !isRecord(t) || (t.from_asset_id !== '' && t.to_asset_id !== ''),
+      )
     if (Array.isArray(profile.snapshots))
       for (const snapshot of profile.snapshots) repairSnapshot(snapshot, profile)
   }
@@ -671,8 +677,8 @@ export const transferSchema = z
   .object({
     id: z.string(),
     name: z.string(),
-    from_asset_id: z.string(),
-    to_asset_id: z.string(),
+    from_asset_id: z.string().min(1),
+    to_asset_id: z.string().min(1),
     amount: z.number(),
     // When true, ignore `amount` and transfer the source's full available
     // balance at the time of execution.
