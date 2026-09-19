@@ -2,6 +2,7 @@ import { init } from 'svelte-i18n'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { track } from '$lib/analytics'
 import { getYearlyPlanProjection } from '$lib/plan-projection'
 import type { Portfolio, Profile } from '$lib/schemas'
 import { buildSnapshotSections, seedSnapshotOn, snapshotFromFields } from '$lib/snapshot-form'
@@ -9,6 +10,11 @@ import storageKeys from '$lib/storage-keys'
 import { toDateOnlyString } from '$lib/utils'
 
 import { appStore } from './app.svelte'
+
+vi.mock('$lib/analytics', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('$lib/analytics')>()),
+  track: vi.fn(),
+}))
 
 // The schema's conditional-requirement messages are translations, and one is
 // formatted the moment a check fails.
@@ -387,6 +393,29 @@ describe('appStore.updateProfile persistence', () => {
       { id: 'r1', rate: 15, holding_period: 'less_than', holding_years: 3 },
     ])
     expect(persisted.tangible_asset_tax_rules).toEqual([{ id: 'r2', holding_period: 'more_than' }])
+  })
+})
+
+describe('appStore.addPortfolio analytics', () => {
+  beforeEach(() => {
+    stubLocalStorage()
+    vi.mocked(track).mockClear()
+    appStore.importBackup(JSON.stringify({ profile: { name: 'Jane', email: '' }, portfolios: [] }))
+  })
+
+  afterEach(() => {
+    appStore.clear()
+    vi.unstubAllGlobals()
+  })
+
+  const plan = { name: 'Plan', start_date: '2026-01-01', end_date: '2060-01-01', inflation_rate: 2 }
+
+  it('reports the first plan separately from later ones', () => {
+    appStore.addPortfolio(plan)
+    expect(vi.mocked(track).mock.calls).toEqual([['plan-created'], ['first-plan-created']])
+
+    appStore.addPortfolio(plan)
+    expect(vi.mocked(track).mock.calls.slice(2)).toEqual([['plan-created']])
   })
 })
 
