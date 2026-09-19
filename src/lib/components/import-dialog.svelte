@@ -4,10 +4,14 @@
   import FileDown from '@lucide/svelte/icons/file-down'
   import FileInput from '@lucide/svelte/icons/file-input'
 
+  import { goto } from '$app/navigation'
+  import { resolve } from '$app/paths'
+
   import { EVENTS, track } from '$lib/analytics'
   import { Button } from '$lib/components/ui/button'
   import * as Dialog from '$lib/components/ui/dialog'
   import downloadBackup from '$lib/download-backup'
+  import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
 
   interface Props {
@@ -48,6 +52,9 @@
       // the user's own file counts as a backup import.
       track(EVENTS.BACKUP_IMPORTED)
       open = false
+      // The restored data lives on the dashboard, not on the page the dialog
+      // was opened from (onboarding profile, settings).
+      goto(resolve(routes.HOME))
     } catch (e) {
       console.error('Failed to import backup', e)
       alert($_('navbar.import.error'))
