@@ -1,17 +1,15 @@
 <script lang="ts">
   import * as Dialog from '$lib/components/ui/dialog'
   import { appStore } from '$lib/stores/app.svelte'
-  import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
 
   import CashEditForm from './cash-edit-form.svelte'
 
   interface Props {
     open: boolean
     onOpenChange: (open: boolean) => void
-    plan: PortfolioStore
   }
 
-  let { open = $bindable(), onOpenChange, plan }: Props = $props()
+  let { open = $bindable(), onOpenChange }: Props = $props()
 
   function close() {
     onOpenChange(false)
@@ -29,7 +27,7 @@
 <Dialog.Root bind:open {onOpenChange}>
   <Dialog.Content showCloseButton={false} class="gap-0 p-0 sm:max-w-md">
     {#if open}
-      <CashEditForm {initial} {plan} onClose={close} />
+      <CashEditForm {initial} onClose={close} />
     {/if}
   </Dialog.Content>
 </Dialog.Root>
