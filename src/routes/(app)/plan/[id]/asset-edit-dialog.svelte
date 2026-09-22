@@ -10,6 +10,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
   import { itemsForPlan } from '$lib/plan-owned'
+  import { planRangeOf, planYearOptions, timingWithinPlan } from '$lib/plan-range'
   import type {
     CashFlowEnd,
     CashFlowStart,
@@ -26,7 +27,7 @@
   } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
-  import { getMonthOptions, getYearOptions } from '$lib/utils'
+  import { getMonthOptions } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
   import {
@@ -113,7 +114,8 @@
 
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
-  const years = getYearOptions()
+  const range = $derived(planRangeOf(plan, appStore.profile.birthDate))
+  const years = $derived(planYearOptions(range))
 
   let months = $derived(getMonthOptions($locale ?? undefined))
 
@@ -229,6 +231,14 @@
   }
 
   let form = $state<FormState>(blankForm())
+  // Every planned date or age must fall inside the plan (year precision).
+  const timingWithin = $derived(
+    kind === 'investment'
+      ? timingWithinPlan(range, form.start, form.start_year, form.start_age) &&
+          timingWithinPlan(range, form.exit, form.exit_year, form.exit_age)
+      : timingWithinPlan(range, form.purchase, form.purchase_year, form.purchase_age) &&
+          timingWithinPlan(range, form.sale, form.sale_year, form.sale_age),
+  )
   // "Show advanced options" disclosure for a liability and for the financing
   // of a financed tangible asset. Auto-expands when the item already carries
   // non-default interest settings so the user can see what's driving the math.
@@ -408,6 +418,7 @@
   {isIncluded}
   renamable={false}
   toolbar={false}
+  saveDisabled={!timingWithin}
   badge={kind === 'tangibleAsset' && form.status === 'financed' && !isNew
     ? $_('page.setup.tangibleAssets.financed')
     : undefined}
@@ -438,6 +449,7 @@
       showTiming
       {currencyLabel}
       {years}
+      {range}
       {months}
       birthDateSet={appStore.profile.birth_date !== undefined}
       formatNumber={appStore.formatNumber}
@@ -459,6 +471,7 @@
       showTiming
       {currencyLabel}
       {years}
+      {range}
       {months}
       birthDateSet={appStore.profile.birth_date !== undefined}
       formatNumber={appStore.formatNumber}

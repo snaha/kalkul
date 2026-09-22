@@ -15,6 +15,7 @@
   import * as Tooltip from '$lib/components/ui/tooltip'
   import { itemsForPlan } from '$lib/plan-owned'
   import { filterById, summarizeTransfer } from '$lib/plan-projection'
+  import { planRangeOf, planYearOptions, timingWithinPlan } from '$lib/plan-range'
   import { sameYearMonthsInverted, timingComplete } from '$lib/schemas'
   import type { Transfer, TransferSchedule } from '$lib/schemas'
   import { getFrequencyItems } from '$lib/select-options'
@@ -27,7 +28,7 @@
     transferFromFields,
     transferToFields,
   } from '$lib/transfer-form'
-  import { getMonthOptions, getYearOptions } from '$lib/utils'
+  import { getMonthOptions } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
 
@@ -44,7 +45,8 @@
 
   let { open = $bindable(), onOpenChange, initial, plan, onDuplicated }: Props = $props()
 
-  const years = getYearOptions()
+  const range = $derived(planRangeOf(plan, appStore.profile.birthDate))
+  const years = $derived(planYearOptions(range))
   let months = $derived(getMonthOptions($locale ?? undefined))
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
@@ -219,9 +221,12 @@
   // decide where. The summary needs the former, saving needs both.
   const amountAndTimingValid = $derived(
     (form.transfer_all || (form.amount ?? 0) > 0) &&
-      (form.schedule === 'one_time' ||
+      ((form.schedule === 'one_time' &&
+        timingWithinPlan(range, 'at_specific_date', form.transaction_year, undefined)) ||
         (timingComplete(form.start, form.start_year, form.start_month, form.start_age) &&
           timingComplete(form.end, form.end_year, form.end_month, form.end_age) &&
+          timingWithinPlan(range, form.start, form.start_year, form.start_age) &&
+          timingWithinPlan(range, form.end, form.end_year, form.end_age) &&
           !sameYearMonthsInverted(
             form.start,
             form.start_year,
@@ -320,6 +325,13 @@
             }}
           />
         </div>
+        {#if !timingWithinPlan(range, 'at_specific_date', form.transaction_year, undefined)}
+          <p class="text-xs text-destructive">
+            {$_('validation.outside_plan', {
+              values: { start: String(range.startYear), end: String(range.endYear) },
+            })}
+          </p>
+        {/if}
       </div>
     {:else}
       <div class="flex flex-1 flex-col gap-2">
@@ -431,6 +443,7 @@
       month={form.start_month}
       age={form.start_age}
       {years}
+      {range}
       {months}
       birthDateSet={appStore.profile.birthDate !== undefined}
       description={$_('page.plan.transferStartDescription')}
@@ -448,6 +461,7 @@
       month={form.end_month}
       age={form.end_age}
       {years}
+      {range}
       {months}
       minMonth={endMinMonth(form)}
       birthDateSet={appStore.profile.birthDate !== undefined}
