@@ -73,7 +73,7 @@ export function kalkulTools(app: App = appStore): KalkulTool[] {
     },
     tool(
       'update_profile',
-      'Merge the given fields into the profile. Array fields (investments, tangible_assets, liabilities, incomes, expenses, transfers) replace the whole list, so fetch, edit and write back the full array. An item with plan_id belongs to that plan only and stays out of financial data; keep plan_id on such items, and set it when adding an item that should exist in one plan only. Incomes and expenses carry a schedule: one_time items need transaction_year and transaction_month, recurring items need frequency, start, end and change_over_time.',
+      'Merge the given fields into the profile. Array fields (investments, tangible_assets, liabilities, incomes, expenses, transfers) replace the whole list, so fetch, edit and write back the full array. Ownership rule: whatever is changed while working on a plan applies to that plan only. An item with plan_id belongs to that plan alone and stays out of financial data and other plans, so every item added while working on a plan must carry the id of that plan (when working on several plans, each item gets the id of the plan it was added to). Keep plan_id on existing items. An item without plan_id is current financial data shared by every plan, and editing it changes all of them. Incomes and expenses carry a schedule: one_time items need transaction_year and transaction_month, recurring items need frequency, start, end and change_over_time.',
       profileSchema.partial(),
       WRITE,
       (args) => {
