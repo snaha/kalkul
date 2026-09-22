@@ -84,7 +84,9 @@
   let effectiveDescription = $derived(description ?? computedDescription)
 
   let yearString = $derived(year !== undefined ? String(year) : '')
-  let monthString = $derived(month !== undefined ? String(month) : '')
+  // Stored months are 1..12 (the engine's convention); the option values
+  // from getMonthOptions are 0..11, so convert at this boundary.
+  let monthString = $derived(month !== undefined ? String(month - 1) : '')
 
   // Age-based timing needs a birth date to resolve to a year; disable it when
   // none is set so the flow can't silently start at the plan's first year.
@@ -114,7 +116,7 @@
   let monthItems = $derived(
     minMonth === undefined
       ? months
-      : months.map((m) => ({ ...m, disabled: Number(m.value) < minMonth })),
+      : months.map((m) => ({ ...m, disabled: Number(m.value) + 1 < minMonth })),
   )
 </script>
 
@@ -146,7 +148,7 @@
         value={monthString}
         items={monthItems}
         onValueChange={(v) => {
-          if (v) onMonthChange(Number(v))
+          if (v) onMonthChange(Number(v) + 1)
         }}
       />
     </div>
