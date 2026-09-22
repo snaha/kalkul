@@ -3491,6 +3491,39 @@ describe('liability start and pay-off', () => {
     expect(result.map((r) => Math.round(r.liabilities))).toEqual([0, 0, 750, 500, 250, 0])
   })
 
+  const loan: ProfileLiability = {
+    id: 'l1',
+    name: 'Loan',
+    outstanding_balance: 1000,
+    installment_frequency: 'yearly',
+    annual_rate: 0,
+    installment_amount: 250,
+    remaining_term: 4,
+  }
+  const plan = makePlan({ start_date: '2025-01-01', end_date: '2030-01-01' })
+
+  it('pays the principal of a loan the plan takes on into cash in its start year (#322)', () => {
+    const liabilities: ProfileLiability[] = [
+      { ...loan, plan_id: 'plan-1', start: 'at_specific_date', start_year: 2027, start_month: 1 },
+    ]
+    const result = getYearlyPlanProjection(plan, makeProfile({ liabilities }))
+    expect(result.map((r) => Math.round(r.cash))).toEqual([0, 0, 750, 500, 250, 0])
+    expect(result.map((r) => Math.round(r.netWorth))).toEqual([0, 0, 0, 0, 0, 0])
+    expect(result.map((r) => r.totalIncome)).toEqual([0, 0, 0, 0, 0, 0])
+  })
+
+  it('pays the principal in the first year when the plan-owned loan starts with the plan', () => {
+    const liabilities: ProfileLiability[] = [{ ...loan, plan_id: 'plan-1' }]
+    const result = getYearlyPlanProjection(plan, makeProfile({ liabilities }))
+    expect(result.map((r) => Math.round(r.cash))).toEqual([750, 500, 250, 0, 0, 0])
+  })
+
+  it('adds nothing to cash for a loan the user already carries', () => {
+    const result = getYearlyPlanProjection(plan, makeProfile({ liabilities: [loan] }))
+    expect(result.map((r) => Math.round(r.cash))).toEqual([0, 0, 0, 0, 0, 0])
+    expect(result.map((r) => Math.round(r.liabilities))).toEqual([750, 500, 250, 0, 0, 0])
+  })
+
   it('settles the remaining balance in the planned pay-off year', () => {
     const liabilities: ProfileLiability[] = [
       {

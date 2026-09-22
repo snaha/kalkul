@@ -1341,8 +1341,18 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     //    to fund a monthly expense) actually cover that expense instead of
     //    being booked too late and tripping a spurious insufficient-funds
     //    warning.
+    //    A loan the plan takes on pays its principal into cash in the year it
+    //    starts (#322). Financial-data liabilities are debt the user already
+    //    carries, so that money is already in today's balances. Booked
+    //    alongside income, not as income: it is not earnings and must not
+    //    lift the savings rate or FI %.
+    const borrowedThisYearNominal = liabilities.reduce<Decimal>((sum, l) => {
+      if (l.plan_id === undefined) return sum
+      const firstYear = Math.max(liabilityStartYear(l, birthYear) ?? startYear, startYear)
+      return firstYear === year ? sum.plus(new Decimal(l.outstanding_balance)) : sum
+    }, DECIMAL_0)
     if (plan.include_cash !== false) {
-      cashNominal = cashNominal.plus(incomesThisYearNominal)
+      cashNominal = cashNominal.plus(incomesThisYearNominal).plus(borrowedThisYearNominal)
     }
 
     // 4. Transfer flows for this year. Each transfer is applied atomically:
