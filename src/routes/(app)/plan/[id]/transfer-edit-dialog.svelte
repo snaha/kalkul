@@ -61,9 +61,9 @@
   // The list is filtered by plan inclusion via the same filterById the
   // projection uses, so the dropdowns and the projection see the same assets.
   const assetOptions = $derived<{ id: string; name: string }[]>([
-    ...(plan.include_cash !== false && appStore.profile.cash_amount
-      ? [{ id: 'cash', name: $_('page.plan.cashItem') }]
-      : []),
+    // Cash is always an endpoint: every plan has a cash balance (#331), and
+    // a transfer into an empty one is how it gets funded.
+    { id: 'cash', name: $_('page.plan.cashItem') },
     ...filterById(appStore.profile.investments, plan.included_investment_ids).map((inv) => ({
       id: inv.id,
       name: inv.name,

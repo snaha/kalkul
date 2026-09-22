@@ -68,9 +68,9 @@ describe('getYearlyPlanProjection', () => {
     expect(result[0].cash).toBe(0)
   })
 
-  it('keeps cash at 0 over time when include_cash = false even with cash flows and liabilities', () => {
-    // Regression for the leak: previously, income/expense/liability payments
-    // accumulated into a zeroed cash balance, producing negative bars.
+  it('runs income and installments through cash from 0 when include_cash = false', () => {
+    // Excluding cash only zeroes the opening balance (#331). The cash
+    // mechanism itself always runs: income arrives, installments drain.
     const incomes: Income[] = [
       {
         id: 'inc1',
@@ -98,14 +98,33 @@ describe('getYearlyPlanProjection', () => {
       makePlan({ include_cash: false }),
       makeProfile({ cash_amount: 1000, incomes, liabilities }),
     )
-    for (const entry of result) {
-      expect(entry.cash).toBe(0)
-    }
+    // 12 000 in, 250 out per year; the profile's 1 000 is not the opening balance.
+    expect(result[0].cash).toBe(11_750)
+    expect(result[1].cash).toBe(23_500)
   })
 
-  it('keeps cash at 0 with a financed tangible asset when include_cash = false', () => {
-    // Same root cause: mortgage payment was draining a zeroed cash balance.
-    // Equity must still be correct (asset gross − mortgage outstanding).
+  it('flags insufficient funds from an empty opening balance when include_cash = false', () => {
+    const expenses: Expense[] = [
+      {
+        id: 'exp1',
+        name: 'Rent',
+        amount: 100,
+        schedule: 'recurring',
+        frequency: 'monthly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan({ include_cash: false }),
+      makeProfile({ cash_amount: 1000, expenses }),
+    )
+    expect(result[0].cash).toBe(0)
+    expect(result[0].insufficientFundExpenseIds).toEqual(['exp1'])
+  })
+
+  it('pays a mortgage from cash with a financed tangible asset when include_cash = false', () => {
     const tangible_assets: ProfileTangibleAsset[] = [
       {
         id: 't1',
@@ -119,13 +138,23 @@ describe('getYearlyPlanProjection', () => {
         remaining_term: 10,
       },
     ]
+    const incomes: Income[] = [
+      {
+        id: 'inc1',
+        name: 'Salary',
+        amount: 500_000,
+        schedule: 'recurring',
+        frequency: 'yearly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
     const result = getYearlyPlanProjection(
       makePlan({ include_cash: false }),
-      makeProfile({ tangible_assets }),
+      makeProfile({ tangible_assets, incomes }),
     )
-    for (const entry of result) {
-      expect(entry.cash).toBe(0)
-    }
+    expect(result[0].cash).toBe(200_000)
     // Mortgage still amortizes; tangible asset gross unchanged.
     expect(result[0].tangibleAssets).toBe(5_000_000)
     expect(result[0].liabilities).toBeCloseTo(2_700_000, 6)
