@@ -2,8 +2,9 @@ import storageKeys from '$lib/storage-keys'
 
 /**
  * Umami Cloud analytics (issue #299). The tracker script is loaded by the root
- * layout on kalkul.app only; everywhere else `window.umami` stays undefined
- * and every call here is a no-op. Page views are tracked by the script itself;
+ * layout only in a build with VITE_UMAMI_WEBSITE_ID set (#314), which is the
+ * kalkul.app deploy; everywhere else `window.umami` stays undefined and every
+ * call here is a no-op. Page views are tracked by the script itself;
  * these are the custom events that make the growth funnel readable:
  * visitor → profile created → finances entered → plan created → keeps coming back.
  *

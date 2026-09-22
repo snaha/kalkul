@@ -3,8 +3,6 @@
   import { locale } from 'svelte-i18n'
 
   import { browser } from '$app/environment'
-  import { base } from '$app/paths'
-  import { page } from '$app/state'
 
   import { EVENTS, identify, track, trackerLoaded } from '$lib/analytics'
   import storageKeys from '$lib/storage-keys'
@@ -20,13 +18,13 @@
   let cleanupTheme: (() => void) | undefined
   let cleanupRemote: (() => void) | undefined
 
-  // Umami analytics on production only. PR previews share the host under
-  // kalkul.app/pr-N/ and are built with that base path, so an empty base is
-  // what tells production apart; localhost fails the hostname check. The iOS
-  // Instagram in-app browser drops scripts added to <head>, so there the same
-  // tag goes into the body instead (legacy #942).
-  const UMAMI_WEBSITE_ID = '792b102b-b18a-440b-9fce-58639490a4d2'
-  const production = $derived(page.url.hostname === 'kalkul.app' && base === '')
+  // Umami analytics is off unless the build sets VITE_UMAMI_WEBSITE_ID (#314);
+  // only the production deploy does, so PR previews, local dev and self-hosted
+  // instances never load the tracker. The iOS Instagram in-app browser drops
+  // scripts added to <head>, so there the same tag goes into the body instead
+  // (legacy #942).
+  const UMAMI_WEBSITE_ID: string | undefined = import.meta.env.VITE_UMAMI_WEBSITE_ID
+  const production = UMAMI_WEBSITE_ID !== undefined
   const instagramIos =
     browser &&
     /iPhone|iPad|iPod/.test(navigator.userAgent) &&

@@ -83,10 +83,21 @@ at `kalkul.app`.
 
 ## Environment Variables
 
-| Variable        | Default | Description                        |
-| --------------- | ------- | ---------------------------------- |
-| `VITE_ROUTER`   |         | Router type (`hash` or `pathname`) |
-| `VITE_BASE_URL` |         | Base path for deployment           |
+| Variable                | Default | Description                                                           |
+| ----------------------- | ------- | --------------------------------------------------------------------- |
+| `VITE_ROUTER`           |         | Router type (`hash` or `pathname`)                                    |
+| `VITE_BASE_URL`         |         | Base path for deployment                                              |
+| `VITE_UMAMI_WEBSITE_ID` |         | Umami website id; enables anonymous usage analytics (see "Analytics") |
+
+## Analytics
+
+Kalkul collects no analytics unless it is built with `VITE_UMAMI_WEBSITE_ID` set. Only the
+production deploy of kalkul.app sets it (`.github/workflows/deploy-prod.yaml`); local development,
+PR previews and any instance you build yourself send nothing, and the Content Security Policy of
+such a build does not even allow the tracker's hosts. With the variable set, the root layout loads
+the [Umami](https://umami.is) tracker and the app sends anonymous events (`src/lib/analytics.ts`):
+page views, a handful of named actions such as "plan created", and a random per-browser id so a
+returning visitor is counted once. Nothing that identifies a person is sent.
 
 ## Testing
 
