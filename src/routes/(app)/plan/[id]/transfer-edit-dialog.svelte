@@ -30,6 +30,7 @@
   import { getMonthOptions, getYearOptions, monthToOption, optionToMonth } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
+  import { PROFILE_LISTS, upsertProfileItem } from './profile-lists'
 
   interface Props {
     open: boolean
@@ -132,19 +133,7 @@
   }
 
   function save() {
-    const existing = appStore.profile.transfers ?? []
-    const projected = transferFromFields(form)
-    const idx = existing.findIndex((t) => t.id === form.id)
-    const next =
-      idx === -1 ? [...existing, projected] : existing.map((it, i) => (i === idx ? projected : it))
-    // Save the transfer first: updateProfile validates, so referencing the id
-    // from the plan before it lands could leave a dangling include entry.
-    appStore.updateProfile({ transfers: next })
-    // If the plan has an explicit transfer include list, append the new id so
-    // the new transfer is visible by default (mirrors income/expense flow).
-    if (idx === -1 && plan.included_transfer_ids !== undefined) {
-      plan.update({ included_transfer_ids: [...plan.included_transfer_ids, form.id] })
-    }
+    upsertProfileItem(PROFILE_LISTS.transfer, transferFromFields(form), plan)
     close()
   }
 

@@ -16,6 +16,7 @@ export type ProfileListKey =
   | 'liabilities'
   | 'incomes'
   | 'expenses'
+  | 'transfers'
 
 export type ProfileListItem<K extends ProfileListKey> = NonNullable<Profile[K]>[number]
 
@@ -30,6 +31,7 @@ export interface ProfileListConfig<K extends ProfileListKey = ProfileListKey> {
     | 'included_liability_ids'
     | 'included_income_ids'
     | 'included_expense_ids'
+    | 'included_transfer_ids'
 }
 
 export const PROFILE_LISTS = {
@@ -50,6 +52,7 @@ export const PROFILE_LISTS = {
   },
   income: { key: 'incomes', includedKey: 'included_income_ids' },
   expense: { key: 'expenses', includedKey: 'included_expense_ids' },
+  transfer: { key: 'transfers', includedKey: 'included_transfer_ids' },
 } as const satisfies Record<string, ProfileListConfig>
 
 function listItems<K extends ProfileListKey>(config: ProfileListConfig<K>): ProfileListItem<K>[] {
@@ -69,14 +72,18 @@ function persistList<K extends ProfileListKey>(
 }
 
 /**
- * Insert or replace the item by id. A new item is created in this plan, so it
- * is owned by it: financial data and other plans never list it. It is also
- * appended to the plan's include list when one exists, so it is visible in
- * this plan by default (an undefined include list already means "all
- * included"). Editing an existing item leaves its ownership as it is — the
- * projected item the dialogs hand back carries no `plan_id`, so an edit must
- * re-attach the stored one or a plan-owned item would silently leak into
- * financial data as current data.
+ * Save an item edited or created inside a plan. Whatever changes in a plan
+ * applies to that plan only (#324):
+ *  - A new item is owned by the plan: financial data and other plans never
+ *    list it. It joins the plan's include list when one exists, so it is
+ *    visible here by default (an undefined include list means "all included").
+ *  - An edited plan-owned item is replaced in place. The projected item the
+ *    dialogs hand back carries no `plan_id`, so the stored one is re-attached
+ *    or the item would leak into financial data as current data.
+ *  - An edited shared item is forked: the edit lands in a new plan-owned copy
+ *    right after the original, and the plan swaps the original for the copy
+ *    in its include list, seeding that list when it has none. Financial data
+ *    and other plans keep the original.
  */
 export function upsertProfileItem<K extends ProfileListKey>(
   config: ProfileListConfig<K>,
@@ -85,23 +92,29 @@ export function upsertProfileItem<K extends ProfileListKey>(
 ): void {
   const existing = listItems(config)
   const idx = existing.findIndex((it) => it.id === item.id)
-  const next =
-    idx === -1
-      ? [...existing, { ...item, plan_id: plan.id }]
-      : existing.map((it, i) =>
-          i === idx
-            ? { ...item, ...(it.plan_id !== undefined ? { plan_id: it.plan_id } : {}) }
-            : it,
-        )
-  persistList(config, next)
-  if (idx === -1) {
+  const stored = idx === -1 ? undefined : existing[idx]
+  const includeUpdate = (ids: string[]) =>
+    plan.update({ [config.includedKey]: ids } as Partial<Omit<Portfolio, 'id'>>)
+
+  if (stored === undefined) {
+    persistList(config, [...existing, { ...item, plan_id: plan.id }])
     const included = plan[config.includedKey]
-    if (included !== undefined) {
-      plan.update({ [config.includedKey]: [...included, item.id] } as Partial<
-        Omit<Portfolio, 'id'>
-      >)
-    }
+    if (included !== undefined) includeUpdate([...included, item.id])
+    return
   }
+  if (stored.plan_id !== undefined) {
+    persistList(
+      config,
+      existing.map((it) => (it === stored ? { ...item, plan_id: stored.plan_id } : it)),
+    )
+    return
+  }
+  const copy = { ...item, id: crypto.randomUUID(), plan_id: plan.id }
+  // The profile is saved first: updateProfile validates, so the plan must not
+  // reference the copy before it exists.
+  persistList(config, [...existing.slice(0, idx + 1), copy, ...existing.slice(idx + 1)])
+  const seeded = plan[config.includedKey] ?? existing.map((it) => it.id)
+  includeUpdate([...seeded.filter((id) => id !== stored.id), copy.id])
 }
 
 /**

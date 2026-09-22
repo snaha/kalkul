@@ -58,9 +58,13 @@ describe('upsertProfileItem', () => {
     })
   })
 
-  it('replaces in place by id rather than appending a second copy', () => {
-    profile.investments = [makeInvestment('i1'), makeInvestment('i2')]
-    upsertProfileItem(PROFILE_LISTS.investment, makeInvestment('i1', 'renamed'), makePlan())
+  it('replaces a plan-owned item in place by id rather than appending a second copy', () => {
+    profile.investments = [
+      { ...makeInvestment('i1'), plan_id: 'plan-1' },
+      { ...makeInvestment('i2'), plan_id: 'plan-1' },
+    ]
+    const plan = makePlan({ id: 'plan-1' })
+    upsertProfileItem(PROFILE_LISTS.investment, makeInvestment('i1', 'renamed'), plan)
     expect(profile.investments?.map((i) => i.name)).toEqual(['renamed', 'i2'])
   })
 
@@ -77,11 +81,28 @@ describe('upsertProfileItem', () => {
     expect(plan.included_investment_ids).toBeUndefined()
   })
 
-  it('does not re-add the id when updating an existing item', () => {
-    profile.investments = [makeInvestment('i1')]
-    const plan = makePlan({ included_investment_ids: ['i1'] })
+  it('does not re-add the id when updating a plan-owned item', () => {
+    profile.investments = [{ ...makeInvestment('i1'), plan_id: 'plan-1' }]
+    const plan = makePlan({ id: 'plan-1', included_investment_ids: ['i1'] })
     upsertProfileItem(PROFILE_LISTS.investment, makeInvestment('i1', 'renamed'), plan)
     expect(plan.included_investment_ids).toEqual(['i1'])
+  })
+
+  it('stamps a new transfer with the plan id and includes it', () => {
+    const transfer = {
+      id: 't1',
+      name: 'Move',
+      from_asset_id: 'cash',
+      to_asset_id: 'i1',
+      amount: 100,
+      schedule: 'one_time' as const,
+      transaction_year: 2027,
+      transaction_month: 1,
+    }
+    const plan = makePlan({ id: 'plan-1', included_transfer_ids: [] })
+    upsertProfileItem(PROFILE_LISTS.transfer, transfer, plan)
+    expect(profile.transfers).toEqual([{ ...transfer, plan_id: 'plan-1' }])
+    expect(plan.included_transfer_ids).toEqual(['t1'])
   })
 })
 
@@ -184,14 +205,26 @@ describe('plan ownership', () => {
     expect(profile.investments).toEqual([{ ...makeInvestment('i1'), plan_id: 'plan-1' }])
   })
 
-  it('leaves an edited shared item shared', () => {
-    profile.investments = [makeInvestment('i1')]
-    upsertProfileItem(
-      PROFILE_LISTS.investment,
-      makeInvestment('i1', 'renamed'),
-      makePlan({ id: 'plan-1' }),
-    )
-    expect(profile.investments).toEqual([makeInvestment('i1', 'renamed')])
+  it('forks an edited shared item into a plan-owned copy and leaves the original alone (#324)', () => {
+    profile.investments = [makeInvestment('i1'), makeInvestment('i2')]
+    const plan = makePlan({ id: 'plan-1' })
+    upsertProfileItem(PROFILE_LISTS.investment, makeInvestment('i1', 'renamed'), plan)
+    const [original, copy, other] = profile.investments ?? []
+    expect(original).toEqual(makeInvestment('i1'))
+    expect(other).toEqual(makeInvestment('i2'))
+    expect(copy).toEqual({ ...makeInvestment('i1', 'renamed'), id: copy.id, plan_id: 'plan-1' })
+    expect(copy.id).not.toBe('i1')
+    // The plan swaps the original for its copy: the include list is seeded
+    // from everything it could see, minus the original, plus the copy.
+    expect(plan.included_investment_ids).toEqual(['i2', copy.id])
+  })
+
+  it('swaps the original for the copy in an existing include list', () => {
+    profile.investments = [makeInvestment('i1'), makeInvestment('i2')]
+    const plan = makePlan({ id: 'plan-1', included_investment_ids: ['i1'] })
+    upsertProfileItem(PROFILE_LISTS.investment, makeInvestment('i1', 'renamed'), plan)
+    const copy = profile.investments?.[1]
+    expect(plan.included_investment_ids).toEqual([copy?.id])
   })
 
   it('keeps a plan-owned item owned when it is edited', () => {
