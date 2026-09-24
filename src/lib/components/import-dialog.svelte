@@ -54,7 +54,7 @@
       open = false
       // The restored data lives on the dashboard, not on the page the dialog
       // was opened from (onboarding profile, settings).
-      goto(resolve(routes.HOME))
+      await goto(resolve(routes.HOME))
     } catch (e) {
       console.error('Failed to import backup', e)
       alert($_('navbar.import.error'))
