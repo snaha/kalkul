@@ -16,5 +16,13 @@
   ],
   "importOrderSeparation": true,
   "importOrderSortSpecifiers": true,
-  "overrides": [{ "files": "*.svelte", "options": { "parser": "svelte" } }]
+  "overrides": [
+    {
+      "files": "*.svelte",
+      "options": {
+        "parser": "svelte"
+      }
+    }
+  ],
+  "importOrderSideEffects": false
 }
