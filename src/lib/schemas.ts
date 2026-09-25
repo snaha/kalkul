@@ -3,11 +3,6 @@ import { get } from 'svelte/store'
 
 import { z } from 'zod'
 
-// Zod compiles object parsers with `new Function` when it detects that eval
-// is allowed; its probe is caught but still logs a CSP violation on kalkul.app
-// (script-src has no 'unsafe-eval'). Skip the probe and the JIT altogether.
-z.config({ jitless: true })
-
 // --- Enum schemas ---
 
 export const frequencySchema = z.enum(['monthly', 'yearly', 'weekly'])

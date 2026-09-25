@@ -1,7 +1,6 @@
 import { addMessages, init } from 'svelte-i18n'
 
 import { describe, expect, it, vi } from 'vitest'
-import { z } from 'zod'
 
 import en from './locales/en.json'
 import {
@@ -548,12 +547,6 @@ describe('profileTangibleAssetSchema financed refinement', () => {
       }
     })
   }
-})
-
-describe('zod config', () => {
-  it('runs jitless so the eval probe never trips the CSP', () => {
-    expect(z.config().jitless).toBe(true)
-  })
 })
 
 describe('transferSchema refinement', () => {

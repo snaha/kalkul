@@ -4,6 +4,7 @@ import { waitLocale } from 'svelte-i18n'
 import { browser } from '$app/environment'
 
 import '$lib/locales'
+
 import { appStore } from '$lib/stores/app.svelte'
 
 import type { LayoutLoad } from './$types'
