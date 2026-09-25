@@ -34,6 +34,7 @@ export const EVENTS = {
   BACKUP_IMPORTED: 'backup-imported',
   LANDING_START_PLANNING: 'landing-start-planning',
   LANDING_TRY_DEMO: 'landing-try-demo',
+  LANDING_NEWSLETTER_SUBSCRIBE: 'landing-newsletter-subscribe',
 } as const
 
 export type EventName = (typeof EVENTS)[keyof typeof EVENTS]

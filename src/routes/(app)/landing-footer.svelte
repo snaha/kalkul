@@ -47,17 +47,17 @@
     >
       {$_('page.landing.footer.discord')}
     </Button>
-    <Button
-      variant="link"
-      size="sm"
-      href={externalLinks.AGPL_LICENSE}
+  </div>
+  <span class="text-sm text-muted-foreground">
+    {$_('page.landing.footer.madeBy')}
+    <a
+      class="underline-offset-4 hover:underline"
+      href={/* eslint-disable-line svelte/no-navigation-without-resolve */ externalLinks.SNAHA}
       target="_blank"
       rel="noopener noreferrer"
     >
-      {$_('page.landing.footer.terms')}
-    </Button>
-  </div>
-  <span class="text-sm text-muted-foreground">
-    {$_('page.landing.footer.madeBy', { values: { year: String(year) } })}
+      Snaha
+    </a>
+    · {year}
   </span>
 </footer>

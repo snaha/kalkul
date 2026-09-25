@@ -213,9 +213,13 @@
         "startPlanning": "Start planning",
         "tryDemo": "Try the demo"
       },
+      "newsletter": {
+        "subscribe": "Join the waitlist",
+        "hint": "Coming soon."
+      },
       "hero": {
-        "title": "Know where your money leads.",
-        "lede": "Enter what you own, what you owe, and what comes in and goes out each month. Kalkul projects your net worth year by year for the decades ahead, and you can try out big decisions on a copy before making them for real.",
+        "title": "Build your financial peace",
+        "lede": "Get the big picture of your finances in one place. Make better informed decisions, explore scenarios, compare options and visualise the long-term impact. Kalkul helps you take control and make sure money supports the life you want.",
         "hint": "No account needed. The first projection takes about ten minutes.",
         "chartTitle": "Net worth, projected year by year",
         "chartSubtitle": "Example: Claire, 40, Lyon"
@@ -268,8 +272,7 @@
       },
       "footer": {
         "discord": "Discord",
-        "terms": "Terms of use",
-        "madeBy": "Made by Snaha · {year}"
+        "madeBy": "Made by"
       }
     },
     "dashboard": {
