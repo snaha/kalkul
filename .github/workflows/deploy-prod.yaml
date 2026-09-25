@@ -34,7 +34,7 @@ jobs:
       # Analytics is opt-in at build time (#314); kalkul.app is the only build
       # that turns it on. The id is public, it identifies the site, not a secret.
       - name: Build
-        run: VITE_UMAMI_WEBSITE_ID=792b102b-b18a-440b-9fce-58639490a4d2 pnpm build
+        run: VITE_UMAMI_WEBSITE_ID=792b102b-b18a-440b-9fce-58639490a4d2 VITE_BUTTONDOWN_USERNAME=kalkul pnpm build
 
       - name: Copy SPA fallback
         run: cp build/index.html build/404.html

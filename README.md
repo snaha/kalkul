@@ -83,11 +83,12 @@ at `kalkul.app`.
 
 ## Environment Variables
 
-| Variable                | Default | Description                                                           |
-| ----------------------- | ------- | --------------------------------------------------------------------- |
-| `VITE_ROUTER`           |         | Router type (`hash` or `pathname`)                                    |
-| `VITE_BASE_URL`         |         | Base path for deployment                                              |
-| `VITE_UMAMI_WEBSITE_ID` |         | Umami website id; enables anonymous usage analytics (see "Analytics") |
+| Variable                   | Default | Description                                                                                                                              |
+| -------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `VITE_ROUTER`              |         | Router type (`hash` or `pathname`)                                                                                                       |
+| `VITE_BASE_URL`            |         | Base path for deployment                                                                                                                 |
+| `VITE_UMAMI_WEBSITE_ID`    |         | Umami website id; enables anonymous usage analytics (see "Analytics")                                                                    |
+| `VITE_BUTTONDOWN_USERNAME` |         | Buttondown newsletter username; replaces the landing page's "Start planning" / "Try the demo" buttons with a signup form for launch news |
 
 ## Analytics
 

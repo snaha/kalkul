@@ -213,6 +213,11 @@
         "startPlanning": "Start planning",
         "tryDemo": "Try the demo"
       },
+      "newsletter": {
+        "placeholder": "Your email",
+        "subscribe": "Keep me posted",
+        "hint": "Get launch news and occasional product updates. No spam, unsubscribe any time."
+      },
       "hero": {
         "title": "Know where your money leads.",
         "lede": "Enter what you own, what you owe, and what comes in and goes out each month. Kalkul projects your net worth year by year for the decades ahead, and you can try out big decisions on a copy before making them for real.",

@@ -213,6 +213,11 @@
         "startPlanning": "Začít plánovat",
         "tryDemo": "Vyzkoušet ukázku"
       },
+      "newsletter": {
+        "placeholder": "Váš e-mail",
+        "subscribe": "Dejte mi vědět",
+        "hint": "Zprávy o spuštění a občasné novinky o produktu. Žádný spam, odhlásit se můžete kdykoli."
+      },
       "hero": {
         "title": "Zjistěte, kam vaše peníze směřují.",
         "lede": "Zadejte, co vlastníte, co dlužíte a co vám každý měsíc přijde a odejde. Kalkul spočítá vaše čisté jmění rok po roce na desítky let dopředu a velká rozhodnutí si můžete nejdřív vyzkoušet na kopii, než je uděláte doopravdy.",

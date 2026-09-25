@@ -8,6 +8,8 @@
   import externalLinks from '$lib/external-links'
   import routes from '$lib/routes'
 
+  import { NEWSLETTER_USERNAME } from './landing-newsletter'
+
   interface Props {
     /** Ids of the sections the two in-page links jump to. */
     howId: string
@@ -48,8 +50,10 @@
         {$_('page.landing.nav.github')}
       </Button>
     </div>
-    <Button href={resolve(routes.PROFILE)}>
-      {$_('page.landing.cta.startPlanning')}
-    </Button>
+    {#if !NEWSLETTER_USERNAME}
+      <Button href={resolve(routes.PROFILE)}>
+        {$_('page.landing.cta.startPlanning')}
+      </Button>
+    {/if}
   </nav>
 </header>
