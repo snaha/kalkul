@@ -1219,3 +1219,30 @@ describe('plan ownership', () => {
     expect(profileLiabilitySchema.parse(liability)).toEqual(liability)
   })
 })
+
+describe('repairStoredData: zero-based months from the old timing selector', () => {
+  it('bumps a stored month 0 to January (1) on every timing field', () => {
+    const stored = {
+      lastUpdated: 1,
+      profile: {
+        name: 'Test',
+        email: '',
+        incomes: [{ ...baseIncome, start: 'at_specific_date', start_year: 2030, start_month: 0 }],
+        transfers: [{ ...baseTransfer, end: 'at_specific_date', end_year: 2030, end_month: 0 }],
+        investments: [{ id: 'i1', name: 'ETF', start_month: 0, exit_month: 0 }],
+        tangible_assets: [{ id: 't1', name: 'Car', purchase_month: 0, sale_month: 0 }],
+        liabilities: [{ id: 'l1', name: 'Loan', start_month: 0 }],
+      },
+      portfolios: [],
+    }
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    repairStoredData(stored)
+    expect(stored.profile.incomes[0].start_month).toBe(1)
+    expect(stored.profile.transfers[0].end_month).toBe(1)
+    expect(stored.profile.investments[0]).toMatchObject({ start_month: 1, exit_month: 1 })
+    expect(stored.profile.tangible_assets[0]).toMatchObject({ purchase_month: 1, sale_month: 1 })
+    expect(stored.profile.liabilities[0].start_month).toBe(1)
+    expect(warn).toHaveBeenCalledTimes(7)
+    warn.mockRestore()
+  })
+})

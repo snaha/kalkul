@@ -76,6 +76,19 @@ export function getBirthYearOptions(earliestYear = 1930): string[] {
   return Array.from({ length: currentYear - earliestYear + 1 }, (_, i) => String(currentYear - i))
 }
 
+/**
+ * `getMonthOptions` values are the 0..11 `Date` month index; stored months are
+ * 1..12 (the engine's convention). Every month dropdown converts at its
+ * boundary with these two.
+ */
+export function monthToOption(month: number): string {
+  return String(month - 1)
+}
+
+export function optionToMonth(value: string): number {
+  return Number(value) + 1
+}
+
 export function getMonthOptions(locale?: string): { value: string; label: string }[] {
   return Array.from({ length: 12 }, (_, i) => ({
     value: String(i),

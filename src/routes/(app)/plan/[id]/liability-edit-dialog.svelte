@@ -32,7 +32,7 @@
   } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
-  import { getMonthOptions, getYearOptions } from '$lib/utils'
+  import { getMonthOptions, getYearOptions, monthToOption, optionToMonth } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
   import {
@@ -475,10 +475,10 @@
           />
           <SelectField
             aria-label={$_('page.setup.aboutYou.selectMonth')}
-            value={form.pay_off_month !== undefined ? String(form.pay_off_month - 1) : ''}
+            value={form.pay_off_month !== undefined ? monthToOption(form.pay_off_month) : ''}
             items={months}
             onValueChange={(v) => {
-              if (v) form.pay_off_month = Number(v) + 1
+              if (v) form.pay_off_month = optionToMonth(v)
             }}
           />
           <HelpTooltip text={$_('page.plan.payOffDescription')} />

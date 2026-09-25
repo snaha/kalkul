@@ -161,6 +161,30 @@ function repairCashFlowMonths(flow: unknown): void {
   }
 }
 
+// The timing selector once stored months as 0..11 while the engine reads
+// 1..12. Only a stored 0 can be told apart from a correctly stored month, so
+// that alone is repaired (to January); 1..11 written by the old selector is
+// indistinguishable and left as is. `transaction_month` and `pay_off_month`
+// are not listed: their one-time pickers always wrote 1..12.
+const TIMING_MONTH_FIELDS = [
+  'start_month',
+  'end_month',
+  'exit_month',
+  'purchase_month',
+  'sale_month',
+] as const
+
+function repairZeroMonths(item: unknown): void {
+  if (!isRecord(item)) return
+  for (const key of TIMING_MONTH_FIELDS) {
+    if (item[key] !== 0) continue
+    item[key] = 1
+    console.warn(
+      `Item "${String(item.name ?? item.id ?? 'unknown')}" had ${key} stored as 0 by the old zero-based timing selector; set it to January (1)`,
+    )
+  }
+}
+
 /**
  * Fills in the cash flows a stored snapshot predates, from the profile's
  * current ones — the best estimate available for a date nothing was recorded
@@ -204,13 +228,15 @@ function repairSnapshot(snapshot: unknown, profile: Record<string, unknown>): vo
  * make `loadData()` fall back to the empty default profile and overwrite the
  * user's entire dataset on the next persist.
  *
- * Two repairs today. Data persisted before the same-year month-order rule
+ * Three repairs today. Data persisted before the same-year month-order rule
  * existed may hold a cash flow whose start month is after its end month, which
  * `storedDataSchema` now rejects; the two months are swapped, so both
  * user-entered values survive and the flow spans the range the user visibly
  * intended instead of silently contributing nothing. Covers every profile list
- * `cashFlowTemporalRefinement` applies to: incomes, expenses and transfers. And
- * snapshots are filled in as `repairSnapshot` describes.
+ * `cashFlowTemporalRefinement` applies to: incomes, expenses and transfers. A
+ * timing month stored as 0 by the old zero-based selector becomes January
+ * (`repairZeroMonths`). And snapshots are filled in as `repairSnapshot`
+ * describes.
  */
 export function repairStoredData(data: unknown): unknown {
   if (!isRecord(data)) return data
@@ -219,6 +245,17 @@ export function repairStoredData(data: unknown): unknown {
     for (const key of ['incomes', 'expenses', 'transfers']) {
       const flows = profile[key]
       if (Array.isArray(flows)) for (const flow of flows) repairCashFlowMonths(flow)
+    }
+    for (const key of [
+      'incomes',
+      'expenses',
+      'transfers',
+      'investments',
+      'tangible_assets',
+      'liabilities',
+    ]) {
+      const items = profile[key]
+      if (Array.isArray(items)) for (const item of items) repairZeroMonths(item)
     }
     if (Array.isArray(profile.snapshots))
       for (const snapshot of profile.snapshots) repairSnapshot(snapshot, profile)
