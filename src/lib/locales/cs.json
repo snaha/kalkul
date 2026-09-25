@@ -272,8 +272,7 @@
       },
       "footer": {
         "discord": "Discord",
-        "terms": "Podmínky užití",
-        "madeBy": "Vytvořila Snaha · {year}"
+        "madeBy": "Vytvořila"
       }
     },
     "dashboard": {

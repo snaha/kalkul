@@ -272,8 +272,7 @@
       },
       "footer": {
         "discord": "Discord",
-        "terms": "Terms of use",
-        "madeBy": "Made by Snaha · {year}"
+        "madeBy": "Made by"
       }
     },
     "dashboard": {

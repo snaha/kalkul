@@ -18,6 +18,7 @@
  */
 export default {
   GITHUB: 'https://github.com/snaha/kalkul-next',
+  SNAHA: 'https://snaha.net/',
   DISCORD: 'https://discord.gg/HKV8tkWrZV',
   /** Buttondown newsletter signup page; append the newsletter's username. */
   BUTTONDOWN: 'https://buttondown.com/',
