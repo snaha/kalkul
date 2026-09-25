@@ -689,7 +689,13 @@
       <!-- Header with icons -->
       <div class="flex items-center justify-between px-4 py-4">
         <div class="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onclick={() => (isLeftPanelOpen = !isLeftPanelOpen)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={$_('page.plan.toggleSidebar')}
+            title={$_('page.plan.toggleSidebar')}
+            onclick={() => (isLeftPanelOpen = !isLeftPanelOpen)}
+          >
             <PanelLeft class="size-4" />
           </Button>
           <Separator orientation="vertical" class="!h-8" />
@@ -773,7 +779,13 @@
           <!-- Year + close button row -->
           <div class="flex items-center justify-between">
             <p class="text-lg font-bold">{selectedYear}</p>
-            <Button variant="ghost" size="icon" onclick={() => (isPanelOpen = false)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={$_('page.plan.hideDetailsPanel')}
+              title={$_('page.plan.hideDetailsPanel')}
+              onclick={() => (isPanelOpen = false)}
+            >
               <PanelRight class="size-4" />
             </Button>
           </div>

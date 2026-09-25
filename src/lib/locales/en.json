@@ -35,6 +35,8 @@
     "plan": {
       "notFound": "Plan not found",
       "backToHome": "Back to home",
+      "toggleSidebar": "Show or hide the sidebar",
+      "hideDetailsPanel": "Hide the details panel (click a year in the chart to reopen it)",
       "cashFlows": "Cash flows",
       "assets": "Assets",
       "searchCashFlows": "Search cash flows",
