@@ -1218,11 +1218,11 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   // is never retried.
   const abandonedAssetIds = new Set<string>()
 
-  // Every plan has a cash balance and every flow runs through it (#331).
-  // Excluding cash from a plan, like a profile with no cash amount, only
-  // means the plan opens at 0; income, transfers, expenses and installments
-  // still go through cash and the insufficient-funds check still applies.
-  const initialCashNominal = plan.include_cash === false ? 0 : (profile.cash_amount ?? 0)
+  // Every plan has a cash balance and every flow runs through it (#331): it
+  // opens at the profile's cash amount, 0 when none is set, and income,
+  // transfers, expenses and installments all go through it with the
+  // insufficient-funds check applied. There is no way to exclude cash.
+  const initialCashNominal = profile.cash_amount ?? 0
 
   let cashNominal = new Decimal(initialCashNominal)
   const inflationRate = new Decimal(plan.inflation_rate)

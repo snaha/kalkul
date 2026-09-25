@@ -18,7 +18,6 @@ export function withPortfolioStore(portfolio: Portfolio, app: AppParent): Portfo
   let start_date = $state(portfolio.start_date)
   let end_date = $state(portfolio.end_date)
   let inflation_rate = $state(portfolio.inflation_rate)
-  let include_cash = $state<boolean | undefined>(portfolio.include_cash)
   let included_investment_ids = $state<string[] | undefined>(portfolio.included_investment_ids)
   let included_tangible_asset_ids = $state<string[] | undefined>(
     portfolio.included_tangible_asset_ids,
@@ -64,12 +63,6 @@ export function withPortfolioStore(portfolio: Portfolio, app: AppParent): Portfo
     },
     set inflation_rate(v) {
       inflation_rate = v
-    },
-    get include_cash() {
-      return include_cash
-    },
-    set include_cash(v) {
-      include_cash = v
     },
     get included_investment_ids() {
       return included_investment_ids
@@ -125,7 +118,6 @@ export function withPortfolioStore(portfolio: Portfolio, app: AppParent): Portfo
         start_date,
         end_date,
         inflation_rate,
-        ...(include_cash !== undefined ? { include_cash } : {}),
         ...(included_investment_ids !== undefined ? { included_investment_ids } : {}),
         ...(included_tangible_asset_ids !== undefined ? { included_tangible_asset_ids } : {}),
         ...(included_liability_ids !== undefined ? { included_liability_ids } : {}),

@@ -1117,7 +1117,6 @@ describe('storedDataSchema golden fixture', () => {
           start_date: '2026-07-01',
           end_date: '2055-06-01',
           inflation_rate: 0.02,
-          include_cash: true,
           included_investment_ids: ['inv-1'],
           included_tangible_asset_ids: ['asset-1', 'asset-2'],
           included_liability_ids: ['liab-1'],

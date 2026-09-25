@@ -25,7 +25,7 @@ publicly — and this note with it.
 
 1. **Financial Calculations** (`src/lib/plan-projection.ts`, `src/lib/financial-totals.ts`, `src/lib/@snaha/kalkul-maths/`)
    - The plan projection engine is `src/lib/plan-projection.ts`; profile-level totals live in `src/lib/financial-totals.ts`; shared low-level helpers (Decimal constants, date formatting) live in `src/lib/@snaha/kalkul-maths/`
-   - **Cash always exists.** Every plan has a cash balance and every flow (income, borrowed principal, transfers, expenses, installments) runs through it, with the insufficient-funds check always applied. A profile without a cash amount, or a plan that excludes cash, only means the balance opens at 0. Never gate a flow on `include_cash`.
+   - **Cash always exists.** Every plan has a cash balance and every flow (income, borrowed principal, transfers, expenses, installments) runs through it, with the insufficient-funds check always applied. It opens at the profile's cash amount, 0 when none is set. A plan cannot exclude cash; never add a switch that gates a flow on it.
    - Always use Decimal.js for monetary calculations
    - Never use native JavaScript numbers for financial data
    - Test extensively when modifying calculation logic

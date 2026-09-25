@@ -60,17 +60,9 @@ describe('getYearlyPlanProjection', () => {
     expect(result[result.length - 1].cash).toBeCloseTo(1000, 6)
   })
 
-  it('respects include_cash = false', () => {
-    const result = getYearlyPlanProjection(
-      makePlan({ include_cash: false }),
-      makeProfile({ cash_amount: 1000 }),
-    )
-    expect(result[0].cash).toBe(0)
-  })
-
-  it('runs income and installments through cash from 0 when include_cash = false', () => {
-    // Excluding cash only zeroes the opening balance (#331). The cash
-    // mechanism itself always runs: income arrives, installments drain.
+  it('runs income and installments through cash from 0 when the profile has no cash amount', () => {
+    // Cash always exists (#331): with no amount set the plan opens at 0, and
+    // the mechanism itself still runs: income arrives, installments drain.
     const incomes: Income[] = [
       {
         id: 'inc1',
@@ -94,16 +86,13 @@ describe('getYearlyPlanProjection', () => {
         remaining_term: 4,
       },
     ]
-    const result = getYearlyPlanProjection(
-      makePlan({ include_cash: false }),
-      makeProfile({ cash_amount: 1000, incomes, liabilities }),
-    )
-    // 12 000 in, 250 out per year; the profile's 1 000 is not the opening balance.
+    const result = getYearlyPlanProjection(makePlan(), makeProfile({ incomes, liabilities }))
+    // 12 000 in, 250 out per year, from an opening balance of 0.
     expect(result[0].cash).toBe(11_750)
     expect(result[1].cash).toBe(23_500)
   })
 
-  it('flags insufficient funds from an empty opening balance when include_cash = false', () => {
+  it('flags insufficient funds from an empty opening balance', () => {
     const expenses: Expense[] = [
       {
         id: 'exp1',
@@ -116,15 +105,12 @@ describe('getYearlyPlanProjection', () => {
         change_over_time: 'none',
       },
     ]
-    const result = getYearlyPlanProjection(
-      makePlan({ include_cash: false }),
-      makeProfile({ cash_amount: 1000, expenses }),
-    )
+    const result = getYearlyPlanProjection(makePlan(), makeProfile({ expenses }))
     expect(result[0].cash).toBe(0)
     expect(result[0].insufficientFundExpenseIds).toEqual(['exp1'])
   })
 
-  it('pays a mortgage from cash with a financed tangible asset when include_cash = false', () => {
+  it('pays a mortgage from cash with a financed tangible asset and no opening balance', () => {
     const tangible_assets: ProfileTangibleAsset[] = [
       {
         id: 't1',
@@ -150,14 +136,47 @@ describe('getYearlyPlanProjection', () => {
         change_over_time: 'none',
       },
     ]
-    const result = getYearlyPlanProjection(
-      makePlan({ include_cash: false }),
-      makeProfile({ tangible_assets, incomes }),
-    )
+    const result = getYearlyPlanProjection(makePlan(), makeProfile({ tangible_assets, incomes }))
     expect(result[0].cash).toBe(200_000)
     // Mortgage still amortizes; tangible asset gross unchanged.
     expect(result[0].tangibleAssets).toBe(5_000_000)
     expect(result[0].liabilities).toBeCloseTo(2_700_000, 6)
+  })
+
+  it('funds a transfer out of an empty opening balance once income lands', () => {
+    const incomes: Income[] = [
+      {
+        id: 'inc1',
+        name: 'Salary',
+        amount: 12_000,
+        schedule: 'recurring',
+        frequency: 'yearly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const investments: ProfileInvestment[] = [{ id: 'inv1', name: 'ETF', balance: 0, apy: 0 }]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'Invest',
+        from_asset_id: 'cash',
+        to_asset_id: 'inv1',
+        amount: 5_000,
+        schedule: 'recurring',
+        frequency: 'yearly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const result = getYearlyPlanProjection(
+      makePlan(),
+      makeProfile({ incomes, investments, transfers }),
+    )
+    expect(result[0].cash).toBe(7_000)
+    expect(result[0].investments).toBe(5_000)
   })
 
   it('compounds investments at apy (stored as percent) each year', () => {
@@ -2860,10 +2879,7 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const investments: ProfileInvestment[] = [{ id: 'i1', name: 'Fund', balance: 100_000, apy: 0 }]
-    const result = getYearlyPlanProjection(
-      makePlan({ include_cash: false }),
-      makeProfile({ investments, expenses }),
-    )
+    const result = getYearlyPlanProjection(makePlan(), makeProfile({ investments, expenses }))
     // Year 0: investable 100,000; outflows 10,000.
     // FI % = 100,000 / (10,000 * 25) * 100 = 40; runway = 10 years.
     expect(result[0].fiPercent).toBeCloseTo(40, 6)
@@ -2930,7 +2946,7 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = getYearlyPlanProjection(
-      makePlan({ include_cash: false }),
+      makePlan(),
       makeProfile({
         investments: [{ id: 'i1', name: 'Fund', balance: 150_000, apy: 0 }],
         tangible_assets,
@@ -3459,7 +3475,7 @@ describe('plan ownership', () => {
 
   it("keeps another plan's investment, tangible asset and liability out", () => {
     const result = getYearlyPlanProjection(
-      makePlan({ include_cash: false }),
+      makePlan(),
       makeProfile({
         investments: [{ id: 'v', name: 'ETF', balance: 100, apy: 0, ...other }],
         tangible_assets: [{ id: 'a', name: 'Flat', value: 100, status: 'fully_owned', ...other }],

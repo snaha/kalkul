@@ -25,7 +25,6 @@ describe('buildCurrentProjectionPlan', () => {
     expect(plan.included_liability_ids).toBeUndefined()
     expect(plan.included_income_ids).toBeUndefined()
     expect(plan.included_expense_ids).toBeUndefined()
-    expect(plan.include_cash).not.toBe(false)
   })
 
   test('carries a stable id so it never collides with a saved plan', () => {

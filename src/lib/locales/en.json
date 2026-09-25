@@ -7,7 +7,7 @@
       "exploring": "What are you exploring?",
       "exploringPlaceholder": "e.g. Buy a house in 3 years, switch to part-time work, early retirement...",
       "startFromCurrentFinances": "Start from your current finances",
-      "startFromCurrentFinancesHelp": "Keep your projection grounded in reality. Your current assets and cash flows are included as the starting point — you can modify or add anything. Turn off to start from scratch.",
+      "startFromCurrentFinancesHelp": "Keep your projection grounded in reality. Your current assets and cash flows are included as the starting point — you can modify or add anything. Turn off to start from scratch; your cash balance stays as the starting point either way.",
       "create": "Create projection",
       "modelChanges": {
         "title": "Model changes in a new projection",

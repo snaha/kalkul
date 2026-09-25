@@ -7,7 +7,7 @@
       "exploring": "Co chcete prozkoumat?",
       "exploringPlaceholder": "např. koupě domu za 3 roky, přechod na částečný úvazek, předčasný odchod do důchodu...",
       "startFromCurrentFinances": "Začít od vašich aktuálních financí",
-      "startFromCurrentFinancesHelp": "Udržte svou projekci ukotvenou v realitě. Vaše současná aktiva a peněžní toky jsou zahrnuty jako výchozí bod — cokoli můžete upravit nebo přidat. Vypnutím začnete od nuly.",
+      "startFromCurrentFinancesHelp": "Udržte svou projekci ukotvenou v realitě. Vaše současná aktiva a peněžní toky jsou zahrnuty jako výchozí bod — cokoli můžete upravit nebo přidat. Vypnutím začnete od nuly; váš hotovostní zůstatek zůstává výchozím bodem v obou případech.",
       "create": "Vytvořit projekci",
       "modelChanges": {
         "title": "Modelujte změny v nové projekci",
