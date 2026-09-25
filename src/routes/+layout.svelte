@@ -8,6 +8,7 @@
   import BackupFileDrop from '$lib/components/backup-file-drop.svelte'
   import storageKeys from '$lib/storage-keys'
   import { appStore } from '$lib/stores/app.svelte'
+  import { cloudBackupStore } from '$lib/stores/cloud-backup.svelte'
   import { syncStore } from '$lib/stores/sync.svelte'
   import { themeStore } from '$lib/stores/theme.svelte'
 
@@ -18,6 +19,7 @@
   let cleanupSync: (() => void) | undefined
   let cleanupTheme: (() => void) | undefined
   let cleanupRemote: (() => void) | undefined
+  let cleanupCloudBackup: (() => void) | undefined
 
   // Umami analytics is off unless the build sets VITE_UMAMI_WEBSITE_ID (#314);
   // only the production deploy does, so PR previews, local dev and self-hosted
@@ -55,6 +57,7 @@
     cleanupSync = appStore.startSync()
     cleanupTheme = themeStore.init()
     cleanupRemote = syncStore.init()
+    cleanupCloudBackup = cloudBackupStore.init()
 
     // One browser counts once across days, and "opened with data" is the
     // active-user signal as opposed to a landing-page visit.
@@ -66,6 +69,7 @@
     cleanupSync?.()
     cleanupTheme?.()
     cleanupRemote?.()
+    cleanupCloudBackup?.()
   })
 </script>
 
@@ -87,6 +91,7 @@
 {@render children()}
 
 <BackupFileDrop />
+
 {#if analyticsEnabled && instagramIos}
   {@render tracker()}
 {/if}

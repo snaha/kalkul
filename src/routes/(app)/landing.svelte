@@ -8,6 +8,7 @@
   import { sharedItems } from '$lib/plan-owned'
   import { type YearlyProjection, getYearlyPlanProjection } from '$lib/plan-projection'
   import { appStore } from '$lib/stores/app.svelte'
+  import { cloudBackupStore } from '$lib/stores/cloud-backup.svelte'
 
   import LandingCompare from './landing-compare.svelte'
   import LandingCta from './landing-cta.svelte'
@@ -131,6 +132,9 @@
         {$_('page.landing.hero.lede')}
       </p>
       <LandingCta hint={$_('page.landing.hero.hint')} />
+      {#if cloudBackupStore.enabled && cloudBackupStore.supported}
+        <p class="text-sm text-muted-foreground">{$_('page.landing.hero.dropFolder')}</p>
+      {/if}
 
       <LandingHeroChart
         data={currentBars}

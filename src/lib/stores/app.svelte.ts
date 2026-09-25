@@ -381,6 +381,11 @@ function withAppStore() {
       const loc = getFormattingLocale(profile.location, browserLocale)
       return new Date(ms).toLocaleDateString(loc)
     },
+    /** Date and time, e.g. when the cloud backup last ran. */
+    formatDateTime(ms: number) {
+      const loc = getFormattingLocale(profile.location, browserLocale)
+      return new Date(ms).toLocaleString(loc, { dateStyle: 'medium', timeStyle: 'short' })
+    },
     /** Same, for a date-only ISO string (`YYYY-MM-DD`) such as a snapshot date. */
     formatDateOnly(dateOnly: string) {
       const loc = getFormattingLocale(profile.location, browserLocale)
@@ -538,6 +543,22 @@ function withAppStore() {
       // A backup taken before snapshots existed carries no history; treat the
       // restored balances as confirmed now rather than as indefinitely stale.
       profile = enrichProfile(withSeededSnapshot(validated.profile, new Date()))
+      portfolios = enrichAll(validated.portfolios)
+      loading = false
+      persist()
+    },
+
+    /**
+     * Replaces the data with a copy downloaded from the backup folder. Unlike
+     * `importBackup` it stores the data exactly as the other computer saved
+     * it — no snapshot seeded — so both computers hold the same data and the
+     * next sync does not see a change nobody made.
+     */
+    replaceData(json: string): void {
+      const validated = storedDataSchema
+        .pick({ profile: true, portfolios: true })
+        .parse(repairStoredData(JSON.parse(json)))
+      profile = enrichProfile(validated.profile)
       portfolios = enrichAll(validated.portfolios)
       loading = false
       persist()

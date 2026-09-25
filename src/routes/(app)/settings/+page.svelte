@@ -9,6 +9,7 @@
 
   import { resolve } from '$app/paths'
 
+  import CloudBackupSettings from '$lib/components/cloud-backup-settings.svelte'
   import HelpTooltip from '$lib/components/help-tooltip.svelte'
   import ImportDialog from '$lib/components/import-dialog.svelte'
   import SelectField, { type SelectFieldItem } from '$lib/components/select-field.svelte'
@@ -25,6 +26,7 @@
   import routes from '$lib/routes'
   import { type HoldingPeriod, type Profile, type TaxRule } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
+  import { cloudBackupStore } from '$lib/stores/cloud-backup.svelte'
   import { syncStore } from '$lib/stores/sync.svelte'
   import { type Theme, themeStore } from '$lib/stores/theme.svelte'
   import { invalidTaxRuleFields } from '$lib/tax-rule-form'
@@ -43,13 +45,16 @@
   // --- Sidebar ---
   type SectionId =
     | 'backup'
+    | 'cloudBackup'
     | 'appearance'
     | 'localisation'
     | 'taxRules'
     | 'yourDetails'
     | 'mcpServer'
+  // PR previews share kalkul.app's origin and must not reach the real backup.
   const sections: SectionId[] = [
     'backup',
+    ...(cloudBackupStore.enabled ? (['cloudBackup'] as const) : []),
     'appearance',
     'localisation',
     'taxRules',
@@ -58,6 +63,7 @@
   ]
   const navLabels = $derived<Record<SectionId, string>>({
     backup: $_('page.settings.nav.backup'),
+    cloudBackup: $_('page.settings.nav.cloudBackup'),
     appearance: $_('page.settings.nav.appearance'),
     localisation: $_('page.settings.nav.localisation'),
     taxRules: $_('page.settings.nav.taxRules'),
@@ -322,6 +328,24 @@
           </p>
         </div>
       </section>
+
+      {#if cloudBackupStore.enabled}
+        <Separator class="max-w-[576px]" />
+
+        <!-- Cloud backup -->
+        <section
+          id="{uid}-cloudBackup"
+          class="flex w-full max-w-[576px] scroll-mt-8 flex-col gap-4"
+        >
+          <div class="flex flex-col gap-1">
+            <h2 class="text-xl font-bold text-foreground">{navLabels.cloudBackup}</h2>
+            <p class="text-sm text-muted-foreground">
+              {$_('page.settings.cloudBackup.description')}
+            </p>
+          </div>
+          <CloudBackupSettings />
+        </section>
+      {/if}
 
       <Separator class="max-w-[576px]" />
 
