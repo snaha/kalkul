@@ -2,8 +2,9 @@ import storageKeys from '$lib/storage-keys'
 
 /**
  * Umami Cloud analytics (issue #299). The tracker script is loaded by the root
- * layout on kalkul.app only; everywhere else `window.umami` stays undefined
- * and every call here is a no-op. Page views are tracked by the script itself;
+ * layout only in a build with VITE_UMAMI_WEBSITE_ID set (#314), which is the
+ * kalkul.app deploy; everywhere else `window.umami` stays undefined and every
+ * call here is a no-op. Page views are tracked by the script itself;
  * these are the custom events that make the growth funnel readable:
  * visitor → profile created → finances entered → plan created → keeps coming back.
  *
@@ -51,7 +52,13 @@ const host = globalThis as { umami?: Umami }
 // `trackerLoaded` runs from the script's load event.
 const pending: (() => void)[] = []
 
+// Read per call rather than at module load so the unit suite can stub it.
+const enabled = (): boolean => !!import.meta.env.VITE_UMAMI_WEBSITE_ID
+
 function whenReady(fn: (umami: Umami) => void): void {
+  // Without a website id no tracker is ever loaded, so queueing would only
+  // grow `pending` for the life of the page.
+  if (!enabled()) return
   if (host.umami) fn(host.umami)
   else pending.push(() => host.umami && fn(host.umami))
 }

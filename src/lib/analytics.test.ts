@@ -1,11 +1,16 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { EVENTS, identify, track, trackerLoaded } from './analytics'
 import storageKeys from './storage-keys'
 
 const umami = { track: vi.fn(), identify: vi.fn() }
 
+beforeEach(() => {
+  vi.stubEnv('VITE_UMAMI_WEBSITE_ID', 'test-site')
+})
+
 afterEach(() => {
+  vi.unstubAllEnvs()
   vi.unstubAllGlobals()
   vi.clearAllMocks()
 })
@@ -23,6 +28,14 @@ describe('track', () => {
     expect(umami.track).not.toHaveBeenCalled()
     trackerLoaded()
     expect(umami.track).toHaveBeenCalledWith('app-open', { plans: 2 })
+  })
+
+  it('drops everything in a build without a website id', () => {
+    vi.stubEnv('VITE_UMAMI_WEBSITE_ID', '')
+    track(EVENTS.PLAN_CREATED)
+    vi.stubGlobal('umami', umami)
+    trackerLoaded()
+    expect(umami.track).not.toHaveBeenCalled()
   })
 })
 
