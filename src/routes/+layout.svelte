@@ -23,8 +23,10 @@
   // instances never load the tracker. The iOS Instagram in-app browser drops
   // scripts added to <head>, so there the same tag goes into the body instead
   // (legacy #942).
-  const UMAMI_WEBSITE_ID: string | undefined = import.meta.env.VITE_UMAMI_WEBSITE_ID
-  const production = UMAMI_WEBSITE_ID !== undefined
+  // `|| undefined` so an empty string counts as unset, matching the CSP gate
+  // in svelte.config.js.
+  const UMAMI_WEBSITE_ID: string | undefined = import.meta.env.VITE_UMAMI_WEBSITE_ID || undefined
+  const analyticsEnabled = UMAMI_WEBSITE_ID !== undefined
   const instagramIos =
     browser &&
     /iPhone|iPad|iPod/.test(navigator.userAgent) &&
@@ -76,13 +78,13 @@
 {/snippet}
 
 <svelte:head>
-  {#if production && !instagramIos}
+  {#if analyticsEnabled && !instagramIos}
     {@render tracker()}
   {/if}
 </svelte:head>
 
 {@render children()}
 
-{#if production && instagramIos}
+{#if analyticsEnabled && instagramIos}
   {@render tracker()}
 {/if}

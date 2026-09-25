@@ -43,7 +43,13 @@ const host = globalThis as { umami?: Umami }
 // `trackerLoaded` runs from the script's load event.
 const pending: (() => void)[] = []
 
+// Read per call rather than at module load so the unit suite can stub it.
+const enabled = (): boolean => !!import.meta.env.VITE_UMAMI_WEBSITE_ID
+
 function whenReady(fn: (umami: Umami) => void): void {
+  // Without a website id no tracker is ever loaded, so queueing would only
+  // grow `pending` for the life of the page.
+  if (!enabled()) return
   if (host.umami) fn(host.umami)
   else pending.push(() => host.umami && fn(host.umami))
 }

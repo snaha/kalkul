@@ -99,6 +99,10 @@ the [Umami](https://umami.is) tracker and the app sends anonymous events (`src/l
 page views, a handful of named actions such as "plan created", and a random per-browser id so a
 returning visitor is counted once. Nothing that identifies a person is sent.
 
+Set the variable in the build's environment (as the workflow does), not in a `.env` file: the
+Content Security Policy is computed in `svelte.config.js`, which does not read `.env` files, so a
+value from there would load the tracker while the policy still blocks it.
+
 ## Testing
 
 The test suite is unit tests on Vitest (`pnpm test`, or `pnpm test:unit` for watch mode):
