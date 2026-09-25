@@ -136,6 +136,34 @@ describe('syncOnce: after the first sync', () => {
     expect(headsOf(await listVersions(files))[0].parents).toEqual([first])
   })
 
+  it('writes nothing for an edit that leaves the data as it was', async () => {
+    const files = memoryStore()
+    const a = device(files, 'a', '{"cash":1,"name":"Jana"}')
+    await syncOnce(a.deps)
+    // A value retyped as it was: the store records a change, the data is the same.
+    a.edit('{"name":"Jana","cash":1}')
+    expect(await syncOnce(a.deps)).toEqual({ kind: 'up-to-date' })
+    expect(files.files.size).toBe(1)
+    // And the next real edit builds on the same version as before.
+    a.edit('{"cash":2,"name":"Jana"}')
+    expect((await syncOnce(a.deps)).kind).toBe('pushed')
+    expect(files.files.size).toBe(2)
+  })
+
+  it('does not write back what it just downloaded from another computer', async () => {
+    const files = memoryStore()
+    const a = device(files, 'a', 'v1')
+    const b = device(files, 'b')
+    await syncOnce(a.deps)
+    await syncOnce(b.deps)
+    a.edit('from a')
+    await syncOnce(a.deps)
+    await syncOnce(b.deps)
+    expect(files.files.size).toBe(2)
+    expect(await syncOnce(b.deps)).toEqual({ kind: 'up-to-date' })
+    expect(files.files.size).toBe(2)
+  })
+
   it("downloads another device's edits, even several at once, without a safety copy", async () => {
     const files = memoryStore()
     const a = device(files, 'a', 'v1')

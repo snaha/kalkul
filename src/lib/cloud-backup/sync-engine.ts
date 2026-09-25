@@ -204,7 +204,11 @@ export async function syncOnce(deps: SyncDeps): Promise<SyncOutcome> {
   if (!heads.length) return hasLocal ? push(deps, []) : { kind: 'up-to-date' }
 
   if (heads.length === 1 && heads[0].hash === synced.head) {
-    return localChanged ? push(deps, [synced.head]) : { kind: 'up-to-date' }
+    if (!localChanged) return { kind: 'up-to-date' }
+    // A change that left the data as it was (a value retyped as it stood)
+    // is not worth a new version: every computer would download it for nothing.
+    if (await adoptIfSame(deps, heads[0])) return { kind: 'up-to-date' }
+    return push(deps, [synced.head])
   }
   // One line of history moved on and this device changed nothing: take it.
   if (heads.length === 1 && !localChanged) return autoPull(deps, heads[0], synced, versions)
