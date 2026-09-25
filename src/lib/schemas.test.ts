@@ -313,8 +313,11 @@ describe('repairStoredData: unfinished transfers', () => {
       },
       portfolios: [],
     }
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const repaired = storedDataSchema.parse(repairStoredData(stored))
     expect(repaired.profile.transfers?.map((t) => t.id)).toEqual([baseTransfer.id])
+    expect(warn).toHaveBeenCalledTimes(1)
+    warn.mockRestore()
   })
 })
 
@@ -568,6 +571,8 @@ describe('transferSchema refinement', () => {
       expect(result.success).toBe(false)
       if (!result.success) {
         expect(result.error.issues.map((i) => i.path)).toContainEqual([field])
+        // Localized like every other refinement, not Zod's default English.
+        expect(result.error.issues[0].message).toBe('From and To must both be chosen')
       }
     }
   })

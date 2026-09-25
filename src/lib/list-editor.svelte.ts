@@ -18,6 +18,14 @@ export interface ListEditorConfig<TStored extends { id: string }, TUI extends Li
   /** Whether the item carries a meaningful value (gates persistence of the seeded blank). */
   hasValue: (item: TUI) => boolean
   /**
+   * Whether the item is far enough along to be stored at all (default: yes).
+   * An incomplete item stays in the list but out of every persist, so the
+   * schema never sees it. Filter here rather than inside `persist`: Zod issue
+   * paths index the array `persist` receives, and `errors` maps them back
+   * onto that same array.
+   */
+  isComplete?: (item: TUI) => boolean
+  /**
    * Map one UI item back to its stored shape. `stored` is the item as it was
    * loaded (or the source item for a duplicate), so an editor can spread it
    * and only override the fields its card actually renders — otherwise every
@@ -85,7 +93,8 @@ export function createListEditor<TStored extends { id: string }, TUI extends Lis
     const persisted = items.filter(
       (item) =>
         (item.id !== placeholderId || config.hasValue(item) || item.name !== placeholderName) &&
-        (item.name.trim().length > 0 || config.hasValue(item)),
+        (item.name.trim().length > 0 || config.hasValue(item)) &&
+        (config.isComplete?.(item) ?? true),
     )
     try {
       config.persist(persisted.map((item) => config.toStored(item, originals[item.id])))

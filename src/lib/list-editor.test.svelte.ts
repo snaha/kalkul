@@ -29,6 +29,7 @@ function setup(options?: {
   initial?: StoredThing[]
   persist?: (items: StoredThing[]) => void
   seedBlank?: boolean
+  isComplete?: (item: ThingUI) => boolean
 }): {
   editor: ListEditor<ThingUI>
   persisted: StoredThing[][]
@@ -58,6 +59,7 @@ function setup(options?: {
       toStored: (i, stored) => ({ ...stored, id: i.id, name: i.name, value: i.value ?? 0 }),
       persist: options?.persist ?? ((items) => persisted.push(items)),
       seedBlank: options?.seedBlank,
+      isComplete: options?.isComplete,
     })
   })
   flushSync()
@@ -227,6 +229,37 @@ describe('createListEditor', () => {
     flushSync()
     vi.advanceTimersByTime(300)
     expect(persisted.at(-1)).toEqual([{ id: 'a', name: 'Existing', value: 10 }])
+    cleanup()
+  })
+
+  it('leaves incomplete items out of persist, and maps issues onto the array persist saw', () => {
+    let failNext = true
+    const persisted: StoredThing[][] = []
+    const { editor, cleanup } = setup({
+      initial: [one, { id: 'b', name: 'Other', value: 5 }],
+      // The first item is "unfinished": it stays in the list but is not stored.
+      isComplete: (i) => i.id !== 'a',
+      persist: (items) => {
+        if (failNext) {
+          throw new z.ZodError([
+            { code: 'custom', path: ['things', 0, 'value'], message: 'bad', input: undefined },
+          ])
+        }
+        persisted.push(items)
+      },
+    })
+
+    editor.items[1].value = 7
+    flushSync()
+    vi.advanceTimersByTime(300)
+    // Index 0 of the persisted array is 'b', not the skipped 'a'.
+    expect(editor.errors).toEqual({ b: ['bad'] })
+
+    failNext = false
+    editor.items[1].value = 8
+    flushSync()
+    vi.advanceTimersByTime(300)
+    expect(persisted.at(-1)).toEqual([{ id: 'b', name: 'Other', value: 8 }])
     cleanup()
   })
 

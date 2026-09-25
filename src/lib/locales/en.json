@@ -715,6 +715,7 @@
     "required_for_recurring_transfer": "Required for a recurring transfer",
     "required_for_one_time_cash_flow": "Required for a one-time item",
     "required_for_recurring_cash_flow": "Required for a recurring item",
+    "transfer_endpoint_required": "From and To must both be chosen",
     "transfer_same_endpoints": "From and To must be different assets"
   }
 }

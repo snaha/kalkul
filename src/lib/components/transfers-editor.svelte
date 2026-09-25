@@ -57,12 +57,10 @@
     // A card is named automatically, so it would be persisted before the user
     // picks both endpoints; the schema rejects empty endpoint ids (#305), so
     // unfinished cards are left out until they are complete.
+    isComplete: (t) => t.from_asset_id !== '' && t.to_asset_id !== '',
     persist: (data) =>
       appStore.updateProfile({
-        transfers: [
-          ...data.filter((t) => t.from_asset_id && t.to_asset_id),
-          ...planOwnedItems(appStore.profile.transfers),
-        ],
+        transfers: [...data, ...planOwnedItems(appStore.profile.transfers)],
       }),
     // Unlike incomes or expenses, a regular transfer is not something to
     // assume everyone has — the page opens empty and waits for Add (#259).
