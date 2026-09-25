@@ -683,7 +683,17 @@
       "exportBeforeImporting": "Exportovat před importem",
       "importAnyway": "Přesto importovat",
       "backupDownloaded": "Vaše data byla stažena. Nyní můžete bezpečně vybrat soubor k importu.",
-      "error": "Soubor se nepodařilo importovat. Ujistěte se, že jde o platnou zálohu Kalkulu."
+      "error": "Soubor se nepodařilo importovat. Ujistěte se, že jde o platnou zálohu Kalkulu.",
+      "droppedDescription": "Načíst přetažený soubor {name}.",
+      "droppedBackupDownloaded": "Vaše data byla stažena. Nyní můžete bezpečně importovat soubor {name}.",
+      "importFile": "Importovat soubor",
+      "drop": {
+        "title": "Pusťte sem zálohu Kalkulu a importujte ji",
+        "replaces": "Nahradí všechna vaše stávající data.",
+        "restores": "Obnoví se z ní vaše plány, aktiva a peněžní toky.",
+        "tooMany": "Pro import přetáhněte jen jeden soubor se zálohou Kalkulu.",
+        "wrongType": "{name} není záloha Kalkulu. Přetáhněte soubor .kalkul.json exportovaný z Kalkulu."
+      }
     },
     "feedback": {
       "title": "Nahlásit chybu nebo zpětnou vazbu",

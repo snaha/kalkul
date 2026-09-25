@@ -4,34 +4,40 @@
   import FileDown from '@lucide/svelte/icons/file-down'
   import FileInput from '@lucide/svelte/icons/file-input'
 
-  import { goto } from '$app/navigation'
-  import { resolve } from '$app/paths'
-
-  import { EVENTS, track } from '$lib/analytics'
   import { Button } from '$lib/components/ui/button'
   import * as Dialog from '$lib/components/ui/dialog'
   import downloadBackup from '$lib/download-backup'
-  import routes from '$lib/routes'
+  import restoreBackup from '$lib/restore-backup'
   import { appStore } from '$lib/stores/app.svelte'
 
   interface Props {
     open: boolean
+    /**
+     * A backup file dropped onto the app. When set, the dialog imports this
+     * file instead of opening the file picker. Cleared when the dialog closes.
+     */
+    droppedFile?: File | undefined
   }
 
-  let { open = $bindable() }: Props = $props()
+  let { open = $bindable(), droppedFile = $bindable(undefined) }: Props = $props()
 
   const hasData = $derived(!appStore.loading && !!appStore.profile.name)
 
   let fileInput: HTMLInputElement | undefined = $state()
   let backupExported = $state(false)
 
-  // Reset the "exported" transition state whenever the import dialog closes.
+  // Reset the "exported" transition state and forget a dropped file whenever
+  // the import dialog closes.
   $effect(() => {
-    if (!open) backupExported = false
+    if (!open) {
+      backupExported = false
+      droppedFile = undefined
+    }
   })
 
-  function triggerFileSelect(): void {
-    fileInput?.click()
+  function importFile(): void {
+    if (droppedFile) void importBackup(droppedFile)
+    else fileInput?.click()
   }
 
   function exportBeforeImporting(): void {
@@ -41,23 +47,22 @@
     backupExported = true
   }
 
+  async function importBackup(file: File): Promise<void> {
+    try {
+      await restoreBackup(file)
+      open = false
+    } catch (e) {
+      console.error('Failed to import backup', e)
+      alert($_('navbar.import.error'))
+    }
+  }
+
   async function handleFileSelect(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement
     const file = input.files?.[0]
     if (!file) return
     try {
-      const text = await file.text()
-      appStore.importBackup(text)
-      // The landing demo and the dev presets import too; only a restore from
-      // the user's own file counts as a backup import.
-      track(EVENTS.BACKUP_IMPORTED)
-      open = false
-      // The restored data lives on the dashboard, not on the page the dialog
-      // was opened from (onboarding profile, settings).
-      await goto(resolve(routes.HOME))
-    } catch (e) {
-      console.error('Failed to import backup', e)
-      alert($_('navbar.import.error'))
+      await importBackup(file)
     } finally {
       input.value = ''
     }
@@ -78,7 +83,9 @@
     <Dialog.Header>
       <Dialog.Title>{$_('navbar.import.title')}</Dialog.Title>
       <Dialog.Description class="text-base text-foreground">
-        {#if hasData}
+        {#if droppedFile}
+          {$_('navbar.import.droppedDescription', { values: { name: droppedFile.name } })}
+        {:else if hasData}
           {$_('navbar.import.descriptionShort')}
         {:else}
           {$_('navbar.import.description')}
@@ -91,7 +98,11 @@
       </p>
     {:else if hasData && backupExported}
       <p class="text-base text-foreground">
-        {$_('navbar.import.backupDownloaded')}
+        {#if droppedFile}
+          {$_('navbar.import.droppedBackupDownloaded', { values: { name: droppedFile.name } })}
+        {:else}
+          {$_('navbar.import.backupDownloaded')}
+        {/if}
       </p>
     {/if}
     <Dialog.Footer class="sm:justify-start">
@@ -100,14 +111,14 @@
           <FileDown class="size-4" />
           {$_('navbar.import.exportBeforeImporting')}
         </Button>
-        <Button variant="destructive" onclick={triggerFileSelect}>
+        <Button variant="destructive" onclick={importFile}>
           <FileInput class="size-4" />
           {$_('navbar.import.importAnyway')}
         </Button>
       {:else}
-        <Button onclick={triggerFileSelect}>
+        <Button onclick={importFile}>
           <FileInput class="size-4" />
-          {$_('navbar.import.chooseFile')}
+          {droppedFile ? $_('navbar.import.importFile') : $_('navbar.import.chooseFile')}
         </Button>
       {/if}
     </Dialog.Footer>

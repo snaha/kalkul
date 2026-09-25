@@ -683,7 +683,17 @@
       "exportBeforeImporting": "Export before importing",
       "importAnyway": "Import anyway",
       "backupDownloaded": "Your data has been downloaded. You can now safely choose a file to import.",
-      "error": "Could not import file. Please make sure it is a valid Kalkul backup."
+      "error": "Could not import file. Please make sure it is a valid Kalkul backup.",
+      "droppedDescription": "Load the dropped file {name}.",
+      "droppedBackupDownloaded": "Your data has been downloaded. You can now safely import {name}.",
+      "importFile": "Import file",
+      "drop": {
+        "title": "Drop a Kalkul backup to import it",
+        "replaces": "It will replace all your current data.",
+        "restores": "Your plans, assets, and cash flows will be restored from it.",
+        "tooMany": "Drop a single Kalkul backup file to import it.",
+        "wrongType": "{name} is not a Kalkul backup. Drop a .kalkul.json file exported from Kalkul."
+      }
     },
     "feedback": {
       "title": "Report bug and feedback",
