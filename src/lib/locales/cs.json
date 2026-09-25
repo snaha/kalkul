@@ -715,6 +715,7 @@
     "required_for_recurring_transfer": "Povinné pro opakovaný převod",
     "required_for_one_time_cash_flow": "Povinné pro jednorázovou položku",
     "required_for_recurring_cash_flow": "Povinné pro opakovanou položku",
+    "transfer_endpoint_required": "Odkud a Kam musí být obojí vybráno",
     "transfer_same_endpoints": "Odkud a Kam musí být různá aktiva"
   }
 }

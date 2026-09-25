@@ -302,6 +302,25 @@ describe('repairStoredData: inverted cash-flow months', () => {
   })
 })
 
+describe('repairStoredData: unfinished transfers', () => {
+  it('drops transfers with an empty endpoint so stored data still parses (#305)', () => {
+    const stored = {
+      lastUpdated: 1,
+      profile: {
+        name: 'Test',
+        email: '',
+        transfers: [baseTransfer, { ...baseTransfer, id: 'unfinished', to_asset_id: '' }],
+      },
+      portfolios: [],
+    }
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const repaired = storedDataSchema.parse(repairStoredData(stored))
+    expect(repaired.profile.transfers?.map((t) => t.id)).toEqual([baseTransfer.id])
+    expect(warn).toHaveBeenCalledTimes(1)
+    warn.mockRestore()
+  })
+})
+
 describe('repairStoredData: snapshots', () => {
   const LOAN = {
     id: 'l1',
@@ -544,6 +563,18 @@ describe('transferSchema refinement', () => {
 
   it('accepts a valid one-time transfer', () => {
     expect(transferSchema.safeParse(oneTime).success).toBe(true)
+  })
+
+  it('rejects empty endpoints', () => {
+    for (const field of ['from_asset_id', 'to_asset_id'] as const) {
+      const result = transferSchema.safeParse({ ...oneTime, [field]: '' })
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error.issues.map((i) => i.path)).toContainEqual([field])
+        // Localized like every other refinement, not Zod's default English.
+        expect(result.error.issues[0].message).toBe('From and To must both be chosen')
+      }
+    }
   })
 
   it('rejects identical endpoints', () => {

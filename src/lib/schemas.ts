@@ -228,15 +228,16 @@ function repairSnapshot(snapshot: unknown, profile: Record<string, unknown>): vo
  * make `loadData()` fall back to the empty default profile and overwrite the
  * user's entire dataset on the next persist.
  *
- * Three repairs today. Data persisted before the same-year month-order rule
+ * Four repairs today. Data persisted before the same-year month-order rule
  * existed may hold a cash flow whose start month is after its end month, which
  * `storedDataSchema` now rejects; the two months are swapped, so both
  * user-entered values survive and the flow spans the range the user visibly
  * intended instead of silently contributing nothing. Covers every profile list
  * `cashFlowTemporalRefinement` applies to: incomes, expenses and transfers. A
  * timing month stored as 0 by the old zero-based selector becomes January
- * (`repairZeroMonths`). And snapshots are filled in as `repairSnapshot`
- * describes.
+ * (`repairZeroMonths`). A transfer stored with an empty endpoint, from before
+ * the schema required both (#305), is dropped. And snapshots are filled in as
+ * `repairSnapshot` describes.
  */
 export function repairStoredData(data: unknown): unknown {
   if (!isRecord(data)) return data
@@ -257,6 +258,16 @@ export function repairStoredData(data: unknown): unknown {
       const items = profile[key]
       if (Array.isArray(items)) for (const item of items) repairZeroMonths(item)
     }
+    // Transfers stored before endpoint ids were required (#305): an unfinished
+    // card carries an empty endpoint and would otherwise fail the whole load.
+    if (Array.isArray(profile.transfers))
+      profile.transfers = profile.transfers.filter((t) => {
+        if (!isRecord(t) || (t.from_asset_id !== '' && t.to_asset_id !== '')) return true
+        console.warn(
+          `Transfer "${String(t.name ?? t.id ?? 'unknown')}" was stored without both endpoints; dropped it so the stored data stays valid`,
+        )
+        return false
+      })
     if (Array.isArray(profile.snapshots))
       for (const snapshot of profile.snapshots) repairSnapshot(snapshot, profile)
   }
@@ -708,8 +719,12 @@ export const transferSchema = z
   .object({
     id: z.string(),
     name: z.string(),
-    from_asset_id: z.string(),
-    to_asset_id: z.string(),
+    from_asset_id: z
+      .string()
+      .min(1, { error: () => get(_)('validation.transfer_endpoint_required') }),
+    to_asset_id: z
+      .string()
+      .min(1, { error: () => get(_)('validation.transfer_endpoint_required') }),
     amount: z.number(),
     // When true, ignore `amount` and transfer the source's full available
     // balance at the time of execution.
