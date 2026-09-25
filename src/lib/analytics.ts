@@ -18,6 +18,15 @@ export const EVENTS = {
   /** The first financial data was saved. */
   FINANCES_SAVED: 'finances-saved',
   PLAN_CREATED: 'plan-created',
+  /**
+   * Fired next to PLAN_CREATED when the new plan is the only one in this
+   * browser, so a funnel can end on a user's first plan without counting later
+   * ones. Funnel steps match on the event name only, so this cannot be a
+   * property of PLAN_CREATED. "Only one" is checked at creation time: deleting
+   * every plan (or clearing data) and creating again fires it again, and a
+   * backup or demo profile that already holds plans never fires it.
+   */
+  FIRST_PLAN_CREATED: 'first-plan-created',
   /** Quick update confirmed today's balances. */
   BALANCES_CONFIRMED: 'balances-confirmed',
   BACKUP_EXPORTED: 'backup-exported',

@@ -477,6 +477,7 @@ function withAppStore() {
       portfolios.push(enrichedPortf)
       persist()
       track(EVENTS.PLAN_CREATED)
+      if (portfolios.length === 1) track(EVENTS.FIRST_PLAN_CREATED)
       return portId
     },
 
