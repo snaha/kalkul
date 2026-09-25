@@ -15,6 +15,7 @@
   import { Switch } from '$lib/components/ui/switch'
   import { itemsForPlan } from '$lib/plan-owned'
   import { installmentAmountForLoan, termYearsForLoan } from '$lib/plan-projection'
+  import { planRangeOf, planYearOptions, timingWithinPlan } from '$lib/plan-range'
   import type {
     CashFlowStart,
     CompoundingFrequency,
@@ -32,7 +33,7 @@
   } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
-  import { getMonthOptions, getYearOptions } from '$lib/utils'
+  import { getMonthOptions } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
   import {
@@ -57,7 +58,8 @@
 
   let { open = $bindable(), onOpenChange, initial, plan, onDuplicated }: Props = $props()
 
-  const years = getYearOptions()
+  const range = $derived(planRangeOf(plan, appStore.profile.birthDate))
+  const years = $derived(planYearOptions(range))
   let months = $derived(getMonthOptions($locale ?? undefined))
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
@@ -249,8 +251,11 @@
   const canSave = $derived(
     (form.outstanding_balance ?? 0) > 0 &&
       timingComplete(form.start, form.start_year, form.start_month, form.start_age) &&
+      timingWithinPlan(range, form.start, form.start_year, form.start_age) &&
       (form.pay_off !== 'at_specific_date' ||
-        (form.pay_off_year !== undefined && form.pay_off_month !== undefined)) &&
+        (form.pay_off_year !== undefined &&
+          form.pay_off_month !== undefined &&
+          timingWithinPlan(range, 'at_specific_date', form.pay_off_year, undefined))) &&
       // Compound interest must state its cadence.
       (form.interest_type !== 'compound' || form.compounding_frequency !== undefined),
   )
@@ -356,6 +361,7 @@
     month={form.start_month}
     age={form.start_age}
     {years}
+    {range}
     {months}
     birthDateSet={appStore.profile.birth_date !== undefined}
     description={$_('page.plan.liabilityStartDescription')}
@@ -483,6 +489,13 @@
           />
           <HelpTooltip text={$_('page.plan.payOffDescription')} />
         </div>
+        {#if !timingWithinPlan(range, 'at_specific_date', form.pay_off_year, undefined)}
+          <p class="text-xs text-destructive">
+            {$_('validation.outside_plan', {
+              values: { start: String(range.startYear), end: String(range.endYear) },
+            })}
+          </p>
+        {/if}
       {:else}
         <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">
           {$_('page.plan.payOffDescription')}

@@ -706,6 +706,7 @@
     "required_when_end_at_specific_date": "Required when end is at a specific date",
     "required_when_end_when_age_is": "Required when end is at a specific age",
     "end_month_before_start_month": "End month must not be before start month in the same year",
+    "outside_plan": "Must be within the plan ({start}–{end})",
     "required_when_financed": "Required when asset is financed",
     "required_when_pay_off_at_specific_date": "Required when pay-off is at a specific date",
     "required_when_compound": "Required when interest type is compound",

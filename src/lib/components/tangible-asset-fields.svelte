@@ -9,6 +9,7 @@
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
+  import { type PlanRange } from '$lib/plan-range'
   import type {
     CashFlowEnd,
     CashFlowStart,
@@ -57,6 +58,7 @@
     showTiming?: boolean
     currencyLabel: string
     years?: string[]
+    range?: PlanRange
     months?: { value: string; label: string }[]
     birthDateSet?: boolean
     formatNumber: (n: number) => string
@@ -71,6 +73,7 @@
     showTiming = false,
     currencyLabel,
     years = [],
+    range,
     months = [],
     birthDateSet = true,
     formatNumber,
@@ -106,6 +109,7 @@
     month={item.purchase_month}
     age={item.purchase_age}
     {years}
+    {range}
     {months}
     {birthDateSet}
     {formatNumber}
@@ -245,6 +249,7 @@
     month={item.sale_month}
     age={item.sale_age}
     {years}
+    {range}
     {months}
     {birthDateSet}
     {formatNumber}

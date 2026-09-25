@@ -4,6 +4,7 @@
   import SelectField, { type SelectFieldItem } from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Label } from '$lib/components/ui/label'
+  import { type PlanRange, timingWithinPlan } from '$lib/plan-range'
 
   interface Props {
     mode: 'start' | 'end'
@@ -38,6 +39,11 @@
      * ends before it starts can't be picked.
      */
     minMonth?: number
+    /**
+     * The plan's years, when the field belongs to a plan. A specific year or
+     * an age outside them shows an error; the caller keeps Save disabled.
+     */
+    range?: PlanRange
     onValueChange: (v: T) => void
     onYearChange: (v: number | undefined) => void
     onMonthChange: (v: number | undefined) => void
@@ -60,6 +66,7 @@
     neverLabel,
     description,
     minMonth,
+    range,
     onValueChange,
     onYearChange,
     onMonthChange,
@@ -110,6 +117,7 @@
           whenAgeIsItem,
         ]) as SelectFieldItem<T>[],
   )
+  let outsidePlan = $derived(range !== undefined && !timingWithinPlan(range, value, year, age))
   let yearItems = $derived(years.map((y) => ({ value: y, label: y })))
   let monthItems = $derived(
     minMonth === undefined
@@ -166,3 +174,10 @@
     </p>
   {/if}
 </div>
+{#if outsidePlan && range}
+  <p class="text-xs text-destructive">
+    {$_('validation.outside_plan', {
+      values: { start: String(range.startYear), end: String(range.endYear) },
+    })}
+  </p>
+{/if}
