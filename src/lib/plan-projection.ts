@@ -1182,6 +1182,21 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       lastYear: liabilityPayOffYear(l),
     }),
   )
+  // The year each plan-owned loan's principal lands in cash (#322): a loan
+  // the plan takes on is new money, whereas a financial-data liability is
+  // debt the user already carries, so that money is already in today's
+  // balances. A start before the plan pays in at plan start. A planned
+  // pay-off before that start means the schedule above never goes live, so
+  // nothing is borrowed either.
+  const borrowedByYear = new Map<number, Decimal>()
+  for (const l of liabilities) {
+    if (l.plan_id === undefined) continue
+    const firstYear = Math.max(liabilityStartYear(l, birthYear) ?? startYear, startYear)
+    const lastYear = liabilityPayOffYear(l)
+    if (lastYear !== undefined && lastYear < firstYear) continue
+    const soFar = borrowedByYear.get(firstYear) ?? DECIMAL_0
+    borrowedByYear.set(firstYear, soFar.plus(new Decimal(l.outstanding_balance)))
+  }
   const financedSchedules = tangibleAssetLiabilities.map(({ asset, liability }) => {
     const window = assetWindows.get(asset.id)
     return {
@@ -1342,15 +1357,9 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     //    being booked too late and tripping a spurious insufficient-funds
     //    warning.
     //    A loan the plan takes on pays its principal into cash in the year it
-    //    starts (#322). Financial-data liabilities are debt the user already
-    //    carries, so that money is already in today's balances. Booked
-    //    alongside income, not as income: it is not earnings and must not
-    //    lift the savings rate or FI %.
-    const borrowedThisYearNominal = liabilities.reduce<Decimal>((sum, l) => {
-      if (l.plan_id === undefined) return sum
-      const firstYear = Math.max(liabilityStartYear(l, birthYear) ?? startYear, startYear)
-      return firstYear === year ? sum.plus(new Decimal(l.outstanding_balance)) : sum
-    }, DECIMAL_0)
+    //    starts (`borrowedByYear`, #322). Booked alongside income, not as
+    //    income: it is not earnings and must not lift the savings rate or FI %.
+    const borrowedThisYearNominal = borrowedByYear.get(year) ?? DECIMAL_0
     if (plan.include_cash !== false) {
       cashNominal = cashNominal.plus(incomesThisYearNominal).plus(borrowedThisYearNominal)
     }
