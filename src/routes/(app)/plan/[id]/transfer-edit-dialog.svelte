@@ -30,7 +30,13 @@
   import { getMonthOptions, getYearOptions, monthToOption, optionToMonth } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
-  import { PROFILE_LISTS, upsertProfileItem } from './profile-lists'
+  import {
+    PROFILE_LISTS,
+    duplicateProfileItem,
+    removeProfileItem,
+    toggleIncludedInPlan,
+    upsertProfileItem,
+  } from './profile-lists'
 
   interface Props {
     open: boolean
@@ -142,46 +148,26 @@
     // silently lost, so ask before discarding them (issue #65).
     const hasChanges = JSON.stringify(form) !== JSON.stringify(seedForm(initial))
     if (hasChanges && !window.confirm($_('page.plan.duplicateUnsavedConfirm'))) return
-    const existing = appStore.profile.transfers ?? []
-    const idx = existing.findIndex((t) => t.id === form.id)
-    if (idx === -1) return
-    // The copy is created in this plan, so it is owned by it even when the
-    // source was a shared profile transfer.
-    const copy: Transfer = {
-      ...existing[idx],
-      id: crypto.randomUUID(),
-      name: $_('page.setup.common.copySuffix', { values: { name: existing[idx].name } }),
-      plan_id: plan.id,
-    }
-    const next = [...existing.slice(0, idx + 1), copy, ...existing.slice(idx + 1)]
-    appStore.updateProfile({ transfers: next })
-    if (plan.included_transfer_ids !== undefined) {
-      plan.update({ included_transfer_ids: [...plan.included_transfer_ids, copy.id] })
-    }
+    const copyId = duplicateProfileItem(
+      PROFILE_LISTS.transfer,
+      form.id,
+      (name) => $_('page.setup.common.copySuffix', { values: { name } }),
+      plan,
+    )
     close()
-    onDuplicated?.(copy.id)
+    if (copyId !== undefined) onDuplicated?.(copyId)
   }
 
   function toggleExclude() {
-    const allIds = itemsForPlan(appStore.profile.transfers, plan.id).map((t) => t.id)
-    const seeded = plan.included_transfer_ids ?? allIds
-    const nextIds = seeded.includes(form.id)
-      ? seeded.filter((id) => id !== form.id)
-      : [...seeded, form.id]
-    plan.update({ included_transfer_ids: nextIds })
+    toggleIncludedInPlan(PROFILE_LISTS.transfer, form.id, plan)
     close()
   }
 
   function remove() {
     if (!window.confirm($_('page.plan.deleteTransferConfirm'))) return
-    const next = (appStore.profile.transfers ?? []).filter((t) => t.id !== form.id)
-    appStore.updateProfile({ transfers: next })
-    // Drop the id from the plan's include list too, so it can't dangle.
-    if (plan.included_transfer_ids?.includes(form.id)) {
-      plan.update({
-        included_transfer_ids: plan.included_transfer_ids.filter((id) => id !== form.id),
-      })
-    }
+    // Like the other dialogs, the id may linger in the plan's include list;
+    // filterById ignores ids with no item behind them.
+    removeProfileItem(PROFILE_LISTS.transfer, form.id)
     close()
   }
 

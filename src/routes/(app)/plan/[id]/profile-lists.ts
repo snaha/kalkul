@@ -1,4 +1,4 @@
-import { sharedItems } from '$lib/plan-owned'
+import { itemsForPlan, sharedItems } from '$lib/plan-owned'
 import type { Portfolio, Profile } from '$lib/schemas'
 import { appStore } from '$lib/stores/app.svelte'
 import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
@@ -59,6 +59,15 @@ function listItems<K extends ProfileListKey>(config: ProfileListConfig<K>): Prof
   return (appStore.profile[config.key] ?? []) as ProfileListItem<K>[]
 }
 
+/**
+ * What the plan sees when it has no include list yet: shared items plus its
+ * own. Other plans' owned items are left out, so seeding an include list never
+ * quietly pulls them in.
+ */
+function visibleIds(config: ProfileListConfig, plan: PortfolioStore): string[] {
+  return itemsForPlan(listItems(config), plan.id).map((it) => it.id)
+}
+
 function persistList<K extends ProfileListKey>(
   config: ProfileListConfig<K>,
   next: ProfileListItem<K>[],
@@ -110,10 +119,12 @@ export function upsertProfileItem<K extends ProfileListKey>(
     return
   }
   const copy = { ...item, id: crypto.randomUUID(), plan_id: plan.id }
-  // The profile is saved first: updateProfile validates, so the plan must not
-  // reference the copy before it exists.
+  // The profile is saved first so the copy exists before the plan points at
+  // it. Nothing validates the reference (an include list is a plain string
+  // array), but a failure between the two writes then leaves an unreferenced
+  // copy rather than a dangling id.
+  const seeded = plan[config.includedKey] ?? visibleIds(config, plan)
   persistList(config, [...existing.slice(0, idx + 1), copy, ...existing.slice(idx + 1)])
-  const seeded = plan[config.includedKey] ?? existing.map((it) => it.id)
   includeUpdate([...seeded.filter((id) => id !== stored.id), copy.id])
 }
 
@@ -175,7 +186,7 @@ export function toggleIncludedInPlan(
   id: string,
   plan: PortfolioStore,
 ): void {
-  const seeded = plan[config.includedKey] ?? listItems(config).map((it) => it.id)
+  const seeded = plan[config.includedKey] ?? visibleIds(config, plan)
   const nextIds = seeded.includes(id) ? seeded.filter((x) => x !== id) : [...seeded, id]
   plan.update({ [config.includedKey]: nextIds } as Partial<Omit<Portfolio, 'id'>>)
 }

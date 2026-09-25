@@ -104,6 +104,26 @@ describe('upsertProfileItem', () => {
     expect(profile.transfers).toEqual([{ ...transfer, plan_id: 'plan-1' }])
     expect(plan.included_transfer_ids).toEqual(['t1'])
   })
+
+  it('keeps a plan-owned transfer owned when it is edited, instead of leaking it into financial data', () => {
+    // The transfer dialog used to have its own save path that replaced the
+    // stored item with the form's shape, which carries no plan_id.
+    const transfer = {
+      id: 't1',
+      name: 'Move',
+      from_asset_id: 'cash',
+      to_asset_id: 'i1',
+      amount: 100,
+      schedule: 'recurring' as const,
+    }
+    profile.transfers = [{ ...transfer, plan_id: 'plan-1' }]
+    upsertProfileItem(
+      PROFILE_LISTS.transfer,
+      { ...transfer, amount: 200 },
+      makePlan({ id: 'plan-1' }),
+    )
+    expect(profile.transfers).toEqual([{ ...transfer, amount: 200, plan_id: 'plan-1' }])
+  })
 })
 
 describe('duplicateProfileItem', () => {
@@ -225,6 +245,27 @@ describe('plan ownership', () => {
     upsertProfileItem(PROFILE_LISTS.investment, makeInvestment('i1', 'renamed'), plan)
     const copy = profile.investments?.[1]
     expect(plan.included_investment_ids).toEqual([copy?.id])
+  })
+
+  it("seeds the include list from what the plan can see, leaving other plans' items out", () => {
+    profile.investments = [
+      makeInvestment('i1'),
+      { ...makeInvestment('other'), plan_id: 'plan-2' },
+      { ...makeInvestment('mine'), plan_id: 'plan-1' },
+    ]
+    const forkPlan = makePlan({ id: 'plan-1' })
+    upsertProfileItem(PROFILE_LISTS.investment, makeInvestment('i1', 'renamed'), forkPlan)
+    const copy = profile.investments?.[1]
+    expect(forkPlan.included_investment_ids).toEqual(['mine', copy?.id])
+
+    profile.investments = [
+      makeInvestment('i1'),
+      { ...makeInvestment('other'), plan_id: 'plan-2' },
+      { ...makeInvestment('mine'), plan_id: 'plan-1' },
+    ]
+    const togglePlan = makePlan({ id: 'plan-1' })
+    toggleIncludedInPlan(PROFILE_LISTS.investment, 'i1', togglePlan)
+    expect(togglePlan.included_investment_ids).toEqual(['mine'])
   })
 
   it('keeps a plan-owned item owned when it is edited', () => {
