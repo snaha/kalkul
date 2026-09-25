@@ -868,7 +868,6 @@ export const portfolioSchema = z.object({
   start_date: z.string(),
   end_date: z.string(),
   inflation_rate: z.number(),
-  include_cash: z.boolean().optional(),
   included_investment_ids: z.array(z.string()).optional(),
   included_tangible_asset_ids: z.array(z.string()).optional(),
   included_liability_ids: z.array(z.string()).optional(),

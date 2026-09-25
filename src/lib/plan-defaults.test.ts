@@ -165,9 +165,8 @@ describe('buildPlanInclusions', () => {
     ],
   }
 
-  it('includes cash and every profile item when starting from current finances', () => {
+  it('includes every profile item when starting from current finances', () => {
     expect(buildPlanInclusions(profile, true)).toEqual({
-      include_cash: true,
       included_investment_ids: ['inv-1'],
       included_tangible_asset_ids: ['ta-1'],
       included_liability_ids: ['li-1'],
@@ -206,7 +205,6 @@ describe('buildPlanInclusions', () => {
 
   it('includes nothing when not starting from current finances', () => {
     expect(buildPlanInclusions(profile, false)).toEqual({
-      include_cash: false,
       included_investment_ids: [],
       included_tangible_asset_ids: [],
       included_liability_ids: [],
@@ -218,7 +216,6 @@ describe('buildPlanInclusions', () => {
 
   it('handles a profile with no lists at all', () => {
     expect(buildPlanInclusions(emptyProfile, true)).toEqual({
-      include_cash: true,
       included_investment_ids: [],
       included_tangible_asset_ids: [],
       included_liability_ids: [],

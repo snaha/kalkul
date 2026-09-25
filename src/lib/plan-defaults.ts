@@ -66,7 +66,8 @@ export function toInflationPercent(rate: number): number {
 
 /**
  * Turn the "Start from your current finances" switch into the plan's
- * `include_*` references: everything the profile holds, or nothing at all.
+ * `included_*` lists: everything the profile holds, or nothing at all. Cash is
+ * not a list item: every plan opens at the profile's cash amount.
  */
 export function buildPlanInclusions(
   profile: Profile,
@@ -76,7 +77,6 @@ export function buildPlanInclusions(
     startFromCurrentFinances ? (items ?? []).map((i) => i.id) : []
 
   return {
-    include_cash: startFromCurrentFinances,
     // A plan's own items belong to it alone; only shared ones seed a new plan.
     included_investment_ids: ids(sharedItems(profile.investments)),
     included_tangible_asset_ids: ids(sharedItems(profile.tangible_assets)),

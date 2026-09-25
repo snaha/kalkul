@@ -1218,7 +1218,11 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   // is never retried.
   const abandonedAssetIds = new Set<string>()
 
-  const initialCashNominal = plan.include_cash === false ? 0 : (profile.cash_amount ?? 0)
+  // Every plan has a cash balance and every flow runs through it (#331): it
+  // opens at the profile's cash amount, 0 when none is set, and income,
+  // transfers, expenses and installments all go through it with the
+  // insufficient-funds check applied. There is no way to exclude cash.
+  const initialCashNominal = profile.cash_amount ?? 0
 
   let cashNominal = new Decimal(initialCashNominal)
   const inflationRate = new Decimal(plan.inflation_rate)
@@ -1360,9 +1364,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     //    starts (`borrowedByYear`, #322). Booked alongside income, not as
     //    income: it is not earnings and must not lift the savings rate or FI %.
     const borrowedThisYearNominal = borrowedByYear.get(year) ?? DECIMAL_0
-    if (plan.include_cash !== false) {
-      cashNominal = cashNominal.plus(incomesThisYearNominal).plus(borrowedThisYearNominal)
-    }
+    cashNominal = cashNominal.plus(incomesThisYearNominal).plus(borrowedThisYearNominal)
 
     // 4. Transfer flows for this year. Each transfer is applied atomically:
     //    if the source balance is less than the requested amount, the entire
@@ -1544,15 +1546,13 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     //    year. Liabilities are part of the overflow math (they also drain
     //    cash) but aren't blamed in the sidebar today.
     const insufficientFundExpenseIdsThisYear: string[] = []
-    if (plan.include_cash !== false) {
-      const attemptedCashNominal = cashNominal
-        .minus(expensesThisYearNominal)
-        .minus(liabilitiesPaidThisYearNominal)
-      if (attemptedCashNominal.lessThan(0)) {
-        insufficientFundExpenseIdsThisYear.push(...activeExpenseIdsThisYear)
-      }
-      cashNominal = Decimal.max(attemptedCashNominal, DECIMAL_0)
+    const attemptedCashNominal = cashNominal
+      .minus(expensesThisYearNominal)
+      .minus(liabilitiesPaidThisYearNominal)
+    if (attemptedCashNominal.lessThan(0)) {
+      insufficientFundExpenseIdsThisYear.push(...activeExpenseIdsThisYear)
     }
+    cashNominal = Decimal.max(attemptedCashNominal, DECIMAL_0)
 
     // 8. Aggregate + deflate.
     const investmentsNominal = Array.from(invBalancesNominal.values()).reduce<Decimal>(

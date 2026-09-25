@@ -1048,11 +1048,7 @@
       />
 
       <!-- Cash edit dialog -->
-      <CashEditDialog
-        bind:open={cashDialogOpen}
-        onOpenChange={(v) => (cashDialogOpen = v)}
-        plan={savedPlan}
-      />
+      <CashEditDialog bind:open={cashDialogOpen} onOpenChange={(v) => (cashDialogOpen = v)} />
     {/if}
 
     <!-- Hover tooltip - at page level to allow overlaying sidebars -->

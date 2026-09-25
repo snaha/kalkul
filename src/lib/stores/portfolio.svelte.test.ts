@@ -23,7 +23,6 @@ const fixture: Portfolio = {
   start_date: '2024-01-01',
   end_date: '2054-01-01',
   inflation_rate: 0.03,
-  include_cash: true,
   included_investment_ids: ['inv-1'],
   included_tangible_asset_ids: ['asset-1'],
   included_liability_ids: ['liab-1'],
