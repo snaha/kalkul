@@ -5,11 +5,11 @@
   import ArrowLeft from '@lucide/svelte/icons/arrow-left'
   import ChevronRight from '@lucide/svelte/icons/chevron-right'
   import PanelLeft from '@lucide/svelte/icons/panel-left'
+  import PanelRight from '@lucide/svelte/icons/panel-right'
   import Plus from '@lucide/svelte/icons/plus'
   import Rows2 from '@lucide/svelte/icons/rows-2'
   import Search from '@lucide/svelte/icons/search'
   import Settings2 from '@lucide/svelte/icons/settings-2'
-  import X from '@lucide/svelte/icons/x'
 
   import { resolve } from '$app/paths'
   import { page } from '$app/state'
@@ -689,7 +689,13 @@
       <!-- Header with icons -->
       <div class="flex items-center justify-between px-4 py-4">
         <div class="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onclick={() => (isLeftPanelOpen = !isLeftPanelOpen)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={$_('page.plan.toggleSidebar')}
+            title={$_('page.plan.toggleSidebar')}
+            onclick={() => (isLeftPanelOpen = !isLeftPanelOpen)}
+          >
             <PanelLeft class="size-4" />
           </Button>
           <Separator orientation="vertical" class="!h-8" />
@@ -773,8 +779,14 @@
           <!-- Year + close button row -->
           <div class="flex items-center justify-between">
             <p class="text-lg font-bold">{selectedYear}</p>
-            <Button variant="ghost" size="icon" onclick={() => (isPanelOpen = false)}>
-              <X class="size-4" />
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={$_('page.plan.hideDetailsPanel')}
+              title={$_('page.plan.hideDetailsPanel')}
+              onclick={() => (isPanelOpen = false)}
+            >
+              <PanelRight class="size-4" />
             </Button>
           </div>
 

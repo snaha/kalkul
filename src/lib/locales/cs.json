@@ -35,6 +35,8 @@
     "plan": {
       "notFound": "Plán nenalezen",
       "backToHome": "Zpět domů",
+      "toggleSidebar": "Zobrazit nebo skrýt postranní panel",
+      "hideDetailsPanel": "Skrýt panel s podrobnostmi (znovu ho otevřete kliknutím na rok v grafu)",
       "cashFlows": "Peněžní toky",
       "assets": "Aktiva",
       "searchCashFlows": "Hledat peněžní toky",
