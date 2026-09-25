@@ -222,7 +222,8 @@
         "lede": "Získejte celkový přehled o svých financích na jednom místě. Rozhodujte se s lepšími informacemi, zkoušejte scénáře, porovnávejte možnosti a podívejte se na dlouhodobý dopad. Kalkul vám pomůže převzít kontrolu a zajistit, aby peníze podporovaly život, jaký chcete.",
         "hint": "Bez registrace. První projekce zabere zhruba deset minut.",
         "chartTitle": "Čisté jmění, projekce rok po roce",
-        "chartSubtitle": "Příklad: Claire, 40 let, Lyon"
+        "chartSubtitle": "Příklad: Claire, 40 let, Lyon",
+        "dropFolder": "Už Kalkul používáte na jiném počítači? Přetáhněte kamkoli na tuto stránku svou složku se zálohou."
       },
       "how": {
         "title": "Sepište si své finance jednou, udržujte je aktuální a sledujte, kam vedou.",
@@ -609,6 +610,7 @@
       "close": "Zavřít",
       "nav": {
         "backup": "Zálohování",
+        "cloudBackup": "Automatické zálohování",
         "appearance": "Vzhled",
         "localisation": "Lokalizace",
         "taxRules": "Daňová pravidla",
@@ -628,6 +630,39 @@
         "webMcpDescription": "Umožní AI agentům zabudovaným v prohlížeči, například Gemini v Chrome, číst a měnit vše na této kartě — vaše plány i všechna finanční data. Vyžaduje prohlížeč s podporou WebMCP.",
         "webMcpNotSupported": "Tento prohlížeč to nepodporuje",
         "webMcpExposed": "Zpřístupněno agentům v prohlížeči"
+      },
+      "cloudBackup": {
+        "description": "Uchovávejte kopii svých dat ve složce na tomto počítači, automaticky aktualizovanou při každé změně. Umístěte složku do iCloud Drive, Dropboxu nebo Google Disku a budete mít data i na dalších počítačích. Soubory nejsou šifrované: kdo může otevřít složku, může je přečíst.",
+        "chooseFolder": "Vybrat složku",
+        "chooseFolderDescription": "Vyberte prázdnou složku, nebo tu, do které už zálohujete z jiného počítače.",
+        "unsupported": "Tento prohlížeč neumí ukládat do složky na disku. Automatické zálohování funguje v prohlížečích Chrome, Edge, Brave, Arc a Opera; zde použijte Exportovat do souboru výše.",
+        "connectedTo": "Zálohuji do složky „{folder}“ jako „{computer}“.",
+        "disconnect": "Odpojit",
+        "disconnectDescription": "Složka i její soubory zůstanou, kde jsou; kdykoli se můžete znovu připojit.",
+        "connected": "Připojeno.",
+        "syncing": "Zálohuji…",
+        "syncedAt": "Zálohováno · naposledy zkontrolováno {time}",
+        "needsPermission": "Prohlížeč potřebuje vaše svolení, aby mohl znovu použít složku se zálohou. Do té doby je zálohování pozastaveno.",
+        "allowAccess": "Povolit přístup",
+        "conflict": "Od poslední zálohy z tohoto počítače se změnila data zde i záloha, kterou uložil „{computer}“ {time}. Vyberte, co chcete ponechat.",
+        "keepLocal": "Ponechat data z tohoto počítače",
+        "useRemote": "Použít zálohu ze složky",
+        "replaceWarning": "Data na tomto počítači se nahradí zálohou ze složky. Kopie dat z tohoto počítače se nejdřív uloží do složky jako soubor, jehož název obsahuje „before-replace“; později ji můžete otevřít přes Importovat ze souboru.",
+        "replaceConfirm": "Nahradit moje data",
+        "cancel": "Zrušit",
+        "failed": "Poslední pokus o zálohu selhal. Kalkul to automaticky zkusí znovu.",
+        "retry": "Zkusit znovu",
+        "error": "Při zálohování do složky se něco pokazilo. Zkuste to prosím znovu.",
+        "held": "„{computer}“ uložil změnu {time}. Použije se, až opustíte tuto stránku nebo zavřete otevřený dialog, aby ji otevřený editor nemohl přepsat.",
+        "folderMissing": "Složku se zálohou „{folder}“ nelze najít. Možná byla přesunuta, přejmenována nebo smazána. Zálohování je pozastaveno.",
+        "chooseFolderAgain": "Vybrat složku znovu",
+        "nameDialog": {
+          "title": "Pojmenujte tento počítač",
+          "description": "Kalkul bude tento počítač udržovat v souladu se složkou se zálohou.",
+          "label": "Název tohoto počítače",
+          "hint": "Zobrazuje se v názvech souborů zálohy, abyste poznali, který počítač co uložil.",
+          "connect": "Připojit"
+        }
       },
       "backup": {
         "export": "Exportovat do souboru",
@@ -692,7 +727,11 @@
         "replaces": "Nahradí všechna vaše stávající data.",
         "restores": "Obnoví se z ní vaše plány, aktiva a peněžní toky.",
         "tooMany": "Pro import přetáhněte jen jeden soubor se zálohou Kalkulu.",
-        "wrongType": "{name} není záloha Kalkulu. Přetáhněte soubor .kalkul.json exportovaný z Kalkulu."
+        "wrongType": "{name} není záloha Kalkulu. Přetáhněte soubor .kalkul.json exportovaný z Kalkulu.",
+        "titleOrFolder": "Pusťte sem soubor nebo složku se zálohou Kalkulu",
+        "folder": "Pusťte sem místo toho složku se zálohou a Kalkul bude tento počítač udržovat v souladu s ní.",
+        "folderAlreadyConnected": "Složka se zálohou už je připojená. Změnit ji můžete v Nastavení → Automatické zálohování.",
+        "folderUnsupported": "Tento prohlížeč neumí udržovat složku v souladu. Pro import přetáhněte jeden soubor zálohy, nebo pro automatické zálohování použijte Chrome, Edge, Brave, Arc či Operu."
       }
     },
     "feedback": {
@@ -710,7 +749,19 @@
       "visitGithub": "Navštívit náš GitHub"
     },
     "help": "Nápověda",
-    "settings": "Nastavení"
+    "settings": "Nastavení",
+    "backup": {
+      "saving": "Ukládám do složky se zálohou…",
+      "saved": "Uloženo do složky se zálohou",
+      "savedAt": "Uloženo · {time}",
+      "updatedFrom": "Aktualizováno z „{computer}“",
+      "held": "Aktualizace z „{computer}“ čeká",
+      "needsPermission": "Záloha pozastavena: povolte přístup ke složce",
+      "conflict": "Záloha pozastavena: vyberte verzi",
+      "folderMissing": "Složka se zálohou chybí",
+      "failed": "Zálohování selhalo",
+      "pending": "Změny zatím nejsou zálohované"
+    }
   },
   "dev": {
     "confirm": {

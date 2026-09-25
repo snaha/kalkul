@@ -1169,3 +1169,41 @@ describe('appStore deleting the only snapshot of a growing profile', () => {
     expect(appStore.profile.snapshots?.[0].cash_amount).toBe(24_883)
   })
 })
+
+describe('appStore.replaceData (backup-folder sync)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
+    stubLocalStorage()
+    appStore.clear()
+  })
+
+  afterEach(() => {
+    appStore.clear()
+    vi.unstubAllGlobals()
+    vi.useRealTimers()
+  })
+
+  it('stores the downloaded data exactly, without seeding a snapshot the other computer never made', () => {
+    const data = JSON.stringify({
+      profile: { name: 'Jane', email: '', cash_amount: 1000 },
+      portfolios: [],
+    })
+    appStore.replaceData(data)
+    expect(appStore.profile.cash_amount).toBe(1000)
+    expect(appStore.profile.snapshots).toBeUndefined()
+    expect(JSON.parse(appStore.exportBackup())).toEqual(JSON.parse(data))
+  })
+
+  it('persists and moves lastUpdated like any other change', () => {
+    appStore.replaceData(JSON.stringify({ profile: { name: 'Jane', email: '' }, portfolios: [] }))
+    expect(appStore.lastUpdated).toBe(NOW.getTime())
+    expect(JSON.parse(backing.get(storageKeys.DATA) ?? '{}').profile.name).toBe('Jane')
+  })
+
+  it('rejects data that fails validation and keeps what was there', () => {
+    appStore.replaceData(JSON.stringify({ profile: { name: 'Jane', email: '' }, portfolios: [] }))
+    expect(() => appStore.replaceData(JSON.stringify({ profile: { name: 42 } }))).toThrow()
+    expect(appStore.profile.name).toBe('Jane')
+  })
+})

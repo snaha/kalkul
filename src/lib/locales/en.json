@@ -222,7 +222,8 @@
         "lede": "Get the big picture of your finances in one place. Make better informed decisions, explore scenarios, compare options and visualise the long-term impact. Kalkul helps you take control and make sure money supports the life you want.",
         "hint": "No account needed. The first projection takes about ten minutes.",
         "chartTitle": "Net worth, projected year by year",
-        "chartSubtitle": "Example: Claire, 40, Lyon"
+        "chartSubtitle": "Example: Claire, 40, Lyon",
+        "dropFolder": "Already using Kalkul on another computer? Drop your backup folder anywhere on this page."
       },
       "how": {
         "title": "Write your finances down once, keep them current, and see where they lead.",
@@ -609,6 +610,7 @@
       "close": "Close",
       "nav": {
         "backup": "Backup",
+        "cloudBackup": "Automatic backup",
         "appearance": "Appearance",
         "localisation": "Localisation",
         "taxRules": "Tax rules",
@@ -628,6 +630,39 @@
         "webMcpDescription": "Lets AI agents built into the browser, such as Gemini in Chrome, read and change everything on this tab — your plans and all your financial data. Needs a browser with WebMCP support.",
         "webMcpNotSupported": "Not supported by this browser",
         "webMcpExposed": "Exposed to browser agents"
+      },
+      "cloudBackup": {
+        "description": "Keep a copy of your data in a folder on this computer, updated automatically whenever you make a change. Put the folder in iCloud Drive, Dropbox or Google Drive to have your data on your other computers too. The files are not encrypted: anyone who can open the folder can read them.",
+        "chooseFolder": "Choose folder",
+        "chooseFolderDescription": "Pick an empty folder, or the folder you already back up to from another computer.",
+        "unsupported": "This browser cannot save to a folder on your disk. Automatic backup works in Chrome, Edge, Brave, Arc and Opera; here, use Export to file above.",
+        "connectedTo": "Backing up to the folder “{folder}” as “{computer}”.",
+        "disconnect": "Disconnect",
+        "disconnectDescription": "The folder and its files stay where they are; you can connect again at any time.",
+        "connected": "Connected.",
+        "syncing": "Backing up…",
+        "syncedAt": "Backed up · last checked {time}",
+        "needsPermission": "Your browser needs your permission to use the backup folder again. Backups are paused until then.",
+        "allowAccess": "Allow access",
+        "conflict": "Your data here and the backup saved by “{computer}” on {time} both changed since this computer last backed up. Choose which one to keep.",
+        "keepLocal": "Keep the data on this computer",
+        "useRemote": "Use the backup from the folder",
+        "replaceWarning": "This replaces the data on this computer with the backup from the folder. A copy of this computer's data is saved in the folder first, as a file whose name contains “before-replace”; you can open it later with Import from file.",
+        "replaceConfirm": "Replace my data",
+        "cancel": "Cancel",
+        "failed": "The last backup attempt failed. Kalkul will try again automatically.",
+        "retry": "Try again",
+        "error": "Something went wrong with the backup folder. Please try again.",
+        "held": "“{computer}” saved a change on {time}. It will be applied when you leave this page or close the open dialog, so it can't be overwritten by the editor you have open.",
+        "folderMissing": "The backup folder “{folder}” can't be found. It may have been moved, renamed or deleted. Backups are paused.",
+        "chooseFolderAgain": "Choose folder again",
+        "nameDialog": {
+          "title": "Name this computer",
+          "description": "Kalkul will keep this computer in sync with the backup folder.",
+          "label": "Name for this computer",
+          "hint": "Shown in the backup file names, so you can tell which computer saved what.",
+          "connect": "Connect"
+        }
       },
       "backup": {
         "export": "Export to file",
@@ -692,7 +727,11 @@
         "replaces": "It will replace all your current data.",
         "restores": "Your plans, assets, and cash flows will be restored from it.",
         "tooMany": "Drop a single Kalkul backup file to import it.",
-        "wrongType": "{name} is not a Kalkul backup. Drop a .kalkul.json file exported from Kalkul."
+        "wrongType": "{name} is not a Kalkul backup. Drop a .kalkul.json file exported from Kalkul.",
+        "titleOrFolder": "Drop a Kalkul backup file or folder",
+        "folder": "Drop your backup folder instead to keep this computer in sync with it.",
+        "folderAlreadyConnected": "A backup folder is already connected. You can change it in Settings → Automatic backup.",
+        "folderUnsupported": "This browser cannot keep a folder in sync. Drop a single backup file to import it, or use Chrome, Edge, Brave, Arc or Opera for automatic backup."
       }
     },
     "feedback": {
@@ -710,7 +749,19 @@
       "visitGithub": "Visit our Github"
     },
     "help": "Help",
-    "settings": "Settings"
+    "settings": "Settings",
+    "backup": {
+      "saving": "Saving to backup folder…",
+      "saved": "Saved to backup folder",
+      "savedAt": "Saved · {time}",
+      "updatedFrom": "Updated from “{computer}”",
+      "held": "Update from “{computer}” waiting",
+      "needsPermission": "Backup paused: allow folder access",
+      "conflict": "Backup paused: choose a version",
+      "folderMissing": "Backup folder missing",
+      "failed": "Backup failed",
+      "pending": "Changes not backed up yet"
+    }
   },
   "dev": {
     "confirm": {
