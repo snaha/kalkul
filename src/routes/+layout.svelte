@@ -5,6 +5,7 @@
   import { browser } from '$app/environment'
 
   import { EVENTS, identify, track, trackerLoaded } from '$lib/analytics'
+  import BackupFileDrop from '$lib/components/backup-file-drop.svelte'
   import storageKeys from '$lib/storage-keys'
   import { appStore } from '$lib/stores/app.svelte'
   import { syncStore } from '$lib/stores/sync.svelte'
@@ -85,6 +86,7 @@
 
 {@render children()}
 
+<BackupFileDrop />
 {#if analyticsEnabled && instagramIos}
   {@render tracker()}
 {/if}
