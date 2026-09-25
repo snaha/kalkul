@@ -7,6 +7,7 @@
   import { resolve } from '$app/paths'
 
   import logo from '$lib/assets/logo.svg'
+  import BackupIndicator from '$lib/components/backup-indicator.svelte'
   import DiscordIcon from '$lib/components/icons/discord-icon.svelte'
   import GithubIcon from '$lib/components/icons/github-icon.svelte'
   import { Button } from '$lib/components/ui/button'
@@ -24,6 +25,7 @@
     <img src={logo} alt="Kalkul" class="size-9" />
   </a>
   <div class="flex items-center gap-4">
+    <BackupIndicator class={buttonClass} />
     <Button variant="ghost" size="sm" class={buttonClass} onclick={() => (feedbackOpen = true)}>
       <LifeBuoy class="size-4" />
       {$_('navbar.help')}

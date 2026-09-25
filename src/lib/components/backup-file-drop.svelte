@@ -5,15 +5,28 @@
 
   import { page } from '$app/state'
 
+  import BackupComputerNameDialog from '$lib/components/backup-computer-name-dialog.svelte'
   import ImportDialog from '$lib/components/import-dialog.svelte'
   import { carriesFiles, pickDroppedBackup } from '$lib/dropped-backup'
   import restoreBackup, { showRestoredBackup } from '$lib/restore-backup'
   import { appStore } from '$lib/stores/app.svelte'
+  import { cloudBackupStore } from '$lib/stores/cloud-backup.svelte'
   import { importDialogStore } from '$lib/stores/import-dialog.svelte'
 
   // Mounted once in the root layout: dropping an exported backup anywhere in
-  // the app imports it. Drags that carry no files (selected text, links) are
-  // left alone. It also hosts the app's single Import dialog.
+  // the app imports it, and dropping the backup folder connects automatic
+  // backup to it — the quick start on a second computer. Drags that carry no
+  // files (selected text, links) are left alone. It also hosts the app's
+  // single Import dialog.
+
+  /** A folder drop can connect: supported browser, nothing connected yet. */
+  const folderConnectable = $derived(
+    cloudBackupStore.enabled &&
+      cloudBackupStore.supported &&
+      (cloudBackupStore.status.kind === 'disconnected' ||
+        cloudBackupStore.status.kind === 'folder-missing'),
+  )
+  let nameDialogOpen = $state(false)
 
   // dragenter/dragleave fire for every child element the pointer crosses, so
   // count the nesting depth instead of toggling, or the overlay flickers.
@@ -66,12 +79,21 @@
     if (dragDepth === 0) resetDrag()
   }
 
-  function handleDrop(event: DragEvent): void {
+  async function handleDrop(event: DragEvent): Promise<void> {
     if (!carriesFiles(event.dataTransfer?.types)) return
     event.preventDefault()
     resetDrag()
-    // The file list is only readable during the drop event itself.
-    const picked = pickDroppedBackup(Array.from(event.dataTransfer?.files ?? []))
+    // The file list and the folder handle are only readable during the drop
+    // event itself, so take both before awaiting anything.
+    const files = Array.from(event.dataTransfer?.files ?? [])
+    const handle = event.dataTransfer?.items[0]?.getAsFileSystemHandle?.()
+    // A folder shows up in the file list too, as a file with no extension.
+    const dropped = await handle
+    if (dropped?.kind === 'directory') {
+      await connectFolder(dropped as FileSystemDirectoryHandle)
+      return
+    }
+    const picked = pickDroppedBackup(files)
     switch (picked.kind) {
       case 'none':
         return
@@ -90,6 +112,26 @@
           // Nothing to overwrite, like the landing page's "Try the demo".
           void importNow(picked.file)
         }
+    }
+  }
+
+  async function connectFolder(directory: FileSystemDirectoryHandle): Promise<void> {
+    if (!folderConnectable) {
+      alert(
+        cloudBackupStore.supported
+          ? $_('navbar.import.drop.folderAlreadyConnected')
+          : $_('navbar.import.drop.folderUnsupported'),
+      )
+      return
+    }
+    try {
+      await cloudBackupStore.beginConnectDropped(directory)
+      // The folder went missing and this is it again: keep this computer's name.
+      if (cloudBackupStore.connection) await cloudBackupStore.finishConnect(undefined)
+      else nameDialogOpen = true
+    } catch (e) {
+      console.error('Could not connect the dropped folder', e)
+      alert($_('page.settings.cloudBackup.error'))
     }
   }
 
@@ -124,12 +166,25 @@
       class="flex max-w-md flex-col items-center gap-3 rounded-xl border-2 border-dashed border-primary bg-card px-8 py-10 text-center shadow-lg"
     >
       <FileUp class="size-10 text-primary" />
-      <p class="text-lg font-semibold text-foreground">{$_('navbar.import.drop.title')}</p>
+      <p class="text-lg font-semibold text-foreground">
+        {folderConnectable
+          ? $_('navbar.import.drop.titleOrFolder')
+          : $_('navbar.import.drop.title')}
+      </p>
       <p class="text-base text-muted-foreground">
         {appStore.hasData ? $_('navbar.import.drop.replaces') : $_('navbar.import.drop.restores')}
       </p>
+      {#if folderConnectable}
+        <p class="text-base text-muted-foreground">{$_('navbar.import.drop.folder')}</p>
+      {/if}
     </div>
   </div>
 {/if}
 
 <ImportDialog />
+
+<BackupComputerNameDialog
+  bind:open={nameDialogOpen}
+  onSubmit={(computerName) => cloudBackupStore.finishConnect(computerName)}
+  onCancel={cloudBackupStore.cancelConnect}
+/>
