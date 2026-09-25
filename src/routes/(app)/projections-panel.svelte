@@ -44,7 +44,7 @@
   // forward with nothing changed.
   const currentProjection = $derived(
     hasFinancialData
-      ? toBars(getYearlyPlanProjection(buildCurrentProjectionPlan(profile, today), profile))
+      ? toBars(getYearlyPlanProjection(buildCurrentProjectionPlan(today), profile))
       : [],
   )
 

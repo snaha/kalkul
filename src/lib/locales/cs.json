@@ -8,7 +8,13 @@
       "exploringPlaceholder": "např. koupě domu za 3 roky, přechod na částečný úvazek, předčasný odchod do důchodu...",
       "startFromCurrentFinances": "Začít od vašich aktuálních financí",
       "startFromCurrentFinancesHelp": "Udržte svou projekci ukotvenou v realitě. Vaše současná aktiva a peněžní toky jsou zahrnuty jako výchozí bod — cokoli můžete upravit nebo přidat. Vypnutím začnete od nuly.",
-      "create": "Vytvořit projekci"
+      "create": "Vytvořit projekci",
+      "modelChanges": {
+        "title": "Modelujte změny v nové projekci",
+        "intro": "Vytvořte novou projekci, do které přidáte majetek a peněžní toky a vyzkoušíte, co kdyby — vaše aktuální finanční data se nezmění.",
+        "name": "Název projekce",
+        "create": "Vytvořit novou projekci"
+      }
     },
     "planSettings": {
       "title": "Nastavení projekce",
@@ -643,12 +649,6 @@
         "holdingYearsOutOfRange": "Zadejte 0 nebo více let",
         "cgtHelp": "Daň z kapitálových výnosů (CGT) je daň ze zisku z prodeje majetku – například akcií, dluhopisů, nemovitostí nebo sběratelských předmětů – jehož hodnota vzrostla. Platí se pouze při prodeji (realizaci), nikoli během držení. Sazby obvykle závisí na době držení (krátkodobé vs. dlouhodobé) a na výši příjmu vlastníka."
       }
-    },
-    "modelChanges": {
-      "title": "Modelujte změny v nové projekci",
-      "intro": "Vytvořte novou projekci, do které přidáte majetek a peněžní toky a vyzkoušíte, co kdyby — vaše aktuální finanční data se nezmění.",
-      "name": "Název projekce",
-      "create": "Vytvořit novou projekci"
     }
   },
   "common": {

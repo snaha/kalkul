@@ -47,6 +47,7 @@
   } from '$lib/schemas'
   import { getFrequencyShortLabel } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
+  import { trackToday } from '$lib/today.svelte'
   import { cn, notImplemented } from '$lib/utils'
 
   import AddAssetDialog, { type AssetKind as AddAssetKind } from './add-asset-dialog.svelte'
@@ -65,19 +66,16 @@
   // dialogs and the settings page stay reachable only for a saved plan.
   const readOnly = $derived(planId === CURRENT_PROJECTION_ID)
   const savedPlan = $derived(appStore.portfolios.find((p) => p.id === planId))
-  const today = new Date()
+  // One clock for the page, rolling over at midnight like the dashboard's.
+  const clock = trackToday()
   // The Current projection starts from today's balances — the stored ones
   // carried forward, as the dashboard shows them — so the two agree. A saved
   // plan projects the stored data it was written against.
   const profile = $derived<Profile>(
-    readOnly ? getCurrentProfile(appStore.profile.toJSON(), today) : appStore.profile,
+    readOnly ? getCurrentProfile(appStore.profile.toJSON(), clock.today) : appStore.profile,
   )
   const plan = $derived<Portfolio | undefined>(
-    readOnly
-      ? appStore.loading
-        ? undefined
-        : buildCurrentProjectionPlan(profile, today)
-      : savedPlan,
+    readOnly ? (appStore.loading ? undefined : buildCurrentProjectionPlan(clock.today)) : savedPlan,
   )
   // Nothing on the Current projection can be edited: every "add" opens the
   // Model changes dialog, which starts a plan to make the change in.
@@ -1096,11 +1094,5 @@
 {/if}
 
 {#if readOnly}
-  <AddProjectionDialog
-    bind:open={modelChangesOpen}
-    title={$_('page.modelChanges.title')}
-    intro={$_('page.modelChanges.intro')}
-    nameLabel={$_('page.modelChanges.name')}
-    createLabel={$_('page.modelChanges.create')}
-  />
+  <AddProjectionDialog bind:open={modelChangesOpen} variant="modelChanges" />
 {/if}

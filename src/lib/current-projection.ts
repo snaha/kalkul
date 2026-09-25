@@ -1,6 +1,6 @@
 import { formatDate } from '$lib/@snaha/kalkul-maths'
-import { getDefaultPlanDates } from '$lib/plan-defaults'
-import type { Portfolio, Profile } from '$lib/schemas'
+import { DEFAULT_INFLATION_RATE } from '$lib/plan-defaults'
+import type { Portfolio } from '$lib/schemas'
 
 /**
  * Id of the synthesized plan. Deliberately not a UUID so it can never be
@@ -13,7 +13,7 @@ export const CURRENT_PROJECTION_ID = 'current-projection'
  * say little about the decades after that; a saved plan, where they can be
  * changed, is the place to look further.
  */
-export const CURRENT_PROJECTION_YEARS = 20
+const CURRENT_PROJECTION_YEARS = 20
 
 /**
  * The dashboard's always-present "Current projection": where the user's money
@@ -26,17 +26,14 @@ export const CURRENT_PROJECTION_YEARS = 20
  * Every asset, liability and cash flow is in scope — the projection reads an
  * omitted `included_*_ids` list as "all of them".
  */
-export function buildCurrentProjectionPlan(
-  profile: Profile,
-  today: Date,
-  endDate?: string,
-): Portfolio {
-  const dates = getDefaultPlanDates(profile, today)
+export function buildCurrentProjectionPlan(today: Date, endDate?: string): Portfolio {
+  const start = new Date(today.getFullYear(), today.getMonth(), 1)
   const end = new Date(today.getFullYear() + CURRENT_PROJECTION_YEARS, today.getMonth(), 1)
   return {
     id: CURRENT_PROJECTION_ID,
     name: '',
-    ...dates,
+    start_date: formatDate(start),
     end_date: endDate ?? formatDate(end),
+    inflation_rate: DEFAULT_INFLATION_RATE,
   }
 }
