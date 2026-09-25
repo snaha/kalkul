@@ -70,7 +70,25 @@ by both paths.
 - `src/lib/@snaha/kalkul-maths/` - Shared low-level financial math helpers
 - `src/lib/stores/` - Svelte 5 runes-based state management
 - `src/lib/components/` - Reusable Svelte components
+- `src/lib/plugins/` - Optional features, each in its own folder, turned on from the `/dev` page (see below)
 - `src/routes/(app)/` - Main application routes
+
+## Plugins
+
+Optional features live in `src/lib/plugins/<id>/`, one self-contained folder each: code, components,
+tests and translations (`locales/en.json`, `locales/cs.json`, keys under `plugins.<id>`). The app
+knows only the contract in `src/lib/plugins/types.ts`:
+
+- `registry.ts` lists the plugins; adding one is a line there.
+- The plugin gets a `PluginHost` (`host.ts`) with three members: `exportData`, `replaceData` and
+  `onDataChange`, which reports every change to the stored data and where it came from (`appStore`
+  raises it from its one save path, cross-tab sync, load and clear). Beyond that a plugin may import
+  only the UI kit, `$lib/utils` and `$lib/routes` (enforced by ESLint).
+- The app renders the components a plugin provides at fixed places: the root layout, the navbar, a
+  settings section, the landing page and the drop overlay (plus a callback for dropped folders).
+- Every plugin starts off. The `/dev` page turns it on for that browser.
+
+Available: `backup-folder`, automatic backup to a folder that syncs between computers.
 
 ## Deployments
 

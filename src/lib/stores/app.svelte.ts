@@ -178,16 +178,23 @@ function loadData(): StoredData {
   return { lastUpdated: 0, profile: { ...DEFAULT_PROFILE }, portfolios: [] }
 }
 
+function parseSyncedData(json: string) {
+  return storedDataSchema
+    .pick({ profile: true, portfolios: true })
+    .parse(repairStoredData(JSON.parse(json)))
+}
+
 /**
  * A change to the stored data, as `onDataChange` reports it.
  *
  * - `edit`: this tab saved a change (any edit, an import).
+ * - `replace`: this tab replaced the data with `replaceData`.
  * - `other-tab`: another tab saved or cleared, and this tab took its data.
  * - `load`: the data was loaded or cleared wholesale.
  */
 export interface DataChange {
   lastUpdated: number
-  source: 'edit' | 'other-tab' | 'load'
+  source: 'edit' | 'replace' | 'other-tab' | 'load'
 }
 
 function withAppStore() {
@@ -211,7 +218,7 @@ function withAppStore() {
     loading = false
   }
 
-  function persist(): void {
+  function persist(source: 'edit' | 'replace' = 'edit'): void {
     const now = Date.now()
     const stored: StoredData = {
       lastUpdated: now,
@@ -222,7 +229,7 @@ function withAppStore() {
       localStorage.setItem(storageKeys.DATA, JSON.stringify(stored))
       lastUpdated = now
       storageErrorStore.clear()
-      emitChange('edit')
+      emitChange(source)
     } catch (e) {
       console.error('Failed to save data to localStorage', e)
       storageErrorStore.setError()
@@ -502,8 +509,8 @@ function withAppStore() {
 
     /**
      * Calls `listener` after every change to the stored data, whatever made
-     * it — an edit or import in this tab, another tab's save, a load or a
-     * clear. Returns the unsubscribe.
+     * it — an edit, import or replace in this tab, another tab's save, a load
+     * or a clear. Returns the unsubscribe.
      */
     onDataChange(listener: (change: DataChange) => void): () => void {
       dataListeners = [...dataListeners, listener]
@@ -533,6 +540,21 @@ function withAppStore() {
       portfolios = enrichAll(validated.portfolios)
       loading = false
       persist()
+    },
+
+    /**
+     * Replaces the data with a copy synced from elsewhere (e.g. a backup
+     * folder). Unlike `importBackup` it stores the data exactly as given — no
+     * snapshot seeded — so both sides hold the same data and the next sync
+     * does not see a change nobody made. Throws without changing anything
+     * when `json` is not data this version can load.
+     */
+    replaceData(json: string): void {
+      const validated = parseSyncedData(json)
+      profile = enrichProfile(validated.profile)
+      portfolios = enrichAll(validated.portfolios)
+      loading = false
+      persist('replace')
     },
   }
 }
