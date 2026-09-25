@@ -27,7 +27,7 @@
     transferFromFields,
     transferToFields,
   } from '$lib/transfer-form'
-  import { getMonthOptions, getYearOptions } from '$lib/utils'
+  import { getMonthOptions, getYearOptions, monthToOption, optionToMonth } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
 
@@ -313,10 +313,12 @@
           />
           <SelectField
             aria-label={$_('page.setup.aboutYou.selectMonth')}
-            value={form.transaction_month !== undefined ? String(form.transaction_month - 1) : ''}
+            value={form.transaction_month !== undefined
+              ? monthToOption(form.transaction_month)
+              : ''}
             items={months}
             onValueChange={(v) => {
-              if (v) form.transaction_month = Number(v) + 1
+              if (v) form.transaction_month = optionToMonth(v)
             }}
           />
         </div>

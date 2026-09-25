@@ -1235,11 +1235,14 @@ describe('repairStoredData: zero-based months from the old timing selector', () 
       },
       portfolios: [],
     }
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     repairStoredData(stored)
     expect(stored.profile.incomes[0].start_month).toBe(1)
     expect(stored.profile.transfers[0].end_month).toBe(1)
     expect(stored.profile.investments[0]).toMatchObject({ start_month: 1, exit_month: 1 })
     expect(stored.profile.tangible_assets[0]).toMatchObject({ purchase_month: 1, sale_month: 1 })
     expect(stored.profile.liabilities[0].start_month).toBe(1)
+    expect(warn).toHaveBeenCalledTimes(7)
+    warn.mockRestore()
   })
 })

@@ -9,7 +9,9 @@ import {
   formatNumber,
   formatPercent,
   getFormattingLocale,
+  monthToOption,
   msUntilNextMidnight,
+  optionToMonth,
   parseDateOnly,
   slugify,
   toDateOnlyString,
@@ -192,5 +194,15 @@ describe('formatLastUpdated', () => {
   it('returns undefined when nothing was saved yet instead of faking today', () => {
     expect(formatLastUpdated(0, 'en-US')).toBeUndefined()
     expect(formatLastUpdated(-1, 'en-US')).toBeUndefined()
+  })
+})
+
+describe('month option conversion', () => {
+  it('maps stored 1..12 months onto the 0..11 option values and back', () => {
+    expect(monthToOption(1)).toBe('0')
+    expect(monthToOption(12)).toBe('11')
+    expect(optionToMonth('0')).toBe(1)
+    expect(optionToMonth('11')).toBe(12)
+    for (let m = 1; m <= 12; m++) expect(optionToMonth(monthToOption(m))).toBe(m)
   })
 })

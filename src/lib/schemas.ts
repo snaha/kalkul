@@ -164,7 +164,8 @@ function repairCashFlowMonths(flow: unknown): void {
 // The timing selector once stored months as 0..11 while the engine reads
 // 1..12. Only a stored 0 can be told apart from a correctly stored month, so
 // that alone is repaired (to January); 1..11 written by the old selector is
-// indistinguishable and left as is.
+// indistinguishable and left as is. `transaction_month` and `pay_off_month`
+// are not listed: their one-time pickers always wrote 1..12.
 const TIMING_MONTH_FIELDS = [
   'start_month',
   'end_month',
@@ -175,7 +176,13 @@ const TIMING_MONTH_FIELDS = [
 
 function repairZeroMonths(item: unknown): void {
   if (!isRecord(item)) return
-  for (const key of TIMING_MONTH_FIELDS) if (item[key] === 0) item[key] = 1
+  for (const key of TIMING_MONTH_FIELDS) {
+    if (item[key] !== 0) continue
+    item[key] = 1
+    console.warn(
+      `Item "${String(item.name ?? item.id ?? 'unknown')}" had ${key} stored as 0 by the old zero-based timing selector; set it to January (1)`,
+    )
+  }
 }
 
 /**

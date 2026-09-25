@@ -4,6 +4,7 @@
   import SelectField, { type SelectFieldItem } from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Label } from '$lib/components/ui/label'
+  import { monthToOption, optionToMonth } from '$lib/utils'
 
   interface Props {
     mode: 'start' | 'end'
@@ -84,9 +85,7 @@
   let effectiveDescription = $derived(description ?? computedDescription)
 
   let yearString = $derived(year !== undefined ? String(year) : '')
-  // Stored months are 1..12 (the engine's convention); the option values
-  // from getMonthOptions are 0..11, so convert at this boundary.
-  let monthString = $derived(month !== undefined ? String(month - 1) : '')
+  let monthString = $derived(month !== undefined ? monthToOption(month) : '')
 
   // Age-based timing needs a birth date to resolve to a year; disable it when
   // none is set so the flow can't silently start at the plan's first year.
@@ -116,7 +115,7 @@
   let monthItems = $derived(
     minMonth === undefined
       ? months
-      : months.map((m) => ({ ...m, disabled: Number(m.value) + 1 < minMonth })),
+      : months.map((m) => ({ ...m, disabled: optionToMonth(m.value) < minMonth })),
   )
 </script>
 
@@ -148,7 +147,7 @@
         value={monthString}
         items={monthItems}
         onValueChange={(v) => {
-          if (v) onMonthChange(Number(v) + 1)
+          if (v) onMonthChange(optionToMonth(v))
         }}
       />
     </div>
