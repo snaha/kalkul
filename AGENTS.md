@@ -100,21 +100,10 @@ publicly — and this note with it.
    - TypeScript types are derived from schemas (`z.infer<typeof schema>`) — never define types separately from schemas
 
 3. **Plan Ownership**
-   - Whatever is changed while working on a plan applies to that plan only. Financial data (the
-     profile's investments, tangible assets, liabilities, incomes, expenses, transfers) is current
-     data shared by every plan; a plan is a scenario on top of it.
-   - An item created inside a plan carries that plan's `plan_id` and never appears in Financial
-     data or in other plans (`src/lib/plan-owned.ts`: `sharedItems`, `planOwnedItems`,
-     `itemsForPlan`). An item without `plan_id` is shared.
-   - Engine logic keys off ownership: a plan-owned liability is a loan the plan takes on (its
-     principal pays into cash when it starts), whereas a shared one is debt the user already
-     carries. Do not invent other signals (dates, names) for "belongs to the plan".
-   - The MCP tools follow the same rule. A client may work on several plans at once, but every
-     item it adds while working on a plan must carry the id of that plan. The `update_profile`
-     tool description states this; keep it in sync when the rule changes.
-   - Editing a shared item inside a plan forks it: the edit lands in a plan-owned copy and the
-     plan swaps the original for the copy in its include list (`upsertProfileItem` in
-     `src/routes/(app)/plan/[id]/profile-lists.ts`). Financial data keeps the original.
+   - Whatever is changed while working on a plan applies to that plan only. Financial data (the profile's investments, tangible assets, liabilities, incomes, expenses, transfers) is current data shared by every plan; a plan is a scenario on top of it.
+   - An item without `plan_id` is shared. An item created inside a plan carries that plan's `plan_id` and never appears in Financial data or in other plans (`src/lib/plan-owned.ts`: `sharedItems`, `planOwnedItems`, `itemsForPlan`).
+   - Engine logic that needs to know whether an item belongs to the plan keys off `plan_id`. Do not invent other signals (dates, names) for "belongs to the plan".
+   - The MCP tools follow the same rule. A client may work on several plans at once, but every item it adds while working on a plan must carry the id of that plan. The `update_profile` tool description states this; keep it in sync when the rule changes.
 
 ### Naming Conventions
 
