@@ -50,7 +50,7 @@ const unfundedYears = (years: YearlyProjection[]): number[] =>
 describe.each(Object.entries(SAMPLES))('example profile: %s', (_name, json) => {
   test('the current projection pays for every year', () => {
     const { profile } = parse(json)
-    const years = getYearlyPlanProjection(buildCurrentProjectionPlan(profile, TODAY), profile)
+    const years = getYearlyPlanProjection(buildCurrentProjectionPlan(TODAY), profile)
 
     expect(years.length).toBeGreaterThan(0)
     expect(unfundedYears(years)).toEqual([])

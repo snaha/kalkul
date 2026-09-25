@@ -8,7 +8,13 @@
       "exploringPlaceholder": "e.g. Buy a house in 3 years, switch to part-time work, early retirement...",
       "startFromCurrentFinances": "Start from your current finances",
       "startFromCurrentFinancesHelp": "Keep your projection grounded in reality. Your current assets and cash flows are included as the starting point — you can modify or add anything. Turn off to start from scratch.",
-      "create": "Create projection"
+      "create": "Create projection",
+      "modelChanges": {
+        "title": "Model changes in a new projection",
+        "intro": "Create a new projection to add assets and cash flows, and explore what-ifs — your current financial data will not be changed.",
+        "name": "Projection name",
+        "create": "Create new projection"
+      }
     },
     "planSettings": {
       "title": "Projection settings",
@@ -194,7 +200,8 @@
       "cashFlowOccurrences": "{count, plural, one {# occurrence} other {# occurrences}}",
       "cashFlowNominalValue": "Nominal value: {nominal} ({real} in today's money)",
       "cashFlowNominalTotal": "Nominal total: {nominal} ({real} in today's money)",
-      "cashFlowTotal": "Total: {total}"
+      "cashFlowTotal": "Total: {total}",
+      "modelChanges": "Model changes"
     },
     "landing": {
       "nav": {

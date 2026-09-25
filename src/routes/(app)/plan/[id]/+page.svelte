@@ -15,6 +15,7 @@
   import { page } from '$app/state'
 
   import { CATEGORY_COLORS } from '$lib/chart-colors'
+  import AddProjectionDialog from '$lib/components/add-projection-dialog.svelte'
   import ChartTooltipContent from '$lib/components/chart-tooltip-content.svelte'
   import Loader from '$lib/components/loader.svelte'
   import StackedBarChart, {
@@ -32,12 +33,21 @@
   import { Separator } from '$lib/components/ui/separator'
   import { Slider } from '$lib/components/ui/slider'
   import { CURRENT_PROJECTION_ID, buildCurrentProjectionPlan } from '$lib/current-projection'
+  import { getCurrentProfile } from '$lib/current-values'
   import { itemsForPlan } from '$lib/plan-owned'
   import { getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
   import routes from '$lib/routes'
-  import type { Expense, Income, Portfolio, ProfileLiability, Transfer } from '$lib/schemas'
+  import type {
+    Expense,
+    Income,
+    Portfolio,
+    Profile,
+    ProfileLiability,
+    Transfer,
+  } from '$lib/schemas'
   import { getFrequencyShortLabel } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
+  import { trackToday } from '$lib/today.svelte'
   import { cn, notImplemented } from '$lib/utils'
 
   import AddAssetDialog, { type AssetKind as AddAssetKind } from './add-asset-dialog.svelte'
@@ -56,13 +66,20 @@
   // dialogs and the settings page stay reachable only for a saved plan.
   const readOnly = $derived(planId === CURRENT_PROJECTION_ID)
   const savedPlan = $derived(appStore.portfolios.find((p) => p.id === planId))
-  const plan = $derived<Portfolio | undefined>(
-    readOnly
-      ? appStore.loading
-        ? undefined
-        : buildCurrentProjectionPlan(appStore.profile, new Date())
-      : savedPlan,
+  // One clock for the page, rolling over at midnight like the dashboard's.
+  const clock = trackToday()
+  // The Current projection starts from today's balances — the stored ones
+  // carried forward, as the dashboard shows them — so the two agree. A saved
+  // plan projects the stored data it was written against.
+  const profile = $derived<Profile>(
+    readOnly ? getCurrentProfile(appStore.profile.toJSON(), clock.today) : appStore.profile,
   )
+  const plan = $derived<Portfolio | undefined>(
+    readOnly ? (appStore.loading ? undefined : buildCurrentProjectionPlan(clock.today)) : savedPlan,
+  )
+  // Nothing on the Current projection can be edited: every "add" opens the
+  // Model changes dialog, which starts a plan to make the change in.
+  let modelChangesOpen = $state(false)
 
   // Year range from portfolio dates (yearOf: date-only strings parse as UTC,
   // so new Date(...).getFullYear() would be off by one in UTC-negative zones)
@@ -242,7 +259,7 @@
 
   // Category counts from profile data
   // Shared profile items plus this plan's own; other plans' stay out.
-  const planTransfers = $derived(itemsForPlan(appStore.profile.transfers, planId))
+  const planTransfers = $derived(itemsForPlan(profile.transfers, planId))
   const transfersCount = $derived(planTransfers.length)
 
   function transferValueSuffix(t: Transfer): string {
@@ -256,17 +273,15 @@
     if (f.schedule === 'one_time') return `(${$_('page.plan.scheduleOneTime').toLowerCase()})`
     return `/ ${getFrequencyShortLabel($_, f.frequency ?? 'monthly')}`
   }
-  const incomesCount = $derived(itemsForPlan(appStore.profile.incomes, planId).length)
-  const expensesCount = $derived(itemsForPlan(appStore.profile.expenses, planId).length)
-  const cashCount = $derived(appStore.profile.cash_amount ? 1 : 0)
-  const investmentsCount = $derived(itemsForPlan(appStore.profile.investments, planId).length)
-  const tangibleAssetsCount = $derived(
-    itemsForPlan(appStore.profile.tangible_assets, planId).length,
-  )
-  const liabilitiesCount = $derived(itemsForPlan(appStore.profile.liabilities, planId).length)
+  const incomesCount = $derived(itemsForPlan(profile.incomes, planId).length)
+  const expensesCount = $derived(itemsForPlan(profile.expenses, planId).length)
+  const cashCount = $derived(profile.cash_amount ? 1 : 0)
+  const investmentsCount = $derived(itemsForPlan(profile.investments, planId).length)
+  const tangibleAssetsCount = $derived(itemsForPlan(profile.tangible_assets, planId).length)
+  const liabilitiesCount = $derived(itemsForPlan(profile.liabilities, planId).length)
 
   // Yearly projection (real / inflation-adjusted values)
-  const projection = $derived(plan ? getYearlyPlanProjection(plan, appStore.profile) : [])
+  const projection = $derived(plan ? getYearlyPlanProjection(plan, profile) : [])
   const selectedYearProjection = $derived(projection.find((p) => p.year === selectedYear))
 
   // Union of per-year warning IDs — a transfer or expense that fails in any
@@ -339,7 +354,7 @@
       id: 'incomes',
       label: $_('page.plan.incomes'),
       count: incomesCount,
-      items: itemsForPlan(appStore.profile.incomes, planId)
+      items: itemsForPlan(profile.incomes, planId)
         .filter((i) => matchesSearch(i.name, searchQuery))
         .map((i) => ({
           id: i.id,
@@ -354,7 +369,7 @@
       id: 'expenses',
       label: $_('page.plan.expenses'),
       count: expensesCount,
-      items: itemsForPlan(appStore.profile.expenses, planId)
+      items: itemsForPlan(profile.expenses, planId)
         .filter((e) => matchesSearch(e.name, searchQuery))
         .map((e) => ({
           id: e.id,
@@ -373,12 +388,12 @@
       label: $_('page.plan.cash'),
       count: cashCount,
       items:
-        appStore.profile.cash_amount && matchesSearch($_('page.plan.cashItem'), searchQuery)
+        profile.cash_amount && matchesSearch($_('page.plan.cashItem'), searchQuery)
           ? [
               {
                 id: 'cash',
                 name: $_('page.plan.cashItem'),
-                value: appStore.formatCurrencyCode(appStore.profile.cash_amount),
+                value: appStore.formatCurrencyCode(profile.cash_amount),
                 onClick: () => (cashDialogOpen = true),
               },
             ]
@@ -388,7 +403,7 @@
       id: 'investments',
       label: $_('page.plan.investments'),
       count: investmentsCount,
-      items: itemsForPlan(appStore.profile.investments, planId)
+      items: itemsForPlan(profile.investments, planId)
         .filter((inv) => matchesSearch(inv.name, searchQuery))
         .map((inv) => ({
           id: inv.id,
@@ -402,7 +417,7 @@
       id: 'tangibleAssets',
       label: $_('page.plan.tangibleAssets'),
       count: tangibleAssetsCount,
-      items: itemsForPlan(appStore.profile.tangible_assets, planId)
+      items: itemsForPlan(profile.tangible_assets, planId)
         .filter((a) => matchesSearch(a.name, searchQuery))
         .map((a) => ({
           id: a.id,
@@ -416,7 +431,7 @@
       id: 'liabilities',
       label: $_('page.plan.liabilities'),
       count: liabilitiesCount,
-      items: itemsForPlan(appStore.profile.liabilities, planId)
+      items: itemsForPlan(profile.liabilities, planId)
         .filter((l) => matchesSearch(l.name, searchQuery))
         .map((l) => ({
           id: l.id,
@@ -666,21 +681,26 @@
         </div>
 
         <!-- Add button footer -->
-        {#if !readOnly}
-          <div class="shrink-0 p-4">
-            {#if activeTab === 'cashflows'}
-              <Button class="w-full" onclick={() => (addCashFlowDialogOpen = true)}>
-                <Plus class="size-4" />
-                {$_('page.plan.addCashFlow')}
-              </Button>
-            {:else}
-              <Button class="w-full" onclick={() => (addAssetDialogOpen = true)}>
-                <Plus class="size-4" />
-                {$_('page.plan.addAsset')}
-              </Button>
-            {/if}
-          </div>
-        {/if}
+        <div class="shrink-0 p-4">
+          {#if activeTab === 'cashflows'}
+            <Button
+              class="w-full"
+              onclick={() =>
+                readOnly ? (modelChangesOpen = true) : (addCashFlowDialogOpen = true)}
+            >
+              <Plus class="size-4" />
+              {$_('page.plan.addCashFlow')}
+            </Button>
+          {:else}
+            <Button
+              class="w-full"
+              onclick={() => (readOnly ? (modelChangesOpen = true) : (addAssetDialogOpen = true))}
+            >
+              <Plus class="size-4" />
+              {$_('page.plan.addAsset')}
+            </Button>
+          {/if}
+        </div>
       </div>
     {/if}
 
@@ -708,13 +728,19 @@
             <ArrowLeft class="size-4" />
           </Button>
           {#if readOnly}
-            <h2 class="text-xl font-bold">{$_('page.dashboard.projections.current.title')}</h2>
+            <h2 class="text-xl font-bold whitespace-nowrap">
+              {$_('page.dashboard.projections.current.title')}
+            </h2>
             <Badge variant="outline">{$_('page.dashboard.projections.current.badge')}</Badge>
           {:else}
             <h2 class="text-xl font-bold">{plan.name}</h2>
           {/if}
         </div>
-        {#if !readOnly}
+        {#if readOnly}
+          <Button size="sm" onclick={() => (modelChangesOpen = true)}>
+            {$_('page.plan.modelChanges')}
+          </Button>
+        {:else}
           <Button
             variant="ghost"
             size="icon"
@@ -1065,4 +1091,8 @@
       {$_('page.plan.backToHome')}
     </Button>
   </div>
+{/if}
+
+{#if readOnly}
+  <AddProjectionDialog bind:open={modelChangesOpen} variant="modelChanges" />
 {/if}

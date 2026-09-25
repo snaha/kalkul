@@ -8,7 +8,13 @@
       "exploringPlaceholder": "např. koupě domu za 3 roky, přechod na částečný úvazek, předčasný odchod do důchodu...",
       "startFromCurrentFinances": "Začít od vašich aktuálních financí",
       "startFromCurrentFinancesHelp": "Udržte svou projekci ukotvenou v realitě. Vaše současná aktiva a peněžní toky jsou zahrnuty jako výchozí bod — cokoli můžete upravit nebo přidat. Vypnutím začnete od nuly.",
-      "create": "Vytvořit projekci"
+      "create": "Vytvořit projekci",
+      "modelChanges": {
+        "title": "Modelujte změny v nové projekci",
+        "intro": "Vytvořte novou projekci, do které přidáte majetek a peněžní toky a vyzkoušíte, co kdyby — vaše aktuální finanční data se nezmění.",
+        "name": "Název projekce",
+        "create": "Vytvořit novou projekci"
+      }
     },
     "planSettings": {
       "title": "Nastavení projekce",
@@ -194,7 +200,8 @@
       "cashFlowOccurrences": "{count, plural, one {# výskyt} few {# výskyty} other {# výskytů}}",
       "cashFlowNominalValue": "Nominální hodnota: {nominal} ({real} v dnešních penězích)",
       "cashFlowNominalTotal": "Nominální součet: {nominal} ({real} v dnešních penězích)",
-      "cashFlowTotal": "Celkem: {total}"
+      "cashFlowTotal": "Celkem: {total}",
+      "modelChanges": "Modelovat změny"
     },
     "landing": {
       "nav": {

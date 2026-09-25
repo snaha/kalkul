@@ -5,7 +5,7 @@ import type { PlanEndType, PlanStartType, Portfolio, Profile } from './schemas'
 import { parseDateOnly } from './utils'
 
 /** Inflation a new plan starts with when the user isn't asked for one. */
-const DEFAULT_INFLATION_RATE = 0.02
+export const DEFAULT_INFLATION_RATE = 0.02
 /** Age a new plan runs until when the user isn't asked for an end. */
 const DEFAULT_END_AGE = 85
 
