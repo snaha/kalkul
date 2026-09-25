@@ -6,7 +6,6 @@
 
   import { EVENTS, track } from '$lib/analytics'
   import { Button } from '$lib/components/ui/button'
-  import { Input } from '$lib/components/ui/input'
   import externalLinks from '$lib/external-links'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
@@ -32,30 +31,18 @@
 </script>
 
 {#if NEWSLETTER_USERNAME}
-  <!-- ponytail: a plain POST to Buttondown's embed endpoint, which lands on
-       their "check your inbox" page. CSP form-action is not covered by
-       default-src, so no policy change. Switch to fetch + inline thanks if
-       leaving the page turns out to cost signups. -->
-  <form
-    class="flex flex-col gap-2"
-    action={externalLinks.BUTTONDOWN_SUBSCRIBE + NEWSLETTER_USERNAME}
-    method="post"
-    onsubmit={() => track(EVENTS.LANDING_NEWSLETTER_SUBSCRIBE)}
-  >
-    <div class="flex flex-wrap items-center gap-3">
-      <Input
-        type="email"
-        name="email"
-        required
-        autocomplete="email"
-        placeholder={$_('page.landing.newsletter.placeholder')}
-        aria-label={$_('page.landing.newsletter.placeholder')}
-        class="h-10 w-full max-w-xs sm:w-auto"
-      />
-      <Button type="submit" size="lg">{$_('page.landing.newsletter.subscribe')}</Button>
-    </div>
+  <div class="flex flex-wrap items-center gap-3">
+    <Button
+      size="lg"
+      href={externalLinks.BUTTONDOWN + NEWSLETTER_USERNAME}
+      target="_blank"
+      rel="noopener noreferrer"
+      onclick={() => track(EVENTS.LANDING_NEWSLETTER_SUBSCRIBE)}
+    >
+      {$_('page.landing.newsletter.subscribe')}
+    </Button>
     <span class="text-sm text-muted-foreground">{$_('page.landing.newsletter.hint')}</span>
-  </form>
+  </div>
 {:else}
   <div class="flex flex-wrap items-center gap-3">
     <Button

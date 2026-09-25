@@ -19,7 +19,7 @@
 export default {
   GITHUB: 'https://github.com/snaha/kalkul-next',
   DISCORD: 'https://discord.gg/HKV8tkWrZV',
-  /** Buttondown's embed form endpoint; append the newsletter's username. */
-  BUTTONDOWN_SUBSCRIBE: 'https://buttondown.com/api/emails/embed-subscribe/',
+  /** Buttondown newsletter signup page; append the newsletter's username. */
+  BUTTONDOWN: 'https://buttondown.com/',
   AGPL_LICENSE: 'https://www.gnu.org/licenses/agpl-3.0.en.html',
 } as const
