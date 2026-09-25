@@ -180,8 +180,13 @@ function withAppStore() {
   let portfolios = $state<PortfolioStore[]>([])
   let loading = $state(true)
   let lastUpdated = $state(0)
+  // Demo mode holds a sample persona in memory only: nothing it does reaches
+  // localStorage, so a reload starts the persona afresh and "Get started" has
+  // nothing to wipe.
+  let demo = $state(false)
 
   function persist(): void {
+    if (demo) return
     const now = Date.now()
     const stored: StoredData = {
       lastUpdated: now,
@@ -499,7 +504,7 @@ function withAppStore() {
 
     startSync(): () => void {
       function onStorage(event: StorageEvent): void {
-        if (event.key !== storageKeys.DATA || !event.newValue) return
+        if (demo || event.key !== storageKeys.DATA || !event.newValue) return
 
         try {
           // Repaired like loadData so a tab still running an older app
@@ -540,6 +545,28 @@ function withAppStore() {
       portfolios = enrichAll(validated.portfolios)
       loading = false
       persist()
+    },
+
+    // --- Demo ---
+
+    get demo() {
+      return demo
+    },
+
+    /** Replaces the in-memory data with a demo persona; see `demo`. */
+    loadDemo(data: { profile: Profile; portfolios: Portfolio[] }): void {
+      demo = true
+      profile = enrichProfile(withSeededSnapshot(data.profile, new Date()))
+      portfolios = enrichAll(data.portfolios)
+      loading = false
+    },
+
+    /** Leaves demo mode with empty data, as before the demo started. */
+    exitDemo(): void {
+      demo = false
+      profile = enrichProfile({ ...DEFAULT_PROFILE })
+      portfolios = []
+      lastUpdated = 0
     },
   }
 }
