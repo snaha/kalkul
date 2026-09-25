@@ -84,12 +84,21 @@
   let valueOverTimeItems = $derived(getValueOverTimeItems($_))
 
   // The dialog asks for the down payment; the profile stores what is still
-  // owed. One is the other's complement against the purchase price.
+  // owed. One is the other's complement against the purchase price. Until the
+  // user enters a down payment nothing is paid, so the whole price is owed.
   let downPayment = $derived(
-    item.value === undefined
+    item.value === undefined || item.outstanding_balance === undefined
       ? undefined
-      : Math.max(item.value - (item.outstanding_balance ?? 0), 0),
+      : Math.max(item.value - item.outstanding_balance, 0),
   )
+
+  // Keep the down payment fixed while the price is typed (#263): the balance
+  // still owed follows the price.
+  function setPurchasePrice(value: number | undefined): void {
+    const paid = downPayment ?? 0
+    item.value = value
+    if (item.status === 'financed') item.outstanding_balance = Math.max((value ?? 0) - paid, 0)
+  }
 
   function setDownPayment(paid: number | undefined): void {
     item.outstanding_balance = Math.max((item.value ?? 0) - (paid ?? 0), 0)
@@ -132,9 +141,7 @@
       value={item.value}
       suffix={currencyLabel}
       {formatNumber}
-      onValueChange={(v) => {
-        item.value = v
-      }}
+      onValueChange={setPurchasePrice}
     />
   </div>
   <div class="flex flex-1 flex-col gap-2">
@@ -144,7 +151,10 @@
       value={item.status}
       items={paymentMethodItems}
       onValueChange={(v) => {
-        if (v) item.status = v
+        if (!v) return
+        item.status = v
+        if (v === 'financed' && item.outstanding_balance === undefined)
+          item.outstanding_balance = item.value ?? 0
       }}
     />
   </div>
