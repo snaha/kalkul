@@ -47,6 +47,12 @@ describe('buildCurrentProjectionPlan', () => {
     expect(buildCurrentProjectionPlan(PROFILE, TODAY).id).toBe(CURRENT_PROJECTION_ID)
   })
 
+  test('prefers the inflation rate set on the profile', () => {
+    expect(
+      buildCurrentProjectionPlan({ ...PROFILE, inflation_rate: 0.035 }, TODAY).inflation_rate,
+    ).toBe(0.035)
+  })
+
   test('uses the default inflation rate', () => {
     expect(buildCurrentProjectionPlan(PROFILE, TODAY).inflation_rate).toBe(0.02)
   })

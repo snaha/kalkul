@@ -20,9 +20,11 @@ export const CURRENT_PROJECTION_ID = 'current-projection'
  * omitted `included_*_ids` list as "all of them".
  */
 export function buildCurrentProjectionPlan(profile: Profile, today: Date): Portfolio {
+  const dates = getDefaultPlanDates(profile, today)
   return {
     id: CURRENT_PROJECTION_ID,
     name: '',
-    ...getDefaultPlanDates(profile, today),
+    ...dates,
+    inflation_rate: profile.inflation_rate ?? dates.inflation_rate,
   }
 }

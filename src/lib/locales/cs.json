@@ -105,6 +105,7 @@
       "transferFrequencyLabel": "Frekvence",
       "transferMax": "Max",
       "transferMaxDescription": "Převede všechny dostupné prostředky v okamžiku provedení",
+      "showInflation": "Zobrazit inflaci",
       "adjustForInflation": "Upravit podle inflace",
       "adjustForInflationDescription": "Každý rok zvýší částku o inflační míru plánu, aby si zachovala reálnou hodnotu v čase.",
       "totalExpenseRatio": "Celkové roční náklady",

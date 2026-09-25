@@ -105,6 +105,7 @@
       "transferFrequencyLabel": "Frequency",
       "transferMax": "Max",
       "transferMaxDescription": "Transfers all available funds at the time of execution",
+      "showInflation": "Show inflation",
       "adjustForInflation": "Adjust for inflation",
       "adjustForInflationDescription": "Grows the amount each year by the plan's inflation rate, so it keeps its real value over time.",
       "totalExpenseRatio": "Total expense ratio",
