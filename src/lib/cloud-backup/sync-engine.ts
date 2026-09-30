@@ -40,18 +40,34 @@ export interface SyncDeps {
      */
     stamp: () => number
     /**
-     * False while something on screen holds its own copy of the data (an
-     * editor, a dialog): replacing the data under it would let its next save
-     * write the old copy back as an edit. Downloads wait; uploads do not.
+     * False while something on screen — in any tab — holds its own copy of
+     * the data (an editor, a dialog): replacing the data under it would let
+     * its next save write the old copy back as an edit. Downloads wait;
+     * uploads do not.
      */
-    canReplace: () => boolean
+    canReplace: () => Promise<boolean>
     export: () => string
+    /** Throws when `json` is not data this app can load (e.g. a newer app's). */
+    validate: (json: string) => void
     /** Replaces the local data; the stamp moves as with any other change. */
     import: (json: string) => void
   }
   state: {
     load: () => Promise<SyncState | undefined>
     save: (state: SyncState) => Promise<void>
+  }
+  /** Called just before the round writes or downloads anything. */
+  transferring: () => void
+}
+
+/** A version in the folder that this app cannot load; nothing local was touched. */
+export class UnreadableBackupError extends Error {
+  constructor(
+    readonly version: Version,
+    options?: ErrorOptions,
+  ) {
+    super(`Backup ${version.id} cannot be loaded`, options)
+    this.name = 'UnreadableBackupError'
   }
 }
 
@@ -63,8 +79,15 @@ export type SyncOutcome =
   | { kind: 'held'; remote: Version }
   /** Both sides changed, or the history branched; `resolveConflict` settles it. */
   | { kind: 'conflict'; remote: Version }
+  /**
+   * The folder's history is branched and this device has nothing of its own
+   * yet, so there is no "this computer's data" to weigh against the folder:
+   * the user picks one of the branches with `chooseVersion`.
+   */
+  | { kind: 'fork'; heads: Version[] }
 
 async function push(deps: SyncDeps, parents: string[]): Promise<SyncOutcome> {
+  deps.transferring()
   const stamp = deps.local.stamp()
   const version = await appendVersion(deps.files, {
     parents,
@@ -92,15 +115,24 @@ function wouldLoseLocal(
 }
 
 /**
- * Replaces local data with `json`, saving the local data aside first when
- * that is the only copy of it. If saving aside fails, nothing is replaced.
+ * Replaces local data with `version`, saving the local data aside first when
+ * that is the only copy of it. If reading or checking the version, or saving
+ * aside, fails, nothing is replaced — and a version this app cannot load
+ * costs no safety copy, so retrying it does not fill the folder with them.
  */
 async function replaceLocal(
   deps: SyncDeps,
-  json: string,
+  version: Version,
   synced: SyncState | undefined,
   versions: Version[],
 ): Promise<void> {
+  deps.transferring()
+  const json = await deps.files.read(version.id)
+  try {
+    deps.local.validate(json)
+  } catch (error) {
+    throw new UnreadableBackupError(version, { cause: error })
+  }
   if (wouldLoseLocal(deps, synced, versions)) {
     await saveSafetyCopy(deps.files, {
       device: deps.device,
@@ -117,9 +149,7 @@ async function pull(
   synced: SyncState | undefined,
   versions: Version[],
 ): Promise<SyncOutcome> {
-  // Read first: a backup that cannot be read must not cost anything local.
-  const json = await deps.files.read(version.id)
-  await replaceLocal(deps, json, synced, versions)
+  await replaceLocal(deps, version, synced, versions)
   await deps.state.save({
     head: version.hash,
     localStamp: deps.local.stamp(),
@@ -129,13 +159,13 @@ async function pull(
 }
 
 /** An automatic download, which waits while the data is being edited. */
-function autoPull(
+async function autoPull(
   deps: SyncDeps,
   version: Version,
   synced: SyncState | undefined,
   versions: Version[],
 ): Promise<SyncOutcome> {
-  if (!deps.local.canReplace()) return Promise.resolve({ kind: 'held', remote: version })
+  if (!(await deps.local.canReplace())) return { kind: 'held', remote: version }
   return pull(deps, version, synced, versions)
 }
 
@@ -192,7 +222,9 @@ export async function syncOnce(deps: SyncDeps): Promise<SyncOutcome> {
 
   if (!synced) {
     if (!heads.length) return hasLocal ? push(deps, []) : { kind: 'up-to-date' }
-    if (!hasLocal) return autoPull(deps, heads[0], synced, versions)
+    if (!hasLocal) {
+      return heads.length > 1 ? { kind: 'fork', heads } : autoPull(deps, heads[0], synced, versions)
+    }
     return conflictUnlessSame(deps, heads[0], heads)
   }
 
@@ -234,7 +266,24 @@ export async function resolveConflict(
   const chosen = heads.find((h) => h.hash !== synced?.head) ?? heads[0]
   if (heads.length === 1) return pull(deps, chosen, synced, versions)
 
-  const json = await deps.files.read(chosen.id)
-  await replaceLocal(deps, json, synced, versions)
+  await replaceLocal(deps, chosen, synced, versions)
   return push(deps, parents)
+}
+
+/**
+ * Settles a `fork` by taking the branch the user picked and joining every
+ * branch into one line with a merge. When the history moved on meanwhile
+ * (another computer settled it), this is an ordinary round instead.
+ */
+export async function chooseVersion(deps: SyncDeps, hash: string): Promise<SyncOutcome> {
+  const synced = await deps.state.load()
+  const versions = await listVersions(deps.files)
+  const heads = headsOf(versions)
+  const chosen = heads.find((h) => h.hash === hash)
+  if (!chosen || heads.length < 2) return syncOnce(deps)
+  await replaceLocal(deps, chosen, synced, versions)
+  return push(
+    deps,
+    heads.map((h) => h.hash),
+  )
 }

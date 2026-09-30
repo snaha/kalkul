@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { shouldAutoSync, statusForError, statusForOutcome } from './sync-status'
+import { UnreadableBackupError } from './sync-engine'
+import { awaitsChoice, shouldAutoSync, statusForError, statusForOutcome } from './sync-status'
 
 describe('statusForOutcome', () => {
   it('shows a finished round as synced', () => {
@@ -19,6 +20,28 @@ describe('statusForOutcome', () => {
         remote: { hash: 'bbbbbbbbbbbb', parents: [], device: 'b-1', time, id: 'f' },
       }),
     ).toEqual({ kind: 'conflict', remoteTime: time, remoteDevice: 'b-1' })
+  })
+
+  it('lists the branches of a fork, newest first', () => {
+    const version = (hash: string, device: string, time: number) => ({
+      hash,
+      parents: [],
+      device,
+      time,
+      id: hash,
+    })
+    expect(
+      statusForOutcome({
+        kind: 'fork',
+        heads: [version('aaaaaaaaaaaa', 'a-1', 1), version('bbbbbbbbbbbb', 'b-1', 2)],
+      }),
+    ).toEqual({
+      kind: 'fork',
+      versions: [
+        { hash: 'bbbbbbbbbbbb', device: 'b-1', time: 2 },
+        { hash: 'aaaaaaaaaaaa', device: 'a-1', time: 1 },
+      ],
+    })
   })
 })
 
@@ -39,6 +62,16 @@ describe('statusForError', () => {
     })
   })
 
+  it('names the computer whose backup this version cannot load', () => {
+    const time = Date.UTC(2026, 8, 25, 10)
+    const version = { hash: 'bbbbbbbbbbbb', parents: [], device: 'b-1', time, id: 'f' }
+    expect(statusForError(new UnreadableBackupError(version))).toEqual({
+      kind: 'unreadable',
+      remoteTime: time,
+      remoteDevice: 'b-1',
+    })
+  })
+
   it('reports anything else as an error to retry', () => {
     expect(statusForError(new Error('not downloaded yet'))).toEqual({ kind: 'error' })
   })
@@ -50,11 +83,23 @@ describe('shouldAutoSync', () => {
     expect(shouldAutoSync({ kind: 'error' })).toBe(true)
     expect(shouldAutoSync({ kind: 'held', remoteTime: 0, remoteDevice: 'b' })).toBe(true)
     expect(shouldAutoSync({ kind: 'conflict', remoteTime: 0, remoteDevice: 'b' })).toBe(true)
+    expect(shouldAutoSync({ kind: 'fork', versions: [] })).toBe(true)
+    // A newer app version's file: nothing local is touched, so retrying is safe.
+    expect(shouldAutoSync({ kind: 'unreadable', remoteTime: 0, remoteDevice: 'b' })).toBe(true)
   })
 
   it('waits for the user when only they can fix it', () => {
     expect(shouldAutoSync({ kind: 'disconnected' })).toBe(false)
     expect(shouldAutoSync({ kind: 'needs-permission' })).toBe(false)
     expect(shouldAutoSync({ kind: 'folder-missing' })).toBe(false)
+  })
+})
+
+describe('awaitsChoice', () => {
+  it('is true only for the questions the user answers', () => {
+    expect(awaitsChoice({ kind: 'conflict', remoteTime: 0, remoteDevice: 'b' })).toBe(true)
+    expect(awaitsChoice({ kind: 'fork', versions: [] })).toBe(true)
+    expect(awaitsChoice({ kind: 'synced' })).toBe(false)
+    expect(awaitsChoice({ kind: 'held', remoteTime: 0, remoteDevice: 'b' })).toBe(false)
   })
 })

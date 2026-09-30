@@ -662,7 +662,12 @@
           "label": "Name for this computer",
           "hint": "Shown in the backup file names, so you can tell which computer saved what.",
           "connect": "Connect"
-        }
+        },
+        "checking": "Checking the backup folder…",
+        "fork": "The backup folder holds two versions that were saved separately on different computers. Choose which one to use on this computer; the other stays in the folder's history.",
+        "useVersion": "Use the version from “{computer}” ({time})",
+        "unreadable": "The backup saved by “{computer}” on {time} can't be opened by this version of Kalkul, probably because it was saved by a newer one. Reload the page to get the latest Kalkul. Nothing on this computer has been changed.",
+        "reload": "Reload page"
       },
       "backup": {
         "export": "Export to file",
@@ -731,7 +736,8 @@
         "titleOrFolder": "Drop a Kalkul backup file or folder",
         "folder": "Drop your backup folder instead to keep this computer in sync with it.",
         "folderAlreadyConnected": "A backup folder is already connected. You can change it in Settings → Automatic backup.",
-        "folderUnsupported": "This browser cannot keep a folder in sync. Drop a single backup file to import it, or use Chrome, Edge, Brave, Arc or Opera for automatic backup."
+        "folderUnsupported": "This browser cannot keep a folder in sync. Drop a single backup file to import it, or use Chrome, Edge, Brave, Arc or Opera for automatic backup.",
+        "folderNotAvailable": "Automatic backup isn't available on this version of Kalkul. Drop a single backup file to import it."
       }
     },
     "feedback": {
@@ -760,7 +766,9 @@
       "conflict": "Backup paused: choose a version",
       "folderMissing": "Backup folder missing",
       "failed": "Backup failed",
-      "pending": "Changes not backed up yet"
+      "pending": "Changes not backed up yet",
+      "checking": "Checking backup folder…",
+      "unreadable": "Backup paused: reload Kalkul"
     }
   },
   "dev": {

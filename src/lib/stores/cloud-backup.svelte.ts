@@ -10,11 +10,13 @@ import { createSaveScheduler } from '$lib/cloud-backup/save-scheduler'
 import {
   type SyncDeps,
   type SyncOutcome,
+  chooseVersion,
   resolveConflict,
   syncOnce,
 } from '$lib/cloud-backup/sync-engine'
 import {
   type CloudBackupStatus,
+  awaitsChoice,
   shouldAutoSync,
   statusForError,
   statusForOutcome,
@@ -24,6 +26,12 @@ import { appStore } from './app.svelte'
 
 /** Serialises sync rounds across every tab of the origin. */
 const LOCK = 'kalkul-backup-folder'
+/**
+ * Held (shared) by every tab that has an editor or dialog open, so a round
+ * in any tab waits with downloads: the data is shared, and a download applied
+ * from another tab reaches this tab's open editor through the storage event.
+ */
+const HOLD_LOCK = 'kalkul-backup-hold'
 /** Tells the other tabs to re-read the shared state (connect, access…). */
 const CHANNEL = 'kalkul-backup-folder'
 /** Edits are written once they pause this long… */
@@ -44,8 +52,16 @@ function dialogOpen(): boolean {
   )
 }
 
-function held(): boolean {
+/** Whether this tab has something open that must not have its data replaced. */
+function heldHere(): boolean {
   return downloadsHeld(page.route.id ?? undefined, dialogOpen())
+}
+
+/** Whether this tab or any other one holds downloads. */
+async function heldAnywhere(): Promise<boolean> {
+  if (heldHere()) return true
+  const { held = [] } = await navigator.locks.query()
+  return held.some((lock) => lock.name === HOLD_LOCK)
 }
 
 function isNotFound(error: unknown): boolean {
@@ -75,6 +91,8 @@ const available = enabled && supported
 function withCloudBackupStore() {
   let status = $state<CloudBackupStatus>({ kind: 'disconnected' })
   let lastSyncedAt = $state<number | undefined>(undefined)
+  /** When this tab last finished a round, whether or not it moved any data. */
+  let lastCheckedAt = $state<number | undefined>(undefined)
   let connection = $state<persistence.Connection | undefined>(undefined)
   /** An edit is waiting out the debounce before it is written. */
   let pending = $state(false)
@@ -85,6 +103,20 @@ function withCloudBackupStore() {
   // Between choosing a folder and naming this computer for a new connection.
   let pendingDirectory: FileSystemDirectoryHandle | undefined
   let channel: BroadcastChannel | undefined
+  /** Releases this tab's share of HOLD_LOCK, while it holds one. */
+  let releaseHold: (() => void) | undefined
+
+  /** Takes or gives back this tab's share of the hold to match what is open. */
+  function updateHold(): void {
+    const hold = heldHere()
+    if (hold && !releaseHold) {
+      const released = new Promise<void>((resolve) => (releaseHold = resolve))
+      void navigator.locks.request(HOLD_LOCK, { mode: 'shared' }, () => released)
+    } else if (!hold && releaseHold) {
+      releaseHold()
+      releaseHold = undefined
+    }
+  }
 
   function deps(device: string, directory: FileSystemDirectoryHandle): SyncDeps {
     return {
@@ -93,8 +125,9 @@ function withCloudBackupStore() {
       now: () => Date.now(),
       local: {
         stamp: () => appStore.lastUpdated,
-        canReplace: () => !held(),
+        canReplace: async () => !(await heldAnywhere()),
         export: () => appStore.exportBackup(),
+        validate: (json) => appStore.validateData(json),
         import: (json) => {
           appStore.replaceData(json)
           // Set in the same tick as the change, before the lastUpdated effect
@@ -106,38 +139,55 @@ function withCloudBackupStore() {
         load: () => persistence.load('sync'),
         save: (next) => persistence.save('sync', next),
       },
+      // Only a round that writes or downloads shows as busy: most rounds
+      // just look, and should not flash "Saving…" every 30 seconds. A
+      // question stays on screen so the user's half-made choice is not
+      // swept away.
+      transferring: () => {
+        if (!awaitsChoice(status)) status = { kind: 'syncing' }
+      },
     }
   }
 
-  /** Runs one round under the cross-tab lock, reading all state fresh. */
+  /**
+   * Runs one round under the cross-tab lock, reading all state fresh. Never
+   * rejects: background callers fire and forget, so every failure ends up
+   * in `status` instead of leaving it on "syncing".
+   */
   async function run(round: (deps: SyncDeps) => Promise<SyncOutcome>): Promise<void> {
-    await navigator.locks.request(LOCK, async () => {
-      connection = await persistence.load('connection')
-      const directory = await persistence.load('directory')
-      if (!connection || !directory) {
-        status = { kind: 'disconnected' }
-        return
-      }
-      if ((await directory.queryPermission(READWRITE)) !== 'granted') {
-        status = { kind: 'needs-permission' }
-        return
-      }
-      // A conflict stays on screen while background rounds re-check it, so
-      // the user's half-made choice is not swept away every 30 seconds.
-      if (status.kind !== 'conflict') status = { kind: 'syncing' }
-      try {
-        const outcome = await round(deps(connection.device, directory))
-        if (outcome.kind === 'pulled') lastPull = { device: outcome.device, at: Date.now() }
-        status = statusForOutcome(outcome)
-      } catch (error) {
-        console.error('Backup folder sync failed', error)
-        status =
-          isNotFound(error) && !(await folderReachable(directory))
-            ? { kind: 'folder-missing' }
-            : statusForError(error)
-      }
-      lastSyncedAt = (await persistence.load('sync'))?.syncedAt
-    })
+    try {
+      await navigator.locks.request(LOCK, async () => {
+        connection = await persistence.load('connection')
+        const directory = await persistence.load('directory')
+        if (!connection || !directory) {
+          status = { kind: 'disconnected' }
+          return
+        }
+        if ((await directory.queryPermission(READWRITE)) !== 'granted') {
+          status = { kind: 'needs-permission' }
+          return
+        }
+        // Leaving a state the round is about to replace; any other status
+        // (synced, a question…) stays up while the round only looks.
+        if (!shouldAutoSync(status)) status = { kind: 'checking' }
+        try {
+          const outcome = await round(deps(connection.device, directory))
+          if (outcome.kind === 'pulled') lastPull = { device: outcome.device, at: Date.now() }
+          status = statusForOutcome(outcome)
+          lastCheckedAt = Date.now()
+        } catch (error) {
+          console.error('Backup folder sync failed', error)
+          status =
+            isNotFound(error) && !(await folderReachable(directory))
+              ? { kind: 'folder-missing' }
+              : statusForError(error)
+        }
+        lastSyncedAt = (await persistence.load('sync'))?.syncedAt
+      })
+    } catch (error) {
+      console.error('Backup folder sync failed', error)
+      status = statusForError(error)
+    }
   }
 
   function syncNow(): Promise<void> {
@@ -178,8 +228,12 @@ function withCloudBackupStore() {
     get status() {
       return status
     },
+    /** When data last moved between this computer and the folder. */
     get lastSyncedAt() {
       return lastSyncedAt
+    },
+    get lastCheckedAt() {
+      return lastCheckedAt
     },
     get pending() {
       return pending
@@ -217,10 +271,21 @@ function withCloudBackupStore() {
         })
       })
 
+      // Dialogs open and close without a route change, so watch the DOM for
+      // them; the route is covered too, since the page content swaps.
+      updateHold()
+      const holdObserver = new MutationObserver(updateHold)
+      holdObserver.observe(document.body, {
+        subtree: true,
+        childList: true,
+        attributeFilter: ['data-state'],
+      })
+
       // A held download is applied as soon as nothing holds it any more
-      // (the dialog closed, the editing page was left), not at the next poll.
-      const release = setInterval(() => {
-        if (status.kind === 'held' && !held()) void syncNow()
+      // (the dialog closed, the editing page was left — in any tab), not at
+      // the next poll.
+      const release = setInterval(async () => {
+        if (status.kind === 'held' && !(await heldAnywhere())) void syncNow()
       }, 1000)
 
       const onVisible = () => {
@@ -240,6 +305,9 @@ function withCloudBackupStore() {
 
       return () => {
         stopEffects()
+        holdObserver.disconnect()
+        releaseHold?.()
+        releaseHold = undefined
         clearInterval(release)
         saves.cancel()
         clearInterval(poll)
@@ -281,8 +349,10 @@ function withCloudBackupStore() {
 
     /**
      * Second half: starts backing up to the chosen folder. A new connection
-     * names this computer after `computerLabel`; choosing the folder again
-     * (it went missing) keeps the existing name.
+     * names this computer after `computerLabel` and starts from scratch;
+     * choosing the folder again (it went missing) keeps the name and what
+     * this computer last synced, so edits made meanwhile upload as edits
+     * rather than turning into a conflict.
      */
     async finishConnect(computerLabel: string | undefined): Promise<void> {
       const directory = pendingDirectory
@@ -295,7 +365,7 @@ function withCloudBackupStore() {
       pendingDirectory = undefined
       const device = computerLabel !== undefined ? deviceName(computerLabel) : connection?.device
       await persistence.save('directory', directory)
-      await persistence.remove('sync')
+      if (computerLabel !== undefined || !connection) await persistence.remove('sync')
       await persistence.save('connection', {
         device: device ?? deviceName(''),
         folder: directory.name,
@@ -323,15 +393,27 @@ function withCloudBackupStore() {
       return run((deps) => resolveConflict(deps, keep))
     },
 
-    /** Stops backing up from this browser. The folder and its files stay. */
+    /** Settles a fork by using the version `hash` from the folder. */
+    choose(hash: string): Promise<void> {
+      return run((deps) => chooseVersion(deps, hash))
+    },
+
+    /**
+     * Stops backing up from this browser. The folder and its files stay.
+     * Waits for a round in flight, which would otherwise write its result
+     * back over the disconnect.
+     */
     async disconnect(): Promise<void> {
       saves.cancel()
       pending = false
-      await persistence.clearAll()
-      status = { kind: 'disconnected' }
-      connection = undefined
-      lastSyncedAt = undefined
-      lastPull = undefined
+      await navigator.locks.request(LOCK, async () => {
+        await persistence.clearAll()
+        status = { kind: 'disconnected' }
+        connection = undefined
+        lastSyncedAt = undefined
+        lastCheckedAt = undefined
+        lastPull = undefined
+      })
       announce()
     },
   }

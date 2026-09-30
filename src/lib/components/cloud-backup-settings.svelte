@@ -79,13 +79,15 @@
   </div>
 
   <div class="flex flex-col gap-3 rounded-md border p-4" role="status">
-    {#if status.kind === 'syncing'}
+    {#if status.kind === 'checking'}
+      <p class="text-sm text-foreground">{$_('page.settings.cloudBackup.checking')}</p>
+    {:else if status.kind === 'syncing'}
       <p class="text-sm text-foreground">{$_('page.settings.cloudBackup.syncing')}</p>
     {:else if status.kind === 'synced'}
       <p class="text-sm text-foreground">
-        {cloudBackupStore.lastSyncedAt
+        {cloudBackupStore.lastCheckedAt
           ? $_('page.settings.cloudBackup.syncedAt', {
-              values: { time: appStore.formatDateTime(cloudBackupStore.lastSyncedAt) },
+              values: { time: appStore.formatDateTime(cloudBackupStore.lastCheckedAt) },
             })
           : $_('page.settings.cloudBackup.connected')}
       </p>
@@ -148,6 +150,33 @@
           </Button>
         </div>
       {/if}
+    {:else if status.kind === 'fork'}
+      <p class="text-sm text-foreground">{$_('page.settings.cloudBackup.fork')}</p>
+      <div class="flex flex-wrap gap-2">
+        {#each status.versions as version (version.hash)}
+          <Button
+            variant="outline"
+            disabled={busy}
+            onclick={() => act(() => cloudBackupStore.choose(version.hash))}
+          >
+            {$_('page.settings.cloudBackup.useVersion', {
+              values: { computer: version.device, time: appStore.formatDateTime(version.time) },
+            })}
+          </Button>
+        {/each}
+      </div>
+    {:else if status.kind === 'unreadable'}
+      <p class="text-sm text-foreground">
+        {$_('page.settings.cloudBackup.unreadable', {
+          values: {
+            computer: status.remoteDevice,
+            time: appStore.formatDateTime(status.remoteTime),
+          },
+        })}
+      </p>
+      <Button variant="outline" class="self-start" onclick={() => location.reload()}>
+        {$_('page.settings.cloudBackup.reload')}
+      </Button>
     {:else if status.kind === 'error'}
       <p class="text-sm text-foreground">{$_('page.settings.cloudBackup.failed')}</p>
       <Button

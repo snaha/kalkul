@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
 import { type FileStore, KEPT_RECENT, appendVersion, headsOf, listVersions } from './backup-log'
-import { type SyncDeps, type SyncState, resolveConflict, syncOnce } from './sync-engine'
+import {
+  type SyncDeps,
+  type SyncState,
+  UnreadableBackupError,
+  chooseVersion,
+  resolveConflict,
+  syncOnce,
+} from './sync-engine'
 
 const T0 = Date.UTC(2026, 8, 25, 14, 0, 0)
 
@@ -34,14 +41,18 @@ function device(files: FileStore, name: string, initial = '') {
   let stamp = initial ? 1 : 0
   let saved: SyncState | undefined
   let editing = false
+  let transfers = 0
   const deps: SyncDeps = {
     files,
     device: name,
     now: () => (clock += 1000),
     local: {
       stamp: () => stamp,
-      canReplace: () => !editing,
+      canReplace: async () => !editing,
       export: () => data,
+      validate: (json) => {
+        if (json.startsWith('unloadable')) throw new Error('unknown field')
+      },
       import: (json) => {
         data = json
         stamp = clock += 1000
@@ -53,6 +64,9 @@ function device(files: FileStore, name: string, initial = '') {
         saved = next
       },
     },
+    transferring: () => {
+      transfers += 1
+    },
   }
   return {
     deps,
@@ -61,6 +75,10 @@ function device(files: FileStore, name: string, initial = '') {
     },
     get state() {
       return saved
+    },
+    /** How many times a round said it was about to write or download. */
+    get transfers() {
+      return transfers
     },
     edit(next: string) {
       data = next
@@ -413,5 +431,114 @@ describe('identical data is not a conflict', () => {
     b.edit('same edit')
     await syncOnce(a.deps)
     expect(await syncOnce(b.deps)).toEqual({ kind: 'up-to-date' })
+  })
+})
+
+describe('a version this app cannot load', () => {
+  it('replaces nothing and saves no safety copy, however often it is retried', async () => {
+    const files = memoryStore()
+    const a = device(files, 'a', 'v1')
+    const b = device(files, 'b')
+    await syncOnce(a.deps)
+    await syncOnce(b.deps)
+    b.edit('b only')
+    a.edit('unloadable, from a newer app')
+    await syncOnce(a.deps)
+    for (let i = 0; i < 3; i++) {
+      const error = await resolveConflict(b.deps, 'remote').catch((e: unknown) => e)
+      expect(error).toBeInstanceOf(UnreadableBackupError)
+      if (error instanceof UnreadableBackupError) expect(error.version.device).toBe('a')
+    }
+    expect(b.data).toBe('b only')
+    expect(safetyCopies(files.files)).toEqual([])
+  })
+
+  it('fails an automatic download the same way', async () => {
+    const files = memoryStore()
+    const a = device(files, 'a', 'v1')
+    const b = device(files, 'b')
+    await syncOnce(a.deps)
+    await syncOnce(b.deps)
+    a.edit('unloadable')
+    await syncOnce(a.deps)
+    await expect(syncOnce(b.deps)).rejects.toBeInstanceOf(UnreadableBackupError)
+    expect(b.data).toBe('v1')
+  })
+})
+
+describe('a new computer connecting to a branched folder', () => {
+  async function forked() {
+    const files = memoryStore()
+    const a = device(files, 'a', 'v1')
+    await syncOnce(a.deps)
+    const base = a.state!.head
+    a.edit('from a')
+    await syncOnce(a.deps)
+    await appendVersion(files, {
+      parents: [base],
+      device: 'b',
+      time: (clock += 1000),
+      contents: 'from b',
+    })
+    return { files, a }
+  }
+
+  it('downloads neither branch on its own and asks which one to use', async () => {
+    const { files } = await forked()
+    const c = device(files, 'c')
+    const outcome = await syncOnce(c.deps)
+    expect(outcome.kind).toBe('fork')
+    if (outcome.kind === 'fork') {
+      expect(outcome.heads.map((h) => h.device).sort()).toEqual(['a', 'b'])
+    }
+    expect(c.data).toBe('')
+    expect(c.state).toBe(undefined)
+  })
+
+  it('takes the chosen branch and joins the history, which the others then download', async () => {
+    const { files, a } = await forked()
+    const c = device(files, 'c')
+    const outcome = await syncOnce(c.deps)
+    if (outcome.kind !== 'fork') throw new Error('expected a fork')
+    const fromB = outcome.heads.find((h) => h.device === 'b')!
+    expect((await chooseVersion(c.deps, fromB.hash)).kind).toBe('pushed')
+    expect(c.data).toBe('from b')
+    expect(safetyCopies(files.files)).toEqual([])
+    const heads = headsOf(await listVersions(files))
+    expect(heads.length).toBe(1)
+    expect(heads[0].parents.length).toBe(2)
+    expect(await syncOnce(c.deps)).toEqual({ kind: 'up-to-date' })
+    expect((await syncOnce(a.deps)).kind).toBe('pulled')
+    expect(a.data).toBe('from b')
+  })
+
+  it('falls back to an ordinary round when the fork was settled meanwhile', async () => {
+    const { files, a } = await forked()
+    const c = device(files, 'c')
+    const outcome = await syncOnce(c.deps)
+    if (outcome.kind !== 'fork') throw new Error('expected a fork')
+    await resolveConflict(a.deps, 'local')
+    expect((await chooseVersion(c.deps, outcome.heads[0].hash)).kind).toBe('pulled')
+    expect(c.data).toBe('from a')
+  })
+})
+
+describe('telling the caller when a round transfers data', () => {
+  it('stays quiet for a round that only looks', async () => {
+    const a = device(memoryStore(), 'a', 'v1')
+    await syncOnce(a.deps)
+    const before = a.transfers
+    expect(await syncOnce(a.deps)).toEqual({ kind: 'up-to-date' })
+    expect(a.transfers).toBe(before)
+  })
+
+  it('speaks up before an upload and before a download', async () => {
+    const files = memoryStore()
+    const a = device(files, 'a', 'v1')
+    const b = device(files, 'b')
+    expect((await syncOnce(a.deps)).kind).toBe('pushed')
+    expect(a.transfers).toBe(1)
+    expect((await syncOnce(b.deps)).kind).toBe('pulled')
+    expect(b.transfers).toBe(1)
   })
 })

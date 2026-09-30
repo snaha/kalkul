@@ -662,7 +662,12 @@
           "label": "Název tohoto počítače",
           "hint": "Zobrazuje se v názvech souborů zálohy, abyste poznali, který počítač co uložil.",
           "connect": "Připojit"
-        }
+        },
+        "checking": "Kontroluji složku se zálohou…",
+        "fork": "Složka se zálohou obsahuje dvě verze, které se uložily nezávisle na různých počítačích. Vyberte, kterou použít na tomto počítači; druhá zůstane v historii složky.",
+        "useVersion": "Použít verzi z „{computer}“ ({time})",
+        "unreadable": "Zálohu, kterou uložil „{computer}“ {time}, tato verze Kalkulu neumí otevřít, nejspíš proto, že ji uložila novější verze. Načtěte stránku znovu, abyste měli nejnovější Kalkul. Na tomto počítači se nic nezměnilo.",
+        "reload": "Načíst stránku znovu"
       },
       "backup": {
         "export": "Exportovat do souboru",
@@ -731,7 +736,8 @@
         "titleOrFolder": "Pusťte sem soubor nebo složku se zálohou Kalkulu",
         "folder": "Pusťte sem místo toho složku se zálohou a Kalkul bude tento počítač udržovat v souladu s ní.",
         "folderAlreadyConnected": "Složka se zálohou už je připojená. Změnit ji můžete v Nastavení → Automatické zálohování.",
-        "folderUnsupported": "Tento prohlížeč neumí udržovat složku v souladu. Pro import přetáhněte jeden soubor zálohy, nebo pro automatické zálohování použijte Chrome, Edge, Brave, Arc či Operu."
+        "folderUnsupported": "Tento prohlížeč neumí udržovat složku v souladu. Pro import přetáhněte jeden soubor zálohy, nebo pro automatické zálohování použijte Chrome, Edge, Brave, Arc či Operu.",
+        "folderNotAvailable": "Automatické zálohování v této verzi Kalkulu není k dispozici. Pro import přetáhněte jeden soubor zálohy."
       }
     },
     "feedback": {
@@ -760,7 +766,9 @@
       "conflict": "Záloha pozastavena: vyberte verzi",
       "folderMissing": "Složka se zálohou chybí",
       "failed": "Zálohování selhalo",
-      "pending": "Změny zatím nejsou zálohované"
+      "pending": "Změny zatím nejsou zálohované",
+      "checking": "Kontroluji složku se zálohou…",
+      "unreadable": "Záloha pozastavena: načtěte Kalkul znovu"
     }
   },
   "dev": {

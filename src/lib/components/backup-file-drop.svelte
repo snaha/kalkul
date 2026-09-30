@@ -117,11 +117,7 @@
 
   async function connectFolder(directory: FileSystemDirectoryHandle): Promise<void> {
     if (!folderConnectable) {
-      alert(
-        cloudBackupStore.supported
-          ? $_('navbar.import.drop.folderAlreadyConnected')
-          : $_('navbar.import.drop.folderUnsupported'),
-      )
+      alert(folderRefusal())
       return
     }
     try {
@@ -133,6 +129,14 @@
       console.error('Could not connect the dropped folder', e)
       alert($_('page.settings.cloudBackup.error'))
     }
+  }
+
+  /** Why a dropped folder cannot connect here. */
+  function folderRefusal(): string {
+    // Off entirely (PR previews): there is no settings section to point at.
+    if (!cloudBackupStore.enabled) return $_('navbar.import.drop.folderNotAvailable')
+    if (!cloudBackupStore.supported) return $_('navbar.import.drop.folderUnsupported')
+    return $_('navbar.import.drop.folderAlreadyConnected')
   }
 
   async function importNow(file: File): Promise<void> {

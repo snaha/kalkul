@@ -1224,4 +1224,14 @@ describe('appStore.replaceData (backup-folder sync)', () => {
     expect(() => appStore.replaceData(JSON.stringify({ profile: { name: 42 } }))).toThrow()
     expect(appStore.profile.name).toBe('Jane')
   })
+
+  it('checks data without loading or persisting it', () => {
+    appStore.replaceData(JSON.stringify({ profile: { name: 'Jane', email: '' }, portfolios: [] }))
+    const stamp = appStore.lastUpdated
+    vi.setSystemTime(NOW.getTime() + 1000)
+    appStore.validateData(JSON.stringify({ profile: { name: 'Eva', email: '' }, portfolios: [] }))
+    expect(() => appStore.validateData(JSON.stringify({ profile: { name: 42 } }))).toThrow()
+    expect(appStore.profile.name).toBe('Jane')
+    expect(appStore.lastUpdated).toBe(stamp)
+  })
 })

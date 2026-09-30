@@ -57,7 +57,10 @@
       case 'needs-permission':
         return attention($_('navbar.backup.needsPermission'))
       case 'conflict':
+      case 'fork':
         return attention($_('navbar.backup.conflict'))
+      case 'unreadable':
+        return attention($_('navbar.backup.unreadable'))
       case 'folder-missing':
         return attention($_('navbar.backup.folderMissing'))
       case 'error':
@@ -67,6 +70,8 @@
           icon: Clock,
           label: $_('navbar.backup.held', { values: { computer: status.remoteDevice } }),
         }
+      case 'checking':
+        return { icon: LoaderCircle, label: $_('navbar.backup.checking'), spin: true }
       case 'syncing':
         return { icon: LoaderCircle, label: $_('navbar.backup.saving'), spin: true }
       case 'synced':

@@ -174,6 +174,12 @@ function loadData(): StoredData {
   return { lastUpdated: 0, profile: { ...DEFAULT_PROFILE }, portfolios: [] }
 }
 
+function parseSyncedData(json: string) {
+  return storedDataSchema
+    .pick({ profile: true, portfolios: true })
+    .parse(repairStoredData(JSON.parse(json)))
+}
+
 function withAppStore() {
   let browserLocale = $state<string | undefined>(undefined)
   let profile = $state<ProfileStore>(enrichProfile({ ...DEFAULT_PROFILE }))
@@ -553,15 +559,21 @@ function withAppStore() {
     },
 
     /**
+     * Throws when `json` is not data `replaceData` can load, e.g. a backup
+     * written by a newer version of Kalkul with fields this one rejects.
+     */
+    validateData(json: string): void {
+      parseSyncedData(json)
+    },
+
+    /**
      * Replaces the data with a copy downloaded from the backup folder. Unlike
      * `importBackup` it stores the data exactly as the other computer saved
      * it — no snapshot seeded — so both computers hold the same data and the
      * next sync does not see a change nobody made.
      */
     replaceData(json: string): void {
-      const validated = storedDataSchema
-        .pick({ profile: true, portfolios: true })
-        .parse(repairStoredData(JSON.parse(json)))
+      const validated = parseSyncedData(json)
       profile = enrichProfile(validated.profile)
       portfolios = enrichAll(validated.portfolios)
       loading = false
