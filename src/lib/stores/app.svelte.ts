@@ -338,6 +338,10 @@ function withAppStore() {
     get loading() {
       return loading
     },
+    /** Whether the user has set up a profile, as opposed to an empty app. */
+    get hasData() {
+      return !loading && !!profile.name
+    },
     clear() {
       profile = enrichProfile({ ...DEFAULT_PROFILE })
       portfolios = []

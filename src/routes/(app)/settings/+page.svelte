@@ -10,7 +10,6 @@
   import { resolve } from '$app/paths'
 
   import HelpTooltip from '$lib/components/help-tooltip.svelte'
-  import ImportDialog from '$lib/components/import-dialog.svelte'
   import SelectField, { type SelectFieldItem } from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
@@ -25,6 +24,7 @@
   import routes from '$lib/routes'
   import { type HoldingPeriod, type Profile, type TaxRule } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
+  import { importDialogStore } from '$lib/stores/import-dialog.svelte'
   import { syncStore } from '$lib/stores/sync.svelte'
   import { type Theme, themeStore } from '$lib/stores/theme.svelte'
   import { invalidTaxRuleFields } from '$lib/tax-rule-form'
@@ -72,8 +72,6 @@
     active = id
     document.getElementById(`${uid}-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
-
-  let importOpen = $state(false)
 
   // --- MCP server ---
   // The field is a draft; the store only changes on Connect / Disconnect.
@@ -313,7 +311,7 @@
           </p>
         </div>
         <div class="flex items-start gap-4">
-          <Button variant="outline" class="w-44" onclick={() => (importOpen = true)}>
+          <Button variant="outline" class="w-44" onclick={importDialogStore.openPicker}>
             <RefreshCw class="size-4" />
             {$_('page.settings.backup.import')}
           </Button>
@@ -511,5 +509,3 @@
     </div>
   </div>
 </div>
-
-<ImportDialog bind:open={importOpen} />

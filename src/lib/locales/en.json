@@ -692,7 +692,7 @@
         "replaces": "It will replace all your current data.",
         "restores": "Your plans, assets, and cash flows will be restored from it.",
         "tooMany": "Drop a single Kalkul backup file to import it.",
-        "wrongType": "{name} is not a Kalkul backup. Drop a .kalkul.json file exported from Kalkul."
+        "wrongType": "{name} is not a Kalkul backup. Drop a .json backup file exported from Kalkul."
       }
     },
     "feedback": {

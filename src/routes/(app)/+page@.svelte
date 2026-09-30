@@ -28,7 +28,7 @@
   import SavingsRateCard from './savings-rate-card.svelte'
   import StaleDataAlert from './stale-data-alert.svelte'
 
-  const hasData = $derived(!appStore.loading && !!appStore.profile.name)
+  const hasData = $derived(appStore.hasData)
   const hasFinancialData = $derived(hasData && hasAnyFinancialData(appStore.profile))
 
   // One clock for the whole page, following the calendar past midnight.

@@ -29,7 +29,7 @@
   // stay true whenever the page is opened.
   const presets = getDevPresets(new Date())
 
-  const hasData = $derived(!appStore.loading && !!appStore.profile.name)
+  const hasData = $derived(appStore.hasData)
 
   let confirmOpen = $state(false)
   let pendingPreset = $state<DevPreset | undefined>(undefined)

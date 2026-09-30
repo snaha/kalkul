@@ -6,9 +6,9 @@ import routes from '$lib/routes'
 import { appStore } from '$lib/stores/app.svelte'
 
 /**
- * Restores a backup the user picked or dropped, replacing all current data,
- * then shows it. Throws when the file is not a valid Kalkul backup; the caller
- * reports that to the user.
+ * Restores a backup the user picked or dropped, replacing all current data.
+ * Throws when the file is not a valid Kalkul backup; the caller reports that
+ * to the user.
  */
 export default async function restoreBackup(file: File): Promise<void> {
   const text = await file.text()
@@ -16,7 +16,13 @@ export default async function restoreBackup(file: File): Promise<void> {
   // The landing demo and the dev presets import too; only a restore from
   // the user's own file counts as a backup import.
   track(EVENTS.BACKUP_IMPORTED)
-  // The restored data lives on the dashboard, not on the page the import
-  // started from (onboarding profile, settings, wherever the file was dropped).
+}
+
+/**
+ * Shows the restored data. It lives on the dashboard, not on the page the
+ * import started from (onboarding profile, settings, wherever the file was
+ * dropped). Close the Import dialog before calling this.
+ */
+export async function showRestoredBackup(): Promise<void> {
   await goto(resolve(routes.HOME))
 }

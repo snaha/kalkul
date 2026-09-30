@@ -692,7 +692,7 @@
         "replaces": "Nahradí všechna vaše stávající data.",
         "restores": "Obnoví se z ní vaše plány, aktiva a peněžní toky.",
         "tooMany": "Pro import přetáhněte jen jeden soubor se zálohou Kalkulu.",
-        "wrongType": "{name} není záloha Kalkulu. Přetáhněte soubor .kalkul.json exportovaný z Kalkulu."
+        "wrongType": "{name} není záloha Kalkulu. Přetáhněte soubor zálohy .json exportovaný z Kalkulu."
       }
     },
     "feedback": {
