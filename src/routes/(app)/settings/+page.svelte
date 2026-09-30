@@ -151,6 +151,15 @@
   const profile = appStore.profile
   let birthYear = $state(profile.birthDate ? String(profile.birthDate.getFullYear()) : '')
   let birthMonth = $state(profile.birthDate ? String(profile.birthDate.getMonth()) : '')
+  // Follow the stored date: changing the year or the month saves both, so a
+  // pair copied when the page opened would put back a date changed meanwhile
+  // elsewhere (another tab). A half-picked date (nothing stored yet) is kept.
+  $effect(() => {
+    const date = appStore.profile.birthDate
+    if (!date) return
+    birthYear = String(date.getFullYear())
+    birthMonth = String(date.getMonth())
+  })
   const years = getBirthYearOptions().map((year) => ({ value: year, label: year }))
   const months = $derived(getMonthOptions($locale ?? undefined))
   const now = new Date()

@@ -1,3 +1,4 @@
+import { changedFields } from '$lib/changed-fields'
 import { itemsForPlan, sharedItems } from '$lib/plan-owned'
 import type { Portfolio, Profile } from '$lib/schemas'
 import { appStore } from '$lib/stores/app.svelte'
@@ -93,15 +94,28 @@ function persistList<K extends ProfileListKey>(
  *    right after the original, and the plan swaps the original for the copy
  *    in its include list, seeding that list when it has none. Financial data
  *    and other plans keep the original.
+ *
+ * `opened` is the stored item the dialog was opened on (undefined for a new
+ * item). Only the fields where the edited item differs from it are applied
+ * to the item as stored now, so a change made meanwhile elsewhere to a field
+ * the dialog left alone is kept rather than overwritten with the value from
+ * when it opened. A field the dialog merely normalises (a legacy term in
+ * months shown in years) differs too, so it is written together with the
+ * fields that belong with it, as before.
  */
 export function upsertProfileItem<K extends ProfileListKey>(
   config: ProfileListConfig<K>,
-  item: ProfileListItem<K>,
+  edited: ProfileListItem<K>,
   plan: PortfolioStore,
+  opened: ProfileListItem<K> | undefined,
 ): void {
   const existing = listItems(config)
-  const idx = existing.findIndex((it) => it.id === item.id)
+  const idx = existing.findIndex((it) => it.id === edited.id)
   const stored = idx === -1 ? undefined : existing[idx]
+  const item =
+    stored !== undefined && opened !== undefined
+      ? { ...stored, ...changedFields(opened, edited) }
+      : edited
   const includeUpdate = (ids: string[]) =>
     plan.update({ [config.includedKey]: ids } as Partial<Omit<Portfolio, 'id'>>)
 

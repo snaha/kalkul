@@ -8,6 +8,7 @@
   import { resolve } from '$app/paths'
   import { page } from '$app/state'
 
+  import { changedFields } from '$lib/changed-fields'
   import SelectField, { type SelectFieldItem } from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
@@ -64,11 +65,26 @@
 
   let form = $state(seedForm())
 
+  /** What Done writes, from the form as it stands. */
+  function formUpdates() {
+    return {
+      name: form.name.trim(),
+      notes: form.notes.trim() || undefined,
+      inflation_rate: (form.inflation ?? 0) / 100,
+      ...planTimelineToDates(form, appStore.profile),
+    }
+  }
+
+  // Done writes only what changed since the form was seeded, so a change made
+  // meanwhile elsewhere (another tab) to a setting left alone here is kept.
+  let openedUpdates = formUpdates()
+
   // Re-seed once the stored plan shows up (localStorage loads asynchronously).
   let seededId: string | undefined
   $effect(() => {
     if (plan && seededId !== plan.id) {
       form = seedForm()
+      openedUpdates = formUpdates()
       seededId = plan.id
     }
   })
@@ -99,6 +115,12 @@
   const span = $derived(getPlanSpan(dates.start_date, dates.end_date))
 
   const dirty = $derived(JSON.stringify(form) !== JSON.stringify(seedForm()))
+
+  /** Back to the plan as stored now, which also becomes what Done compares against. */
+  function reset(): void {
+    form = seedForm()
+    openedUpdates = formUpdates()
+  }
   const canSave = $derived(
     form.name.trim().length > 0 &&
       form.inflation !== undefined &&
@@ -113,12 +135,8 @@
   let deleteOpen = $state(false)
 
   function handleDone() {
-    plan?.update({
-      name: form.name.trim(),
-      notes: form.notes.trim() || undefined,
-      inflation_rate: (form.inflation ?? 0) / 100,
-      ...dates,
-    })
+    const updates = changedFields(openedUpdates, formUpdates())
+    if (Object.keys(updates).length > 0) plan?.update(updates)
     // planUrl is already resolved
     // eslint-disable-next-line svelte/no-navigation-without-resolve
     goto(planUrl)
@@ -248,7 +266,7 @@
 
         <div class="flex items-center gap-2">
           <Button onclick={handleDone} disabled={!canSave}>{$_('page.planSettings.done')}</Button>
-          <Button variant="ghost" onclick={() => (form = seedForm())} disabled={!dirty}>
+          <Button variant="ghost" onclick={reset} disabled={!dirty}>
             {$_('page.planSettings.reset')}
           </Button>
           <div class="flex flex-1 justify-end">

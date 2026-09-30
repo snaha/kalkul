@@ -135,7 +135,7 @@
   }
 
   function save() {
-    upsertProfileItem(listConfig, cashFlowFromFields(form), plan)
+    upsertProfileItem(listConfig, cashFlowFromFields(form), plan, initial)
     close()
   }
 
