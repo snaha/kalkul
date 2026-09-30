@@ -39,6 +39,14 @@ export interface ListEditorConfig<TStored extends { id: string }, TUI extends Li
    * lists most people have nothing to put in, so the page doesn't imply one.
    */
   seedBlank?: boolean
+  /**
+   * Subscribes to changes of the stored data; returns the unsubscribe —
+   * usually `appStore.onDataChange`. The editor reloads its list on every
+   * change it did not save itself (another tab, an MCP tool, a dialog), so
+   * its next save does not write its old copy back over that change. An edit
+   * still waiting to be saved wins instead: the editor keeps it and saves it.
+   */
+  onChange?: (listener: () => void) => () => void
 }
 
 export interface ListEditor<TUI extends ListEditorItem> {
@@ -85,6 +93,8 @@ export function createListEditor<TStored extends { id: string }, TUI extends Lis
   // naming it is enough to make it worth keeping across a remount.
   const placeholderName = placeholderId === undefined ? undefined : initial[0].name
   const items = $state<TUI[]>(initial)
+  /** Ids in storage as of the last load or save; anything else is a draft. */
+  let storedIds = stored.map((item) => item.id)
   let counter = $state(initial.length)
   let errors = $state<Record<string, string[]>>({})
 
@@ -97,7 +107,9 @@ export function createListEditor<TStored extends { id: string }, TUI extends Lis
         (config.isComplete?.(item) ?? true),
     )
     try {
+      saving = true
       config.persist(persisted.map((item) => config.toStored(item, originals[item.id])))
+      storedIds = persisted.map((item) => item.id)
       errors = {}
       return true
     } catch (e) {
@@ -118,7 +130,36 @@ export function createListEditor<TStored extends { id: string }, TUI extends Lis
         console.error('Failed to save editor changes', e)
       }
       return false
+    } finally {
+      saving = false
     }
+  }
+
+  /** The editor's own save is running: the change it causes is not news. */
+  let saving = false
+  /** Set by `reload`, so the autosave effect does not save what was just loaded. */
+  let reloading = false
+
+  /**
+   * Takes the list as stored now. Drafts that were never stored (the seeded
+   * blank, an item without a name or value yet) stay at the end; which cards
+   * are open stays as it was.
+   */
+  function reload(): void {
+    const next = config.load() ?? []
+    const open = items.filter((item) => item.editing).map((item) => item.id)
+    const drafts = items.filter((item) => !storedIds.includes(item.id))
+    for (const id of Object.keys(originals)) delete originals[id]
+    for (const item of next) originals[item.id] = item
+    storedIds = next.map((item) => item.id)
+    errors = {}
+    reloading = true
+    items.splice(
+      0,
+      items.length,
+      ...next.map((item) => ({ ...config.toUI(item), editing: open.includes(item.id) })),
+      ...drafts,
+    )
   }
 
   // Auto-save on any edit, debounced so rapid typing does one schema-parse +
@@ -148,10 +189,21 @@ export function createListEditor<TStored extends { id: string }, TUI extends Lis
       autoSaveArmed = true
       return
     }
+    if (reloading) {
+      reloading = false
+      return
+    }
     if (saveTimer !== undefined) clearTimeout(saveTimer)
     pendingSave = true
     saveTimer = setTimeout(flushSave, 300)
   })
+
+  $effect(() =>
+    config.onChange?.(() => {
+      if (saving || pendingSave) return
+      reload()
+    }),
+  )
 
   return {
     get items() {

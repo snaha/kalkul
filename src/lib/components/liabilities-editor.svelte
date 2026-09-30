@@ -116,6 +116,7 @@
     // has_liabilities belongs to the Get started checkbox, not to this list:
     // re-deriving it here unchecked the box (and dropped the step from the
     // flow) the moment a seeded card was collapsed without a value.
+    onChange: (listener) => appStore.onDataChange(listener),
     persist: (data) =>
       appStore.updateProfile({
         liabilities: [...data, ...planOwnedItems(appStore.profile.liabilities)],

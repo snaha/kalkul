@@ -52,6 +52,7 @@
     // The card only edits name/amount/frequency; the plan dialog already gates
     // the timing and change fields on save, so everything else passes through.
     toStored: ({ editing: _editing, ...e }) => ({ ...e, amount: e.amount ?? 0 }),
+    onChange: (listener) => appStore.onDataChange(listener),
     persist: (data) =>
       appStore.updateProfile({ expenses: [...data, ...planOwnedItems(appStore.profile.expenses)] }),
   })

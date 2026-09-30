@@ -370,3 +370,138 @@ describe('createListEditor', () => {
     cleanup()
   })
 })
+
+/**
+ * An editor over a list that can also change elsewhere (another tab, an MCP
+ * tool): like appStore, the fake store tells subscribers about every change,
+ * the editor's own saves included.
+ */
+function setupShared(initial: StoredThing[]) {
+  let stored = initial
+  let listeners: (() => void)[] = []
+  const notify = () => listeners.forEach((listener) => listener())
+  const persisted: StoredThing[][] = []
+  let editor!: ListEditor<ThingUI>
+  const cleanup = $effect.root(() => {
+    editor = createListEditor<StoredThing, ThingUI>({
+      load: () => stored,
+      toUI: (s) => ({ id: s.id, name: s.name, value: s.value, editing: false }),
+      makeBlank: (index) => ({
+        id: `new-${index}`,
+        name: `Item ${index}`,
+        value: undefined,
+        editing: true,
+      }),
+      copyName: (name) => `${name} copy`,
+      hasValue: (i) => (i.value ?? 0) > 0,
+      toStored: (i, original) => ({ ...original, id: i.id, name: i.name, value: i.value ?? 0 }),
+      persist: (items) => {
+        persisted.push(items)
+        stored = items
+        notify()
+      },
+      onChange: (listener) => {
+        listeners = [...listeners, listener]
+        return () => {
+          listeners = listeners.filter((other) => other !== listener)
+        }
+      },
+    })
+  })
+  flushSync()
+  return {
+    editor,
+    persisted,
+    cleanup,
+    /** The list changes somewhere else. */
+    changeElsewhere(next: StoredThing[]) {
+      stored = next
+      notify()
+      flushSync()
+    },
+  }
+}
+
+describe('createListEditor with changes made elsewhere', () => {
+  const two: StoredThing = { id: 'b', name: 'Second', value: 20 }
+
+  it('reloads the list, and saves nothing for it', () => {
+    const { editor, persisted, changeElsewhere, cleanup } = setupShared([one])
+    changeElsewhere([{ ...one, value: 11 }, two])
+    expect(editor.items.map((i) => [i.id, i.value])).toEqual([
+      ['a', 11],
+      ['b', 20],
+    ])
+    vi.advanceTimersByTime(300)
+    editor.flushSave()
+    expect(persisted).toEqual([])
+    cleanup()
+  })
+
+  it('keeps which cards are open', () => {
+    const { editor, changeElsewhere, cleanup } = setupShared([one, two])
+    editor.items[1].editing = true
+    flushSync()
+    vi.advanceTimersByTime(300)
+    changeElsewhere([{ ...one, value: 11 }, two])
+    expect(editor.items.map((i) => i.editing)).toEqual([false, true])
+    cleanup()
+  })
+
+  it('carries fields changed elsewhere through its next save', () => {
+    const { editor, persisted, changeElsewhere, cleanup } = setupShared([one])
+    changeElsewhere([{ ...one, note: 'set in the plan dialog' }])
+    editor.items[0].value = 12
+    flushSync()
+    vi.advanceTimersByTime(300)
+    expect(persisted.at(-1)).toEqual([
+      { id: 'a', name: 'Existing', value: 12, note: 'set in the plan dialog' },
+    ])
+    cleanup()
+  })
+
+  it('lets a pending save win over a change made elsewhere', () => {
+    const { editor, persisted, changeElsewhere, cleanup } = setupShared([one])
+    editor.items[0].value = 12
+    flushSync()
+    changeElsewhere([{ ...one, value: 99 }, two])
+    expect(editor.items.map((i) => i.value)).toEqual([12])
+    vi.advanceTimersByTime(300)
+    expect(persisted.at(-1)).toEqual([{ id: 'a', name: 'Existing', value: 12 }])
+    cleanup()
+  })
+
+  it('does not reload after its own save', () => {
+    const { editor, cleanup } = setupShared([])
+    // The seeded blank stays out of storage until it has a value; a reload
+    // after the save would drop it from the list.
+    editor.add()
+    editor.items[1].value = 5
+    flushSync()
+    vi.advanceTimersByTime(300)
+    expect(editor.items.map((i) => i.id)).toEqual(['new-1', 'new-2'])
+    cleanup()
+  })
+
+  it('keeps drafts that were never stored, after the stored items', () => {
+    const { editor, changeElsewhere, cleanup } = setupShared([])
+    expect(editor.items.map((i) => i.id)).toEqual(['new-1'])
+    changeElsewhere([two])
+    expect(editor.items.map((i) => i.id)).toEqual(['b', 'new-1'])
+    cleanup()
+  })
+
+  it('drops an item deleted elsewhere', () => {
+    const { editor, changeElsewhere, cleanup } = setupShared([one, two])
+    changeElsewhere([two])
+    expect(editor.items.map((i) => i.id)).toEqual(['b'])
+    cleanup()
+  })
+
+  it('stops listening once destroyed', () => {
+    const { editor, changeElsewhere, cleanup } = setupShared([one])
+    cleanup()
+    changeElsewhere([two])
+    expect(editor.items.map((i) => i.id)).toEqual(['a'])
+  })
+})
