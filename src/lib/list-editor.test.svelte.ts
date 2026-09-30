@@ -58,6 +58,8 @@ function setup(options?: {
       hasValue: (i) => (i.value ?? 0) > 0,
       toStored: (i, stored) => ({ ...stored, id: i.id, name: i.name, value: i.value ?? 0 }),
       persist: options?.persist ?? ((items) => persisted.push(items)),
+      // Nothing changes elsewhere in these tests; see setupShared for that.
+      onChange: () => () => {},
       seedBlank: options?.seedBlank,
       isComplete: options?.isComplete,
     })

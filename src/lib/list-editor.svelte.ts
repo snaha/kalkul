@@ -46,7 +46,7 @@ export interface ListEditorConfig<TStored extends { id: string }, TUI extends Li
    * its next save does not write its old copy back over that change. An edit
    * still waiting to be saved wins instead: the editor keeps it and saves it.
    */
-  onChange?: (listener: () => void) => () => void
+  onChange: (listener: () => void) => () => void
 }
 
 export interface ListEditor<TUI extends ListEditorItem> {
@@ -199,7 +199,7 @@ export function createListEditor<TStored extends { id: string }, TUI extends Lis
   })
 
   $effect(() =>
-    config.onChange?.(() => {
+    config.onChange(() => {
       if (saving || pendingSave) return
       reload()
     }),
