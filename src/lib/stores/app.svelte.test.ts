@@ -64,6 +64,24 @@ describe('appStore.clear', () => {
   })
 })
 
+describe('appStore.hasData', () => {
+  beforeEach(stubLocalStorage)
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('is false without a profile name and true once one is stored', () => {
+    appStore.clear()
+    expect(appStore.hasData).toBe(false)
+
+    appStore.importBackup(
+      JSON.stringify({ profile: { name: 'Jane Doe', email: '' }, portfolios: [] }),
+    )
+    expect(appStore.hasData).toBe(true)
+  })
+})
+
 describe('appStore.updateProfile snapshot recording', () => {
   beforeEach(() => {
     vi.useFakeTimers()

@@ -6,7 +6,6 @@
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
 
-  import ImportDialog from '$lib/components/import-dialog.svelte'
   import LicenseDialog from '$lib/components/license-dialog.svelte'
   import SelectField from '$lib/components/select-field.svelte'
   import { Button } from '$lib/components/ui/button'
@@ -17,6 +16,7 @@
   import routes from '$lib/routes'
   import type { Profile } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
+  import { importDialogStore } from '$lib/stores/import-dialog.svelte'
   import {
     CURRENCY_OPTIONS,
     DEFAULT_CURRENCY,
@@ -72,7 +72,6 @@
     name.trim().length > 0 && birthYear !== '' && birthMonth !== '' && termsAccepted,
   )
 
-  let importOpen = $state(false)
   let licenseOpen = $state(false)
 
   function handleContinue() {
@@ -99,7 +98,7 @@
     </h1>
     <p class="text-base">
       {$_('page.setup.aboutYou.descriptionPrefix')}
-      <button type="button" class="cursor-pointer underline" onclick={() => (importOpen = true)}
+      <button type="button" class="cursor-pointer underline" onclick={importDialogStore.openPicker}
         >{$_('page.setup.aboutYou.importFile')}</button
       >{$_('page.setup.aboutYou.descriptionSuffix')}
     </p>
@@ -206,5 +205,4 @@
   </div>
 </div>
 
-<ImportDialog bind:open={importOpen} />
 <LicenseDialog bind:open={licenseOpen} />
