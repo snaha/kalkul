@@ -59,7 +59,13 @@
         "alreadyConnected": "Složka se zálohou už je připojená. Změnit ji můžete v Nastavení → Automatické zálohování.",
         "unsupported": "Tento prohlížeč neumí udržovat složku v souladu. Pro import přetáhněte jeden soubor zálohy, nebo pro automatické zálohování použijte Chrome, Edge, Brave, Arc či Operu."
       },
-      "landingHint": "Už Kalkul používáte na jiném počítači? Přetáhněte kamkoli na tuto stránku svou složku se zálohou."
+      "landing": {
+        "hint": "Už Kalkul používáte na jiném počítači? Přetáhněte kamkoli na tuto stránku svou složku se zálohou.",
+        "connecting": "Připojuji složku „{folder}“…",
+        "empty": "Složka „{folder}“ je připojená. Zatím v ní nejsou žádná data Kalkulu, takže není co načíst; vše, co od teď zadáte, se do ní bude zálohovat.",
+        "attention": "Složka „{folder}“ je připojená, ale než se z ní cokoli načte, potřebuje vaši pozornost.",
+        "openSettings": "Otevřít nastavení zálohování"
+      }
     }
   }
 }

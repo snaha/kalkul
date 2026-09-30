@@ -59,7 +59,13 @@
         "alreadyConnected": "A backup folder is already connected. You can change it in Settings → Automatic backup.",
         "unsupported": "This browser cannot keep a folder in sync. Drop a single backup file to import it, or use Chrome, Edge, Brave, Arc or Opera for automatic backup."
       },
-      "landingHint": "Already using Kalkul on another computer? Drop your backup folder anywhere on this page."
+      "landing": {
+        "hint": "Already using Kalkul on another computer? Drop your backup folder anywhere on this page.",
+        "connecting": "Connecting to the folder “{folder}”…",
+        "empty": "Connected to the folder “{folder}”. It holds no Kalkul data yet, so there is nothing to load here; whatever you enter from now on is backed up to it.",
+        "attention": "Connected to the folder “{folder}”, but it needs your attention before anything can load.",
+        "openSettings": "Open backup settings"
+      }
     }
   }
 }
