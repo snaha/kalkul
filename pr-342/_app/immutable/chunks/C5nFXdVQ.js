@@ -1,0 +1,1 @@
+function e(t){return Array.isArray(t)?t.map(e):typeof t==`object`&&t?Object.fromEntries(Object.keys(t).sort().map(n=>[n,e(t[n])])):t}function t(t,n){return JSON.stringify(e(t))===JSON.stringify(e(n))}function n(e,n){let r=new Set([...Object.keys(e),...Object.keys(n)]),i={};for(let a of r)t(e[a],n[a])||(i[a]=n[a]);return i}export{n as t};
