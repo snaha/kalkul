@@ -1,11 +1,15 @@
 <script lang="ts">
-  import { _ } from 'svelte-i18n'
+  import { _, locale } from 'svelte-i18n'
 
   import FolderSync from '@lucide/svelte/icons/folder-sync'
 
   import { Button } from '$lib/components/ui/button'
 
   import { backupFolderStore } from './store.svelte'
+
+  /** When something happened, in the UI language. */
+  const dateTime = (ms: number) =>
+    new Date(ms).toLocaleString($locale ?? undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
   const status = $derived(backupFolderStore.status)
 
@@ -89,7 +93,7 @@
       <p class="text-sm text-foreground">
         {backupFolderStore.lastCheckedAt
           ? $_('plugins.backupFolder.settings.syncedAt', {
-              values: { time: backupFolderStore.formatDateTime(backupFolderStore.lastCheckedAt) },
+              values: { time: dateTime(backupFolderStore.lastCheckedAt) },
             })
           : $_('plugins.backupFolder.settings.connected')}
       </p>
@@ -113,7 +117,7 @@
         {$_('plugins.backupFolder.settings.conflict', {
           values: {
             computer: status.remoteDevice,
-            time: backupFolderStore.formatDateTime(status.remoteTime),
+            time: dateTime(status.remoteTime),
           },
         })}
       </p>
@@ -155,7 +159,7 @@
             {$_('plugins.backupFolder.settings.useVersion', {
               values: {
                 computer: version.device,
-                time: backupFolderStore.formatDateTime(version.time),
+                time: dateTime(version.time),
               },
             })}
           </Button>
@@ -166,7 +170,7 @@
         {$_('plugins.backupFolder.settings.unreadable', {
           values: {
             computer: status.remoteDevice,
-            time: backupFolderStore.formatDateTime(status.remoteTime),
+            time: dateTime(status.remoteTime),
           },
         })}
       </p>

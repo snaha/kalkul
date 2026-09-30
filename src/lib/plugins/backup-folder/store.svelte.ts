@@ -1,8 +1,6 @@
-import { untrack } from 'svelte'
-
 import { browser } from '$app/environment'
 
-import type { PluginHost } from '../types'
+import type { DataChange, PluginHost } from '../types'
 import { deviceName, folderFiles } from './folder-files'
 import * as persistence from './persistence'
 import { createSaveScheduler } from './save-scheduler'
@@ -63,8 +61,10 @@ function withBackupFolderStore() {
   let pending = $state(false)
   /** The last download from another computer, for the "Updated from…" notice. */
   let lastPull = $state<{ device: string; at: number } | undefined>(undefined)
-  /** lastUpdated right after a download: that change is not an edit to save. */
-  let pulledStamp = 0
+  /** The app data's lastUpdated, as `onDataChange` last reported it. */
+  let lastUpdated = 0
+  /** Background triggers are wired (between `start` and its cleanup). */
+  let started = false
   // Between choosing a folder and naming this computer for a new connection.
   let pendingDirectory: FileSystemDirectoryHandle | undefined
   /** The dialog naming this computer is open. */
@@ -82,15 +82,9 @@ function withBackupFolderStore() {
       device,
       now: () => Date.now(),
       local: {
-        stamp: () => app().lastUpdated,
+        stamp: () => lastUpdated,
         export: () => app().exportData(),
-        validate: (json) => app().validateData(json),
-        import: (json) => {
-          app().replaceData(json)
-          // Set in the same tick as the change, before the lastUpdated effect
-          // runs, so the download is not scheduled for upload as an edit.
-          pulledStamp = app().lastUpdated
-        },
+        import: (json) => app().replaceData(json),
       },
       state: {
         load: () => persistence.load('sync'),
@@ -159,6 +153,18 @@ function withBackupFolderStore() {
     maxWaitMs: SAVE_MAX_WAIT_MS,
   })
 
+  /**
+   * Every change to the app data, in this tab or (through the storage event)
+   * in another one, is scheduled for upload — except a download this store
+   * applied itself.
+   */
+  function dataChanged(change: DataChange): void {
+    lastUpdated = change.lastUpdated
+    if (!started || change.source === 'replace' || !shouldAutoSync(status)) return
+    pending = true
+    saves.changed()
+  }
+
   function announce(): void {
     channel?.postMessage('changed')
   }
@@ -177,9 +183,7 @@ function withBackupFolderStore() {
     /** Lends the store the app. Called once, when the plugin is built. */
     attach(next: PluginHost): void {
       host = next
-    },
-    formatDateTime(ms: number): string {
-      return app().formatDateTime(ms)
+      next.onDataChange(dataChanged)
     },
     /** Whether this browser can use a backup folder. */
     get supported() {
@@ -224,23 +228,7 @@ function withBackupFolderStore() {
       channel = new BroadcastChannel(CHANNEL)
       channel.onmessage = () => void refresh()
 
-      let first = true
-      const stopEffects = $effect.root(() => {
-        $effect(() => {
-          // Every persisted change moves lastUpdated, in this tab or (through
-          // the storage event) in another one.
-          const stamp = app().lastUpdated
-          untrack(() => {
-            if (first) {
-              first = false
-              return
-            }
-            if (stamp === pulledStamp || !shouldAutoSync(status)) return
-            pending = true
-            saves.changed()
-          })
-        })
-      })
+      started = true
 
       const onVisible = () => {
         if (document.visibilityState === 'visible' && shouldAutoSync(status)) void syncNow()
@@ -258,7 +246,7 @@ function withBackupFolderStore() {
       void refresh()
 
       return () => {
-        stopEffects()
+        started = false
         saves.cancel()
         clearInterval(poll)
         document.removeEventListener('visibilitychange', onVisible)

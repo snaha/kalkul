@@ -180,14 +180,34 @@ function parseSyncedData(json: string) {
     .parse(repairStoredData(JSON.parse(json)))
 }
 
+/**
+ * A change to the stored data, as `onDataChange` reports it.
+ *
+ * - `edit`: this tab saved a change (any edit, an import).
+ * - `replace`: this tab replaced the data with `replaceData`.
+ * - `other-tab`: another tab saved, and this tab took its data.
+ * - `load`: the data was (re)loaded or cleared wholesale; also the first
+ *   call, reporting the data as it stands when the listener subscribes.
+ */
+export interface DataChange {
+  lastUpdated: number
+  source: 'edit' | 'replace' | 'other-tab' | 'load'
+}
+
 function withAppStore() {
   let browserLocale = $state<string | undefined>(undefined)
   let profile = $state<ProfileStore>(enrichProfile({ ...DEFAULT_PROFILE }))
   let portfolios = $state<PortfolioStore[]>([])
   let loading = $state(true)
   let lastUpdated = $state(0)
+  let dataListeners: ((change: DataChange) => void)[] = []
 
-  function persist(): void {
+  function emitChange(source: DataChange['source']): void {
+    const change = { lastUpdated, source }
+    for (const listener of dataListeners) listener(change)
+  }
+
+  function persist(source: 'edit' | 'replace' = 'edit'): void {
     const now = Date.now()
     const stored: StoredData = {
       lastUpdated: now,
@@ -198,6 +218,7 @@ function withAppStore() {
       localStorage.setItem(storageKeys.DATA, JSON.stringify(stored))
       lastUpdated = now
       storageErrorStore.clear()
+      emitChange(source)
     } catch (e) {
       console.error('Failed to save data to localStorage', e)
       storageErrorStore.setError()
@@ -360,6 +381,7 @@ function withAppStore() {
         storageErrorStore.setError()
       }
       loading = false
+      emitChange('load')
     },
 
     persist,
@@ -390,11 +412,6 @@ function withAppStore() {
     formatDate(ms: number) {
       const loc = getFormattingLocale(profile.location, browserLocale)
       return new Date(ms).toLocaleDateString(loc)
-    },
-    /** Date and time, e.g. when the cloud backup last ran. */
-    formatDateTime(ms: number) {
-      const loc = getFormattingLocale(profile.location, browserLocale)
-      return new Date(ms).toLocaleString(loc, { dateStyle: 'medium', timeStyle: 'short' })
     },
     /** Same, for a date-only ISO string (`YYYY-MM-DD`) such as a snapshot date. */
     formatDateOnly(dateOnly: string) {
@@ -511,6 +528,7 @@ function withAppStore() {
       portfolios = enrichAll(data.portfolios)
       lastUpdated = data.lastUpdated
       loading = false
+      emitChange('load')
     },
 
     startSync(): () => void {
@@ -526,6 +544,7 @@ function withAppStore() {
           profile = enrichProfile(data.profile)
           portfolios = enrichAll(data.portfolios)
           lastUpdated = data.lastUpdated
+          emitChange('other-tab')
         } catch {
           // Ignore malformed data from other tabs
         }
@@ -559,25 +578,30 @@ function withAppStore() {
     },
 
     /**
-     * Throws when `json` is not data `replaceData` can load, e.g. a backup
-     * written by a newer version of Kalkul with fields this one rejects.
-     */
-    validateData(json: string): void {
-      parseSyncedData(json)
-    },
-
-    /**
-     * Replaces the data with a copy downloaded from the backup folder. Unlike
-     * `importBackup` it stores the data exactly as the other computer saved
-     * it — no snapshot seeded — so both computers hold the same data and the
-     * next sync does not see a change nobody made.
+     * Replaces the data with a copy synced from elsewhere (e.g. a backup
+     * folder). Unlike `importBackup` it stores the data exactly as given — no
+     * snapshot seeded — so both sides hold the same data and the next sync
+     * does not see a change nobody made. Throws without changing anything
+     * when `json` is not data this version can load.
      */
     replaceData(json: string): void {
       const validated = parseSyncedData(json)
       profile = enrichProfile(validated.profile)
       portfolios = enrichAll(validated.portfolios)
       loading = false
-      persist()
+      persist('replace')
+    },
+
+    /**
+     * Calls `listener` with the data as it stands, then after every change to
+     * the stored data, whatever made it. Returns the unsubscribe.
+     */
+    onDataChange(listener: (change: DataChange) => void): () => void {
+      dataListeners = [...dataListeners, listener]
+      listener({ lastUpdated, source: 'load' })
+      return () => {
+        dataListeners = dataListeners.filter((other) => other !== listener)
+      }
     },
   }
 }

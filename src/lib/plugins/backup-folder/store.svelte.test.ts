@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { PluginHost } from '../types'
+import type { DataChange, PluginHost } from '../types'
 import { type FileStore, appendVersion, headsOf, listVersions } from './backup-log'
 import { backupFolderStore } from './store.svelte'
 
@@ -81,19 +81,28 @@ vi.mock('./folder-files', async (importOriginal) => {
   return { ...original, folderFiles: () => files }
 })
 
+/** The app's data change listeners, as `onDataChange` registers them. */
+let listeners: ((change: DataChange) => void)[] = []
+
+function dataChanged(source: DataChange['source']): void {
+  for (const listener of listeners) listener({ lastUpdated: env.local.stamp, source })
+}
+
 const host: PluginHost = {
-  get lastUpdated() {
-    return env.local.stamp
-  },
   exportData: () => env.local.data,
-  validateData: (json) => {
-    if (json.startsWith('unloadable')) throw new Error('unknown field')
-  },
   replaceData: (json) => {
+    if (json.startsWith('unloadable')) throw new Error('unknown field')
     env.local.data = json
     env.local.stamp = Date.now()
+    dataChanged('replace')
   },
-  formatDateTime: (ms) => new Date(ms).toISOString(),
+  onDataChange: (listener) => {
+    listeners = [...listeners, listener]
+    listener({ lastUpdated: env.local.stamp, source: 'load' })
+    return () => {
+      listeners = listeners.filter((other) => other !== listener)
+    }
+  },
 }
 backupFolderStore.attach(host)
 
@@ -133,6 +142,7 @@ async function settle(): Promise<void> {
 function edit(data: string): void {
   env.local.data = data
   env.local.stamp = Date.now() + env.local.stamp + 1
+  dataChanged('edit')
 }
 
 async function connect(): Promise<void> {
@@ -175,6 +185,7 @@ describe('backupFolderStore', () => {
     env.records.clear()
     env.folder.clear()
     env.local = { data: '', stamp: 0 }
+    dataChanged('load')
   })
 
   it('connects and uploads the data on this computer', async () => {
@@ -318,5 +329,22 @@ describe('backupFolderStore', () => {
     await backupFolderStore.connectDropped(env.directory)
     expect(backupFolderStore.naming).toBe(false)
     expect(backupFolderStore.status).toEqual({ kind: 'synced' })
+  })
+
+  it('schedules an upload for an edit, but not for a download it applied itself', async () => {
+    edit('v1')
+    await connect()
+    const stop = backupFolderStore.start()
+    try {
+      await settle()
+      await saveFromOtherComputer('from windows')
+      await backupFolderStore.syncNow()
+      expect(env.local.data).toBe('from windows')
+      expect(backupFolderStore.pending).toBe(false)
+      edit('v2')
+      expect(backupFolderStore.pending).toBe(true)
+    } finally {
+      stop()
+    }
   })
 })

@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
-import { type FileStore, KEPT_RECENT, appendVersion, headsOf, listVersions } from './backup-log'
+import {
+  type FileStore,
+  KEPT_RECENT,
+  KEPT_SAFETY_COPIES,
+  appendVersion,
+  headsOf,
+  listVersions,
+  saveSafetyCopy,
+} from './backup-log'
 import {
   type SyncDeps,
   type SyncState,
@@ -48,10 +56,8 @@ function device(files: FileStore, name: string, initial = '') {
     local: {
       stamp: () => stamp,
       export: () => data,
-      validate: (json) => {
-        if (json.startsWith('unloadable')) throw new Error('unknown field')
-      },
       import: (json) => {
+        if (json.startsWith('unloadable')) throw new Error('unknown field')
         data = json
         stamp = clock += 1000
       },
@@ -386,6 +392,22 @@ describe('a version this app cannot load', () => {
     }
     expect(b.data).toBe('b only')
     expect(safetyCopies(files.files)).toEqual([])
+  })
+
+  it('taking its safety copy back costs no older copy', async () => {
+    const files = memoryStore()
+    const a = device(files, 'a', 'v1')
+    const b = device(files, 'b')
+    await syncOnce(a.deps)
+    await syncOnce(b.deps)
+    for (let i = 0; i < KEPT_SAFETY_COPIES; i++) {
+      await saveSafetyCopy(files, { device: 'b', time: T0 - (i + 1) * 1000, contents: `old ${i}` })
+    }
+    b.edit('b only')
+    a.edit('unloadable')
+    await syncOnce(a.deps)
+    await expect(resolveConflict(b.deps, 'remote')).rejects.toBeInstanceOf(UnreadableBackupError)
+    expect(safetyCopies(files.files).length).toBe(KEPT_SAFETY_COPIES)
   })
 
   it('fails an automatic download the same way', async () => {

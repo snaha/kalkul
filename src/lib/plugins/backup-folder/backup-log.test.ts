@@ -9,6 +9,7 @@ import {
   checksum,
   headsOf,
   listVersions,
+  pruneSafetyCopies,
   safetyCopyFileName,
   saveSafetyCopy,
   versionFileName,
@@ -239,11 +240,12 @@ describe('appendVersion pruning', () => {
   })
 })
 
-describe('saveSafetyCopy', () => {
+describe('pruneSafetyCopies', () => {
   it(`keeps the newest ${KEPT_SAFETY_COPIES} safety copies`, async () => {
     const store = memoryStore()
     for (let i = 0; i < KEPT_SAFETY_COPIES + 2; i++) {
       await saveSafetyCopy(store, { device: 'a', time: T0 + i * 1000, contents: `c${i}` })
+      await pruneSafetyCopies(store)
     }
     const names = [...store.files.keys()]
     expect(names.length).toBe(KEPT_SAFETY_COPIES)

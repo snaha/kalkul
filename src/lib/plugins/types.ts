@@ -1,6 +1,10 @@
 import type { Component } from 'svelte'
 import type { addMessages } from 'svelte-i18n'
 
+import type { DataChange } from '$lib/stores/app.svelte'
+
+export type { DataChange }
+
 /** One locale's translations, as svelte-i18n takes them. */
 type Dictionary = Parameters<typeof addMessages>[1]
 
@@ -40,14 +44,10 @@ export interface KalkulPlugin {
 
 /** The app's data, as a plugin sees it. */
 export interface PluginHost {
-  /** Moves with every persisted change, in this tab or another; 0 until anything was saved. Reactive. */
-  readonly lastUpdated: number
   /** The data as a backup file's JSON. */
   exportData: () => string
-  /** Throws when `json` is not data `replaceData` can load. */
-  validateData: (json: string) => void
-  /** Replaces all data with `json`, exactly as given. */
+  /** Replaces all data with `json`, exactly as given. Throws without changing anything when it cannot load it. */
   replaceData: (json: string) => void
-  /** Date and time in the user's formatting locale. */
-  formatDateTime: (ms: number) => string
+  /** Calls `listener` with the data as it stands, then after every change. Returns the unsubscribe. */
+  onDataChange: (listener: (change: DataChange) => void) => () => void
 }

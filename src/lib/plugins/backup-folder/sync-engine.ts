@@ -4,6 +4,7 @@ import {
   appendVersion,
   headsOf,
   listVersions,
+  pruneSafetyCopies,
   saveSafetyCopy,
 } from './backup-log'
 
@@ -40,9 +41,11 @@ export interface SyncDeps {
      */
     stamp: () => number
     export: () => string
-    /** Throws when `json` is not data this app can load (e.g. a newer app's). */
-    validate: (json: string) => void
-    /** Replaces the local data; the stamp moves as with any other change. */
+    /**
+     * Replaces the local data; the stamp moves as with any other change.
+     * Throws without changing anything when this app cannot load `json`
+     * (e.g. a newer app's).
+     */
     import: (json: string) => void
   }
   state: {
@@ -107,9 +110,10 @@ function wouldLoseLocal(
 
 /**
  * Replaces local data with `version`, saving the local data aside first when
- * that is the only copy of it. If reading or checking the version, or saving
- * aside, fails, nothing is replaced — and a version this app cannot load
- * costs no safety copy, so retrying it does not fill the folder with them.
+ * that is the only copy of it. If reading the version or saving aside fails,
+ * nothing is replaced. A version this app cannot load replaces nothing either,
+ * and its safety copy is taken back, so retrying it does not fill the folder
+ * with them.
  */
 async function replaceLocal(
   deps: SyncDeps,
@@ -119,19 +123,20 @@ async function replaceLocal(
 ): Promise<void> {
   deps.transferring()
   const json = await deps.files.read(version.id)
+  const safetyCopy = wouldLoseLocal(deps, synced, versions)
+    ? await saveSafetyCopy(deps.files, {
+        device: deps.device,
+        time: deps.now(),
+        contents: deps.local.export(),
+      })
+    : undefined
   try {
-    deps.local.validate(json)
+    deps.local.import(json)
   } catch (error) {
+    if (safetyCopy) await deps.files.remove(safetyCopy.id)
     throw new UnreadableBackupError(version, { cause: error })
   }
-  if (wouldLoseLocal(deps, synced, versions)) {
-    await saveSafetyCopy(deps.files, {
-      device: deps.device,
-      time: deps.now(),
-      contents: deps.local.export(),
-    })
-  }
-  deps.local.import(json)
+  if (safetyCopy) await pruneSafetyCopies(deps.files)
 }
 
 async function pull(

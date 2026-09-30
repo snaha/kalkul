@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { _ } from 'svelte-i18n'
+  import { _, locale } from 'svelte-i18n'
 
   import CircleAlert from '@lucide/svelte/icons/circle-alert'
   import CloudCheck from '@lucide/svelte/icons/cloud-check'
@@ -14,6 +14,10 @@
   import { cn } from '$lib/utils'
 
   import { backupFolderStore } from './store.svelte'
+
+  /** When something happened, in the UI language. */
+  const dateTime = (ms: number) =>
+    new Date(ms).toLocaleString($locale ?? undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
   interface Props {
     /** Classes for the navbar's dark background. */
@@ -84,7 +88,7 @@
           icon: CloudCheck,
           label: backupFolderStore.lastSyncedAt
             ? $_('plugins.backupFolder.status.savedAt', {
-                values: { time: backupFolderStore.formatDateTime(backupFolderStore.lastSyncedAt) },
+                values: { time: dateTime(backupFolderStore.lastSyncedAt) },
               })
             : $_('plugins.backupFolder.status.saved'),
         }

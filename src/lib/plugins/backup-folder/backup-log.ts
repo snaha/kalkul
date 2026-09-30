@@ -194,8 +194,16 @@ export function versionsToKeep(versions: Version[], now: number): Set<string> {
 export async function saveSafetyCopy(
   store: FileStore,
   { device, time, contents }: { device: string; time: number; contents: string },
-): Promise<void> {
-  await store.create(safetyCopyFileName({ device, time }), contents)
+): Promise<RemoteFile> {
+  return store.create(safetyCopyFileName({ device, time }), contents)
+}
+
+/**
+ * Keeps the newest `KEPT_SAFETY_COPIES`. Separate from saving one, so a copy
+ * that turns out not to be needed can be taken back without having cost an
+ * older one.
+ */
+export async function pruneSafetyCopies(store: FileStore): Promise<void> {
   const copies = (await store.list())
     .filter((file) => SAFETY_PATTERN.test(file.name))
     // The name starts with the time, so name order is time order.
