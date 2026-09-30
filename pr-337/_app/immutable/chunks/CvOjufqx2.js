@@ -1,1 +1,0 @@
-import{K as e,Q as t,U as n,ct as r,ut as i}from"./B4nPWE2i.js";function a(){let e=i(0);return{get held(){return n(e)>0},acquire(){r(e,n(e)+1);let t=!1;return()=>{t||(t=!0,r(e,n(e)-1))}}}}var o=a();function s(n=()=>!0){t(()=>{if(n())return e(()=>o.acquire())})}export{s as n,o as t};
