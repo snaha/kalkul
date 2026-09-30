@@ -1,9 +1,16 @@
 <script lang="ts">
+  import { page } from '$app/state'
+
   import FinancialDataHeader from '$lib/components/financial-data-header.svelte'
   import FinancialDataSidebar from '$lib/components/financial-data-sidebar.svelte'
   import { appStore } from '$lib/stores/app.svelte'
+  import { holdData } from '$lib/stores/data-holds.svelte'
 
   let { children } = $props()
+
+  // The list editors save their whole list back shortly after any keystroke;
+  // the overview page edits nothing.
+  holdData(() => page.route.id !== '/(app)/financial-data')
 
   const date = $derived(appStore.formatLastUpdated())
 </script>

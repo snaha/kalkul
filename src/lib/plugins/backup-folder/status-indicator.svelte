@@ -12,9 +12,9 @@
 
   import { Button } from '$lib/components/ui/button'
   import routes from '$lib/routes'
-  import { appStore } from '$lib/stores/app.svelte'
-  import { cloudBackupStore } from '$lib/stores/cloud-backup.svelte'
   import { cn } from '$lib/utils'
+
+  import { backupFolderStore } from './store.svelte'
 
   interface Props {
     /** Classes for the navbar's dark background. */
@@ -29,7 +29,7 @@
   // Re-evaluated when a new download lands, and once more when it expires.
   let now = $state(Date.now())
   $effect(() => {
-    const pull = cloudBackupStore.lastPull
+    const pull = backupFolderStore.lastPull
     if (!pull) return
     now = Date.now()
     const timer = setTimeout(() => (now = Date.now()), NOTICE_MS)
@@ -49,48 +49,52 @@
   }
 
   const indicator = $derived.by((): Indicator | undefined => {
-    const status = cloudBackupStore.status
-    const pull = cloudBackupStore.lastPull
+    const status = backupFolderStore.status
+    const pull = backupFolderStore.lastPull
     switch (status.kind) {
       case 'disconnected':
         return undefined
       case 'needs-permission':
-        return attention($_('navbar.backup.needsPermission'))
+        return attention($_('plugins.backupFolder.status.needsPermission'))
       case 'conflict':
       case 'fork':
-        return attention($_('navbar.backup.conflict'))
+        return attention($_('plugins.backupFolder.status.conflict'))
       case 'unreadable':
-        return attention($_('navbar.backup.unreadable'))
+        return attention($_('plugins.backupFolder.status.unreadable'))
       case 'folder-missing':
-        return attention($_('navbar.backup.folderMissing'))
+        return attention($_('plugins.backupFolder.status.folderMissing'))
       case 'error':
-        return attention($_('navbar.backup.failed'))
+        return attention($_('plugins.backupFolder.status.failed'))
       case 'held':
         return {
           icon: Clock,
-          label: $_('navbar.backup.held', { values: { computer: status.remoteDevice } }),
+          label: $_('plugins.backupFolder.status.held', {
+            values: { computer: status.remoteDevice },
+          }),
         }
       case 'checking':
-        return { icon: LoaderCircle, label: $_('navbar.backup.checking'), spin: true }
+        return { icon: LoaderCircle, label: $_('plugins.backupFolder.status.checking'), spin: true }
       case 'syncing':
-        return { icon: LoaderCircle, label: $_('navbar.backup.saving'), spin: true }
+        return { icon: LoaderCircle, label: $_('plugins.backupFolder.status.saving'), spin: true }
       case 'synced':
-        if (cloudBackupStore.pending) {
-          return { icon: CloudUpload, label: $_('navbar.backup.pending') }
+        if (backupFolderStore.pending) {
+          return { icon: CloudUpload, label: $_('plugins.backupFolder.status.pending') }
         }
         if (pull && now - pull.at < NOTICE_MS) {
           return {
             icon: RefreshCw,
-            label: $_('navbar.backup.updatedFrom', { values: { computer: pull.device } }),
+            label: $_('plugins.backupFolder.status.updatedFrom', {
+              values: { computer: pull.device },
+            }),
           }
         }
         return {
           icon: CloudCheck,
-          label: cloudBackupStore.lastSyncedAt
-            ? $_('navbar.backup.savedAt', {
-                values: { time: appStore.formatDateTime(cloudBackupStore.lastSyncedAt) },
+          label: backupFolderStore.lastSyncedAt
+            ? $_('plugins.backupFolder.status.savedAt', {
+                values: { time: backupFolderStore.formatDateTime(backupFolderStore.lastSyncedAt) },
               })
-            : $_('navbar.backup.saved'),
+            : $_('plugins.backupFolder.status.saved'),
         }
     }
   })

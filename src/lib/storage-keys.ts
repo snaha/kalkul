@@ -23,4 +23,6 @@ export default {
   WEB_MCP: 'kalkul-web-mcp',
   /** localStorage — random anonymous id handed to Umami so a returning browser counts once. */
   ANALYTICS_ID: 'kalkul-analytics-id',
+  /** localStorage — JSON array of the plugin ids turned on from the dev page (src/lib/plugins). */
+  PLUGINS: 'kalkul-plugins',
 } as const

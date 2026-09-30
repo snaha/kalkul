@@ -1,21 +1,17 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import { defaultComputerLabel } from '$lib/cloud-backup/folder-files'
   import { Button } from '$lib/components/ui/button'
   import * as Dialog from '$lib/components/ui/dialog'
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
 
-  interface Props {
-    open: boolean
-    /** Resolves when the folder is connected. */
-    onSubmit: (computerName: string) => Promise<void>
-    /** Closed without connecting. */
-    onCancel?: () => void
-  }
+  import { defaultComputerLabel } from './folder-files'
+  import { backupFolderStore } from './store.svelte'
 
-  let { open = $bindable(), onSubmit, onCancel }: Props = $props()
+  // Mounted once (the plugin's root component) and opened by the store, for
+  // a folder chosen in settings or dropped onto the page alike.
+  const open = $derived(backupFolderStore.naming)
 
   const uid = $props.id()
 
@@ -29,7 +25,7 @@
       computerName = defaultComputerLabel(navigator.userAgent)
       return
     }
-    if (!submitted) onCancel?.()
+    if (!submitted) backupFolderStore.cancelConnect()
   })
 
   const canSubmit = $derived(computerName.trim().length > 0 && !busy)
@@ -39,38 +35,39 @@
     if (!canSubmit) return
     busy = true
     try {
-      await onSubmit(computerName)
+      // Closes this dialog once connected.
       submitted = true
-      open = false
+      await backupFolderStore.finishConnect(computerName)
     } catch (e) {
+      submitted = false
       console.error('Could not connect the backup folder', e)
-      alert($_('page.settings.cloudBackup.error'))
+      alert($_('plugins.backupFolder.settings.error'))
     } finally {
       busy = false
     }
   }
 </script>
 
-<Dialog.Root bind:open>
-  <!-- data-backup-dialog: not an editor, so it does not hold downloads. -->
-  <Dialog.Content class="sm:max-w-[576px]" data-backup-dialog>
+<!-- holdsData: this dialog edits no data, so downloads need not wait for it. -->
+<Dialog.Root bind:open={() => open, (next) => (backupFolderStore.naming = next)} holdsData={false}>
+  <Dialog.Content class="sm:max-w-[576px]">
     <Dialog.Header>
-      <Dialog.Title>{$_('page.settings.cloudBackup.nameDialog.title')}</Dialog.Title>
+      <Dialog.Title>{$_('plugins.backupFolder.settings.nameDialog.title')}</Dialog.Title>
       <Dialog.Description class="text-base text-foreground">
-        {$_('page.settings.cloudBackup.nameDialog.description')}
+        {$_('plugins.backupFolder.settings.nameDialog.description')}
       </Dialog.Description>
     </Dialog.Header>
     <form class="flex flex-col gap-4" onsubmit={handleSubmit}>
       <div class="flex flex-col gap-2">
-        <Label for="{uid}-computer">{$_('page.settings.cloudBackup.nameDialog.label')}</Label>
+        <Label for="{uid}-computer">{$_('plugins.backupFolder.settings.nameDialog.label')}</Label>
         <Input id="{uid}-computer" autocomplete="off" bind:value={computerName} />
         <p class="text-sm text-muted-foreground">
-          {$_('page.settings.cloudBackup.nameDialog.hint')}
+          {$_('plugins.backupFolder.settings.nameDialog.hint')}
         </p>
       </div>
       <Dialog.Footer class="sm:justify-start">
         <Button type="submit" disabled={!canSubmit}>
-          {$_('page.settings.cloudBackup.nameDialog.connect')}
+          {$_('plugins.backupFolder.settings.nameDialog.connect')}
         </Button>
       </Dialog.Footer>
     </form>

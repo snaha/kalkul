@@ -9,7 +9,6 @@
 
   import { resolve } from '$app/paths'
 
-  import CloudBackupSettings from '$lib/components/cloud-backup-settings.svelte'
   import HelpTooltip from '$lib/components/help-tooltip.svelte'
   import SelectField, { type SelectFieldItem } from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
@@ -21,11 +20,12 @@
   import { Separator } from '$lib/components/ui/separator'
   import { Switch } from '$lib/components/ui/switch'
   import downloadBackup from '$lib/download-backup'
+  import { pluginStore } from '$lib/plugins/plugins.svelte'
+  import type { KalkulPlugin } from '$lib/plugins/types'
   import { COUNTRY_CURRENCY_MAP, getCountryItems, getLanguageItems } from '$lib/profile-options'
   import routes from '$lib/routes'
   import { type HoldingPeriod, type Profile, type TaxRule } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
-  import { cloudBackupStore } from '$lib/stores/cloud-backup.svelte'
   import { importDialogStore } from '$lib/stores/import-dialog.svelte'
   import { syncStore } from '$lib/stores/sync.svelte'
   import { type Theme, themeStore } from '$lib/stores/theme.svelte'
@@ -43,27 +43,35 @@
   const uid = $props.id()
 
   // --- Sidebar ---
-  type SectionId =
+  type CoreSectionId =
     | 'backup'
-    | 'cloudBackup'
     | 'appearance'
     | 'localisation'
     | 'taxRules'
     | 'yourDetails'
     | 'mcpServer'
-  // PR previews share kalkul.app's origin and must not reach the real backup.
-  const sections: SectionId[] = [
+  /** A plugin's section, keyed by the plugin id. */
+  type PluginSectionId = `plugin-${string}`
+  type SectionId = CoreSectionId | PluginSectionId
+
+  type WithSettings = KalkulPlugin & { settings: NonNullable<KalkulPlugin['settings']> }
+  const pluginSections = $derived(
+    pluginStore.active.filter((plugin): plugin is WithSettings => plugin.settings !== undefined),
+  )
+  const pluginSectionId = (plugin: KalkulPlugin): PluginSectionId => `plugin-${plugin.id}`
+
+  // Plugin sections go after Backup.
+  const sections = $derived<SectionId[]>([
     'backup',
-    ...(cloudBackupStore.enabled ? (['cloudBackup'] as const) : []),
+    ...pluginSections.map(pluginSectionId),
     'appearance',
     'localisation',
     'taxRules',
     'yourDetails',
     'mcpServer',
-  ]
-  const navLabels = $derived<Record<SectionId, string>>({
+  ])
+  const navLabels = $derived<Record<CoreSectionId, string>>({
     backup: $_('page.settings.nav.backup'),
-    cloudBackup: $_('page.settings.nav.cloudBackup'),
     appearance: $_('page.settings.nav.appearance'),
     localisation: $_('page.settings.nav.localisation'),
     taxRules: $_('page.settings.nav.taxRules'),
@@ -292,7 +300,12 @@
               active === id && 'bg-sidebar-accent font-medium text-sidebar-accent-foreground',
             )}
           >
-            {navLabels[id]}
+            {#if id.startsWith('plugin-')}
+              {@const Label = pluginSections.find((p) => pluginSectionId(p) === id)?.settings.label}
+              <Label />
+            {:else}
+              {navLabels[id as CoreSectionId]}
+            {/if}
           </button>
         {/each}
       </nav>
@@ -327,23 +340,16 @@
         </div>
       </section>
 
-      {#if cloudBackupStore.enabled}
+      {#each pluginSections as plugin (plugin.id)}
         <Separator class="max-w-[576px]" />
 
-        <!-- Cloud backup -->
         <section
-          id="{uid}-cloudBackup"
+          id="{uid}-{pluginSectionId(plugin)}"
           class="flex w-full max-w-[576px] scroll-mt-8 flex-col gap-4"
         >
-          <div class="flex flex-col gap-1">
-            <h2 class="text-xl font-bold text-foreground">{navLabels.cloudBackup}</h2>
-            <p class="text-sm text-muted-foreground">
-              {$_('page.settings.cloudBackup.description')}
-            </p>
-          </div>
-          <CloudBackupSettings />
+          <plugin.settings.section />
         </section>
-      {/if}
+      {/each}
 
       <Separator class="max-w-[576px]" />
 

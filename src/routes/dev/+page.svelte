@@ -10,7 +10,9 @@
   import { CATEGORY_COLORS } from '$lib/chart-colors'
   import { Button } from '$lib/components/ui/button'
   import * as Dialog from '$lib/components/ui/dialog'
+  import { Switch } from '$lib/components/ui/switch'
   import downloadBackup from '$lib/download-backup'
+  import { pluginStore } from '$lib/plugins/plugins.svelte'
   import routes from '$lib/routes'
   import type { StoredData } from '$lib/schemas'
   import storageKeys from '$lib/storage-keys'
@@ -85,6 +87,29 @@
         </div>
         <Button size="sm" onclick={() => requestLoadPreset(preset)}>Load</Button>
       </div>
+    {/each}
+  </div>
+
+  <div class="flex flex-col gap-4">
+    <h2 class="text-xl font-bold">Plugins</h2>
+    <p class="text-sm text-muted-foreground">
+      Off by default. Turned on for this browser only, and in every open tab.
+    </p>
+    {#each pluginStore.all as plugin (plugin.id)}
+      <label class="flex items-center gap-4 rounded-lg border p-4">
+        <div class="flex flex-1 flex-col gap-1">
+          <span class="font-medium">{plugin.name}</span>
+          <span class="text-sm text-muted-foreground">{plugin.description}</span>
+          {#if plugin.unavailableReason}
+            <span class="text-sm text-muted-foreground">{plugin.unavailableReason}</span>
+          {/if}
+        </div>
+        <Switch
+          checked={pluginStore.isEnabled(plugin.id)}
+          disabled={plugin.unavailableReason !== undefined}
+          onCheckedChange={(on) => pluginStore.setEnabled(plugin.id, on)}
+        />
+      </label>
     {/each}
   </div>
 

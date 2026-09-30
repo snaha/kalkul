@@ -1,0 +1,65 @@
+{
+  "plugins": {
+    "backupFolder": {
+      "settings": {
+        "nav": "Automatic backup",
+        "description": "Keep a copy of your data in a folder on this computer, updated automatically whenever you make a change. Put the folder in iCloud Drive, Dropbox or Google Drive to have your data on your other computers too. The files are not encrypted: anyone who can open the folder can read them.",
+        "chooseFolder": "Choose folder",
+        "chooseFolderDescription": "Pick an empty folder, or the folder you already back up to from another computer.",
+        "unsupported": "This browser cannot save to a folder on your disk. Automatic backup works in Chrome, Edge, Brave, Arc and Opera; here, use Export to file above.",
+        "connectedTo": "Backing up to the folder “{folder}” as “{computer}”.",
+        "disconnect": "Disconnect",
+        "disconnectDescription": "The folder and its files stay where they are; you can connect again at any time.",
+        "connected": "Connected.",
+        "syncing": "Backing up…",
+        "syncedAt": "Backed up · last checked {time}",
+        "needsPermission": "Your browser needs your permission to use the backup folder again. Backups are paused until then.",
+        "allowAccess": "Allow access",
+        "conflict": "Your data here and the backup saved by “{computer}” on {time} both changed since this computer last backed up. Choose which one to keep.",
+        "keepLocal": "Keep the data on this computer",
+        "useRemote": "Use the backup from the folder",
+        "replaceWarning": "This replaces the data on this computer with the backup from the folder. A copy of this computer's data is saved in the folder first, as a file whose name contains “before-replace”; you can open it later with Import from file.",
+        "replaceConfirm": "Replace my data",
+        "cancel": "Cancel",
+        "failed": "The last backup attempt failed. Kalkul will try again automatically.",
+        "retry": "Try again",
+        "error": "Something went wrong with the backup folder. Please try again.",
+        "held": "“{computer}” saved a change on {time}. It will be applied when you leave this page or close the open dialog, so it can't be overwritten by the editor you have open.",
+        "folderMissing": "The backup folder “{folder}” can't be found. It may have been moved, renamed or deleted. Backups are paused.",
+        "chooseFolderAgain": "Choose folder again",
+        "nameDialog": {
+          "title": "Name this computer",
+          "description": "Kalkul will keep this computer in sync with the backup folder.",
+          "label": "Name for this computer",
+          "hint": "Shown in the backup file names, so you can tell which computer saved what.",
+          "connect": "Connect"
+        },
+        "checking": "Checking the backup folder…",
+        "fork": "The backup folder holds two versions that were saved separately on different computers. Choose which one to use on this computer; the other stays in the folder's history.",
+        "useVersion": "Use the version from “{computer}” ({time})",
+        "unreadable": "The backup saved by “{computer}” on {time} can't be opened by this version of Kalkul, probably because it was saved by a newer one. Reload the page to get the latest Kalkul. Nothing on this computer has been changed.",
+        "reload": "Reload page"
+      },
+      "status": {
+        "saving": "Saving to backup folder…",
+        "saved": "Saved to backup folder",
+        "savedAt": "Saved · {time}",
+        "updatedFrom": "Updated from “{computer}”",
+        "held": "Update from “{computer}” waiting",
+        "needsPermission": "Backup paused: allow folder access",
+        "conflict": "Backup paused: choose a version",
+        "folderMissing": "Backup folder missing",
+        "failed": "Backup failed",
+        "pending": "Changes not backed up yet",
+        "checking": "Checking backup folder…",
+        "unreadable": "Backup paused: reload Kalkul"
+      },
+      "drop": {
+        "hint": "Drop your backup folder instead to keep this computer in sync with it.",
+        "alreadyConnected": "A backup folder is already connected. You can change it in Settings → Automatic backup.",
+        "unsupported": "This browser cannot keep a folder in sync. Drop a single backup file to import it, or use Chrome, Edge, Brave, Arc or Opera for automatic backup."
+      },
+      "landingHint": "Already using Kalkul on another computer? Drop your backup folder anywhere on this page."
+    }
+  }
+}

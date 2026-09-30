@@ -1,7 +1,7 @@
 import { type SyncOutcome, UnreadableBackupError } from './sync-engine'
 
 /** What the settings page shows about the backup folder. */
-export type CloudBackupStatus =
+export type BackupFolderStatus =
   | { kind: 'disconnected' }
   /** The first round after loading, before anything is known. */
   | { kind: 'checking' }
@@ -21,7 +21,7 @@ export type CloudBackupStatus =
   | { kind: 'unreadable'; remoteTime: number; remoteDevice: string }
   | { kind: 'error' }
 
-export function statusForOutcome(outcome: SyncOutcome): CloudBackupStatus {
+export function statusForOutcome(outcome: SyncOutcome): BackupFolderStatus {
   if (outcome.kind === 'conflict' || outcome.kind === 'held') {
     return {
       kind: outcome.kind,
@@ -40,7 +40,7 @@ export function statusForOutcome(outcome: SyncOutcome): CloudBackupStatus {
   return { kind: 'synced' }
 }
 
-export function statusForError(error: unknown): CloudBackupStatus {
+export function statusForError(error: unknown): BackupFolderStatus {
   if (error instanceof DOMException && error.name === 'NotAllowedError') {
     return { kind: 'needs-permission' }
   }
@@ -59,7 +59,7 @@ export function statusForError(error: unknown): CloudBackupStatus {
  * should start a round. States that only the user can clear are left alone
  * until they act.
  */
-export function shouldAutoSync(status: CloudBackupStatus): boolean {
+export function shouldAutoSync(status: BackupFolderStatus): boolean {
   return (
     status.kind !== 'disconnected' &&
     status.kind !== 'needs-permission' &&
@@ -71,6 +71,6 @@ export function shouldAutoSync(status: CloudBackupStatus): boolean {
  * Whether the status is a question waiting for the user, which background
  * rounds re-check without taking it off the screen.
  */
-export function awaitsChoice(status: CloudBackupStatus): boolean {
+export function awaitsChoice(status: BackupFolderStatus): boolean {
   return status.kind === 'conflict' || status.kind === 'fork'
 }

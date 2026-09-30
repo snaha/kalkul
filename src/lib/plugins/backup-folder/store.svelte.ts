@@ -1,33 +1,31 @@
 import { untrack } from 'svelte'
 
 import { browser } from '$app/environment'
-import { page } from '$app/state'
 
-import { downloadsHeld } from '$lib/cloud-backup/download-hold'
-import { deviceName, folderFiles } from '$lib/cloud-backup/folder-files'
-import * as persistence from '$lib/cloud-backup/persistence'
-import { createSaveScheduler } from '$lib/cloud-backup/save-scheduler'
+import type { PluginHost } from '../types'
+import { deviceName, folderFiles } from './folder-files'
+import * as persistence from './persistence'
+import { createSaveScheduler } from './save-scheduler'
 import {
   type SyncDeps,
   type SyncOutcome,
   chooseVersion,
   resolveConflict,
   syncOnce,
-} from '$lib/cloud-backup/sync-engine'
+} from './sync-engine'
 import {
-  type CloudBackupStatus,
+  type BackupFolderStatus,
   awaitsChoice,
   shouldAutoSync,
   statusForError,
   statusForOutcome,
-} from '$lib/cloud-backup/sync-status'
-
-import { appStore } from './app.svelte'
+} from './sync-status'
 
 /** Serialises sync rounds across every tab of the origin. */
 const LOCK = 'kalkul-backup-folder'
 /**
- * Held (shared) by every tab that has an editor or dialog open, so a round
+ * Held (shared) by every tab whose app reports a data hold (an editor or
+ * dialog with its own copy of the data is open), so a round
  * in any tab waits with downloads: the data is shared, and a download applied
  * from another tab reaches this tab's open editor through the storage event.
  */
@@ -41,28 +39,6 @@ const SAVE_MAX_WAIT_MS = 60 * 1000
 /** How often an open, visible tab looks for other computers' changes. */
 const POLL_MS = 30 * 1000
 const READWRITE = { mode: 'readwrite' } as const
-
-/**
- * Whether a bits-ui dialog (they all render role="dialog") is open — other
- * than the backup's own naming dialog, which holds no copy of the data.
- */
-function dialogOpen(): boolean {
-  return (
-    document.querySelector('[role="dialog"][data-state="open"]:not([data-backup-dialog])') !== null
-  )
-}
-
-/** Whether this tab has something open that must not have its data replaced. */
-function heldHere(): boolean {
-  return downloadsHeld(page.route.id ?? undefined, dialogOpen())
-}
-
-/** Whether this tab or any other one holds downloads. */
-async function heldAnywhere(): Promise<boolean> {
-  if (heldHere()) return true
-  const { held = [] } = await navigator.locks.query()
-  return held.some((lock) => lock.name === HOLD_LOCK)
-}
 
 function isNotFound(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'NotFoundError'
@@ -79,17 +55,13 @@ async function folderReachable(directory: FileSystemDirectoryHandle): Promise<bo
   }
 }
 
-/**
- * PR previews (hash router) run on kalkul.app's own origin, so they must
- * never reach the user's real backup folder.
- */
-const enabled = import.meta.env.VITE_ROUTER !== 'hash'
 /** Editing files on disk is Chromium-only (Chrome, Edge, Brave, Arc, Opera). */
 const supported = browser && typeof window.showDirectoryPicker === 'function'
-const available = enabled && supported
 
-function withCloudBackupStore() {
-  let status = $state<CloudBackupStatus>({ kind: 'disconnected' })
+function withBackupFolderStore() {
+  /** The app, lent by `attach` when the plugin is built. */
+  let host: PluginHost | undefined
+  let status = $state<BackupFolderStatus>({ kind: 'disconnected' })
   let lastSyncedAt = $state<number | undefined>(undefined)
   /** When this tab last finished a round, whether or not it moved any data. */
   let lastCheckedAt = $state<number | undefined>(undefined)
@@ -102,13 +74,26 @@ function withCloudBackupStore() {
   let pulledStamp = 0
   // Between choosing a folder and naming this computer for a new connection.
   let pendingDirectory: FileSystemDirectoryHandle | undefined
+  /** The dialog naming this computer is open. */
+  let naming = $state(false)
   let channel: BroadcastChannel | undefined
   /** Releases this tab's share of HOLD_LOCK, while it holds one. */
   let releaseHold: (() => void) | undefined
 
-  /** Takes or gives back this tab's share of the hold to match what is open. */
-  function updateHold(): void {
-    const hold = heldHere()
+  function app(): PluginHost {
+    if (!host) throw new Error('The backup folder plugin has no host')
+    return host
+  }
+
+  /** Whether this tab or any other one holds downloads. */
+  async function heldAnywhere(): Promise<boolean> {
+    if (app().dataHeld) return true
+    const { held = [] } = await navigator.locks.query()
+    return held.some((lock) => lock.name === HOLD_LOCK)
+  }
+
+  /** Takes or gives back this tab's share of the hold to match the app's. */
+  function updateHold(hold: boolean): void {
     if (hold && !releaseHold) {
       const released = new Promise<void>((resolve) => (releaseHold = resolve))
       void navigator.locks.request(HOLD_LOCK, { mode: 'shared' }, () => released)
@@ -124,15 +109,15 @@ function withCloudBackupStore() {
       device,
       now: () => Date.now(),
       local: {
-        stamp: () => appStore.lastUpdated,
+        stamp: () => app().data.stamp,
         canReplace: async () => !(await heldAnywhere()),
-        export: () => appStore.exportBackup(),
-        validate: (json) => appStore.validateData(json),
+        export: () => app().data.export(),
+        validate: (json) => app().data.validate(json),
         import: (json) => {
-          appStore.replaceData(json)
-          // Set in the same tick as the change, before the lastUpdated effect
+          app().data.replace(json)
+          // Set in the same tick as the change, before the stamp effect
           // runs, so the download is not scheduled for upload as an edit.
-          pulledStamp = appStore.lastUpdated
+          pulledStamp = app().data.stamp
         },
       },
       state: {
@@ -216,10 +201,13 @@ function withCloudBackupStore() {
     await syncNow()
   }
 
-  return {
-    /** Whether the feature shows at all (off on PR previews). */
-    get enabled() {
-      return enabled
+  const store = {
+    /** Lends the store the app. Called once, when the plugin is built. */
+    attach(next: PluginHost): void {
+      host = next
+    },
+    formatDateTime(ms: number): string {
+      return app().formatDateTime(ms)
     },
     /** Whether this browser can use a backup folder. */
     get supported() {
@@ -245,10 +233,21 @@ function withCloudBackupStore() {
     get connection() {
       return connection
     },
+    /** A folder drop can connect: nothing connected yet, or the folder went missing. */
+    get connectable(): boolean {
+      return supported && (status.kind === 'disconnected' || status.kind === 'folder-missing')
+    },
+    /** Whether the dialog naming this computer is open. */
+    get naming(): boolean {
+      return naming
+    },
+    set naming(open: boolean) {
+      naming = open
+    },
 
     /** Wires the background triggers. Returns the cleanup. */
-    init(): () => void {
-      if (!available) return () => {}
+    start(): () => void {
+      if (!supported) return () => {}
 
       channel = new BroadcastChannel(CHANNEL)
       channel.onmessage = () => void refresh()
@@ -256,9 +255,9 @@ function withCloudBackupStore() {
       let first = true
       const stopEffects = $effect.root(() => {
         $effect(() => {
-          // Every persisted change moves lastUpdated, in this tab or (through
+          // Every persisted change moves the stamp, in this tab or (through
           // the storage event) in another one.
-          const stamp = appStore.lastUpdated
+          const stamp = app().data.stamp
           untrack(() => {
             if (first) {
               first = false
@@ -269,16 +268,11 @@ function withCloudBackupStore() {
             saves.changed()
           })
         })
-      })
-
-      // Dialogs open and close without a route change, so watch the DOM for
-      // them; the route is covered too, since the page content swaps.
-      updateHold()
-      const holdObserver = new MutationObserver(updateHold)
-      holdObserver.observe(document.body, {
-        subtree: true,
-        childList: true,
-        attributeFilter: ['data-state'],
+        // Shares this tab's data hold with the other tabs' rounds.
+        $effect(() => {
+          const hold = app().dataHeld
+          untrack(() => updateHold(hold))
+        })
       })
 
       // A held download is applied as soon as nothing holds it any more
@@ -305,7 +299,6 @@ function withCloudBackupStore() {
 
       return () => {
         stopEffects()
-        holdObserver.disconnect()
         releaseHold?.()
         releaseHold = undefined
         clearInterval(release)
@@ -363,6 +356,7 @@ function withCloudBackupStore() {
         }
       }
       pendingDirectory = undefined
+      naming = false
       const device = computerLabel !== undefined ? deviceName(computerLabel) : connection?.device
       await persistence.save('directory', directory)
       if (computerLabel !== undefined || !connection) await persistence.remove('sync')
@@ -374,8 +368,26 @@ function withCloudBackupStore() {
       await syncNow()
     },
 
+    /**
+     * Connects a folder dropped onto the page, asking for this computer's
+     * name when it is a new connection.
+     */
+    async connectDropped(directory: FileSystemDirectoryHandle): Promise<void> {
+      await store.beginConnectDropped(directory)
+      // The folder went missing and this is it again: keep this computer's name.
+      if (connection) await store.finishConnect(undefined)
+      else naming = true
+    },
+
+    /** After the folder picker: connects, or asks for the name first. */
+    async connectChosen(): Promise<void> {
+      if (connection) await store.finishConnect(undefined)
+      else naming = true
+    },
+
     cancelConnect(): void {
       pendingDirectory = undefined
+      naming = false
     },
 
     /** Asks the browser for the folder again, e.g. after a restart. Call from a click. */
@@ -417,6 +429,7 @@ function withCloudBackupStore() {
       announce()
     },
   }
+  return store
 }
 
-export const cloudBackupStore = withCloudBackupStore()
+export const backupFolderStore = withBackupFolderStore()

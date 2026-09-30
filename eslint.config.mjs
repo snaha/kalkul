@@ -70,6 +70,41 @@ export default typescriptEslint.config(
     },
   },
   {
+    // A plugin reaches the app only through the PluginHost it is given
+    // (src/lib/plugins/types.ts). It may use the UI kit and a few shared
+    // helpers, but not the app's stores, data or other modules.
+    files: ['src/lib/plugins/*/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@lucide/svelte',
+              message: 'Import icons via deep paths: @lucide/svelte/icons/<name>',
+            },
+          ],
+          patterns: [
+            {
+              group: [
+                '$lib/*',
+                // Gitignore-style: a parent must be re-included before a child.
+                '!$lib/components',
+                '$lib/components/*',
+                '!$lib/components/ui',
+                '!$lib/utils',
+                '!$lib/routes',
+                '../../*',
+              ],
+              message:
+                'A plugin uses the app only through its PluginHost; import from its own folder, ../types, the UI kit, $lib/utils or $lib/routes.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     ignores: [
       '**/.svelte-kit',
       '**/build',

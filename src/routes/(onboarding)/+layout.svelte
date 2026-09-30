@@ -11,8 +11,12 @@
   import { getOnboardingSteps } from '$lib/onboarding-steps'
   import routes, { routeFromId } from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
+  import { holdData } from '$lib/stores/data-holds.svelte'
 
   let { children } = $props()
+
+  // The onboarding forms are seeded once and saved back whole.
+  holdData()
 
   const steps = $derived(getOnboardingSteps(appStore.profile))
   const totalSteps = $derived(steps.length)

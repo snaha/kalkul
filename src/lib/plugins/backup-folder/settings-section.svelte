@@ -3,15 +3,13 @@
 
   import FolderSync from '@lucide/svelte/icons/folder-sync'
 
-  import BackupComputerNameDialog from '$lib/components/backup-computer-name-dialog.svelte'
   import { Button } from '$lib/components/ui/button'
-  import { appStore } from '$lib/stores/app.svelte'
-  import { cloudBackupStore } from '$lib/stores/cloud-backup.svelte'
 
-  const status = $derived(cloudBackupStore.status)
+  import { backupFolderStore } from './store.svelte'
+
+  const status = $derived(backupFolderStore.status)
 
   let busy = $state(false)
-  let nameDialogOpen = $state(false)
   // Replacing this computer's data takes a second, explicit click.
   let confirmingReplace = $state(false)
 
@@ -25,7 +23,7 @@
       await action()
     } catch (e) {
       console.error('Backup folder action failed', e)
-      alert($_('page.settings.cloudBackup.error'))
+      alert($_('plugins.backupFolder.settings.error'))
     } finally {
       busy = false
     }
@@ -33,26 +31,30 @@
 
   function connect(): Promise<void> {
     return act(async () => {
-      if (!(await cloudBackupStore.beginConnect())) return
-      // Choosing the folder again keeps this computer's name: nothing to ask.
-      if (cloudBackupStore.connection) await cloudBackupStore.finishConnect(undefined)
-      else nameDialogOpen = true
+      if (await backupFolderStore.beginConnect()) await backupFolderStore.connectChosen()
     })
   }
 </script>
 
-{#if !cloudBackupStore.supported}
+<div class="flex flex-col gap-1">
+  <h2 class="text-xl font-bold text-foreground">{$_('plugins.backupFolder.settings.nav')}</h2>
+  <p class="text-sm text-muted-foreground">
+    {$_('plugins.backupFolder.settings.description')}
+  </p>
+</div>
+
+{#if !backupFolderStore.supported}
   <p class="text-sm font-medium text-muted-foreground">
-    {$_('page.settings.cloudBackup.unsupported')}
+    {$_('plugins.backupFolder.settings.unsupported')}
   </p>
 {:else if status.kind === 'disconnected'}
   <div class="flex items-start gap-4">
     <Button variant="outline" class="w-44" disabled={busy} onclick={connect}>
       <FolderSync class="size-4" />
-      {$_('page.settings.cloudBackup.chooseFolder')}
+      {$_('plugins.backupFolder.settings.chooseFolder')}
     </Button>
     <p class="flex-1 text-sm font-medium text-muted-foreground">
-      {$_('page.settings.cloudBackup.chooseFolderDescription')}
+      {$_('plugins.backupFolder.settings.chooseFolderDescription')}
     </p>
   </div>
 {:else}
@@ -61,138 +63,135 @@
       variant="outline"
       class="w-44"
       disabled={busy}
-      onclick={() => act(cloudBackupStore.disconnect)}
+      onclick={() => act(backupFolderStore.disconnect)}
     >
-      {$_('page.settings.cloudBackup.disconnect')}
+      {$_('plugins.backupFolder.settings.disconnect')}
     </Button>
     <p class="flex-1 text-sm font-medium text-muted-foreground">
-      {#if cloudBackupStore.connection}
-        {$_('page.settings.cloudBackup.connectedTo', {
+      {#if backupFolderStore.connection}
+        {$_('plugins.backupFolder.settings.connectedTo', {
           values: {
-            folder: cloudBackupStore.connection.folder,
-            computer: cloudBackupStore.connection.device,
+            folder: backupFolderStore.connection.folder,
+            computer: backupFolderStore.connection.device,
           },
         })}
       {/if}
-      {$_('page.settings.cloudBackup.disconnectDescription')}
+      {$_('plugins.backupFolder.settings.disconnectDescription')}
     </p>
   </div>
 
   <div class="flex flex-col gap-3 rounded-md border p-4" role="status">
     {#if status.kind === 'checking'}
-      <p class="text-sm text-foreground">{$_('page.settings.cloudBackup.checking')}</p>
+      <p class="text-sm text-foreground">{$_('plugins.backupFolder.settings.checking')}</p>
     {:else if status.kind === 'syncing'}
-      <p class="text-sm text-foreground">{$_('page.settings.cloudBackup.syncing')}</p>
+      <p class="text-sm text-foreground">{$_('plugins.backupFolder.settings.syncing')}</p>
     {:else if status.kind === 'synced'}
       <p class="text-sm text-foreground">
-        {cloudBackupStore.lastCheckedAt
-          ? $_('page.settings.cloudBackup.syncedAt', {
-              values: { time: appStore.formatDateTime(cloudBackupStore.lastCheckedAt) },
+        {backupFolderStore.lastCheckedAt
+          ? $_('plugins.backupFolder.settings.syncedAt', {
+              values: { time: backupFolderStore.formatDateTime(backupFolderStore.lastCheckedAt) },
             })
-          : $_('page.settings.cloudBackup.connected')}
+          : $_('plugins.backupFolder.settings.connected')}
       </p>
     {:else if status.kind === 'held'}
       <p class="text-sm text-foreground">
-        {$_('page.settings.cloudBackup.held', {
+        {$_('plugins.backupFolder.settings.held', {
           values: {
             computer: status.remoteDevice,
-            time: appStore.formatDateTime(status.remoteTime),
+            time: backupFolderStore.formatDateTime(status.remoteTime),
           },
         })}
       </p>
     {:else if status.kind === 'folder-missing'}
       <p class="text-sm text-foreground">
-        {$_('page.settings.cloudBackup.folderMissing', {
-          values: { folder: cloudBackupStore.connection?.folder ?? '' },
+        {$_('plugins.backupFolder.settings.folderMissing', {
+          values: { folder: backupFolderStore.connection?.folder ?? '' },
         })}
       </p>
       <Button class="self-start" disabled={busy} onclick={connect}>
         <FolderSync class="size-4" />
-        {$_('page.settings.cloudBackup.chooseFolderAgain')}
+        {$_('plugins.backupFolder.settings.chooseFolderAgain')}
       </Button>
     {:else if status.kind === 'needs-permission'}
-      <p class="text-sm text-foreground">{$_('page.settings.cloudBackup.needsPermission')}</p>
-      <Button class="self-start" disabled={busy} onclick={() => act(cloudBackupStore.allowAccess)}>
-        {$_('page.settings.cloudBackup.allowAccess')}
+      <p class="text-sm text-foreground">{$_('plugins.backupFolder.settings.needsPermission')}</p>
+      <Button class="self-start" disabled={busy} onclick={() => act(backupFolderStore.allowAccess)}>
+        {$_('plugins.backupFolder.settings.allowAccess')}
       </Button>
     {:else if status.kind === 'conflict'}
       <p class="text-sm text-foreground">
-        {$_('page.settings.cloudBackup.conflict', {
+        {$_('plugins.backupFolder.settings.conflict', {
           values: {
             computer: status.remoteDevice,
-            time: appStore.formatDateTime(status.remoteTime),
+            time: backupFolderStore.formatDateTime(status.remoteTime),
           },
         })}
       </p>
       {#if confirmingReplace}
         <p class="text-sm font-bold text-foreground">
-          {$_('page.settings.cloudBackup.replaceWarning')}
+          {$_('plugins.backupFolder.settings.replaceWarning')}
         </p>
         <div class="flex flex-wrap gap-2">
           <Button
             variant="destructive"
             disabled={busy}
-            onclick={() => act(() => cloudBackupStore.resolve('remote'))}
+            onclick={() => act(() => backupFolderStore.resolve('remote'))}
           >
-            {$_('page.settings.cloudBackup.replaceConfirm')}
+            {$_('plugins.backupFolder.settings.replaceConfirm')}
           </Button>
           <Button variant="outline" disabled={busy} onclick={() => (confirmingReplace = false)}>
-            {$_('page.settings.cloudBackup.cancel')}
+            {$_('plugins.backupFolder.settings.cancel')}
           </Button>
         </div>
       {:else}
         <div class="flex flex-wrap gap-2">
-          <Button disabled={busy} onclick={() => act(() => cloudBackupStore.resolve('local'))}>
-            {$_('page.settings.cloudBackup.keepLocal')}
+          <Button disabled={busy} onclick={() => act(() => backupFolderStore.resolve('local'))}>
+            {$_('plugins.backupFolder.settings.keepLocal')}
           </Button>
           <Button variant="outline" disabled={busy} onclick={() => (confirmingReplace = true)}>
-            {$_('page.settings.cloudBackup.useRemote')}
+            {$_('plugins.backupFolder.settings.useRemote')}
           </Button>
         </div>
       {/if}
     {:else if status.kind === 'fork'}
-      <p class="text-sm text-foreground">{$_('page.settings.cloudBackup.fork')}</p>
+      <p class="text-sm text-foreground">{$_('plugins.backupFolder.settings.fork')}</p>
       <div class="flex flex-wrap gap-2">
         {#each status.versions as version (version.hash)}
           <Button
             variant="outline"
             disabled={busy}
-            onclick={() => act(() => cloudBackupStore.choose(version.hash))}
+            onclick={() => act(() => backupFolderStore.choose(version.hash))}
           >
-            {$_('page.settings.cloudBackup.useVersion', {
-              values: { computer: version.device, time: appStore.formatDateTime(version.time) },
+            {$_('plugins.backupFolder.settings.useVersion', {
+              values: {
+                computer: version.device,
+                time: backupFolderStore.formatDateTime(version.time),
+              },
             })}
           </Button>
         {/each}
       </div>
     {:else if status.kind === 'unreadable'}
       <p class="text-sm text-foreground">
-        {$_('page.settings.cloudBackup.unreadable', {
+        {$_('plugins.backupFolder.settings.unreadable', {
           values: {
             computer: status.remoteDevice,
-            time: appStore.formatDateTime(status.remoteTime),
+            time: backupFolderStore.formatDateTime(status.remoteTime),
           },
         })}
       </p>
       <Button variant="outline" class="self-start" onclick={() => location.reload()}>
-        {$_('page.settings.cloudBackup.reload')}
+        {$_('plugins.backupFolder.settings.reload')}
       </Button>
     {:else if status.kind === 'error'}
-      <p class="text-sm text-foreground">{$_('page.settings.cloudBackup.failed')}</p>
+      <p class="text-sm text-foreground">{$_('plugins.backupFolder.settings.failed')}</p>
       <Button
         variant="outline"
         class="self-start"
         disabled={busy}
-        onclick={() => act(cloudBackupStore.syncNow)}
+        onclick={() => act(backupFolderStore.syncNow)}
       >
-        {$_('page.settings.cloudBackup.retry')}
+        {$_('plugins.backupFolder.settings.retry')}
       </Button>
     {/if}
   </div>
 {/if}
-
-<BackupComputerNameDialog
-  bind:open={nameDialogOpen}
-  onSubmit={(computerName) => cloudBackupStore.finishConnect(computerName)}
-  onCancel={cloudBackupStore.cancelConnect}
-/>

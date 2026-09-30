@@ -1,17 +1,19 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { type FileStore, appendVersion, headsOf, listVersions } from '$lib/cloud-backup/backup-log'
-
-import { cloudBackupStore } from './cloud-backup.svelte'
+import type { PluginHost } from '../types'
+import { type FileStore, appendVersion, headsOf, listVersions } from './backup-log'
+import { backupFolderStore } from './store.svelte'
 
 /**
  * Everything the store reaches outside itself, faked in memory: the folder,
- * the IndexedDB records, the app data, the route and the Web Locks API.
+ * the IndexedDB records, the app (through the plugin host) and the Web
+ * Locks API.
  */
 const env = vi.hoisted(() => {
   const env = {
-    routeId: '/(app)' as string | undefined,
+    /** The app reports a screen holding its own copy of the data. */
+    dataHeld: false,
     records: new Map<string, unknown>(),
     /** Makes every persistence read throw, like a broken IndexedDB. */
     failLoad: false,
@@ -42,17 +44,7 @@ const env = vi.hoisted(() => {
 
 vi.mock('$app/environment', () => ({ browser: true }))
 
-vi.mock('$app/state', () => ({
-  page: {
-    route: {
-      get id() {
-        return env.routeId
-      },
-    },
-  },
-}))
-
-vi.mock('$lib/cloud-backup/persistence', () => ({
+vi.mock('./persistence', () => ({
   load: async (key: string) => {
     if (env.failLoad) throw new Error('IndexedDB is broken')
     return env.records.get(key)
@@ -68,8 +60,8 @@ vi.mock('$lib/cloud-backup/persistence', () => ({
   },
 }))
 
-vi.mock('$lib/cloud-backup/folder-files', async (importOriginal) => {
-  const original = await importOriginal<typeof import('$lib/cloud-backup/folder-files')>()
+vi.mock('./folder-files', async (importOriginal) => {
+  const original = await importOriginal<typeof import('./folder-files')>()
   const files: FileStore = {
     async list() {
       await env.listGate
@@ -91,21 +83,26 @@ vi.mock('$lib/cloud-backup/folder-files', async (importOriginal) => {
   return { ...original, folderFiles: () => files }
 })
 
-vi.mock('./app.svelte', () => ({
-  appStore: {
-    get lastUpdated() {
+const host: PluginHost = {
+  data: {
+    get stamp() {
       return env.local.stamp
     },
-    exportBackup: () => env.local.data,
-    validateData: (json: string) => {
+    export: () => env.local.data,
+    validate: (json) => {
       if (json.startsWith('unloadable')) throw new Error('unknown field')
     },
-    replaceData: (json: string) => {
+    replace: (json) => {
       env.local.data = json
       env.local.stamp = Date.now()
     },
   },
-}))
+  get dataHeld() {
+    return env.dataHeld
+  },
+  formatDateTime: (ms) => new Date(ms).toISOString(),
+}
+backupFolderStore.attach(host)
 
 /** Web Locks: exclusive requests queue per name; shared ones only count. */
 function fakeLocks() {
@@ -166,8 +163,8 @@ function edit(data: string): void {
 }
 
 async function connect(): Promise<void> {
-  expect(await cloudBackupStore.beginConnect()).toBe(true)
-  await cloudBackupStore.finishConnect('mac')
+  expect(await backupFolderStore.beginConnect()).toBe(true)
+  await backupFolderStore.finishConnect('mac')
 }
 
 /** Another computer saves `contents` on top of the folder's newest version. */
@@ -194,15 +191,15 @@ function safetyCopies(): string[] {
   return [...env.folder.keys()].filter((name) => name.includes('_before-replace_'))
 }
 
-describe('cloudBackupStore', () => {
+describe('backupFolderStore', () => {
   beforeEach(async () => {
     Object.defineProperty(navigator, 'locks', { value: fakeLocks(), configurable: true })
     env.failLoad = false
     env.folderGone = false
     env.listGate = undefined
     env.createGate = undefined
-    env.routeId = '/(app)'
-    await cloudBackupStore.disconnect()
+    env.dataHeld = false
+    await backupFolderStore.disconnect()
     env.records.clear()
     env.folder.clear()
     env.local = { data: '', stamp: 0 }
@@ -211,17 +208,17 @@ describe('cloudBackupStore', () => {
   it('connects and uploads the data on this computer', async () => {
     edit('v1')
     await connect()
-    expect(cloudBackupStore.status).toEqual({ kind: 'synced' })
+    expect(backupFolderStore.status).toEqual({ kind: 'synced' })
     expect([...env.folder.values()]).toEqual(['v1'])
-    expect(cloudBackupStore.connection?.folder).toBe('Kalkul backup')
+    expect(backupFolderStore.connection?.folder).toBe('Kalkul backup')
   })
 
   it('ends on an error instead of "syncing" when reading its own state fails', async () => {
     edit('v1')
     await connect()
     env.failLoad = true
-    await expect(cloudBackupStore.syncNow()).resolves.toBe(undefined)
-    expect(cloudBackupStore.status).toEqual({ kind: 'error' })
+    await expect(backupFolderStore.syncNow()).resolves.toBe(undefined)
+    expect(backupFolderStore.status).toEqual({ kind: 'error' })
   })
 
   it('lets a round in flight finish before disconnecting, so it cannot write itself back', async () => {
@@ -229,15 +226,15 @@ describe('cloudBackupStore', () => {
     await connect()
     const listed = gate()
     env.listGate = listed.promise
-    const round = cloudBackupStore.syncNow()
+    const round = backupFolderStore.syncNow()
     await settle()
-    const disconnecting = cloudBackupStore.disconnect()
+    const disconnecting = backupFolderStore.disconnect()
     await settle()
     listed.open()
     await Promise.all([round, disconnecting])
-    expect(cloudBackupStore.status).toEqual({ kind: 'disconnected' })
-    expect(cloudBackupStore.connection).toBe(undefined)
-    expect(cloudBackupStore.lastSyncedAt).toBe(undefined)
+    expect(backupFolderStore.status).toEqual({ kind: 'disconnected' })
+    expect(backupFolderStore.connection).toBe(undefined)
+    expect(backupFolderStore.lastSyncedAt).toBe(undefined)
     expect(env.records.size).toBe(0)
   })
 
@@ -246,9 +243,9 @@ describe('cloudBackupStore', () => {
     await connect()
     const listed = gate()
     env.listGate = listed.promise
-    const round = cloudBackupStore.syncNow()
+    const round = backupFolderStore.syncNow()
     await settle()
-    expect(cloudBackupStore.status).toEqual({ kind: 'synced' })
+    expect(backupFolderStore.status).toEqual({ kind: 'synced' })
     listed.open()
     await round
   })
@@ -259,12 +256,12 @@ describe('cloudBackupStore', () => {
     const created = gate()
     env.createGate = created.promise
     edit('v2')
-    const round = cloudBackupStore.syncNow()
+    const round = backupFolderStore.syncNow()
     await settle()
-    expect(cloudBackupStore.status).toEqual({ kind: 'syncing' })
+    expect(backupFolderStore.status).toEqual({ kind: 'syncing' })
     created.open()
     await round
-    expect(cloudBackupStore.status).toEqual({ kind: 'synced' })
+    expect(backupFolderStore.status).toEqual({ kind: 'synced' })
   })
 
   it('updates "last checked" on a round that moved no data', async () => {
@@ -273,11 +270,11 @@ describe('cloudBackupStore', () => {
       vi.setSystemTime(Date.UTC(2026, 8, 25, 10))
       edit('v1')
       await connect()
-      const syncedAt = cloudBackupStore.lastSyncedAt
+      const syncedAt = backupFolderStore.lastSyncedAt
       vi.setSystemTime(Date.UTC(2026, 8, 25, 11))
-      await cloudBackupStore.syncNow()
-      expect(cloudBackupStore.lastCheckedAt).toBe(Date.UTC(2026, 8, 25, 11))
-      expect(cloudBackupStore.lastSyncedAt).toBe(syncedAt)
+      await backupFolderStore.syncNow()
+      expect(backupFolderStore.lastCheckedAt).toBe(Date.UTC(2026, 8, 25, 11))
+      expect(backupFolderStore.lastSyncedAt).toBe(syncedAt)
     } finally {
       vi.useRealTimers()
     }
@@ -294,41 +291,41 @@ describe('cloudBackupStore', () => {
       { mode: 'shared' },
       () => new Promise<void>((resolve) => (releaseOtherTab = resolve)),
     )
-    await cloudBackupStore.syncNow()
-    expect(cloudBackupStore.status).toMatchObject({ kind: 'held', remoteDevice: 'windows-9c1e' })
+    await backupFolderStore.syncNow()
+    expect(backupFolderStore.status).toMatchObject({ kind: 'held', remoteDevice: 'windows-9c1e' })
     expect(env.local.data).toBe('v1')
 
     releaseOtherTab()
     await settle()
-    await cloudBackupStore.syncNow()
-    expect(cloudBackupStore.status).toEqual({ kind: 'synced' })
+    await backupFolderStore.syncNow()
+    expect(backupFolderStore.status).toEqual({ kind: 'synced' })
     expect(env.local.data).toBe('from windows')
   })
 
-  it('holds it while this tab has an editing page open', async () => {
+  it('holds it while this tab has an editor or dialog open', async () => {
     edit('v1')
     await connect()
     await saveFromOtherComputer('from windows')
-    env.routeId = '/(app)/financial-data/[type]'
-    await cloudBackupStore.syncNow()
-    expect(cloudBackupStore.status.kind).toBe('held')
+    env.dataHeld = true
+    await backupFolderStore.syncNow()
+    expect(backupFolderStore.status.kind).toBe('held')
     expect(env.local.data).toBe('v1')
   })
 
   it('uploads edits made while the folder was missing once it is chosen again', async () => {
     edit('v1')
     await connect()
-    const device = cloudBackupStore.connection?.device
+    const device = backupFolderStore.connection?.device
     env.folderGone = true
-    await cloudBackupStore.syncNow()
-    expect(cloudBackupStore.status).toEqual({ kind: 'folder-missing' })
+    await backupFolderStore.syncNow()
+    expect(backupFolderStore.status).toEqual({ kind: 'folder-missing' })
 
     edit('v2, made while the folder was missing')
     env.folderGone = false
-    expect(await cloudBackupStore.beginConnect()).toBe(true)
-    await cloudBackupStore.finishConnect(undefined)
-    expect(cloudBackupStore.status).toEqual({ kind: 'synced' })
-    expect(cloudBackupStore.connection?.device).toBe(device)
+    expect(await backupFolderStore.beginConnect()).toBe(true)
+    await backupFolderStore.finishConnect(undefined)
+    expect(backupFolderStore.status).toEqual({ kind: 'synced' })
+    expect(backupFolderStore.connection?.device).toBe(device)
     expect(env.folder.size).toBe(2)
     expect(safetyCopies()).toEqual([])
   })
@@ -338,13 +335,38 @@ describe('cloudBackupStore', () => {
     await connect()
     await saveFromOtherComputer('unloadable, from a newer Kalkul')
     const files = env.folder.size
-    await cloudBackupStore.syncNow()
-    await cloudBackupStore.syncNow()
-    expect(cloudBackupStore.status).toMatchObject({
+    await backupFolderStore.syncNow()
+    await backupFolderStore.syncNow()
+    expect(backupFolderStore.status).toMatchObject({
       kind: 'unreadable',
       remoteDevice: 'windows-9c1e',
     })
     expect(env.local.data).toBe('v1')
     expect(env.folder.size).toBe(files)
+  })
+
+  it('asks for a name when a folder is dropped on a computer that never connected', async () => {
+    edit('v1')
+    expect(backupFolderStore.connectable).toBe(true)
+    await backupFolderStore.connectDropped(env.directory)
+    expect(backupFolderStore.naming).toBe(true)
+    expect(backupFolderStore.status).toEqual({ kind: 'disconnected' })
+    await backupFolderStore.finishConnect('mac')
+    expect(backupFolderStore.naming).toBe(false)
+    expect(backupFolderStore.status).toEqual({ kind: 'synced' })
+    expect(backupFolderStore.connection?.device.startsWith('mac-')).toBe(true)
+    expect(backupFolderStore.connectable).toBe(false)
+  })
+
+  it('reconnects a dropped folder that went missing without asking again', async () => {
+    edit('v1')
+    await connect()
+    env.folderGone = true
+    await backupFolderStore.syncNow()
+    expect(backupFolderStore.connectable).toBe(true)
+    env.folderGone = false
+    await backupFolderStore.connectDropped(env.directory)
+    expect(backupFolderStore.naming).toBe(false)
+    expect(backupFolderStore.status).toEqual({ kind: 'synced' })
   })
 })
