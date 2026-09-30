@@ -93,15 +93,6 @@
             })
           : $_('plugins.backupFolder.settings.connected')}
       </p>
-    {:else if status.kind === 'held'}
-      <p class="text-sm text-foreground">
-        {$_('plugins.backupFolder.settings.held', {
-          values: {
-            computer: status.remoteDevice,
-            time: backupFolderStore.formatDateTime(status.remoteTime),
-          },
-        })}
-      </p>
     {:else if status.kind === 'folder-missing'}
       <p class="text-sm text-foreground">
         {$_('plugins.backupFolder.settings.folderMissing', {

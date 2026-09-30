@@ -45,16 +45,6 @@ describe('statusForOutcome', () => {
   })
 })
 
-it("shows a held download with the other computer's name and time", () => {
-  const time = Date.UTC(2026, 8, 25, 10)
-  expect(
-    statusForOutcome({
-      kind: 'held',
-      remote: { hash: 'bbbbbbbbbbbb', parents: [], device: 'b-1', time, id: 'f' },
-    }),
-  ).toEqual({ kind: 'held', remoteTime: time, remoteDevice: 'b-1' })
-})
-
 describe('statusForError', () => {
   it('asks for folder access again when the browser withdrew it', () => {
     expect(statusForError(new DOMException('no', 'NotAllowedError'))).toEqual({
@@ -81,7 +71,6 @@ describe('shouldAutoSync', () => {
   it('keeps syncing in the background while things work or might recover', () => {
     expect(shouldAutoSync({ kind: 'synced' })).toBe(true)
     expect(shouldAutoSync({ kind: 'error' })).toBe(true)
-    expect(shouldAutoSync({ kind: 'held', remoteTime: 0, remoteDevice: 'b' })).toBe(true)
     expect(shouldAutoSync({ kind: 'conflict', remoteTime: 0, remoteDevice: 'b' })).toBe(true)
     expect(shouldAutoSync({ kind: 'fork', versions: [] })).toBe(true)
     // A newer app version's file: nothing local is touched, so retrying is safe.
@@ -100,6 +89,6 @@ describe('awaitsChoice', () => {
     expect(awaitsChoice({ kind: 'conflict', remoteTime: 0, remoteDevice: 'b' })).toBe(true)
     expect(awaitsChoice({ kind: 'fork', versions: [] })).toBe(true)
     expect(awaitsChoice({ kind: 'synced' })).toBe(false)
-    expect(awaitsChoice({ kind: 'held', remoteTime: 0, remoteDevice: 'b' })).toBe(false)
+    expect(awaitsChoice({ kind: 'error' })).toBe(false)
   })
 })

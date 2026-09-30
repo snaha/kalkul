@@ -8,8 +8,6 @@ export type BackupFolderStatus =
   /** Writing to or reading from the folder, not just looking. */
   | { kind: 'syncing' }
   | { kind: 'synced' }
-  /** Another computer's edit waits until no editor is open. */
-  | { kind: 'held'; remoteTime: number; remoteDevice: string }
   /** The folder was moved, renamed or deleted. */
   | { kind: 'folder-missing' }
   /** The browser needs the user's OK to use the folder again (a click). */
@@ -22,9 +20,9 @@ export type BackupFolderStatus =
   | { kind: 'error' }
 
 export function statusForOutcome(outcome: SyncOutcome): BackupFolderStatus {
-  if (outcome.kind === 'conflict' || outcome.kind === 'held') {
+  if (outcome.kind === 'conflict') {
     return {
-      kind: outcome.kind,
+      kind: 'conflict',
       remoteTime: outcome.remote.time,
       remoteDevice: outcome.remote.device,
     }

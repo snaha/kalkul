@@ -144,7 +144,7 @@
       <p class="text-base text-muted-foreground">
         {appStore.hasData ? $_('navbar.import.drop.replaces') : $_('navbar.import.drop.restores')}
       </p>
-      {#if folderPlugin?.folderDrop?.accepting}
+      {#if folderPlugin?.folderDrop}
         <folderPlugin.folderDrop.hint />
       {/if}
     </div>

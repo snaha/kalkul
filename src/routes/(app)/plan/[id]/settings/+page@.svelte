@@ -25,13 +25,9 @@
   import routes from '$lib/routes'
   import type { PlanEndType, PlanStartType } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
-  import { holdData } from '$lib/stores/data-holds.svelte'
   import { getMonthOptions, getYearOptions } from '$lib/utils'
 
   const uid = $props.id()
-
-  // The form is seeded once from the plan and saved back whole.
-  holdData()
 
   const planId = $derived(page.params.id)
   const plan = $derived(appStore.portfolios.find((p) => p.id === planId))

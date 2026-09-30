@@ -2,7 +2,6 @@
   import { _ } from 'svelte-i18n'
 
   import CircleAlert from '@lucide/svelte/icons/circle-alert'
-  import Clock from '@lucide/svelte/icons/clock'
   import CloudCheck from '@lucide/svelte/icons/cloud-check'
   import CloudUpload from '@lucide/svelte/icons/cloud-upload'
   import LoaderCircle from '@lucide/svelte/icons/loader-circle'
@@ -65,13 +64,6 @@
         return attention($_('plugins.backupFolder.status.folderMissing'))
       case 'error':
         return attention($_('plugins.backupFolder.status.failed'))
-      case 'held':
-        return {
-          icon: Clock,
-          label: $_('plugins.backupFolder.status.held', {
-            values: { computer: status.remoteDevice },
-          }),
-        }
       case 'checking':
         return { icon: LoaderCircle, label: $_('plugins.backupFolder.status.checking'), spin: true }
       case 'syncing':

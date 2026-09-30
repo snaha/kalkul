@@ -40,7 +40,6 @@ function device(files: FileStore, name: string, initial = '') {
   let data = initial
   let stamp = initial ? 1 : 0
   let saved: SyncState | undefined
-  let editing = false
   let transfers = 0
   const deps: SyncDeps = {
     files,
@@ -48,7 +47,6 @@ function device(files: FileStore, name: string, initial = '') {
     now: () => (clock += 1000),
     local: {
       stamp: () => stamp,
-      canReplace: async () => !editing,
       export: () => data,
       validate: (json) => {
         if (json.startsWith('unloadable')) throw new Error('unknown field')
@@ -83,10 +81,6 @@ function device(files: FileStore, name: string, initial = '') {
     edit(next: string) {
       data = next
       stamp = clock += 1000
-    },
-    /** An editor or dialog holding its own copy of the data is open. */
-    set editing(value: boolean) {
-      editing = value
     },
   }
 }
@@ -341,65 +335,6 @@ describe('resolveConflict', () => {
     }
     await expect(resolveConflict(failing, 'remote')).rejects.toThrow('disk full')
     expect(a.data).toBe('mine')
-  })
-})
-
-describe('downloads wait while an editor is open', () => {
-  async function aheadOnB() {
-    const files = memoryStore()
-    const a = device(files, 'a', 'v1')
-    const b = device(files, 'b')
-    await syncOnce(a.deps)
-    await syncOnce(b.deps)
-    a.edit('from a')
-    await syncOnce(a.deps)
-    return { files, a, b }
-  }
-
-  it("holds another computer's edit instead of replacing data under an open editor", async () => {
-    const { b } = await aheadOnB()
-    b.editing = true
-    const outcome = await syncOnce(b.deps)
-    expect(outcome.kind).toBe('held')
-    if (outcome.kind === 'held') expect(outcome.remote.device).toBe('a')
-    expect(b.data).toBe('v1')
-  })
-
-  it('applies it once the editor closes', async () => {
-    const { b } = await aheadOnB()
-    b.editing = true
-    await syncOnce(b.deps)
-    b.editing = false
-    expect(await syncOnce(b.deps)).toMatchObject({ kind: 'pulled', device: 'a' })
-    expect(b.data).toBe('from a')
-  })
-
-  it('turns an edit made while held into a question, not a silent overwrite', async () => {
-    const { b } = await aheadOnB()
-    b.editing = true
-    await syncOnce(b.deps)
-    b.edit('from b, typed into the stale editor')
-    b.editing = false
-    expect((await syncOnce(b.deps)).kind).toBe('conflict')
-  })
-
-  it('still uploads local edits while held', async () => {
-    const files = memoryStore()
-    const a = device(files, 'a', 'v1')
-    await syncOnce(a.deps)
-    a.editing = true
-    a.edit('v2')
-    expect((await syncOnce(a.deps)).kind).toBe('pushed')
-  })
-
-  it('lets an explicit choice through even while held', async () => {
-    const files = memoryStore()
-    await syncOnce(device(files, 'b', 'theirs').deps)
-    const a = device(files, 'a', 'mine')
-    await syncOnce(a.deps)
-    a.editing = true
-    expect((await resolveConflict(a.deps, 'remote')).kind).toBe('pulled')
-    expect(a.data).toBe('theirs')
   })
 })
 

@@ -23,13 +23,6 @@ import {
 
 /** Serialises sync rounds across every tab of the origin. */
 const LOCK = 'kalkul-backup-folder'
-/**
- * Held (shared) by every tab whose app reports a data hold (an editor or
- * dialog with its own copy of the data is open), so a round
- * in any tab waits with downloads: the data is shared, and a download applied
- * from another tab reaches this tab's open editor through the storage event.
- */
-const HOLD_LOCK = 'kalkul-backup-hold'
 /** Tells the other tabs to re-read the shared state (connect, access…). */
 const CHANNEL = 'kalkul-backup-folder'
 /** Edits are written once they pause this long… */
@@ -77,30 +70,10 @@ function withBackupFolderStore() {
   /** The dialog naming this computer is open. */
   let naming = $state(false)
   let channel: BroadcastChannel | undefined
-  /** Releases this tab's share of HOLD_LOCK, while it holds one. */
-  let releaseHold: (() => void) | undefined
 
   function app(): PluginHost {
     if (!host) throw new Error('The backup folder plugin has no host')
     return host
-  }
-
-  /** Whether this tab or any other one holds downloads. */
-  async function heldAnywhere(): Promise<boolean> {
-    if (app().dataHeld) return true
-    const { held = [] } = await navigator.locks.query()
-    return held.some((lock) => lock.name === HOLD_LOCK)
-  }
-
-  /** Takes or gives back this tab's share of the hold to match the app's. */
-  function updateHold(hold: boolean): void {
-    if (hold && !releaseHold) {
-      const released = new Promise<void>((resolve) => (releaseHold = resolve))
-      void navigator.locks.request(HOLD_LOCK, { mode: 'shared' }, () => released)
-    } else if (!hold && releaseHold) {
-      releaseHold()
-      releaseHold = undefined
-    }
   }
 
   function deps(device: string, directory: FileSystemDirectoryHandle): SyncDeps {
@@ -109,15 +82,14 @@ function withBackupFolderStore() {
       device,
       now: () => Date.now(),
       local: {
-        stamp: () => app().data.stamp,
-        canReplace: async () => !(await heldAnywhere()),
-        export: () => app().data.export(),
-        validate: (json) => app().data.validate(json),
+        stamp: () => app().lastUpdated,
+        export: () => app().exportData(),
+        validate: (json) => app().validateData(json),
         import: (json) => {
-          app().data.replace(json)
-          // Set in the same tick as the change, before the stamp effect
+          app().replaceData(json)
+          // Set in the same tick as the change, before the lastUpdated effect
           // runs, so the download is not scheduled for upload as an edit.
-          pulledStamp = app().data.stamp
+          pulledStamp = app().lastUpdated
         },
       },
       state: {
@@ -255,9 +227,9 @@ function withBackupFolderStore() {
       let first = true
       const stopEffects = $effect.root(() => {
         $effect(() => {
-          // Every persisted change moves the stamp, in this tab or (through
+          // Every persisted change moves lastUpdated, in this tab or (through
           // the storage event) in another one.
-          const stamp = app().data.stamp
+          const stamp = app().lastUpdated
           untrack(() => {
             if (first) {
               first = false
@@ -268,19 +240,7 @@ function withBackupFolderStore() {
             saves.changed()
           })
         })
-        // Shares this tab's data hold with the other tabs' rounds.
-        $effect(() => {
-          const hold = app().dataHeld
-          untrack(() => updateHold(hold))
-        })
       })
-
-      // A held download is applied as soon as nothing holds it any more
-      // (the dialog closed, the editing page was left — in any tab), not at
-      // the next poll.
-      const release = setInterval(async () => {
-        if (status.kind === 'held' && !(await heldAnywhere())) void syncNow()
-      }, 1000)
 
       const onVisible = () => {
         if (document.visibilityState === 'visible' && shouldAutoSync(status)) void syncNow()
@@ -299,9 +259,6 @@ function withBackupFolderStore() {
 
       return () => {
         stopEffects()
-        releaseHold?.()
-        releaseHold = undefined
-        clearInterval(release)
         saves.cancel()
         clearInterval(poll)
         document.removeEventListener('visibilitychange', onVisible)

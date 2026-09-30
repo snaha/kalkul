@@ -24,7 +24,6 @@
         "failed": "Poslední pokus o zálohu selhal. Kalkul to automaticky zkusí znovu.",
         "retry": "Zkusit znovu",
         "error": "Při zálohování do složky se něco pokazilo. Zkuste to prosím znovu.",
-        "held": "„{computer}“ uložil změnu {time}. Použije se, až opustíte tuto stránku nebo zavřete otevřený dialog, aby ji otevřený editor nemohl přepsat.",
         "folderMissing": "Složku se zálohou „{folder}“ nelze najít. Možná byla přesunuta, přejmenována nebo smazána. Zálohování je pozastaveno.",
         "chooseFolderAgain": "Vybrat složku znovu",
         "nameDialog": {
@@ -45,7 +44,6 @@
         "saved": "Uloženo do složky se zálohou",
         "savedAt": "Uloženo · {time}",
         "updatedFrom": "Aktualizováno z „{computer}“",
-        "held": "Aktualizace z „{computer}“ čeká",
         "needsPermission": "Záloha pozastavena: povolte přístup ke složce",
         "conflict": "Záloha pozastavena: vyberte verzi",
         "folderMissing": "Složka se zálohou chybí",

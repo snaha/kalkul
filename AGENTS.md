@@ -127,8 +127,6 @@ contract in `src/lib/plugins/types.ts` and the README's Plugins section.
 - The app side is only `src/lib/plugins/{types,registry,host,plugins.svelte}.ts` plus the fixed
   render points (root layout, navbar, settings, landing, drop zone). Don't add plugin-specific code
   to the app; extend the contract instead.
-- Screens that hold their own copy of the data (editors, dialogs) register a hold with `holdData()`
-  from `$lib/stores/data-holds.svelte`; dialogs do it automatically unless `holdsData={false}`.
 
 ### External Links
 

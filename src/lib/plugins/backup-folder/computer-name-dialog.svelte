@@ -48,8 +48,7 @@
   }
 </script>
 
-<!-- holdsData: this dialog edits no data, so downloads need not wait for it. -->
-<Dialog.Root bind:open={() => open, (next) => (backupFolderStore.naming = next)} holdsData={false}>
+<Dialog.Root bind:open={() => open, (next) => (backupFolderStore.naming = next)}>
   <Dialog.Content class="sm:max-w-[576px]">
     <Dialog.Header>
       <Dialog.Title>{$_('plugins.backupFolder.settings.nameDialog.title')}</Dialog.Title>

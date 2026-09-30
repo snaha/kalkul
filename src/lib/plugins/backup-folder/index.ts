@@ -38,9 +38,6 @@ export function backupFolderPlugin(host: PluginHost): KalkulPlugin {
     settings: { label: SettingsLabel, section: SettingsSection },
     landingHint: LandingHint,
     folderDrop: {
-      get accepting() {
-        return backupFolderStore.connectable
-      },
       hint: DropHint,
       async drop(directory) {
         if (!backupFolderStore.supported) {

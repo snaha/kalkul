@@ -39,13 +39,6 @@ export interface SyncDeps {
      * device, and moving with every change after that.
      */
     stamp: () => number
-    /**
-     * False while something on screen — in any tab — holds its own copy of
-     * the data (an editor, a dialog): replacing the data under it would let
-     * its next save write the old copy back as an edit. Downloads wait;
-     * uploads do not.
-     */
-    canReplace: () => Promise<boolean>
     export: () => string
     /** Throws when `json` is not data this app can load (e.g. a newer app's). */
     validate: (json: string) => void
@@ -75,8 +68,6 @@ export type SyncOutcome =
   | { kind: 'up-to-date' }
   | { kind: 'pushed'; hash: string }
   | { kind: 'pulled'; hash: string; device: string }
-  /** Another computer's version is waiting for `canReplace`. */
-  | { kind: 'held'; remote: Version }
   /** Both sides changed, or the history branched; `resolveConflict` settles it. */
   | { kind: 'conflict'; remote: Version }
   /**
@@ -158,17 +149,6 @@ async function pull(
   return { kind: 'pulled', hash: version.hash, device: version.device }
 }
 
-/** An automatic download, which waits while the data is being edited. */
-async function autoPull(
-  deps: SyncDeps,
-  version: Version,
-  synced: SyncState | undefined,
-  versions: Version[],
-): Promise<SyncOutcome> {
-  if (!(await deps.local.canReplace())) return { kind: 'held', remote: version }
-  return pull(deps, version, synced, versions)
-}
-
 /** Key order and whitespace do not make data different. */
 function canonical(json: string): string {
   const sortKeys = (value: unknown): unknown => {
@@ -223,7 +203,7 @@ export async function syncOnce(deps: SyncDeps): Promise<SyncOutcome> {
   if (!synced) {
     if (!heads.length) return hasLocal ? push(deps, []) : { kind: 'up-to-date' }
     if (!hasLocal) {
-      return heads.length > 1 ? { kind: 'fork', heads } : autoPull(deps, heads[0], synced, versions)
+      return heads.length > 1 ? { kind: 'fork', heads } : pull(deps, heads[0], synced, versions)
     }
     return conflictUnlessSame(deps, heads[0], heads)
   }
@@ -243,7 +223,7 @@ export async function syncOnce(deps: SyncDeps): Promise<SyncOutcome> {
     return push(deps, [synced.head])
   }
   // One line of history moved on and this device changed nothing: take it.
-  if (heads.length === 1 && !localChanged) return autoPull(deps, heads[0], synced, versions)
+  if (heads.length === 1 && !localChanged) return pull(deps, heads[0], synced, versions)
 
   const other = heads.find((h) => h.hash !== synced.head) ?? heads[0]
   return conflictUnlessSame(deps, other, heads)

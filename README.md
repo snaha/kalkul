@@ -80,10 +80,11 @@ tests and translations (`locales/en.json`, `locales/cs.json`, keys under `plugin
 knows only the contract in `src/lib/plugins/types.ts`:
 
 - `registry.ts` lists the plugins; adding one is a line there.
-- The plugin gets a `PluginHost` (`host.ts`) to read and replace the data; it may import the UI kit,
-  `$lib/utils` and `$lib/routes`, and nothing else from the app (enforced by ESLint).
-- The app renders what a plugin provides at fixed places: a root component, a navbar item, a
-  settings section, a landing-page hint and a folder-drop handler.
+- The plugin gets a `PluginHost` (`host.ts`): the data's `lastUpdated`, `exportData`,
+  `validateData`, `replaceData` and `formatDateTime`. Beyond that it may import only the UI kit,
+  `$lib/utils` and `$lib/routes` (enforced by ESLint).
+- The app renders the components a plugin provides at fixed places: the root layout, the navbar, a
+  settings section, the landing page and the drop overlay (plus a callback for dropped folders).
 - Every plugin starts off. The `/dev` page turns it on for that browser.
 
 Available: `backup-folder`, automatic backup to a folder that syncs between computers.

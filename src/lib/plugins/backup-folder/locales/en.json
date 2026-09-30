@@ -24,7 +24,6 @@
         "failed": "The last backup attempt failed. Kalkul will try again automatically.",
         "retry": "Try again",
         "error": "Something went wrong with the backup folder. Please try again.",
-        "held": "“{computer}” saved a change on {time}. It will be applied when you leave this page or close the open dialog, so it can't be overwritten by the editor you have open.",
         "folderMissing": "The backup folder “{folder}” can't be found. It may have been moved, renamed or deleted. Backups are paused.",
         "chooseFolderAgain": "Choose folder again",
         "nameDialog": {
@@ -45,7 +44,6 @@
         "saved": "Saved to backup folder",
         "savedAt": "Saved · {time}",
         "updatedFrom": "Updated from “{computer}”",
-        "held": "Update from “{computer}” waiting",
         "needsPermission": "Backup paused: allow folder access",
         "conflict": "Backup paused: choose a version",
         "folderMissing": "Backup folder missing",

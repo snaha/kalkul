@@ -24,6 +24,5 @@ describe('landingNotice', () => {
     expect(landingNotice({ kind: 'unreadable', remoteTime: 0, remoteDevice: 'b' })).toBe(
       'attention',
     )
-    expect(landingNotice({ kind: 'held', remoteTime: 0, remoteDevice: 'b' })).toBe('attention')
   })
 })

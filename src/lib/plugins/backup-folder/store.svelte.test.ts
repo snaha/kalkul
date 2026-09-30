@@ -12,8 +12,6 @@ import { backupFolderStore } from './store.svelte'
  */
 const env = vi.hoisted(() => {
   const env = {
-    /** The app reports a screen holding its own copy of the data. */
-    dataHeld: false,
     records: new Map<string, unknown>(),
     /** Makes every persistence read throw, like a broken IndexedDB. */
     failLoad: false,
@@ -84,46 +82,26 @@ vi.mock('./folder-files', async (importOriginal) => {
 })
 
 const host: PluginHost = {
-  data: {
-    get stamp() {
-      return env.local.stamp
-    },
-    export: () => env.local.data,
-    validate: (json) => {
-      if (json.startsWith('unloadable')) throw new Error('unknown field')
-    },
-    replace: (json) => {
-      env.local.data = json
-      env.local.stamp = Date.now()
-    },
+  get lastUpdated() {
+    return env.local.stamp
   },
-  get dataHeld() {
-    return env.dataHeld
+  exportData: () => env.local.data,
+  validateData: (json) => {
+    if (json.startsWith('unloadable')) throw new Error('unknown field')
+  },
+  replaceData: (json) => {
+    env.local.data = json
+    env.local.stamp = Date.now()
   },
   formatDateTime: (ms) => new Date(ms).toISOString(),
 }
 backupFolderStore.attach(host)
 
-/** Web Locks: exclusive requests queue per name; shared ones only count. */
+/** Web Locks, as the store uses them: requests for the same name run one at a time. */
 function fakeLocks() {
   const tails = new Map<string, Promise<void>>()
-  const shared = new Map<string, number>()
   return {
-    async request(
-      name: string,
-      optionsOrCallback: { mode?: 'shared' | 'exclusive' } | (() => Promise<unknown>),
-      maybeCallback?: () => Promise<unknown>,
-    ): Promise<unknown> {
-      const callback = typeof optionsOrCallback === 'function' ? optionsOrCallback : maybeCallback!
-      const mode = typeof optionsOrCallback === 'function' ? 'exclusive' : optionsOrCallback.mode
-      if (mode === 'shared') {
-        shared.set(name, (shared.get(name) ?? 0) + 1)
-        try {
-          return await callback()
-        } finally {
-          shared.set(name, shared.get(name)! - 1)
-        }
-      }
+    async request(name: string, callback: () => Promise<unknown>): Promise<unknown> {
       const previous = tails.get(name) ?? Promise.resolve()
       let done!: () => void
       const tail = new Promise<void>((resolve) => (done = resolve))
@@ -136,11 +114,6 @@ function fakeLocks() {
         return await callback()
       } finally {
         done()
-      }
-    },
-    async query() {
-      return {
-        held: [...shared].filter(([, count]) => count > 0).map(([name]) => ({ name })),
       }
     },
   }
@@ -198,7 +171,6 @@ describe('backupFolderStore', () => {
     env.folderGone = false
     env.listGate = undefined
     env.createGate = undefined
-    env.dataHeld = false
     await backupFolderStore.disconnect()
     env.records.clear()
     env.folder.clear()
@@ -280,36 +252,14 @@ describe('backupFolderStore', () => {
     }
   })
 
-  it("holds another computer's change while another tab has an editor open", async () => {
+  it("applies another computer's change", async () => {
     edit('v1')
     await connect()
     await saveFromOtherComputer('from windows')
-    // Another tab of the same app, with an editing page open.
-    let releaseOtherTab!: () => void
-    void navigator.locks.request(
-      'kalkul-backup-hold',
-      { mode: 'shared' },
-      () => new Promise<void>((resolve) => (releaseOtherTab = resolve)),
-    )
-    await backupFolderStore.syncNow()
-    expect(backupFolderStore.status).toMatchObject({ kind: 'held', remoteDevice: 'windows-9c1e' })
-    expect(env.local.data).toBe('v1')
-
-    releaseOtherTab()
-    await settle()
     await backupFolderStore.syncNow()
     expect(backupFolderStore.status).toEqual({ kind: 'synced' })
     expect(env.local.data).toBe('from windows')
-  })
-
-  it('holds it while this tab has an editor or dialog open', async () => {
-    edit('v1')
-    await connect()
-    await saveFromOtherComputer('from windows')
-    env.dataHeld = true
-    await backupFolderStore.syncNow()
-    expect(backupFolderStore.status.kind).toBe('held')
-    expect(env.local.data).toBe('v1')
+    expect(backupFolderStore.lastPull?.device).toBe('windows-9c1e')
   })
 
   it('uploads edits made while the folder was missing once it is chosen again', async () => {
