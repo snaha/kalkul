@@ -157,20 +157,38 @@ const DEFAULT_PROFILE: Profile = {
   email: '',
 }
 
+/**
+ * Parses stored data, from this tab's storage or another tab's write. Repairs
+ * before parsing: data stored before stricter validation rules — or before a
+ * snapshot recorded everything it records now — must keep loading, otherwise
+ * the whole dataset falls back to the empty default and gets overwritten on
+ * the next persist. It also keeps a tab still running an older app version
+ * from breaking cross-tab sync with since-invalidated data.
+ */
+function parseStoredData(json: string): StoredData {
+  return storedDataSchema.parse(repairStoredData(JSON.parse(json)))
+}
+
 function loadData(): StoredData {
   try {
     const raw = localStorage.getItem(storageKeys.DATA)
-    if (raw) {
-      // Repair before parsing: data stored before stricter validation rules —
-      // or before a snapshot recorded everything it records now — must keep
-      // loading, otherwise the whole dataset falls back to the empty default
-      // and gets overwritten on the next persist.
-      return storedDataSchema.parse(repairStoredData(JSON.parse(raw)))
-    }
+    if (raw) return parseStoredData(raw)
   } catch (e) {
     console.error('Failed to load data from localStorage', e)
   }
   return { lastUpdated: 0, profile: { ...DEFAULT_PROFILE }, portfolios: [] }
+}
+
+/**
+ * A change to the stored data, as `onDataChange` reports it.
+ *
+ * - `edit`: this tab saved a change (any edit, an import).
+ * - `other-tab`: another tab saved, and this tab took its data.
+ * - `load`: the data was loaded or cleared wholesale.
+ */
+export interface DataChange {
+  lastUpdated: number
+  source: 'edit' | 'other-tab' | 'load'
 }
 
 function withAppStore() {
@@ -179,6 +197,12 @@ function withAppStore() {
   let portfolios = $state<PortfolioStore[]>([])
   let loading = $state(true)
   let lastUpdated = $state(0)
+  let dataListeners: ((change: DataChange) => void)[] = []
+
+  function emitChange(source: DataChange['source']): void {
+    const change = { lastUpdated, source }
+    for (const listener of dataListeners) listener(change)
+  }
 
   function persist(): void {
     const now = Date.now()
@@ -191,6 +215,7 @@ function withAppStore() {
       localStorage.setItem(storageKeys.DATA, JSON.stringify(stored))
       lastUpdated = now
       storageErrorStore.clear()
+      emitChange('edit')
     } catch (e) {
       console.error('Failed to save data to localStorage', e)
       storageErrorStore.setError()
@@ -353,6 +378,7 @@ function withAppStore() {
         storageErrorStore.setError()
       }
       loading = false
+      emitChange('load')
     },
 
     persist,
@@ -469,6 +495,7 @@ function withAppStore() {
       portfolios = enrichAll(data.portfolios)
       lastUpdated = data.lastUpdated
       loading = false
+      emitChange('load')
     },
 
     startSync(): () => void {
@@ -476,14 +503,13 @@ function withAppStore() {
         if (event.key !== storageKeys.DATA || !event.newValue) return
 
         try {
-          // Repaired like loadData so a tab still running an older app
-          // version can't break sync by persisting since-invalidated data.
-          const data = storedDataSchema.parse(repairStoredData(JSON.parse(event.newValue)))
+          const data = parseStoredData(event.newValue)
           if (data.lastUpdated === lastUpdated) return
 
           profile = enrichProfile(data.profile)
           portfolios = enrichAll(data.portfolios)
           lastUpdated = data.lastUpdated
+          emitChange('other-tab')
         } catch {
           // Ignore malformed data from other tabs
         }
@@ -491,6 +517,18 @@ function withAppStore() {
 
       window.addEventListener('storage', onStorage)
       return () => window.removeEventListener('storage', onStorage)
+    },
+
+    /**
+     * Calls `listener` after every change to the stored data, whatever made
+     * it — an edit or import in this tab, another tab's save, a load or a
+     * clear. Returns the unsubscribe.
+     */
+    onDataChange(listener: (change: DataChange) => void): () => void {
+      dataListeners = [...dataListeners, listener]
+      return () => {
+        dataListeners = dataListeners.filter((other) => other !== listener)
+      }
     },
 
     // --- Backup / Restore ---
