@@ -88,48 +88,50 @@
            Without them there is nothing to carry forward, so it is left out —
            the saved plans below still stand on their own. -->
       {#if hasFinancialData}
-        <a
-          href={resolve(`${routes.PLAN_VIEW}/${CURRENT_PROJECTION_ID}`)}
-          class="flex items-center gap-4 rounded-xl border bg-accent p-4 shadow-xs transition-colors hover:bg-accent/60"
-        >
-          <div class="h-[81px] w-[144px] shrink-0 overflow-hidden rounded-lg">
-            <ProjectionThumbnail
-              data={currentProjection}
-              ariaLabel={$_('page.dashboard.projections.current.chartLabel')}
-            />
-          </div>
-          <div class="flex min-w-0 flex-1 flex-col gap-1">
-            <div class="flex items-center gap-1">
-              <p class="font-bold">{$_('page.dashboard.projections.current.title')}</p>
-              <Badge variant="outline" class="bg-background">
-                {$_('page.dashboard.projections.current.badge')}
-              </Badge>
-            </div>
-            <p class="text-sm">{$_('page.dashboard.projections.current.description')}</p>
-          </div>
+        <a href={resolve(`${routes.PLAN_VIEW}/${CURRENT_PROJECTION_ID}`)} class="block rounded-xl">
+          <Card.Root class="gap-0 bg-accent py-0 shadow-xs transition-colors hover:bg-accent/60">
+            <Card.Content class="flex items-center gap-4 p-4">
+              <div class="h-[81px] w-[144px] shrink-0 overflow-hidden rounded-lg">
+                <ProjectionThumbnail
+                  data={currentProjection}
+                  ariaLabel={$_('page.dashboard.projections.current.chartLabel')}
+                />
+              </div>
+              <div class="flex min-w-0 flex-1 flex-col gap-1">
+                <div class="flex items-center gap-1">
+                  <p class="font-bold">{$_('page.dashboard.projections.current.title')}</p>
+                  <Badge variant="outline" class="bg-background">
+                    {$_('page.dashboard.projections.current.badge')}
+                  </Badge>
+                </div>
+                <p class="text-sm">{$_('page.dashboard.projections.current.description')}</p>
+              </div>
+            </Card.Content>
+          </Card.Root>
         </a>
       {/if}
 
       {#if hasPlans}
         {#each planCards as plan (plan.id)}
-          <a
-            href={resolve(`${routes.PLAN_VIEW}/${plan.id}`)}
-            class="flex items-center gap-4 rounded-xl border bg-card p-4 shadow-xs transition-colors hover:bg-accent"
-          >
-            <div class="h-[81px] w-[144px] shrink-0 overflow-hidden rounded-lg">
-              <ProjectionThumbnail
-                data={plan.bars}
-                ariaLabel={$_('page.dashboard.projections.planChartLabel', {
-                  values: { name: plan.name },
-                })}
-              />
-            </div>
-            <div class="flex min-w-0 flex-1 flex-col gap-1">
-              <p class="font-bold">{plan.name}</p>
-              <p class="text-sm text-muted-foreground">
-                {plan.notes || $_('page.dashboard.projections.noNotes')}
-              </p>
-            </div>
+          <a href={resolve(`${routes.PLAN_VIEW}/${plan.id}`)} class="block rounded-xl">
+            <Card.Root class="gap-0 py-0 shadow-xs transition-colors hover:bg-accent">
+              <Card.Content class="flex items-center gap-4 p-4">
+                <div class="h-[81px] w-[144px] shrink-0 overflow-hidden rounded-lg">
+                  <ProjectionThumbnail
+                    data={plan.bars}
+                    ariaLabel={$_('page.dashboard.projections.planChartLabel', {
+                      values: { name: plan.name },
+                    })}
+                  />
+                </div>
+                <div class="flex min-w-0 flex-1 flex-col gap-1">
+                  <p class="font-bold">{plan.name}</p>
+                  <p class="text-sm text-muted-foreground">
+                    {plan.notes || $_('page.dashboard.projections.noNotes')}
+                  </p>
+                </div>
+              </Card.Content>
+            </Card.Root>
           </a>
         {/each}
       {:else}
