@@ -149,16 +149,20 @@ describe('buildSnapshotRows', () => {
     expect(buildSnapshotRows(PROFILE, TODAY)).toEqual([])
   })
 
-  test("offers no delete for the only snapshot when it is today's", () => {
+  test('offers no delete for the only snapshot while anything is held', () => {
     // A profile holding balances is never left without a baseline, so deleting
     // its only snapshot carries the figures forward to today and records them
-    // there. Carried forward no time at all, they are the deleted snapshot's
-    // own: the row would stay, after the user was told it cannot be undone.
-    const profile: Profile = { ...PROFILE, snapshots: [captureSnapshot(PROFILE, '2026-06-15')] }
-    expect(buildSnapshotRows(profile, TODAY)[0].deletable).toBe(false)
+    // there. The row the user deleted, after being told it cannot be undone,
+    // would come back — dated today, and changed by however long it was
+    // carried forward — whatever date it had.
+    const today: Profile = { ...PROFILE, snapshots: [captureSnapshot(PROFILE, '2026-06-15')] }
+    expect(buildSnapshotRows(today, TODAY)[0].deletable).toBe(false)
+
+    const older: Profile = { ...PROFILE, snapshots: [captureSnapshot(PROFILE, '2026-01-01')] }
+    expect(buildSnapshotRows(older, TODAY)[0].deletable).toBe(false)
   })
 
-  test('offers delete whenever deleting changes something', () => {
+  test('offers delete whenever deleting removes the row', () => {
     // Another snapshot to rewind onto.
     const two: Profile = {
       ...PROFILE,
@@ -166,13 +170,12 @@ describe('buildSnapshotRows', () => {
     }
     expect(buildSnapshotRows(two, TODAY).map((r) => r.deletable)).toEqual([true, true])
 
-    // An older baseline, replaced by its figures carried forward to today.
-    const older: Profile = { ...PROFILE, snapshots: [captureSnapshot(PROFILE, '2026-01-01')] }
-    expect(buildSnapshotRows(older, TODAY)[0].deletable).toBe(true)
-
-    // Nothing held today, so the history is simply left empty.
+    // Nothing held today, so the history is simply left empty — whatever the
+    // only snapshot's date.
     const bare: Profile = { name: '', email: '', cash_amount: 0 }
     const emptied: Profile = { ...bare, snapshots: [captureSnapshot(bare, '2026-06-15')] }
     expect(buildSnapshotRows(emptied, TODAY)[0].deletable).toBe(true)
+    const emptiedOlder: Profile = { ...bare, snapshots: [captureSnapshot(bare, '2026-01-01')] }
+    expect(buildSnapshotRows(emptiedOlder, TODAY)[0].deletable).toBe(true)
   })
 })
