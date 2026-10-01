@@ -292,7 +292,12 @@ export function timingComplete(
 // Set when the item was created inside a plan: it belongs to that plan alone
 // and stays out of financial data and of other plans. Unset means the user
 // recorded it as current data, shared by every plan.
-const planOwnership = { plan_id: z.string().optional() }
+//
+// `forked_from` marks a plan's copy of a financial-data item, made when that
+// item is edited inside the plan, and holds the original's id. The copy is
+// still the user's current data, so its money is already in today's balances:
+// a forked loan is not new borrowing (#347).
+const planOwnership = { plan_id: z.string().optional(), forked_from: z.string().optional() }
 
 // Incomes and expenses share one shape; the two names are kept so call sites
 // read naturally.

@@ -3569,6 +3569,26 @@ describe('liability start and pay-off', () => {
     expect(result.map((r) => Math.round(r.liabilities))).toEqual([750, 500, 250, 0, 0, 0])
   })
 
+  it("adds nothing to cash for a plan's copy of a financial-data loan (#347)", () => {
+    // Editing a financial-data loan inside a plan forks it into a plan-owned
+    // copy. That is still the debt the user already carries, not new money.
+    const forked: ProfileLiability = {
+      ...loan,
+      id: 'l1-copy',
+      plan_id: 'plan-1',
+      forked_from: 'l1',
+    }
+    const result = getYearlyPlanProjection(plan, makeProfile({ liabilities: [forked] }))
+    expect(result.map((r) => Math.round(r.cash))).toEqual([0, 0, 0, 0, 0, 0])
+    expect(result.map((r) => Math.round(r.liabilities))).toEqual([750, 500, 250, 0, 0, 0])
+    expect(result.map((r) => Math.round(r.netWorth))).toEqual([-750, -500, -250, 0, 0, 0])
+
+    // The same loan without the origin is one the plan takes on.
+    const { forked_from: _forkedFrom, ...ownLoan } = forked
+    const own = getYearlyPlanProjection(plan, makeProfile({ liabilities: [ownLoan] }))
+    expect(own.map((r) => Math.round(r.cash))).toEqual([750, 500, 250, 0, 0, 0])
+  })
+
   it('pays nothing in when a planned pay-off precedes the start, since the loan never goes live', () => {
     const payOff = { pay_off: 'at_specific_date' as const, pay_off_month: 1 }
     const beforePlan: ProfileLiability[] = [

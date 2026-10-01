@@ -1185,12 +1185,13 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   // The year each plan-owned loan's principal lands in cash (#322): a loan
   // the plan takes on is new money, whereas a financial-data liability is
   // debt the user already carries, so that money is already in today's
-  // balances. A start before the plan pays in at plan start. A planned
+  // balances. So is the plan's copy of one, made when it is edited inside the
+  // plan (#347). A start before the plan pays in at plan start. A planned
   // pay-off before that start means the schedule above never goes live, so
   // nothing is borrowed either.
   const borrowedByYear = new Map<number, Decimal>()
   for (const l of liabilities) {
-    if (l.plan_id === undefined) continue
+    if (l.plan_id === undefined || l.forked_from !== undefined) continue
     const firstYear = Math.max(liabilityStartYear(l, birthYear) ?? startYear, startYear)
     const lastYear = liabilityPayOffYear(l)
     if (lastYear !== undefined && lastYear < firstYear) continue
