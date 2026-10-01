@@ -17,7 +17,7 @@
  * comment for `svelte/no-navigation-without-resolve`.
  */
 export default {
-  GITHUB: 'https://github.com/snaha/kalkul-next',
+  GITHUB: 'https://github.com/snaha/kalkul',
   SNAHA: 'https://snaha.net/',
   DISCORD: 'https://discord.gg/HKV8tkWrZV',
   /** Buttondown newsletter signup page; append the newsletter's username. */
