@@ -150,15 +150,14 @@ describe('buildSnapshotRows', () => {
   })
 
   test('offers no delete for the only snapshot while anything is held', () => {
-    // Deleting it would record it again, dated today, whatever its date.
-    const today: Profile = { ...PROFILE, snapshots: [captureSnapshot(PROFILE, '2026-06-15')] }
-    expect(buildSnapshotRows(today, TODAY)[0].deletable).toBe(false)
+    const datedToday: Profile = { ...PROFILE, snapshots: [captureSnapshot(PROFILE, '2026-06-15')] }
+    expect(buildSnapshotRows(datedToday, TODAY)[0].deletable).toBe(false)
 
     const older: Profile = { ...PROFILE, snapshots: [captureSnapshot(PROFILE, '2026-01-01')] }
     expect(buildSnapshotRows(older, TODAY)[0].deletable).toBe(false)
   })
 
-  test('offers delete whenever deleting removes the row', () => {
+  test('offers delete when another snapshot remains or nothing is held', () => {
     // Another snapshot to rewind onto.
     const two: Profile = {
       ...PROFILE,
@@ -166,7 +165,7 @@ describe('buildSnapshotRows', () => {
     }
     expect(buildSnapshotRows(two, TODAY).map((r) => r.deletable)).toEqual([true, true])
 
-    // Nothing held, so the history is left empty, whatever the date.
+    // Nothing held.
     const bare: Profile = { name: '', email: '', cash_amount: 0 }
     const emptied: Profile = { ...bare, snapshots: [captureSnapshot(bare, '2026-06-15')] }
     expect(buildSnapshotRows(emptied, TODAY)[0].deletable).toBe(true)

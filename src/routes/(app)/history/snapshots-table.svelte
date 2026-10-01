@@ -77,8 +77,6 @@
                 {$_('page.history.row.duplicate')}
               </DropdownMenu.Item>
               <DropdownMenu.Separator />
-              <!-- Disabled on the only snapshot while anything is held:
-                   deleting would record it again, dated today. -->
               <DropdownMenu.Item
                 class="text-destructive"
                 disabled={!row.deletable}
