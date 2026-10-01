@@ -1,7 +1,7 @@
 import Decimal from 'decimal.js'
 
 import { DECIMAL_0, DECIMAL_1, daysBetween } from '$lib/@snaha/kalkul-maths'
-import { type PlanOwned, sharedItems } from '$lib/plan-owned'
+import { isPlanOwned, sharedItems } from '$lib/plan-owned'
 import {
   CASH_ENDPOINT,
   INSTALLMENT_PERIODS_PER_YEAR,
@@ -157,7 +157,7 @@ function annualFlowsOn(profile: Profile, asOf: Date): AnnualFlows {
     transfers: [],
   }
 
-  const investmentsById = new Map((profile.investments ?? []).map((i) => [i.id, i]))
+  const investmentsById = new Map(sharedItems(profile.investments).map((i) => [i.id, i]))
   const isEndpointActive = (id: string): boolean => {
     if (id === CASH_ENDPOINT) return true
     const investment = investmentsById.get(id)
@@ -375,6 +375,8 @@ function amortizeLoan(liability: ProfileLiability, yearFraction: Decimal): Amort
  *
  * Returns the profile unchanged when nothing has elapsed — no snapshots yet, or
  * the latest one is dated today (or, defensively, in the future).
+ *
+ * Plan-owned items are returned as stored.
  */
 export function getCurrentProfile(profile: Profile, today: Date): Profile {
   const snapshot = latestSnapshot(profile.snapshots)
@@ -440,11 +442,9 @@ export function getCurrentProfile(profile: Profile, today: Date): Profile {
     const balance = new Decimal(investment.balance)
     return boughtInWindow(investment) ? applyEntryFee(investment, balance) : balance
   }
-  // A position a plan owns is a scenario, not current data: its planned buy or
-  // sell never touches today's cash, and its balance is the plan's figure.
-  const investments = sharedItems(profile.investments)
+  const sharedInvestments = sharedItems(profile.investments)
   let cashBefore = new Decimal(profile.cash_amount ?? 0).plus(flows.cash.mul(yearFraction))
-  for (const investment of investments) {
+  for (const investment of sharedInvestments) {
     if (boughtInWindow(investment)) cashBefore = cashBefore.minus(investment.balance)
     if (soldInWindow(investment)) {
       cashBefore = cashBefore.plus(applyExitFee(investment, paidIn(investment)))
@@ -453,7 +453,7 @@ export function getCurrentProfile(profile: Profile, today: Date): Profile {
 
   const before = new Map<string, Decimal>([
     [CASH_ENDPOINT, cashBefore],
-    ...investments.map((investment): [string, Decimal] => {
+    ...sharedInvestments.map((investment): [string, Decimal] => {
       if (soldInWindow(investment)) return [investment.id, DECIMAL_0]
       const held = paidIn(investment)
       return [
@@ -474,10 +474,6 @@ export function getCurrentProfile(profile: Profile, today: Date): Profile {
     Decimal.max(after.get(id) ?? DECIMAL_0, DECIMAL_0)
       .toDecimalPlaces(MONEY_DECIMALS)
       .toNumber()
-
-  // Plan-owned items come back exactly as stored, for the reason above — and
-  // so a save that carries today's values forward leaves them alone too.
-  const isPlanOwned = (item: PlanOwned) => item.plan_id !== undefined
 
   return {
     ...profile,

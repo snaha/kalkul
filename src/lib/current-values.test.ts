@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 
 import { getCurrentProfile, percentChange, withBalancesCarriedForward } from './current-values'
-import { remainingInstallmentPeriods } from './plan-projection'
+import { CASH_ENDPOINT, remainingInstallmentPeriods } from './plan-projection'
 import type { Profile, ProfileLiability, Transfer } from './schemas'
 
 // Snapshot on 2026-01-01, read on 2026-07-02 — 182 days, 0.4982888 of a year.
@@ -827,8 +827,25 @@ describe('withBalancesCarriedForward', () => {
 })
 
 describe('getCurrentProfile plan-owned items', () => {
+  const owned = { plan_id: 'plan-1' }
+  const CASH_ONLY: Profile = {
+    ...PROFILE,
+    cash_amount: 10_000,
+    investments: [],
+    incomes: [],
+    expenses: [],
+    liabilities: [],
+    snapshots: [{ date: SNAPSHOT_DATE, cash_amount: 10_000 }],
+  }
+  const PLANNED_POSITION = {
+    id: 'planned',
+    name: 'Planned ETF',
+    balance: 5_000,
+    apy: 0,
+    ...owned,
+  }
+
   test('accrues cash from current data only, never from what a plan owns', () => {
-    const owned = { plan_id: 'plan-1' }
     const withOwned: Profile = {
       ...PROFILE,
       // Distinct amounts so the two cannot cancel each other out.
@@ -854,27 +871,6 @@ describe('getCurrentProfile plan-owned items', () => {
       getCurrentProfile(PROFILE, TODAY).cash_amount,
     )
   })
-})
-
-describe('getCurrentProfile plan-owned positions and loans', () => {
-  // The issue's example: 10,000 in cash and nothing else moving it, so any
-  // change to cash comes from the plan-owned item alone.
-  const CASH_ONLY: Profile = {
-    ...PROFILE,
-    cash_amount: 10_000,
-    investments: [],
-    incomes: [],
-    expenses: [],
-    liabilities: [],
-    snapshots: [{ date: SNAPSHOT_DATE, cash_amount: 10_000 }],
-  }
-  const PLANNED_POSITION = {
-    id: 'planned',
-    name: 'Planned ETF',
-    balance: 5_000,
-    apy: 0,
-    plan_id: 'plan-1',
-  }
 
   test('does not pay for a plan-owned position whose planned start passed since the snapshot', () => {
     const profile: Profile = {
@@ -898,8 +894,28 @@ describe('getCurrentProfile plan-owned positions and loans', () => {
     expect(current.investments?.[0].balance).toBe(5_000)
   })
 
+  test('skips a shared transfer into a plan-owned position', () => {
+    const profile: Profile = {
+      ...CASH_ONLY,
+      investments: [PLANNED_POSITION],
+      transfers: [
+        {
+          id: 'contribution',
+          name: 'Monthly contribution',
+          from_asset_id: CASH_ENDPOINT,
+          to_asset_id: PLANNED_POSITION.id,
+          amount: 500,
+          schedule: 'recurring',
+          frequency: 'monthly',
+        },
+      ],
+    }
+    const current = getCurrentProfile(profile, TODAY)
+    expect(current.cash_amount).toBe(10_000)
+    expect(current.investments?.[0].balance).toBe(5_000)
+  })
+
   test('returns plan-owned investments, loans and financed assets untouched', () => {
-    const owned = { plan_id: 'plan-1' }
     const investment = { ...PROFILE.investments![0], id: 'owned-inv', ...owned }
     const liability = { ...PROFILE.liabilities![0], id: 'owned-loan', ...owned }
     const asset = {
@@ -931,7 +947,6 @@ describe('getCurrentProfile plan-owned positions and loans', () => {
   })
 
   test("a save leaves a plan-owned item's stored figures alone", () => {
-    const owned = { plan_id: 'plan-1' }
     const stored: Profile = {
       ...PROFILE,
       investments: [...PROFILE.investments!, { ...PROFILE.investments![0], id: 'x', ...owned }],
