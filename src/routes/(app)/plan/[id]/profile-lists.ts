@@ -88,14 +88,12 @@ function persistList<K extends ProfileListKey>(
  *    visible here by default (an undefined include list means "all included").
  *  - An edited plan-owned item is replaced in place. The projected item the
  *    dialogs hand back carries no `plan_id` or `forked_from`, so the stored
- *    ones are re-attached: without `plan_id` the item would leak into
- *    financial data as current data, and without `forked_from` a forked loan
- *    would start counting as new borrowing.
+ *    ones are re-attached.
  *  - An edited shared item is forked: the edit lands in a new plan-owned copy
  *    right after the original, and the plan swaps the original for the copy
  *    in its include list, seeding that list when it has none. Financial data
  *    and other plans keep the original. The copy records the original's id
- *    in `forked_from`: it is still debt or money the user has today (#347).
+ *    in `forked_from`.
  */
 export function upsertProfileItem<K extends ProfileListKey>(
   config: ProfileListConfig<K>,
@@ -118,13 +116,7 @@ export function upsertProfileItem<K extends ProfileListKey>(
     persistList(
       config,
       existing.map((it) =>
-        it === stored
-          ? {
-              ...item,
-              plan_id: stored.plan_id,
-              ...(stored.forked_from !== undefined ? { forked_from: stored.forked_from } : {}),
-            }
-          : it,
+        it === stored ? { ...item, plan_id: stored.plan_id, forked_from: stored.forked_from } : it,
       ),
     )
     return
@@ -145,8 +137,7 @@ export function upsertProfileItem<K extends ProfileListKey>(
  * upsertProfileItem, the copy joins the plan's include list when one exists —
  * otherwise duplicating inside a plan that excludes anything would produce a
  * copy that is excluded by default, i.e. one that looks like it never got
- * created. It is never a fork, even of a fork: the source stays in the plan,
- * so a duplicated loan is a second loan the plan takes on.
+ * created. The copy never carries `forked_from`.
  */
 export function duplicateProfileItem(
   config: ProfileListConfig,

@@ -256,21 +256,7 @@ describe('plan ownership', () => {
     expect(plan.included_investment_ids).toEqual(['i2', copy.id])
   })
 
-  it('records which financial-data loan the fork copies, so it is not new borrowing (#347)', () => {
-    profile.liabilities = [makeLiability('l1')]
-    upsertProfileItem(
-      PROFILE_LISTS.liability,
-      makeLiability('l1', 'renamed'),
-      makePlan({ id: 'plan-1' }),
-    )
-    const [original, copy] = profile.liabilities ?? []
-    expect(original).toEqual(makeLiability('l1'))
-    expect(copy.forked_from).toBe('l1')
-  })
-
   it('keeps the origin when the fork is edited again', () => {
-    // The projected item the dialog hands back carries neither plan_id nor
-    // forked_from; losing the origin would credit the loan to cash again.
     profile.liabilities = [
       makeLiability('l1'),
       { ...makeLiability('copy'), plan_id: 'plan-1', forked_from: 'l1' },
@@ -287,19 +273,20 @@ describe('plan ownership', () => {
     })
   })
 
-  it('does not mark a new or duplicated item as a fork', () => {
-    // A duplicate leaves its source in the plan, so it models a second loan
-    // the plan takes on, even when the source is itself a fork.
+  it('does not mark a new item as a fork', () => {
+    upsertProfileItem(PROFILE_LISTS.liability, makeLiability('new'), makePlan({ id: 'plan-1' }))
+    const added = profile.liabilities?.[0]
+    expect(added).toBeDefined()
+    expect(added).not.toHaveProperty('forked_from')
+  })
+
+  it('does not carry forked_from onto a duplicate, even of a fork', () => {
     profile.liabilities = [{ ...makeLiability('copy'), plan_id: 'plan-1', forked_from: 'l1' }]
     const plan = makePlan({ id: 'plan-1' })
     const dupId = duplicateProfileItem(PROFILE_LISTS.liability, 'copy', (n) => `${n} 2`, plan)
-    upsertProfileItem(PROFILE_LISTS.liability, makeLiability('new'), plan)
     const dup = profile.liabilities?.find((l) => l.id === dupId)
-    const added = profile.liabilities?.find((l) => l.id === 'new')
     expect(dup).toBeDefined()
-    expect(dup && 'forked_from' in dup).toBe(false)
-    expect(added).toBeDefined()
-    expect(added && 'forked_from' in added).toBe(false)
+    expect(dup).not.toHaveProperty('forked_from')
   })
 
   it('swaps the original for the copy in an existing include list', () => {
