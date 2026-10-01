@@ -38,10 +38,7 @@
      * only the close X, per its Figma) pass false.
      */
     toolbar?: boolean
-    /**
-     * Replaces the default footer (Save/Create + Cancel on the left, delete on
-     * the right while editing) when given.
-     */
+    /** Replaces the default footer when given. */
     footer?: Snippet
     /** Extra footer classes, e.g. the muted background some Figma footers have. */
     footerClass?: string
@@ -188,9 +185,7 @@
       {#if footer}
         {@render footer()}
       {:else}
-        <!-- Figma "Add footer" / "Edit footer" (e.g. 941-71859, 941-81371):
-             Create or Save changes + Cancel on the left, delete on the right
-             while editing. -->
+        <!-- Figma "Add footer" / "Edit footer" (941-71859, 941-81371). -->
         <div class="flex flex-1 items-center gap-2">
           <Button disabled={saveDisabled} onclick={onSave}>
             {isNew ? $_('page.plan.createItem') : $_('page.plan.saveChanges')}

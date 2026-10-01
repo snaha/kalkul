@@ -181,10 +181,7 @@
   })
 </script>
 
-<!-- Figma 941-71859 / 941-72501 / 941-81371: the header carries the title and
-     the close X only — no rename/duplicate/include/delete toolbar. The shell's
-     default muted footer has Create/Save changes + Cancel on the left and, when
-     editing, delete on the right. -->
+<!-- Figma 941-71859 / 941-72501 / 941-81371: the header carries the title and the close X only. -->
 <ItemEditDialogShell
   bind:open
   {onOpenChange}

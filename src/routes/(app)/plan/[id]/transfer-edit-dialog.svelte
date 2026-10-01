@@ -228,9 +228,7 @@
   })
 </script>
 
-<!-- Figma frames 1340-1345 / 1350-1351: the header carries the title and the
-     close X only. The shell's default muted footer has Create/Save changes +
-     Cancel on the left and, when editing, delete on the right. -->
+<!-- Figma 1340-1345 / 1350-1351: the header carries the title and the close X only. -->
 <ItemEditDialogShell
   bind:open
   {onOpenChange}
