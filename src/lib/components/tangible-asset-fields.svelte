@@ -23,6 +23,7 @@
     getPaymentMethodItems,
     getValueOverTimeItems,
   } from '$lib/select-options'
+  import { downPaymentOf, outstandingBalance } from '$lib/tangible-asset-form'
 
   /** The editable shape; the caller owns the surrounding state. */
   export interface TangibleAssetFieldsItem {
@@ -90,22 +91,34 @@
   // The dialog asks for the down payment; the profile stores what is still
   // owed. One is the other's complement against the purchase price. Until the
   // user enters a down payment nothing is paid, so the whole price is owed.
+  //
+  // Once the user has typed either figure, the down payment is held as its own
+  // state for as long as this item is being edited (#263): re-deriving it from
+  // the 0-clamped balance on every keystroke would collapse a 50 000 down
+  // payment to 4 the moment the price is retyped as "4…". A re-seeded form is
+  // a new item object, so the hold lapses with it.
+  let heldFor = $state.raw<TangibleAssetFieldsItem>()
+  let heldPaid = $state<number>()
   let downPayment = $derived(
-    item.value === undefined || item.outstanding_balance === undefined
-      ? undefined
-      : Math.max(item.value - item.outstanding_balance, 0),
+    heldFor === item ? heldPaid : downPaymentOf(item.value, item.outstanding_balance),
   )
 
-  // Keep the down payment fixed while the price is typed (#263): the balance
-  // still owed follows the price.
+  function hold(paid: number | undefined): void {
+    heldFor = item
+    heldPaid = paid
+  }
+
+  // The balance still owed follows the price; the down payment stays as entered.
   function setPurchasePrice(value: number | undefined): void {
-    const paid = downPayment ?? 0
+    const paid = downPayment
+    hold(paid)
     item.value = value
-    if (item.status === 'financed') item.outstanding_balance = Math.max((value ?? 0) - paid, 0)
+    if (item.status === 'financed') item.outstanding_balance = outstandingBalance(value, paid)
   }
 
   function setDownPayment(paid: number | undefined): void {
-    item.outstanding_balance = Math.max((item.value ?? 0) - (paid ?? 0), 0)
+    hold(paid)
+    item.outstanding_balance = outstandingBalance(item.value, paid)
   }
 </script>
 
@@ -158,6 +171,9 @@
       onValueChange={(v) => {
         if (!v) return
         item.status = v
+        // Only a loan that has never had a balance starts as fully owed.
+        // Financed → Fully owned → Financed keeps the balance from before,
+        // so a slip of the picker does not wipe a typed down payment.
         if (v === 'financed' && item.outstanding_balance === undefined)
           item.outstanding_balance = item.value ?? 0
       }}

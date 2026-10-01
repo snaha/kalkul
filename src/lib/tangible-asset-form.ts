@@ -1,3 +1,5 @@
+import Decimal from 'decimal.js'
+
 import type {
   Frequency,
   ProfileTangibleAsset,
@@ -59,4 +61,21 @@ export function toStoredTangibleAsset(
     value_rate: a.value_rate,
     property_tax_rate: a.property_tax_rate,
   }
+}
+
+/** What is still owed on `price` after `paid` has been put down, never below zero. */
+export function outstandingBalance(price: number | undefined, paid: number | undefined): number {
+  return Decimal.max(new Decimal(price ?? 0).minus(paid ?? 0), 0).toNumber()
+}
+
+/**
+ * The down payment implied by a stored balance: the price's complement, never
+ * below zero. Unknown until both figures exist.
+ */
+export function downPaymentOf(
+  price: number | undefined,
+  outstanding: number | undefined,
+): number | undefined {
+  if (price === undefined || outstanding === undefined) return undefined
+  return Decimal.max(new Decimal(price).minus(outstanding), 0).toNumber()
 }
