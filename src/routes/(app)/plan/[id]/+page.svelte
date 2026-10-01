@@ -168,50 +168,6 @@
     }
   }
 
-  // Reopen an edit dialog on the freshly duplicated item (issue #65). The
-  // short delay lets the closing dialog finish its exit transition so the
-  // open state goes through a real false -> true cycle and the form re-seeds.
-  const REOPEN_DELAY_MS = 150
-
-  function reopenAssetDialog(id: string) {
-    // Branch per kind rather than building one target: AssetTarget is a
-    // discriminated union, so kind and initial must be narrowed together.
-    const kind = assetDialogTarget.kind
-    const reopen = (target: AssetTarget) =>
-      setTimeout(() => openAssetEditDialog(target), REOPEN_DELAY_MS)
-    if (kind === 'investment') {
-      const initial = appStore.profile.investments?.find((i) => i.id === id)
-      if (initial) reopen({ kind, initial })
-    } else if (kind === 'tangibleAsset') {
-      const initial = appStore.profile.tangible_assets?.find((a) => a.id === id)
-      if (initial) reopen({ kind, initial })
-    }
-  }
-
-  function reopenLiabilityDialog(id: string) {
-    const initial = appStore.profile.liabilities?.find((l) => l.id === id)
-    if (!initial) return
-    setTimeout(() => {
-      liabilityDialogInitial = initial
-      liabilityDialogOpen = true
-    }, REOPEN_DELAY_MS)
-  }
-
-  function reopenCashFlowDialog(id: string) {
-    const kind = editDialogKind
-    const item =
-      kind === 'income'
-        ? appStore.profile.incomes?.find((i) => i.id === id)
-        : appStore.profile.expenses?.find((e) => e.id === id)
-    if (!item) return
-    setTimeout(() => openEditDialog(kind, item), REOPEN_DELAY_MS)
-  }
-
-  function reopenTransferDialog(id: string) {
-    const item = itemsForPlan(appStore.profile.transfers, planId).find((t) => t.id === id)
-    if (!item) return
-    setTimeout(() => openTransferDialog(item), REOPEN_DELAY_MS)
-  }
   let hoveredYear = $state<number | undefined>(undefined)
   let hoverPosition = $state<HoverPosition | undefined>(undefined)
   let chartContainerRef: HTMLDivElement | undefined = $state()
@@ -1009,7 +965,6 @@
         onOpenChange={(v) => (transferDialogOpen = v)}
         initial={transferDialogInitial}
         plan={savedPlan}
-        onDuplicated={reopenTransferDialog}
       />
 
       <!-- Cash-flow edit dialog -->
@@ -1019,7 +974,6 @@
         kind={editDialogKind}
         initial={editDialogInitial}
         plan={savedPlan}
-        onDuplicated={reopenCashFlowDialog}
       />
 
       <!-- Add asset type picker -->
@@ -1035,7 +989,6 @@
         onOpenChange={(v) => (assetDialogOpen = v)}
         target={assetDialogTarget}
         plan={savedPlan}
-        onDuplicated={reopenAssetDialog}
       />
 
       <!-- Liability edit dialog -->
@@ -1044,7 +997,6 @@
         onOpenChange={(v) => (liabilityDialogOpen = v)}
         initial={liabilityDialogInitial}
         plan={savedPlan}
-        onDuplicated={reopenLiabilityDialog}
       />
 
       <!-- Cash edit dialog -->

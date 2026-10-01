@@ -32,26 +32,18 @@
   import { getMonthOptions, monthToOption, optionToMonth } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
-  import {
-    PROFILE_LISTS,
-    duplicateProfileItem,
-    removeProfileItem,
-    toggleIncludedInPlan,
-    upsertProfileItem,
-  } from './profile-lists'
+  import { PROFILE_LISTS, removeProfileItem, upsertProfileItem } from './profile-lists'
 
   interface Props {
     open: boolean
     onOpenChange: (open: boolean) => void
     initial: Transfer | undefined
     plan: PortfolioStore
-    /** Called with the copy's id after a duplicate, so the caller can open it. */
-    onDuplicated?: (id: string) => void
   }
 
   const uid = $props.id()
 
-  let { open = $bindable(), onOpenChange, initial, plan, onDuplicated }: Props = $props()
+  let { open = $bindable(), onOpenChange, initial, plan }: Props = $props()
 
   const range = $derived(planRangeOf(plan, appStore.profile.birthDate))
   let months = $derived(getMonthOptions($locale ?? undefined))
@@ -107,15 +99,6 @@
 
   const isNew = $derived(initial === undefined)
 
-  // Plan-level inclusion of this transfer. `undefined` (default) means all
-  // transfers are included; once the user toggles exclusion the array
-  // materializes and tracks which transfers stay active.
-  const isIncluded = $derived.by(() => {
-    if (isNew) return true
-    if (plan.included_transfer_ids === undefined) return true
-    return plan.included_transfer_ids.includes(form.id)
-  })
-
   let fromAssetItems = $derived(
     assetOptions.map((opt) => ({
       value: opt.id,
@@ -145,26 +128,6 @@
 
   function save() {
     upsertProfileItem(PROFILE_LISTS.transfer, transferFromFields(form), plan)
-    close()
-  }
-
-  function duplicate() {
-    // Duplicating copies the SAVED item; edits sitting in the form would be
-    // silently lost, so ask before discarding them (issue #65).
-    const hasChanges = JSON.stringify(form) !== JSON.stringify(seedForm(initial))
-    if (hasChanges && !window.confirm($_('page.plan.duplicateUnsavedConfirm'))) return
-    const copyId = duplicateProfileItem(
-      PROFILE_LISTS.transfer,
-      form.id,
-      (name) => $_('page.setup.common.copySuffix', { values: { name } }),
-      plan,
-    )
-    close()
-    if (copyId !== undefined) onDuplicated?.(copyId)
-  }
-
-  function toggleExclude() {
-    toggleIncludedInPlan(PROFILE_LISTS.transfer, form.id, plan)
     close()
   }
 
@@ -234,22 +197,15 @@
   })
 </script>
 
-<!-- Figma 1340-1345 / 1350-1351: the header carries the title and the close X only. -->
 <ItemEditDialogShell
   bind:open
   {onOpenChange}
   name={form.name}
-  onNameChange={(v) => (form.name = v)}
   {isNew}
-  {isIncluded}
-  renamable={false}
-  toolbar={false}
   newTitle={$_('page.plan.newTransfer')}
   saveDisabled={!canSave}
   footerClass="bg-muted"
   onSave={save}
-  onDuplicate={duplicate}
-  onToggleInclude={toggleExclude}
   onDelete={remove}
 >
   <!-- Label -->

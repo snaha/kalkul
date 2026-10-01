@@ -29,14 +29,7 @@
   import { getMonthOptions, monthToOption, optionToMonth } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
-  import {
-    PROFILE_LISTS,
-    duplicateProfileItem,
-    isIncludedInPlan,
-    removeProfileItem,
-    toggleIncludedInPlan,
-    upsertProfileItem,
-  } from './profile-lists'
+  import { PROFILE_LISTS, removeProfileItem, upsertProfileItem } from './profile-lists'
 
   type CashFlow = Income | Expense
 
@@ -46,13 +39,11 @@
     kind: 'income' | 'expense'
     initial: CashFlow | undefined
     plan: PortfolioStore
-    /** Called with the copy's id after a duplicate, so the caller can open it. */
-    onDuplicated?: (id: string) => void
   }
 
   const uid = $props.id()
 
-  let { open = $bindable(), onOpenChange, kind, initial, plan, onDuplicated }: Props = $props()
+  let { open = $bindable(), onOpenChange, kind, initial, plan }: Props = $props()
 
   const range = $derived(planRangeOf(plan, appStore.profile.birthDate))
   let months = $derived(getMonthOptions($locale ?? undefined))
@@ -98,8 +89,6 @@
 
   const listConfig = $derived(PROFILE_LISTS[kind])
 
-  const isIncluded = $derived(isNew ? true : isIncludedInPlan(listConfig, form.id, plan))
-
   // Same-year ranges can't end before they start: an end month that a later
   // start/year change turned invalid is cleared so the user picks again (Save
   // stays disabled until they do).
@@ -143,26 +132,6 @@
     close()
   }
 
-  function duplicate() {
-    // Duplicating copies the SAVED item; edits sitting in the form would be
-    // silently lost, so ask before discarding them (issue #65).
-    const hasChanges = JSON.stringify(form) !== JSON.stringify(seedForm(initial))
-    if (hasChanges && !window.confirm($_('page.plan.duplicateUnsavedConfirm'))) return
-    const copyId = duplicateProfileItem(
-      listConfig,
-      form.id,
-      (name) => $_('page.setup.common.copySuffix', { values: { name } }),
-      plan,
-    )
-    close()
-    if (copyId !== undefined) onDuplicated?.(copyId)
-  }
-
-  function toggleExclude() {
-    toggleIncludedInPlan(listConfig, form.id, plan)
-    close()
-  }
-
   function remove() {
     const confirmMessage =
       kind === 'income' ? $_('page.plan.deleteIncomeConfirm') : $_('page.plan.deleteExpenseConfirm')
@@ -186,16 +155,11 @@
   })
 </script>
 
-<!-- Figma 941-71859 / 941-72501 / 941-81371: the header carries the title and the close X only. -->
 <ItemEditDialogShell
   bind:open
   {onOpenChange}
   name={form.name}
-  onNameChange={(v) => (form.name = v)}
   {isNew}
-  {isIncluded}
-  renamable={false}
-  toolbar={false}
   newTitle={isNew
     ? kind === 'income'
       ? $_('page.plan.newIncome')
@@ -204,8 +168,6 @@
   saveDisabled={!canSave}
   footerClass="bg-muted"
   onSave={save}
-  onDuplicate={duplicate}
-  onToggleInclude={toggleExclude}
   onDelete={remove}
 >
   <!-- Label -->
