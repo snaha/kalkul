@@ -640,7 +640,9 @@
           "title": "Erase all your data?",
           "description": "Your profile, plans, assets, cash flows, and history will be permanently erased from this browser. This cannot be undone.",
           "warning": "Export your current data first if you want to keep it.",
-          "exportAndErase": "Export and erase",
+          "exportBeforeErasing": "Export before erasing",
+          "eraseAnyway": "Erase anyway",
+          "backupDownloaded": "Your data has been downloaded. You can now safely erase it.",
           "erase": "Erase",
           "cancel": "Cancel"
         }

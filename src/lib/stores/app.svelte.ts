@@ -181,7 +181,7 @@ function withAppStore() {
   let loading = $state(true)
   let lastUpdated = $state(0)
 
-  /** Back to an empty app, in memory only; storage is the caller's business. */
+  /** Empties the in-memory state; storage is untouched. */
   function reset(): void {
     profile = enrichProfile({ ...DEFAULT_PROFILE })
     portfolios = []
@@ -510,8 +510,7 @@ function withAppStore() {
     startSync(): () => void {
       function onStorage(event: StorageEvent): void {
         if (event.key !== storageKeys.DATA) return
-        // Another tab erased everything (Settings → Start fresh). Follow it, or
-        // this tab keeps showing the old data and its next save writes it back.
+        // Another tab removed the data.
         if (!event.newValue) {
           reset()
           return

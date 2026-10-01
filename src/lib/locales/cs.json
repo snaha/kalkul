@@ -639,8 +639,10 @@
         "startFreshDialog": {
           "title": "Smazat všechna vaše data?",
           "description": "Váš profil, plány, aktiva, peněžní toky i historie budou z tohoto prohlížeče trvale smazány. Tuto akci nelze vrátit zpět.",
-          "warning": "Pokud si svá stávající data chcete ponechat, nejprve je exportujte.",
-          "exportAndErase": "Exportovat a smazat",
+          "warning": "Pokud si chcete svá stávající data ponechat, nejprve je exportujte.",
+          "exportBeforeErasing": "Exportovat před smazáním",
+          "eraseAnyway": "Přesto smazat",
+          "backupDownloaded": "Vaše data byla stažena. Nyní je můžete bezpečně smazat.",
           "erase": "Smazat",
           "cancel": "Zrušit"
         }

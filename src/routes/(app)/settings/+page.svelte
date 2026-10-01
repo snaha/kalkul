@@ -79,12 +79,24 @@
 
   // --- Start fresh ---
   let startFreshOpen = $state(false)
+  let backupExported = $state(false)
+  let cancelButton: HTMLButtonElement | undefined = $state()
 
-  // The export is built before the erase runs, so "Export and erase" downloads
-  // the data being erased. The home page shows the first-run landing once the
-  // app is empty.
-  function startFresh(exportFirst: boolean) {
-    if (exportFirst) downloadBackup()
+  // Resets the exported state whenever the dialog closes.
+  $effect(() => {
+    if (!startFreshOpen) backupExported = false
+  })
+
+  function exportBeforeErasing(): void {
+    downloadBackup()
+    // Keeps focus off Erase once the Export button is gone.
+    cancelButton?.focus()
+    backupExported = true
+  }
+
+  function erase(): void {
+    // Guards against a double click running the erase twice.
+    if (!startFreshOpen) return
     startFreshOpen = false
     eraseData()
     goto(resolve(routes.HOME))
@@ -549,19 +561,32 @@
         {$_('page.settings.backup.startFreshDialog.description')}
       </Dialog.Description>
     </Dialog.Header>
-    <p class="text-base font-bold text-foreground">
-      {$_('page.settings.backup.startFreshDialog.warning')}
-    </p>
+    {#if !backupExported}
+      <p class="text-base font-bold text-foreground">
+        {$_('page.settings.backup.startFreshDialog.warning')}
+      </p>
+    {:else}
+      <p class="text-base text-foreground">
+        {$_('page.settings.backup.startFreshDialog.backupDownloaded')}
+      </p>
+    {/if}
     <Dialog.Footer class="sm:justify-start">
-      <Button onclick={() => startFresh(true)}>
-        <FileDown class="size-4" />
-        {$_('page.settings.backup.startFreshDialog.exportAndErase')}
-      </Button>
-      <Button variant="destructive" onclick={() => startFresh(false)}>
-        <Eraser class="size-4" />
-        {$_('page.settings.backup.startFreshDialog.erase')}
-      </Button>
-      <Button variant="ghost" onclick={() => (startFreshOpen = false)}>
+      {#if !backupExported}
+        <Button onclick={exportBeforeErasing}>
+          <FileDown class="size-4" />
+          {$_('page.settings.backup.startFreshDialog.exportBeforeErasing')}
+        </Button>
+        <Button variant="destructive" onclick={erase}>
+          <Eraser class="size-4" />
+          {$_('page.settings.backup.startFreshDialog.eraseAnyway')}
+        </Button>
+      {:else}
+        <Button variant="destructive" onclick={erase}>
+          <Eraser class="size-4" />
+          {$_('page.settings.backup.startFreshDialog.erase')}
+        </Button>
+      {/if}
+      <Button bind:ref={cancelButton} variant="ghost" onclick={() => (startFreshOpen = false)}>
         {$_('page.settings.backup.startFreshDialog.cancel')}
       </Button>
     </Dialog.Footer>

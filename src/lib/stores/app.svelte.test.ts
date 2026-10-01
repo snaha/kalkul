@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { track } from '$lib/analytics'
 import { getYearlyPlanProjection } from '$lib/plan-projection'
-import type { Portfolio, Profile } from '$lib/schemas'
+import type { Portfolio, Profile, StoredData } from '$lib/schemas'
 import { buildSnapshotSections, seedSnapshotOn, snapshotFromFields } from '$lib/snapshot-form'
 import storageKeys from '$lib/storage-keys'
 import { toDateOnlyString } from '$lib/utils'
@@ -83,8 +83,7 @@ describe('appStore.hasData', () => {
 })
 
 describe('appStore.startSync', () => {
-  // The listener is registered on `window`, which the Node test environment
-  // does not have; a bare EventTarget is enough to deliver storage events.
+  // Node has no `window`; an EventTarget delivers the storage events.
   let tab: EventTarget
   let stopSync: () => void
 
@@ -122,7 +121,6 @@ describe('appStore.startSync', () => {
   })
 
   it('empties this tab when another tab erases the data', () => {
-    // The other tab's Start fresh removed the key from the shared storage.
     backing.delete(storageKeys.DATA)
     tab.dispatchEvent(storageEvent(storageKeys.DATA, null))
 
@@ -130,8 +128,11 @@ describe('appStore.startSync', () => {
     expect(appStore.profile.toJSON()).toEqual({ name: '', email: '' })
     expect(appStore.portfolios).toEqual([])
     expect(appStore.lastUpdated).toBe(0)
-    // Following the erase must not write this tab's old data back.
-    expect(backing.has(storageKeys.DATA)).toBe(false)
+
+    appStore.updateProfile({ name: 'John Doe' })
+    const stored: StoredData = JSON.parse(backing.get(storageKeys.DATA) ?? '{}')
+    expect(stored.profile).toEqual({ name: 'John Doe', email: '' })
+    expect(stored.portfolios).toEqual([])
   })
 
   it('adopts the data another tab saved', () => {

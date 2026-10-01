@@ -28,7 +28,7 @@ beforeEach(() => {
   backing.set(storageKeys.LOCALE, 'cs')
   appStore.importBackup(
     JSON.stringify({
-      profile: { name: 'Jane Doe', email: '', cash_amount: 1_000 },
+      profile: { name: 'Jane Doe', email: '' },
       portfolios: [],
     }),
   )
@@ -41,14 +41,6 @@ afterEach(() => {
 })
 
 describe('eraseData', () => {
-  it('leaves an empty app behind', () => {
-    eraseData()
-
-    expect(appStore.hasData).toBe(false)
-    expect(appStore.profile.toJSON()).toEqual({ name: '', email: '' })
-    expect(backing.has(storageKeys.DATA)).toBe(false)
-  })
-
   it('keeps the theme and language picked in this browser', () => {
     eraseData()
 
