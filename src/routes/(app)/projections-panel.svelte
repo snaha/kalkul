@@ -88,7 +88,7 @@
            Without them there is nothing to carry forward, so it is left out —
            the saved plans below still stand on their own. -->
       {#if hasFinancialData}
-        <a href={resolve(`${routes.PLAN_VIEW}/${CURRENT_PROJECTION_ID}`)} class="block rounded-xl">
+        <a href={resolve(`${routes.PLAN_VIEW}/${CURRENT_PROJECTION_ID}`)} class="rounded-xl">
           <Card.Root class="gap-0 bg-accent py-0 shadow-xs transition-colors hover:bg-accent/60">
             <Card.Content class="flex items-center gap-4 p-4">
               <div class="h-[81px] w-[144px] shrink-0 overflow-hidden rounded-lg">
@@ -113,7 +113,7 @@
 
       {#if hasPlans}
         {#each planCards as plan (plan.id)}
-          <a href={resolve(`${routes.PLAN_VIEW}/${plan.id}`)} class="block rounded-xl">
+          <a href={resolve(`${routes.PLAN_VIEW}/${plan.id}`)} class="rounded-xl">
             <Card.Root class="gap-0 py-0 shadow-xs transition-colors hover:bg-accent">
               <Card.Content class="flex items-center gap-4 p-4">
                 <div class="h-[81px] w-[144px] shrink-0 overflow-hidden rounded-lg">
