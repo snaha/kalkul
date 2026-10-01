@@ -150,11 +150,7 @@ describe('buildSnapshotRows', () => {
   })
 
   test('offers no delete for the only snapshot while anything is held', () => {
-    // A profile holding balances is never left without a baseline, so deleting
-    // its only snapshot carries the figures forward to today and records them
-    // there. The row the user deleted, after being told it cannot be undone,
-    // would come back — dated today, and changed by however long it was
-    // carried forward — whatever date it had.
+    // Deleting it would record it again, dated today, whatever its date.
     const today: Profile = { ...PROFILE, snapshots: [captureSnapshot(PROFILE, '2026-06-15')] }
     expect(buildSnapshotRows(today, TODAY)[0].deletable).toBe(false)
 
@@ -170,8 +166,7 @@ describe('buildSnapshotRows', () => {
     }
     expect(buildSnapshotRows(two, TODAY).map((r) => r.deletable)).toEqual([true, true])
 
-    // Nothing held today, so the history is simply left empty — whatever the
-    // only snapshot's date.
+    // Nothing held, so the history is left empty, whatever the date.
     const bare: Profile = { name: '', email: '', cash_amount: 0 }
     const emptied: Profile = { ...bare, snapshots: [captureSnapshot(bare, '2026-06-15')] }
     expect(buildSnapshotRows(emptied, TODAY)[0].deletable).toBe(true)

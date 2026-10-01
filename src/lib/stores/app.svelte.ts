@@ -441,10 +441,10 @@ function withAppStore() {
      * Deleting the last one would leave the profile holding balances with no
      * baseline to project them from: no staleness banner, no projection, and
      * the next unrelated edit stamping today's date onto months-old figures.
-     * The History page does not offer that (`canDeleteSnapshot`), but should a
-     * caller do it anyway, the deleted snapshot's figures are carried forward
-     * to today — the same model the dashboard shows them with — and recorded
-     * there, so history is never empty while there are balances.
+     * So the deleted snapshot's figures are carried forward to today — the same
+     * model the dashboard shows them with — and recorded there. History is
+     * never empty while there are balances. The History page doesn't offer
+     * this delete (`canDeleteSnapshot`).
      */
     deleteSnapshot(date: string) {
       const today = new Date()
