@@ -14,7 +14,7 @@
   import type { Snapshot } from '$lib/schemas'
   import { seedSnapshotOn } from '$lib/snapshot-form'
   import { buildSnapshotRows } from '$lib/snapshot-rows'
-  import { staleSince as staleSinceOf } from '$lib/snapshots'
+  import { heldProfile, staleSince as staleSinceOf } from '$lib/snapshots'
   import { appStore } from '$lib/stores/app.svelte'
   import { trackToday } from '$lib/today.svelte'
   import { toDateOnlyString } from '$lib/utils'
@@ -30,7 +30,9 @@
   const todayDate = $derived(toDateOnlyString(today))
 
   const storedProfile = $derived(appStore.profile.toJSON())
-  const currentProfile = $derived(getCurrentProfile(storedProfile, today))
+  // What the user holds today, carried forward: the rows Quick update asks
+  // about. Plan-owned items and positions not held today are left out.
+  const heldNow = $derived(heldProfile(getCurrentProfile(storedProfile, today), today))
   // Recorded snapshots keep the page open on their own: a profile that spent
   // its way to zero has no balances left but a history worth reading.
   const hasHistory = $derived(!appStore.loading && hasHistoryToShow(storedProfile))
@@ -176,7 +178,7 @@
   <QuickUpdateDialog
     bind:open={quickUpdateOpen}
     {storedProfile}
-    projectedProfile={currentProfile}
+    projectedProfile={heldNow}
     lastUpdated={staleSince}
   />
 {/if}

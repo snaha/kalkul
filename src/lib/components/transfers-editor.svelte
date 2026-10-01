@@ -20,6 +20,7 @@
     type TransferFields,
     blankTransferFields,
     transferFromFields,
+    transferInvestments,
     transferToFields,
   } from '$lib/transfer-form'
 
@@ -70,15 +71,19 @@
 
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
-  // From/To dropdown options: cash plus every investment on the profile.
-  // Transfers can only move between cash and investments — tangible assets
-  // and liabilities are intentionally excluded (selling/buying a house is
-  // more naturally modelled as a one-off expense/income), matching the plan's
-  // transfer dialog. The mutually-exclusive endpoints are enforced per card by
-  // disabling the option already chosen in the sibling dropdown.
+  // From/To dropdown options: cash plus the shared investments; plan-owned
+  // ones stay out of financial data. Transfers can only move between cash and
+  // investments — tangible assets and liabilities are intentionally excluded
+  // (selling/buying a house is more naturally modelled as a one-off
+  // expense/income), matching the plan's transfer dialog. The
+  // mutually-exclusive endpoints are enforced per card by disabling the option
+  // already chosen in the sibling dropdown.
   const assetOptions = $derived<{ id: string; name: string }[]>([
     { id: 'cash', name: $_('page.plan.cashItem') },
-    ...(appStore.profile.investments ?? []).map((inv) => ({ id: inv.id, name: inv.name })),
+    ...transferInvestments(appStore.profile.investments).map((inv) => ({
+      id: inv.id,
+      name: inv.name,
+    })),
   ])
 
   const frequencyItems: SelectFieldItem<Frequency>[] = $derived(getFrequencyItems($_))
