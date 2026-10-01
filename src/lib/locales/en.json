@@ -633,7 +633,17 @@
         "export": "Export to file",
         "exportDescription": "Save your current Kalkul data as a file to back up or transfer to another device.",
         "import": "Import from file",
-        "importDescription": "Load a previously exported Kalkul file. This will replace your current data."
+        "importDescription": "Load a previously exported Kalkul file. This will replace your current data.",
+        "startFresh": "Start fresh",
+        "startFreshDescription": "Erase all your Kalkul data in this browser and start over.",
+        "startFreshDialog": {
+          "title": "Erase all your data?",
+          "description": "Your profile, plans, assets, cash flows, and history will be permanently erased from this browser. This cannot be undone.",
+          "warning": "Export your current data first if you want to keep it.",
+          "exportAndErase": "Export and erase",
+          "erase": "Erase",
+          "cancel": "Cancel"
+        }
       },
       "taxRules": {
         "description": "Set default tax rules for when you sell investments or tangible assets. These will apply automatically unless overridden.",

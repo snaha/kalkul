@@ -82,6 +82,86 @@ describe('appStore.hasData', () => {
   })
 })
 
+describe('appStore.startSync', () => {
+  // The listener is registered on `window`, which the Node test environment
+  // does not have; a bare EventTarget is enough to deliver storage events.
+  let tab: EventTarget
+  let stopSync: () => void
+
+  // What the browser delivers to every other tab when one of them writes
+  // `key`. `newValue` is the DOM's `null` when the key was removed.
+  function storageEvent(key: string, newValue: string | null): Event {
+    return Object.assign(new Event('storage'), { key, newValue })
+  }
+
+  beforeEach(() => {
+    stubLocalStorage()
+    tab = new EventTarget()
+    vi.stubGlobal('window', tab)
+    appStore.importBackup(
+      JSON.stringify({
+        profile: { name: 'Jane Doe', email: '', cash_amount: 1_000 },
+        portfolios: [
+          {
+            id: 'plan-1',
+            name: 'Plan',
+            start_date: '2026-01-01',
+            end_date: '2060-01-01',
+            inflation_rate: 2,
+          },
+        ],
+      }),
+    )
+    stopSync = appStore.startSync()
+  })
+
+  afterEach(() => {
+    stopSync()
+    appStore.clear()
+    vi.unstubAllGlobals()
+  })
+
+  it('empties this tab when another tab erases the data', () => {
+    // The other tab's Start fresh removed the key from the shared storage.
+    backing.delete(storageKeys.DATA)
+    tab.dispatchEvent(storageEvent(storageKeys.DATA, null))
+
+    expect(appStore.hasData).toBe(false)
+    expect(appStore.profile.toJSON()).toEqual({ name: '', email: '' })
+    expect(appStore.portfolios).toEqual([])
+    expect(appStore.lastUpdated).toBe(0)
+    // Following the erase must not write this tab's old data back.
+    expect(backing.has(storageKeys.DATA)).toBe(false)
+  })
+
+  it('adopts the data another tab saved', () => {
+    const saved = {
+      lastUpdated: 42,
+      profile: { name: 'John Doe', email: '' },
+      portfolios: [],
+    }
+    tab.dispatchEvent(storageEvent(storageKeys.DATA, JSON.stringify(saved)))
+
+    expect(appStore.profile.name).toBe('John Doe')
+    expect(appStore.portfolios).toEqual([])
+    expect(appStore.lastUpdated).toBe(42)
+  })
+
+  it('ignores another key being removed', () => {
+    tab.dispatchEvent(storageEvent(storageKeys.THEME, null))
+
+    expect(appStore.profile.name).toBe('Jane Doe')
+    expect(appStore.portfolios.map((p) => p.id)).toEqual(['plan-1'])
+  })
+
+  it('stops listening once stopped', () => {
+    stopSync()
+    tab.dispatchEvent(storageEvent(storageKeys.DATA, null))
+
+    expect(appStore.profile.name).toBe('Jane Doe')
+  })
+})
+
 describe('appStore.updateProfile snapshot recording', () => {
   beforeEach(() => {
     vi.useFakeTimers()

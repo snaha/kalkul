@@ -1,12 +1,14 @@
 <script lang="ts">
   import { _, locale } from 'svelte-i18n'
 
+  import Eraser from '@lucide/svelte/icons/eraser'
   import FileDown from '@lucide/svelte/icons/file-down'
   import Plus from '@lucide/svelte/icons/plus'
   import RefreshCw from '@lucide/svelte/icons/refresh-cw'
   import Trash2 from '@lucide/svelte/icons/trash-2'
   import X from '@lucide/svelte/icons/x'
 
+  import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
 
   import HelpTooltip from '$lib/components/help-tooltip.svelte'
@@ -14,12 +16,14 @@
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Card } from '$lib/components/ui/card'
+  import * as Dialog from '$lib/components/ui/dialog'
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import * as RadioGroup from '$lib/components/ui/radio-group'
   import { Separator } from '$lib/components/ui/separator'
   import { Switch } from '$lib/components/ui/switch'
   import downloadBackup from '$lib/download-backup'
+  import eraseData from '$lib/erase-data'
   import { COUNTRY_CURRENCY_MAP, getCountryItems, getLanguageItems } from '$lib/profile-options'
   import routes from '$lib/routes'
   import { type HoldingPeriod, type Profile, type TaxRule } from '$lib/schemas'
@@ -71,6 +75,19 @@
   function show(id: SectionId) {
     active = id
     document.getElementById(`${uid}-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  // --- Start fresh ---
+  let startFreshOpen = $state(false)
+
+  // The export is built before the erase runs, so "Export and erase" downloads
+  // the data being erased. The home page shows the first-run landing once the
+  // app is empty.
+  function startFresh(exportFirst: boolean) {
+    if (exportFirst) downloadBackup()
+    startFreshOpen = false
+    eraseData()
+    goto(resolve(routes.HOME))
   }
 
   // --- MCP server ---
@@ -319,6 +336,20 @@
             {$_('page.settings.backup.importDescription')}
           </p>
         </div>
+        <div class="flex items-start gap-4">
+          <Button
+            variant="destructive"
+            class="w-44"
+            disabled={!appStore.hasData}
+            onclick={() => (startFreshOpen = true)}
+          >
+            <Eraser class="size-4" />
+            {$_('page.settings.backup.startFresh')}
+          </Button>
+          <p class="flex-1 text-sm font-medium text-muted-foreground">
+            {$_('page.settings.backup.startFreshDescription')}
+          </p>
+        </div>
       </section>
 
       <Separator class="max-w-[576px]" />
@@ -509,3 +540,30 @@
     </div>
   </div>
 </div>
+
+<Dialog.Root bind:open={startFreshOpen}>
+  <Dialog.Content class="sm:max-w-[576px]">
+    <Dialog.Header>
+      <Dialog.Title>{$_('page.settings.backup.startFreshDialog.title')}</Dialog.Title>
+      <Dialog.Description class="text-base text-foreground">
+        {$_('page.settings.backup.startFreshDialog.description')}
+      </Dialog.Description>
+    </Dialog.Header>
+    <p class="text-base font-bold text-foreground">
+      {$_('page.settings.backup.startFreshDialog.warning')}
+    </p>
+    <Dialog.Footer class="sm:justify-start">
+      <Button onclick={() => startFresh(true)}>
+        <FileDown class="size-4" />
+        {$_('page.settings.backup.startFreshDialog.exportAndErase')}
+      </Button>
+      <Button variant="destructive" onclick={() => startFresh(false)}>
+        <Eraser class="size-4" />
+        {$_('page.settings.backup.startFreshDialog.erase')}
+      </Button>
+      <Button variant="ghost" onclick={() => (startFreshOpen = false)}>
+        {$_('page.settings.backup.startFreshDialog.cancel')}
+      </Button>
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>
