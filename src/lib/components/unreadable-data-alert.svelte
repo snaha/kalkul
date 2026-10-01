@@ -8,10 +8,7 @@
   import { downloadUnreadableData } from '$lib/download-backup'
   import { appStore } from '$lib/stores/app.svelte'
 
-  // Mounted once in the root layout, so it shows on every page — the landing
-  // page and onboarding included, which is where an app that opened empty
-  // lands. Dismissing hides it for that data only: if another tab saves data
-  // this one cannot read either, it comes back.
+  // Dismissal is per payload; different unreadable data shows the alert again.
   let dismissedRaw = $state<string | undefined>(undefined)
   const unreadable = $derived(
     appStore.unreadableData?.raw === dismissedRaw ? undefined : appStore.unreadableData,
@@ -44,8 +41,6 @@
             <FileDown />
             {$_('common.unreadableData.download')}
           </Button>
-          <!-- Without a copy kept, the only way on is downloading one: saves
-               stay held back until then, and dismissing would hide why. -->
           {#if unreadable.kept}
             <Button size="sm" variant="ghost" onclick={dismiss}>
               {$_('common.unreadableData.dismiss')}

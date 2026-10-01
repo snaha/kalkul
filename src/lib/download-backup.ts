@@ -2,7 +2,6 @@ import { EVENTS, track } from '$lib/analytics'
 import { appStore } from '$lib/stores/app.svelte'
 import { slugify } from '$lib/utils'
 
-/** Hands `json` to the browser as a download named `filename`. */
 function downloadJson(json: string, filename: string): void {
   const blob = new Blob([json], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
@@ -36,10 +35,7 @@ export default function downloadBackup(): void {
   )
 }
 
-/**
- * Hand the stored data the app could not read to the browser as a download,
- * exactly as it was found, and let saves overwrite the original from now on.
- */
+/** Downloads the unreadable data as stored and marks it kept. */
 export function downloadUnreadableData(): void {
   const unreadable = appStore.unreadableData
   if (!unreadable) return

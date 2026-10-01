@@ -13,11 +13,7 @@
 export default {
   /** localStorage — persisted app data (profile, portfolios, plans). */
   DATA: 'kalkul-data',
-  /**
-   * localStorage — prefix of the copies set aside of `DATA` the app could not
-   * read, each suffixed with the ISO time it was found. One copy per distinct
-   * payload, never overwritten; see `appStore.unreadableData`.
-   */
+  /** localStorage — prefix for copies of unreadable `DATA`, suffixed with an ISO timestamp. */
   UNREADABLE_DATA_PREFIX: 'kalkul-data-unreadable-',
   /** localStorage — selected color theme ('light' | 'dark' | 'system'). */
   THEME: 'theme',

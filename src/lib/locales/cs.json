@@ -666,10 +666,10 @@
     "notImplemented": "Zatím není implementováno",
     "unreadableData": {
       "title": "Uložená data se nepodařilo načíst",
-      "description": "Data uložená v tomto prohlížeči jsou poškozená nebo pocházejí z nekompatibilní verze Kalkulu, a tak se aplikace otevřela prázdná.",
-      "kept": "Jejich kopie zůstala zachována, takže se nic neztratilo.",
-      "notKept": "Na uložení kopie nebylo místo, a tak se vaše změny neuloží, dokud si data nestáhnete.",
-      "download": "Stáhnout nenačtená data",
+      "description": "Data uložená v tomto prohlížeči jsou poškozená nebo pocházejí z nekompatibilní verze Kalkulu.",
+      "kept": "Jejich kopie zůstala uložena v tomto prohlížeči.",
+      "notKept": "Na uložení kopie nebylo místo, proto se vaše změny neuloží, dokud si data nestáhnete.",
+      "download": "Stáhnout nečitelná data",
       "dismiss": "Zavřít"
     }
   },
