@@ -228,6 +228,9 @@
   })
 </script>
 
+<!-- Figma frames 1340-1345 / 1350-1351: the header carries the title and the
+     close X only. The shell's default muted footer has Create/Save changes +
+     Cancel on the left and, when editing, delete on the right. -->
 <ItemEditDialogShell
   bind:open
   {onOpenChange}
@@ -239,7 +242,7 @@
   toolbar={false}
   newTitle={$_('page.plan.newTransfer')}
   saveDisabled={!canSave}
-  saveLabel={isNew ? $_('page.plan.createItem') : undefined}
+  footerClass="bg-muted"
   onSave={save}
   onDuplicate={duplicate}
   onToggleInclude={toggleExclude}

@@ -15,7 +15,6 @@
   import InflationAdjustToggle from '$lib/components/inflation-adjust-toggle.svelte'
   import SelectField, { type SelectFieldItem } from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
-  import { Button } from '$lib/components/ui/button'
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import { itemsForPlan } from '$lib/plan-owned'
@@ -182,20 +181,10 @@
   })
 </script>
 
-{#snippet cashFlowFooter()}
-  <!-- Figma 941-71859: Create + Cancel on the left in a muted footer. -->
-  <div class="flex flex-1 items-center gap-2">
-    <Button disabled={!canSave} onclick={save}>
-      {isNew ? $_('page.plan.createItem') : $_('page.plan.saveChanges')}
-    </Button>
-    <Button variant="outline" onclick={() => onOpenChange(false)}>
-      {$_('page.plan.cancel')}
-    </Button>
-  </div>
-{/snippet}
-
-<!-- Figma 941-71859 / 941-72501: the header carries the title and the close X
-     only — no rename/duplicate/include/delete toolbar. -->
+<!-- Figma 941-71859 / 941-72501 / 941-81371: the header carries the title and
+     the close X only — no rename/duplicate/include/delete toolbar. The shell's
+     default muted footer has Create/Save changes + Cancel on the left and, when
+     editing, delete on the right. -->
 <ItemEditDialogShell
   bind:open
   {onOpenChange}
@@ -210,7 +199,7 @@
       ? $_('page.plan.newIncome')
       : $_('page.plan.newExpense')
     : undefined}
-  footer={cashFlowFooter}
+  saveDisabled={!canSave}
   footerClass="bg-muted"
   onSave={save}
   onDuplicate={duplicate}
