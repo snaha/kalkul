@@ -251,6 +251,7 @@
           <SelectField
             id="{uid}-transactionYear"
             class="max-w-24"
+            placeholder={$_('page.setup.aboutYou.selectYear')}
             aria-label={$_('page.setup.aboutYou.selectYear')}
             value={form.transaction_year !== undefined ? String(form.transaction_year) : ''}
             items={yearItems}
@@ -259,6 +260,7 @@
             }}
           />
           <SelectField
+            placeholder={$_('page.setup.aboutYou.selectMonth')}
             aria-label={$_('page.setup.aboutYou.selectMonth')}
             value={form.transaction_month !== undefined
               ? monthToOption(form.transaction_month)
