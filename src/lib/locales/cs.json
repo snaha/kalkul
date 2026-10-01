@@ -729,6 +729,8 @@
     "required_when_end_when_age_is": "Povinné, když konec je při dosažení věku",
     "end_month_before_start_month": "Koncový měsíc nesmí být před počátečním měsícem ve stejném roce",
     "outside_plan": "Musí být v rámci plánu ({start}–{end})",
+    "start_after_plan": "Začíná až po konci plánu ({end})",
+    "end_before_plan": "Končí před začátkem plánu ({start})",
     "required_when_financed": "Povinné při financování",
     "required_when_pay_off_at_specific_date": "Povinné při splacení ke konkrétnímu datu",
     "required_when_compound": "Povinné při složeném úročení",

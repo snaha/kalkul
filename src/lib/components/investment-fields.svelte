@@ -48,6 +48,7 @@
      */
     showTiming?: boolean
     currencyLabel: string
+    /** Year options when there is no plan; with `range` the plan's years are used. */
     years?: string[]
     range?: PlanRange
     months?: { value: string; label: string }[]

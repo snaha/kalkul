@@ -57,6 +57,7 @@
     /** Purchase/Sale selectors — the plan dialog plans an asset in time. */
     showTiming?: boolean
     currencyLabel: string
+    /** Year options when there is no plan; with `range` the plan's years are used. */
     years?: string[]
     range?: PlanRange
     months?: { value: string; label: string }[]

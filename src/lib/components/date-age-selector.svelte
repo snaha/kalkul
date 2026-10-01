@@ -4,7 +4,8 @@
   import SelectField, { type SelectFieldItem } from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Label } from '$lib/components/ui/label'
-  import { type PlanRange, timingWithinPlan } from '$lib/plan-range'
+  import { type PlanRange, planYearOptions, timingWithinPlan } from '$lib/plan-range'
+  import type { CashFlowEnd, CashFlowStart } from '$lib/schemas'
   import { monthToOption, optionToMonth } from '$lib/utils'
 
   interface Props {
@@ -16,7 +17,8 @@
     year: number | undefined
     month: number | undefined
     age: number | undefined
-    years: string[]
+    /** Year options when the field has no plan; ignored when `range` is set. */
+    years?: string[]
     months: { value: string; label: string }[]
     /**
      * Whether the profile has a birth date. Age-based timing ('when_age_is')
@@ -41,8 +43,9 @@
      */
     minMonth?: number
     /**
-     * The plan's years, when the field belongs to a plan. A specific year or
-     * an age outside them shows an error; the caller keeps Save disabled.
+     * The plan's years, when the field belongs to a plan. A start after the
+     * plan or an end before it can never fire: the field shows an error and
+     * the caller keeps Save disabled. The year list is then the plan's years.
      */
     range?: PlanRange
     onValueChange: (v: T) => void
@@ -60,7 +63,7 @@
     year,
     month,
     age,
-    years,
+    years = [],
     months,
     birthDateSet = true,
     label: labelOverride,
@@ -118,8 +121,15 @@
           whenAgeIsItem,
         ]) as SelectFieldItem<T>[],
   )
-  let outsidePlan = $derived(range !== undefined && !timingWithinPlan(range, value, year, age))
-  let yearItems = $derived(years.map((y) => ({ value: y, label: y })))
+  // `value` is a CashFlowStart/CashFlowEnd member for the mode (see modeItems).
+  let outsidePlan = $derived(
+    range !== undefined &&
+      !timingWithinPlan(range, mode, value as CashFlowStart | CashFlowEnd, year, age),
+  )
+  // A stored year outside the plan stays listed so the user can see it.
+  let yearItems = $derived(
+    (range ? planYearOptions(range, year) : years).map((y) => ({ value: y, label: y })),
+  )
   let monthItems = $derived(
     minMonth === undefined
       ? months
@@ -177,8 +187,8 @@
 </div>
 {#if outsidePlan && range}
   <p class="text-xs text-destructive">
-    {$_('validation.outside_plan', {
-      values: { start: String(range.startYear), end: String(range.endYear) },
-    })}
+    {mode === 'start'
+      ? $_('validation.start_after_plan', { values: { end: String(range.endYear) } })
+      : $_('validation.end_before_plan', { values: { start: String(range.startYear) } })}
   </p>
 {/if}

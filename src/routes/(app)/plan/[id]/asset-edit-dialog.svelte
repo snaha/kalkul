@@ -10,7 +10,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
   import { itemsForPlan } from '$lib/plan-owned'
-  import { planRangeOf, planYearOptions, timingWithinPlan } from '$lib/plan-range'
+  import { planRangeOf, timingWithinPlan } from '$lib/plan-range'
   import type {
     CashFlowEnd,
     CashFlowStart,
@@ -115,7 +115,6 @@
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
   const range = $derived(planRangeOf(plan, appStore.profile.birthDate))
-  const years = $derived(planYearOptions(range))
 
   let months = $derived(getMonthOptions($locale ?? undefined))
 
@@ -231,13 +230,13 @@
   }
 
   let form = $state<FormState>(blankForm())
-  // Every planned date or age must fall inside the plan (year precision).
+  // A start after the plan or an end before it could never take effect.
   const timingWithin = $derived(
     kind === 'investment'
-      ? timingWithinPlan(range, form.start, form.start_year, form.start_age) &&
-          timingWithinPlan(range, form.exit, form.exit_year, form.exit_age)
-      : timingWithinPlan(range, form.purchase, form.purchase_year, form.purchase_age) &&
-          timingWithinPlan(range, form.sale, form.sale_year, form.sale_age),
+      ? timingWithinPlan(range, 'start', form.start, form.start_year, form.start_age) &&
+          timingWithinPlan(range, 'end', form.exit, form.exit_year, form.exit_age)
+      : timingWithinPlan(range, 'start', form.purchase, form.purchase_year, form.purchase_age) &&
+          timingWithinPlan(range, 'end', form.sale, form.sale_year, form.sale_age),
   )
   // "Show advanced options" disclosure for a liability and for the financing
   // of a financed tangible asset. Auto-expands when the item already carries
@@ -448,7 +447,6 @@
       {showAdvanced}
       showTiming
       {currencyLabel}
-      {years}
       {range}
       {months}
       birthDateSet={appStore.profile.birth_date !== undefined}
@@ -470,7 +468,6 @@
       {showAdvanced}
       showTiming
       {currencyLabel}
-      {years}
       {range}
       {months}
       birthDateSet={appStore.profile.birth_date !== undefined}

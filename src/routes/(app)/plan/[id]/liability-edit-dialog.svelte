@@ -15,7 +15,7 @@
   import { Switch } from '$lib/components/ui/switch'
   import { itemsForPlan } from '$lib/plan-owned'
   import { installmentAmountForLoan, termYearsForLoan } from '$lib/plan-projection'
-  import { planRangeOf, planYearOptions, timingWithinPlan } from '$lib/plan-range'
+  import { planRangeOf, planYearOptions, timingWithinPlan, yearWithinPlan } from '$lib/plan-range'
   import type {
     CashFlowStart,
     CompoundingFrequency,
@@ -59,7 +59,6 @@
   let { open = $bindable(), onOpenChange, initial, plan, onDuplicated }: Props = $props()
 
   const range = $derived(planRangeOf(plan, appStore.profile.birthDate))
-  const years = $derived(planYearOptions(range))
   let months = $derived(getMonthOptions($locale ?? undefined))
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
@@ -190,7 +189,9 @@
   let interestTypeItems = $derived(getInterestTypeItems($_))
   let compoundingFrequencyItems = $derived(getCompoundingFrequencyItems($_))
   let payOffItems = $derived(getLiabilityPayOffItems($_))
-  let yearItems = $derived(years.map((y) => ({ value: y, label: y })))
+  let yearItems = $derived(
+    planYearOptions(range, form.pay_off_year).map((y) => ({ value: y, label: y })),
+  )
 
   function round(value: number, decimals: number): number {
     const factor = 10 ** decimals
@@ -251,11 +252,11 @@
   const canSave = $derived(
     (form.outstanding_balance ?? 0) > 0 &&
       timingComplete(form.start, form.start_year, form.start_month, form.start_age) &&
-      timingWithinPlan(range, form.start, form.start_year, form.start_age) &&
+      timingWithinPlan(range, 'start', form.start, form.start_year, form.start_age) &&
       (form.pay_off !== 'at_specific_date' ||
         (form.pay_off_year !== undefined &&
           form.pay_off_month !== undefined &&
-          timingWithinPlan(range, 'at_specific_date', form.pay_off_year, undefined))) &&
+          yearWithinPlan(range, form.pay_off_year))) &&
       // Compound interest must state its cadence.
       (form.interest_type !== 'compound' || form.compounding_frequency !== undefined),
   )
@@ -360,7 +361,6 @@
     year={form.start_year}
     month={form.start_month}
     age={form.start_age}
-    {years}
     {range}
     {months}
     birthDateSet={appStore.profile.birth_date !== undefined}
@@ -489,7 +489,7 @@
           />
           <HelpTooltip text={$_('page.plan.payOffDescription')} />
         </div>
-        {#if !timingWithinPlan(range, 'at_specific_date', form.pay_off_year, undefined)}
+        {#if !yearWithinPlan(range, form.pay_off_year)}
           <p class="text-xs text-destructive">
             {$_('validation.outside_plan', {
               values: { start: String(range.startYear), end: String(range.endYear) },

@@ -8,6 +8,7 @@
     blankCashFlowFields,
     cashFlowFromFields,
     cashFlowToFields,
+    cashFlowWithinPlan,
     endMinMonth,
   } from '$lib/cash-flow-form'
   import ChangeOverTimeSelector from '$lib/components/change-over-time-selector.svelte'
@@ -20,7 +21,7 @@
   import { Label } from '$lib/components/ui/label'
   import { itemsForPlan } from '$lib/plan-owned'
   import { summarizeCashFlow } from '$lib/plan-projection'
-  import { planRangeOf, planYearOptions, timingWithinPlan } from '$lib/plan-range'
+  import { planRangeOf, planYearOptions, yearWithinPlan } from '$lib/plan-range'
   import { sameYearMonthsInverted, timingComplete } from '$lib/schemas'
   import type { CashFlowSchedule, Expense, Income } from '$lib/schemas'
   import { getFrequencyItems } from '$lib/select-options'
@@ -55,7 +56,6 @@
   let { open = $bindable(), onOpenChange, kind, initial, plan, onDuplicated }: Props = $props()
 
   const range = $derived(planRangeOf(plan, appStore.profile.birthDate))
-  const years = $derived(planYearOptions(range))
   let months = $derived(getMonthOptions($locale ?? undefined))
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
@@ -64,7 +64,6 @@
     { value: 'one_time', label: $_('page.plan.scheduleOneTime') },
     { value: 'recurring', label: $_('page.plan.scheduleRecurring') },
   ])
-  let yearItems = $derived(years.map((y) => ({ value: y, label: y })))
 
   const isNew = $derived(initial === undefined)
 
@@ -77,7 +76,7 @@
       kind === 'income'
         ? $_('page.setup.income.defaultName', { values: { index: counter } })
         : $_('page.setup.expenses.defaultName', { values: { index: counter } })
-    return blankCashFlowFields(crypto.randomUUID(), name)
+    return blankCashFlowFields(crypto.randomUUID(), name, range)
   }
 
   function seedForm(src: CashFlow | undefined): CashFlowFields {
@@ -85,6 +84,9 @@
   }
 
   let form = $state<CashFlowFields>(blankForm())
+  let yearItems = $derived(
+    planYearOptions(range, form.transaction_year).map((y) => ({ value: y, label: y })),
+  )
 
   // Re-seed form whenever the dialog opens, so reopening discards prior edits.
   let wasOpen = false
@@ -119,12 +121,10 @@
 
   const canSave = $derived(
     (form.amount ?? 0) > 0 &&
-      ((form.schedule === 'one_time' &&
-        timingWithinPlan(range, 'at_specific_date', form.transaction_year, undefined)) ||
+      cashFlowWithinPlan(form, range) &&
+      (form.schedule === 'one_time' ||
         (timingComplete(form.start, form.start_year, form.start_month, form.start_age) &&
           timingComplete(form.end, form.end_year, form.end_month, form.end_age) &&
-          timingWithinPlan(range, form.start, form.start_year, form.start_age) &&
-          timingWithinPlan(range, form.end, form.end_year, form.end_age) &&
           !sameYearMonthsInverted(
             form.start,
             form.start_year,
@@ -274,7 +274,7 @@
             }}
           />
         </div>
-        {#if !timingWithinPlan(range, 'at_specific_date', form.transaction_year, undefined)}
+        {#if !yearWithinPlan(range, form.transaction_year)}
           <p class="text-xs text-destructive">
             {$_('validation.outside_plan', {
               values: { start: String(range.startYear), end: String(range.endYear) },
@@ -326,7 +326,6 @@
       year={form.start_year}
       month={form.start_month}
       age={form.start_age}
-      {years}
       {range}
       {months}
       birthDateSet={appStore.profile.birthDate !== undefined}
@@ -346,7 +345,6 @@
       year={form.end_year}
       month={form.end_month}
       age={form.end_age}
-      {years}
       {range}
       {months}
       minMonth={endMinMonth(form)}
