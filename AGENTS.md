@@ -121,7 +121,7 @@ publicly — and this note with it.
 All external (outbound) URLs live in `src/lib/external-links.ts`. Never hard-code external URLs in components — import and use the constants instead. This keeps links in one place so they can be updated consistently and mocked in tests.
 
 - ✅ `import externalLinks from '$lib/external-links'` then `<Button href={externalLinks.GITHUB} target="_blank" rel="noopener noreferrer">`
-- ❌ `<a href="https://github.com/snaha-org/kalkul-next">` inline in a component
+- ❌ `<a href="https://github.com/snaha/kalkul">` inline in a component
 
 When linking from a bare `<a>` tag (not the `Button` component), the `svelte/no-navigation-without-resolve` ESLint rule will flag the `href` attribute — suppress it on the href line with an inline `eslint-disable-line svelte/no-navigation-without-resolve` comment. The `Button` component is not flagged.
 
