@@ -1,7 +1,7 @@
 import Decimal from 'decimal.js'
 
 import { DECIMAL_0, DECIMAL_1, daysBetween } from '$lib/@snaha/kalkul-maths'
-import { sharedItems } from '$lib/plan-owned'
+import { type PlanOwned, sharedItems } from '$lib/plan-owned'
 import {
   CASH_ENDPOINT,
   INSTALLMENT_PERIODS_PER_YEAR,
@@ -440,8 +440,11 @@ export function getCurrentProfile(profile: Profile, today: Date): Profile {
     const balance = new Decimal(investment.balance)
     return boughtInWindow(investment) ? applyEntryFee(investment, balance) : balance
   }
+  // A position a plan owns is a scenario, not current data: its planned buy or
+  // sell never touches today's cash, and its balance is the plan's figure.
+  const investments = sharedItems(profile.investments)
   let cashBefore = new Decimal(profile.cash_amount ?? 0).plus(flows.cash.mul(yearFraction))
-  for (const investment of profile.investments ?? []) {
+  for (const investment of investments) {
     if (boughtInWindow(investment)) cashBefore = cashBefore.minus(investment.balance)
     if (soldInWindow(investment)) {
       cashBefore = cashBefore.plus(applyExitFee(investment, paidIn(investment)))
@@ -450,7 +453,7 @@ export function getCurrentProfile(profile: Profile, today: Date): Profile {
 
   const before = new Map<string, Decimal>([
     [CASH_ENDPOINT, cashBefore],
-    ...(profile.investments ?? []).map((investment): [string, Decimal] => {
+    ...investments.map((investment): [string, Decimal] => {
       if (soldInWindow(investment)) return [investment.id, DECIMAL_0]
       const held = paidIn(investment)
       return [
@@ -472,18 +475,23 @@ export function getCurrentProfile(profile: Profile, today: Date): Profile {
       .toDecimalPlaces(MONEY_DECIMALS)
       .toNumber()
 
+  // Plan-owned items come back exactly as stored, for the reason above — and
+  // so a save that carries today's values forward leaves them alone too.
+  const isPlanOwned = (item: PlanOwned) => item.plan_id !== undefined
+
   return {
     ...profile,
     cash_amount: balance(CASH_ENDPOINT),
-    investments: profile.investments?.map((investment) => ({
-      ...investment,
-      balance: balance(investment.id),
-    })),
-    liabilities: profile.liabilities?.map((liability) => ({
-      ...liability,
-      ...amortizeLoan(liability, yearFraction),
-    })),
+    investments: profile.investments?.map((investment) =>
+      isPlanOwned(investment) ? investment : { ...investment, balance: balance(investment.id) },
+    ),
+    liabilities: profile.liabilities?.map((liability) =>
+      isPlanOwned(liability)
+        ? liability
+        : { ...liability, ...amortizeLoan(liability, yearFraction) },
+    ),
     tangible_assets: profile.tangible_assets?.map((asset) => {
+      if (isPlanOwned(asset)) return asset
       // A property not owned on the date is left alone for the same reason a
       // position not held is: its mortgage is not being paid yet, or was
       // settled by the sale.
