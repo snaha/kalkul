@@ -9,7 +9,7 @@ import { buildSnapshotSections, seedSnapshotOn, snapshotFromFields } from '$lib/
 import storageKeys from '$lib/storage-keys'
 import { toDateOnlyString } from '$lib/utils'
 
-import { appStore } from './app.svelte'
+import { type DataChange, appStore } from './app.svelte'
 
 vi.mock('$lib/analytics', async (importOriginal) => ({
   ...(await importOriginal<typeof import('$lib/analytics')>()),
@@ -1185,5 +1185,114 @@ describe('appStore deleting the only snapshot of a growing profile', () => {
     // January's 10,000 with today's date would give that money back.
     expect(appStore.profile.cash_amount).toBe(24_883)
     expect(appStore.profile.snapshots?.[0].cash_amount).toBe(24_883)
+  })
+})
+
+describe('appStore.replaceData (backup-folder sync)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
+    stubLocalStorage()
+    appStore.clear()
+  })
+
+  afterEach(() => {
+    appStore.clear()
+    vi.unstubAllGlobals()
+    vi.useRealTimers()
+  })
+
+  it('stores the downloaded data exactly, without seeding a snapshot the other computer never made', () => {
+    const data = JSON.stringify({
+      profile: { name: 'Jane', email: '', cash_amount: 1000 },
+      portfolios: [],
+    })
+    appStore.replaceData(data)
+    expect(appStore.profile.cash_amount).toBe(1000)
+    expect(appStore.profile.snapshots).toBeUndefined()
+    expect(JSON.parse(appStore.exportBackup())).toEqual(JSON.parse(data))
+  })
+
+  it('persists and moves lastUpdated like any other change', () => {
+    appStore.replaceData(JSON.stringify({ profile: { name: 'Jane', email: '' }, portfolios: [] }))
+    expect(appStore.lastUpdated).toBe(NOW.getTime())
+    expect(JSON.parse(backing.get(storageKeys.DATA) ?? '{}').profile.name).toBe('Jane')
+  })
+
+  it('rejects data that fails validation and keeps what was there', () => {
+    appStore.replaceData(JSON.stringify({ profile: { name: 'Jane', email: '' }, portfolios: [] }))
+    expect(() => appStore.replaceData(JSON.stringify({ profile: { name: 42 } }))).toThrow()
+    expect(appStore.profile.name).toBe('Jane')
+  })
+})
+
+describe('appStore.onDataChange', () => {
+  const data = (name: string) => JSON.stringify({ profile: { name, email: '' }, portfolios: [] })
+  let changes: DataChange[]
+  let unsubscribe: () => void
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
+    stubLocalStorage()
+    appStore.clear()
+    changes = []
+    unsubscribe = appStore.onDataChange((change) => changes.push(change))
+  })
+
+  afterEach(() => {
+    unsubscribe()
+    appStore.clear()
+    vi.unstubAllGlobals()
+    vi.useRealTimers()
+  })
+
+  it('reports the data as it stands when subscribing', () => {
+    expect(changes).toEqual([{ lastUpdated: 0, source: 'load' }])
+  })
+
+  it('reports an edit, an import and a replacement, each with the new lastUpdated', () => {
+    appStore.updateProfile({ name: 'Jane' })
+    vi.setSystemTime(NOW.getTime() + 1000)
+    appStore.importBackup(data('Eva'))
+    vi.setSystemTime(NOW.getTime() + 2000)
+    appStore.replaceData(data('Ana'))
+    expect(changes.slice(1)).toEqual([
+      { lastUpdated: NOW.getTime(), source: 'edit' },
+      { lastUpdated: NOW.getTime() + 1000, source: 'edit' },
+      { lastUpdated: NOW.getTime() + 2000, source: 'replace' },
+    ])
+  })
+
+  it('reports nothing for a replacement it rejected', () => {
+    expect(() => appStore.replaceData(JSON.stringify({ profile: { name: 42 } }))).toThrow()
+    expect(changes.length).toBe(1)
+  })
+
+  it("reports another tab's save", () => {
+    let onStorage: ((event: StorageEvent) => void) | undefined
+    vi.stubGlobal('window', {
+      addEventListener: (_type: string, handler: (event: StorageEvent) => void) => {
+        onStorage = handler
+      },
+      removeEventListener: () => {},
+    })
+    const stop = appStore.startSync()
+    const stored = { lastUpdated: 42, profile: { name: 'Jane', email: '' }, portfolios: [] }
+    onStorage?.({ key: storageKeys.DATA, newValue: JSON.stringify(stored) } as StorageEvent)
+    stop()
+    expect(changes.slice(1)).toEqual([{ lastUpdated: 42, source: 'other-tab' }])
+  })
+
+  it('reports loading and clearing', () => {
+    appStore.clear()
+    appStore.load()
+    expect(changes.slice(1).map((change) => change.source)).toEqual(['load', 'load'])
+  })
+
+  it('stops reporting once unsubscribed', () => {
+    unsubscribe()
+    appStore.updateProfile({ name: 'Jane' })
+    expect(changes.length).toBe(1)
   })
 })

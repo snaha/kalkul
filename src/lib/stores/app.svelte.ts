@@ -174,14 +174,40 @@ function loadData(): StoredData {
   return { lastUpdated: 0, profile: { ...DEFAULT_PROFILE }, portfolios: [] }
 }
 
+function parseSyncedData(json: string) {
+  return storedDataSchema
+    .pick({ profile: true, portfolios: true })
+    .parse(repairStoredData(JSON.parse(json)))
+}
+
+/**
+ * A change to the stored data, as `onDataChange` reports it.
+ *
+ * - `edit`: this tab saved a change (any edit, an import).
+ * - `replace`: this tab replaced the data with `replaceData`.
+ * - `other-tab`: another tab saved, and this tab took its data.
+ * - `load`: the data was (re)loaded or cleared wholesale; also the first
+ *   call, reporting the data as it stands when the listener subscribes.
+ */
+export interface DataChange {
+  lastUpdated: number
+  source: 'edit' | 'replace' | 'other-tab' | 'load'
+}
+
 function withAppStore() {
   let browserLocale = $state<string | undefined>(undefined)
   let profile = $state<ProfileStore>(enrichProfile({ ...DEFAULT_PROFILE }))
   let portfolios = $state<PortfolioStore[]>([])
   let loading = $state(true)
   let lastUpdated = $state(0)
+  let dataListeners: ((change: DataChange) => void)[] = []
 
-  function persist(): void {
+  function emitChange(source: DataChange['source']): void {
+    const change = { lastUpdated, source }
+    for (const listener of dataListeners) listener(change)
+  }
+
+  function persist(source: 'edit' | 'replace' = 'edit'): void {
     const now = Date.now()
     const stored: StoredData = {
       lastUpdated: now,
@@ -192,6 +218,7 @@ function withAppStore() {
       localStorage.setItem(storageKeys.DATA, JSON.stringify(stored))
       lastUpdated = now
       storageErrorStore.clear()
+      emitChange(source)
     } catch (e) {
       console.error('Failed to save data to localStorage', e)
       storageErrorStore.setError()
@@ -354,6 +381,7 @@ function withAppStore() {
         storageErrorStore.setError()
       }
       loading = false
+      emitChange('load')
     },
 
     persist,
@@ -500,6 +528,7 @@ function withAppStore() {
       portfolios = enrichAll(data.portfolios)
       lastUpdated = data.lastUpdated
       loading = false
+      emitChange('load')
     },
 
     startSync(): () => void {
@@ -515,6 +544,7 @@ function withAppStore() {
           profile = enrichProfile(data.profile)
           portfolios = enrichAll(data.portfolios)
           lastUpdated = data.lastUpdated
+          emitChange('other-tab')
         } catch {
           // Ignore malformed data from other tabs
         }
@@ -545,6 +575,33 @@ function withAppStore() {
       portfolios = enrichAll(validated.portfolios)
       loading = false
       persist()
+    },
+
+    /**
+     * Replaces the data with a copy synced from elsewhere (e.g. a backup
+     * folder). Unlike `importBackup` it stores the data exactly as given — no
+     * snapshot seeded — so both sides hold the same data and the next sync
+     * does not see a change nobody made. Throws without changing anything
+     * when `json` is not data this version can load.
+     */
+    replaceData(json: string): void {
+      const validated = parseSyncedData(json)
+      profile = enrichProfile(validated.profile)
+      portfolios = enrichAll(validated.portfolios)
+      loading = false
+      persist('replace')
+    },
+
+    /**
+     * Calls `listener` with the data as it stands, then after every change to
+     * the stored data, whatever made it. Returns the unsubscribe.
+     */
+    onDataChange(listener: (change: DataChange) => void): () => void {
+      dataListeners = [...dataListeners, listener]
+      listener({ lastUpdated, source: 'load' })
+      return () => {
+        dataListeners = dataListeners.filter((other) => other !== listener)
+      }
     },
   }
 }

@@ -20,6 +20,8 @@
   import { Separator } from '$lib/components/ui/separator'
   import { Switch } from '$lib/components/ui/switch'
   import downloadBackup from '$lib/download-backup'
+  import { pluginStore } from '$lib/plugins/plugins.svelte'
+  import type { KalkulPlugin } from '$lib/plugins/types'
   import { COUNTRY_CURRENCY_MAP, getCountryItems, getLanguageItems } from '$lib/profile-options'
   import routes from '$lib/routes'
   import { type HoldingPeriod, type Profile, type TaxRule } from '$lib/schemas'
@@ -41,22 +43,34 @@
   const uid = $props.id()
 
   // --- Sidebar ---
-  type SectionId =
+  type CoreSectionId =
     | 'backup'
     | 'appearance'
     | 'localisation'
     | 'taxRules'
     | 'yourDetails'
     | 'mcpServer'
-  const sections: SectionId[] = [
+  /** A plugin's section, keyed by the plugin id. */
+  type PluginSectionId = `plugin-${string}`
+  type SectionId = CoreSectionId | PluginSectionId
+
+  type WithSettings = KalkulPlugin & { settings: NonNullable<KalkulPlugin['settings']> }
+  const pluginSections = $derived(
+    pluginStore.active.filter((plugin): plugin is WithSettings => plugin.settings !== undefined),
+  )
+  const pluginSectionId = (plugin: KalkulPlugin): PluginSectionId => `plugin-${plugin.id}`
+
+  // Plugin sections go after Backup.
+  const sections = $derived<SectionId[]>([
     'backup',
+    ...pluginSections.map(pluginSectionId),
     'appearance',
     'localisation',
     'taxRules',
     'yourDetails',
     'mcpServer',
-  ]
-  const navLabels = $derived<Record<SectionId, string>>({
+  ])
+  const navLabels = $derived<Record<CoreSectionId, string>>({
     backup: $_('page.settings.nav.backup'),
     appearance: $_('page.settings.nav.appearance'),
     localisation: $_('page.settings.nav.localisation'),
@@ -286,7 +300,12 @@
               active === id && 'bg-sidebar-accent font-medium text-sidebar-accent-foreground',
             )}
           >
-            {navLabels[id]}
+            {#if id.startsWith('plugin-')}
+              {@const Label = pluginSections.find((p) => pluginSectionId(p) === id)?.settings.label}
+              <Label />
+            {:else}
+              {navLabels[id as CoreSectionId]}
+            {/if}
           </button>
         {/each}
       </nav>
@@ -320,6 +339,17 @@
           </p>
         </div>
       </section>
+
+      {#each pluginSections as plugin (plugin.id)}
+        <Separator class="max-w-[576px]" />
+
+        <section
+          id="{uid}-{pluginSectionId(plugin)}"
+          class="flex w-full max-w-[576px] scroll-mt-8 flex-col gap-4"
+        >
+          <plugin.settings.section />
+        </section>
+      {/each}
 
       <Separator class="max-w-[576px]" />
 

@@ -7,6 +7,7 @@
   import { getDefaultPlanDates } from '$lib/plan-defaults'
   import { sharedItems } from '$lib/plan-owned'
   import { type YearlyProjection, getYearlyPlanProjection } from '$lib/plan-projection'
+  import { pluginStore } from '$lib/plugins/plugins.svelte'
   import { appStore } from '$lib/stores/app.svelte'
 
   import LandingCompare from './landing-compare.svelte'
@@ -131,6 +132,11 @@
         {$_('page.landing.hero.lede')}
       </p>
       <LandingCta hint={$_('page.landing.hero.hint')} />
+      {#each pluginStore.active as plugin (plugin.id)}
+        {#if plugin.landingHint}
+          <plugin.landingHint />
+        {/if}
+      {/each}
 
       <LandingHeroChart
         data={currentBars}

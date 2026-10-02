@@ -7,13 +7,17 @@
 
   import ImportDialog from '$lib/components/import-dialog.svelte'
   import { carriesFiles, pickDroppedBackup } from '$lib/dropped-backup'
+  import { pluginStore } from '$lib/plugins/plugins.svelte'
   import restoreBackup, { showRestoredBackup } from '$lib/restore-backup'
   import { appStore } from '$lib/stores/app.svelte'
   import { importDialogStore } from '$lib/stores/import-dialog.svelte'
 
   // Mounted once in the root layout: dropping an exported backup anywhere in
   // the app imports it. Drags that carry no files (selected text, links) are
-  // left alone. It also hosts the app's single Import dialog.
+  // left alone. It also hosts the app's single Import dialog. A dropped
+  // folder goes to the first active plugin that takes folders, if any.
+
+  const folderPlugin = $derived(pluginStore.active.find((plugin) => plugin.folderDrop))
 
   // dragenter/dragleave fire for every child element the pointer crosses, so
   // count the nesting depth instead of toggling, or the overlay flickers.
@@ -66,12 +70,24 @@
     if (dragDepth === 0) resetDrag()
   }
 
-  function handleDrop(event: DragEvent): void {
+  async function handleDrop(event: DragEvent): Promise<void> {
     if (!carriesFiles(event.dataTransfer?.types)) return
     event.preventDefault()
     resetDrag()
-    // The file list is only readable during the drop event itself.
-    const picked = pickDroppedBackup(Array.from(event.dataTransfer?.files ?? []))
+    // The file list and the folder handle are only readable during the drop
+    // event itself, so take both before awaiting anything.
+    const files = Array.from(event.dataTransfer?.files ?? [])
+    const folderDrop = folderPlugin?.folderDrop
+    if (folderDrop) {
+      const handle = event.dataTransfer?.items[0]?.getAsFileSystemHandle?.()
+      // A folder shows up in the file list too, as a file with no extension.
+      const dropped = await handle
+      if (dropped?.kind === 'directory') {
+        await folderDrop.drop(dropped as FileSystemDirectoryHandle)
+        return
+      }
+    }
+    const picked = pickDroppedBackup(files)
     switch (picked.kind) {
       case 'none':
         return
@@ -128,6 +144,9 @@
       <p class="text-base text-muted-foreground">
         {appStore.hasData ? $_('navbar.import.drop.replaces') : $_('navbar.import.drop.restores')}
       </p>
+      {#if folderPlugin?.folderDrop}
+        <folderPlugin.folderDrop.hint />
+      {/if}
     </div>
   </div>
 {/if}

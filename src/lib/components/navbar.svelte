@@ -12,6 +12,7 @@
   import { Button } from '$lib/components/ui/button'
   import * as Dialog from '$lib/components/ui/dialog'
   import externalLinks from '$lib/external-links'
+  import { pluginStore } from '$lib/plugins/plugins.svelte'
   import routes from '$lib/routes'
 
   const buttonClass = 'text-white hover:bg-white/10 hover:text-white dark:hover:bg-white/10'
@@ -24,6 +25,11 @@
     <img src={logo} alt="Kalkul" class="size-9" />
   </a>
   <div class="flex items-center gap-4">
+    {#each pluginStore.active as plugin (plugin.id)}
+      {#if plugin.navbar}
+        <plugin.navbar class={buttonClass} />
+      {/if}
+    {/each}
     <Button variant="ghost" size="sm" class={buttonClass} onclick={() => (feedbackOpen = true)}>
       <LifeBuoy class="size-4" />
       {$_('navbar.help')}

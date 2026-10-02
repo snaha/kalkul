@@ -6,6 +6,7 @@
 
   import { EVENTS, identify, track, trackerLoaded } from '$lib/analytics'
   import BackupFileDrop from '$lib/components/backup-file-drop.svelte'
+  import { pluginStore } from '$lib/plugins/plugins.svelte'
   import storageKeys from '$lib/storage-keys'
   import { appStore } from '$lib/stores/app.svelte'
   import { syncStore } from '$lib/stores/sync.svelte'
@@ -18,6 +19,7 @@
   let cleanupSync: (() => void) | undefined
   let cleanupTheme: (() => void) | undefined
   let cleanupRemote: (() => void) | undefined
+  let cleanupPlugins: (() => void) | undefined
 
   // Umami analytics is off unless the build sets VITE_UMAMI_WEBSITE_ID (#314);
   // only the production deploy does, so PR previews, local dev and self-hosted
@@ -55,6 +57,7 @@
     cleanupSync = appStore.startSync()
     cleanupTheme = themeStore.init()
     cleanupRemote = syncStore.init()
+    cleanupPlugins = pluginStore.start()
 
     // One browser counts once across days, and "opened with data" is the
     // active-user signal as opposed to a landing-page visit.
@@ -66,6 +69,7 @@
     cleanupSync?.()
     cleanupTheme?.()
     cleanupRemote?.()
+    cleanupPlugins?.()
   })
 </script>
 
@@ -87,6 +91,13 @@
 {@render children()}
 
 <BackupFileDrop />
+
+{#each pluginStore.active as plugin (plugin.id)}
+  {#if plugin.root}
+    <plugin.root />
+  {/if}
+{/each}
+
 {#if analyticsEnabled && instagramIos}
   {@render tracker()}
 {/if}

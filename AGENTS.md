@@ -123,6 +123,18 @@ publicly — and this note with it.
   - ✅ `import { Server } from '@modelcontextprotocol/sdk/server/index'`
   - ❌ `import { Server } from '@modelcontextprotocol/sdk/server/index.js'`
 
+### Plugins
+
+Optional features are plugins: one self-contained folder per plugin under `src/lib/plugins/<id>/`
+(code, components, `*.test.ts`, and `locales/{en,cs}.json` with keys under `plugins.<id>`). See the
+contract in `src/lib/plugins/types.ts` and the README's Plugins section.
+
+- Keep everything the plugin needs in its folder. It talks to the app only through the `PluginHost`
+  it is given; ESLint forbids other `$lib` imports except the UI kit, `$lib/utils` and `$lib/routes`.
+- The app side is only `src/lib/plugins/{types,registry,host,plugins.svelte}.ts` plus the fixed
+  render points (root layout, navbar, settings, landing, drop zone). Don't add plugin-specific code
+  to the app; extend the contract instead.
+
 ### External Links
 
 All external (outbound) URLs live in `src/lib/external-links.ts`. Never hard-code external URLs in components — import and use the constants instead. This keeps links in one place so they can be updated consistently and mocked in tests.

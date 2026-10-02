@@ -2,6 +2,7 @@ import fs from 'fs'
 
 const SOURCE_DIR = 'src'
 const LOCALE_DIR = `${SOURCE_DIR}/lib/locales`
+const PLUGINS_DIR = `${SOURCE_DIR}/lib/plugins`
 const DEFAULT_LOCALE = 'cs'
 
 // Patterns for detecting hardcoded user-facing text (generic Unicode patterns)
@@ -357,9 +358,48 @@ function findDuplicateKeysInJsonString(jsonString: string, fileName: string): st
   return duplicates
 }
 
+/** Each plugin keeps its translations in `src/lib/plugins/<id>/locales/`. */
+function pluginLocaleDirs(): string[] {
+  if (!fs.existsSync(PLUGINS_DIR)) return []
+  return fs
+    .readdirSync(PLUGINS_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => `${PLUGINS_DIR}/${entry.name}/locales`)
+    .filter((dir) => fs.existsSync(dir))
+}
+
+/** Every locale file: the app's, then each plugin's. */
+function localeFilePaths(locale: string): string[] {
+  return [LOCALE_DIR, ...pluginLocaleDirs()]
+    .map((dir) => `${dir}/${locale}.json`)
+    .filter((path) => fs.existsSync(path))
+}
+
+/** Merges `source` into `target`; returns the keys both define as text. */
+function mergeInto(target: Json, source: Json, prefix = ''): string[] {
+  const clashes: string[] = []
+  for (const [key, value] of Object.entries(source)) {
+    const path = prefix ? `${prefix}.${key}` : key
+    if (typeof value === 'object' && value !== null && typeof target[key] === 'object') {
+      clashes.push(...mergeInto(target[key], value, path))
+    } else if (key in target) {
+      clashes.push(path)
+    } else {
+      target[key] = value
+    }
+  }
+  return clashes
+}
+
+/** Keys a plugin defines that the app (or another plugin) already does. */
+const pluginKeyClashes: string[] = []
+
 function readLocaleData(locale: string): Json {
-  const data = fs.readFileSync(`${LOCALE_DIR}/${locale}.json`, { encoding: 'utf8' })
-  const localeData = JSON.parse(data)
+  const localeData: Json = {}
+  for (const path of localeFilePaths(locale)) {
+    const clashes = mergeInto(localeData, JSON.parse(fs.readFileSync(path, { encoding: 'utf8' })))
+    pluginKeyClashes.push(...clashes.map((key) => `Key '${key}' in ${path} is already defined`))
+  }
   return localeData
 }
 
@@ -426,10 +466,11 @@ function checkTranslations() {
   const localeFiles = fs.readdirSync(LOCALE_DIR).filter((file) => file.endsWith('.json'))
 
   for (const localeFile of localeFiles) {
-    const filePath = `${LOCALE_DIR}/${localeFile}`
-    const fileContent = fs.readFileSync(filePath, { encoding: 'utf8' })
-    const duplicates = findDuplicateKeysInJsonString(fileContent, localeFile)
-    allDuplicates.push(...duplicates)
+    for (const filePath of localeFilePaths(localeFile.replace('.json', ''))) {
+      const fileContent = fs.readFileSync(filePath, { encoding: 'utf8' })
+      const duplicates = findDuplicateKeysInJsonString(fileContent, filePath)
+      allDuplicates.push(...duplicates)
+    }
   }
 
   // Check consistency between locale files
@@ -461,6 +502,12 @@ function checkTranslations() {
         `Key '${key}' exists in [${withKeyLocales}] but missing in [${withoutKeyLocales}]`,
       )
     }
+  }
+
+  const clashes = [...new Set(pluginKeyClashes)]
+  if (clashes.length > 0) {
+    console.log('\nPlugin keys clashing with existing ones:\n')
+    clashes.forEach((clash) => console.log(clash))
   }
 
   if (allDuplicates.length > 0) {
@@ -509,6 +556,7 @@ function checkTranslations() {
     missingTexts.length > 0 ||
     unusedTexts.length > 0 ||
     allDuplicates.length > 0 ||
+    clashes.length > 0 ||
     localeConsistencyErrors.length > 0 ||
     hardcodedText.length > 0
   ) {
