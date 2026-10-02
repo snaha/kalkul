@@ -633,7 +633,19 @@
         "export": "Exportovat do souboru",
         "exportDescription": "Uložte svá aktuální data Kalkul do souboru pro zálohu nebo přenos na jiné zařízení.",
         "import": "Importovat ze souboru",
-        "importDescription": "Načtěte dříve exportovaný soubor Kalkul. Tím nahradíte svá aktuální data."
+        "importDescription": "Načtěte dříve exportovaný soubor Kalkul. Tím nahradíte svá aktuální data.",
+        "startFresh": "Začít od nuly",
+        "startFreshDescription": "Smažte všechna svá data Kalkul v tomto prohlížeči a začněte znovu.",
+        "startFreshDialog": {
+          "title": "Smazat všechna vaše data?",
+          "description": "Váš profil, plány, aktiva, peněžní toky i historie budou z tohoto prohlížeče trvale smazány. Tuto akci nelze vrátit zpět.",
+          "warning": "Pokud si chcete svá stávající data ponechat, nejprve je exportujte.",
+          "exportBeforeErasing": "Exportovat před smazáním",
+          "eraseAnyway": "Přesto smazat",
+          "backupDownloaded": "Vaše data byla stažena. Nyní je můžete bezpečně smazat.",
+          "erase": "Smazat",
+          "cancel": "Zrušit"
+        }
       },
       "taxRules": {
         "description": "Nastavte výchozí daňová pravidla pro prodej investic nebo hmotného majetku. Použijí se automaticky, pokud nebudou přepsána.",

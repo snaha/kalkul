@@ -180,6 +180,14 @@ function withAppStore() {
   let loading = $state(true)
   let lastUpdated = $state(0)
 
+  /** Empties the in-memory state; storage is untouched. */
+  function reset(): void {
+    profile = enrichProfile({ ...DEFAULT_PROFILE })
+    portfolios = []
+    lastUpdated = 0
+    loading = false
+  }
+
   function persist(): void {
     const now = Date.now()
     const stored: StoredData = {
@@ -342,9 +350,7 @@ function withAppStore() {
       return !loading && !!profile.name
     },
     clear() {
-      profile = enrichProfile({ ...DEFAULT_PROFILE })
-      portfolios = []
-      lastUpdated = 0
+      reset()
       try {
         localStorage.removeItem(storageKeys.DATA)
         storageErrorStore.clear()
@@ -352,7 +358,6 @@ function withAppStore() {
         console.error('Failed to clear data from localStorage', e)
         storageErrorStore.setError()
       }
-      loading = false
     },
 
     persist,
@@ -473,7 +478,12 @@ function withAppStore() {
 
     startSync(): () => void {
       function onStorage(event: StorageEvent): void {
-        if (event.key !== storageKeys.DATA || !event.newValue) return
+        if (event.key !== storageKeys.DATA) return
+        // Another tab removed the data.
+        if (!event.newValue) {
+          reset()
+          return
+        }
 
         try {
           // Repaired like loadData so a tab still running an older app
