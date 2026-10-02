@@ -473,6 +473,7 @@
         <div class="flex flex-1 items-center gap-2">
           <SelectField
             class="max-w-24"
+            placeholder={$_('page.setup.aboutYou.selectYear')}
             aria-label={$_('page.setup.aboutYou.selectYear')}
             value={form.pay_off_year !== undefined ? String(form.pay_off_year) : ''}
             items={yearItems}
@@ -481,6 +482,7 @@
             }}
           />
           <SelectField
+            placeholder={$_('page.setup.aboutYou.selectMonth')}
             aria-label={$_('page.setup.aboutYou.selectMonth')}
             value={form.pay_off_month !== undefined ? monthToOption(form.pay_off_month) : ''}
             items={months}

@@ -182,12 +182,14 @@
               <SelectField
                 bind:value={form.startYear}
                 items={yearItems}
+                placeholder={$_('page.setup.aboutYou.selectYear')}
                 aria-label={$_('page.setup.aboutYou.selectYear')}
                 class="w-24"
               />
               <SelectField
                 bind:value={form.startMonth}
                 items={months}
+                placeholder={$_('page.setup.aboutYou.selectMonth')}
                 aria-label={$_('page.setup.aboutYou.selectMonth')}
                 class="flex-1"
               />
