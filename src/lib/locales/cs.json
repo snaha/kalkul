@@ -731,6 +731,7 @@
     "outside_plan": "Musí být v rámci plánu ({start}–{end})",
     "start_after_plan": "Začíná až po konci plánu ({end})",
     "end_before_plan": "Končí před začátkem plánu ({start})",
+    "down_payment_above_price": "Nesmí přesáhnout kupní cenu",
     "required_when_financed": "Povinné při financování",
     "required_when_pay_off_at_specific_date": "Povinné při splacení ke konkrétnímu datu",
     "required_when_compound": "Povinné při složeném úročení",

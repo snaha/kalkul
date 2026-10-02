@@ -68,14 +68,27 @@ export function outstandingBalance(price: number | undefined, paid: number | und
   return Decimal.max(new Decimal(price ?? 0).minus(paid ?? 0), 0).toNumber()
 }
 
-/**
- * The down payment implied by a stored balance: the price's complement, never
- * below zero. Unknown until both figures exist.
- */
+/** The down payment implied by a stored balance; unknown until both figures exist. */
 export function downPaymentOf(
   price: number | undefined,
   outstanding: number | undefined,
 ): number | undefined {
   if (price === undefined || outstanding === undefined) return undefined
   return Decimal.max(new Decimal(price).minus(outstanding), 0).toNumber()
+}
+
+/** The financing the plan dialog edits: a down payment against the price, not the balance. */
+export interface TangibleAssetFinancing {
+  value: number | undefined
+  status: TangibleAssetStatus
+  down_payment: number | undefined
+}
+
+/** The balance to store: the price less the down payment on a financed asset, none otherwise. */
+export function outstandingBalanceFor(f: TangibleAssetFinancing): number | undefined {
+  return f.status === 'financed' ? outstandingBalance(f.value, f.down_payment) : undefined
+}
+
+export function downPaymentExceedsPrice(f: TangibleAssetFinancing): boolean {
+  return new Decimal(f.down_payment ?? 0).greaterThan(f.value ?? 0)
 }

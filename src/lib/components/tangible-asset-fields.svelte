@@ -23,13 +23,13 @@
     getPaymentMethodItems,
     getValueOverTimeItems,
   } from '$lib/select-options'
-  import { downPaymentOf, outstandingBalance } from '$lib/tangible-asset-form'
+  import { downPaymentExceedsPrice, outstandingBalance } from '$lib/tangible-asset-form'
 
   /** The editable shape; the caller owns the surrounding state. */
   export interface TangibleAssetFieldsItem {
     value: number | undefined
     status: TangibleAssetStatus
-    outstanding_balance: number | undefined
+    down_payment: number | undefined
     installment_frequency: Frequency
     annual_rate: number | undefined
     installment_amount: number | undefined
@@ -89,37 +89,10 @@
   let valueOverTimeItems = $derived(getValueOverTimeItems($_))
 
   // The dialog asks for the down payment; the profile stores what is still
-  // owed. One is the other's complement against the purchase price. Until the
-  // user enters a down payment nothing is paid, so the whole price is owed.
-  //
-  // Once the user has typed either figure, the down payment is held as its own
-  // state for as long as this item is being edited (#263): re-deriving it from
-  // the 0-clamped balance on every keystroke would collapse a 50 000 down
-  // payment to 4 the moment the price is retyped as "4…". A re-seeded form is
-  // a new item object, so the hold lapses with it.
-  let heldFor = $state.raw<TangibleAssetFieldsItem>()
-  let heldPaid = $state<number>()
-  let downPayment = $derived(
-    heldFor === item ? heldPaid : downPaymentOf(item.value, item.outstanding_balance),
-  )
-
-  function hold(paid: number | undefined): void {
-    heldFor = item
-    heldPaid = paid
-  }
-
-  // The balance still owed follows the price; the down payment stays as entered.
-  function setPurchasePrice(value: number | undefined): void {
-    const paid = downPayment
-    hold(paid)
-    item.value = value
-    if (item.status === 'financed') item.outstanding_balance = outstandingBalance(value, paid)
-  }
-
-  function setDownPayment(paid: number | undefined): void {
-    hold(paid)
-    item.outstanding_balance = outstandingBalance(item.value, paid)
-  }
+  // owed. The down payment is the field here, and the balance is computed from
+  // it only when the dialog saves, so retyping the price leaves it as entered.
+  let remaining = $derived(outstandingBalance(item.value, item.down_payment))
+  let exceedsPrice = $derived(downPaymentExceedsPrice(item))
 </script>
 
 {#if showTiming}
@@ -159,7 +132,9 @@
       value={item.value}
       suffix={currencyLabel}
       {formatNumber}
-      onValueChange={setPurchasePrice}
+      onValueChange={(v) => {
+        item.value = v
+      }}
     />
   </div>
   <div class="flex flex-1 flex-col gap-2">
@@ -169,13 +144,7 @@
       value={item.status}
       items={paymentMethodItems}
       onValueChange={(v) => {
-        if (!v) return
-        item.status = v
-        // Only a loan that has never had a balance starts as fully owed.
-        // Financed → Fully owned → Financed keeps the balance from before,
-        // so a slip of the picker does not wipe a typed down payment.
-        if (v === 'financed' && item.outstanding_balance === undefined)
-          item.outstanding_balance = item.value ?? 0
+        if (v) item.status = v
       }}
     />
   </div>
@@ -187,18 +156,22 @@
       <Label for="{idPrefix}-downPayment">{$_('page.plan.downPayment')}</Label>
       <SuffixedInput
         id="{idPrefix}-downPayment"
-        value={downPayment}
+        value={item.down_payment}
         suffix={currencyLabel}
         {formatNumber}
-        onValueChange={setDownPayment}
+        aria-invalid={exceedsPrice}
+        onValueChange={(v) => {
+          item.down_payment = v
+        }}
       />
     </div>
     <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">
-      {$_('page.plan.downPaymentDescription', {
-        values: { amount: formatCurrency(item.outstanding_balance ?? 0) },
-      })}
+      {$_('page.plan.downPaymentDescription', { values: { amount: formatCurrency(remaining) } })}
     </p>
   </div>
+  {#if exceedsPrice}
+    <p class="text-xs text-destructive">{$_('validation.down_payment_above_price')}</p>
+  {/if}
 
   <div class="flex items-end gap-2">
     <div class="flex flex-1 flex-col gap-2">

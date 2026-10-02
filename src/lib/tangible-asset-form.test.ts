@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  type TangibleAssetFinancing,
   type TangibleAssetUI,
+  downPaymentExceedsPrice,
   downPaymentOf,
   outstandingBalance,
+  outstandingBalanceFor,
   toStoredTangibleAsset,
 } from '$lib/tangible-asset-form'
 
@@ -61,19 +64,8 @@ describe('outstandingBalance', () => {
     expect(outstandingBalance(400_000, 50_000)).toBe(350_000)
   })
 
-  it('never goes below zero while the price is still being typed', () => {
+  it('never goes below zero', () => {
     expect(outstandingBalance(4, 50_000)).toBe(0)
-  })
-
-  it('keeps the down payment through a retyped price (#263)', () => {
-    // Select-all and type 400000 with 50 000 down: the balance follows each
-    // partial price and lands on the right figure, since the down payment is
-    // held rather than re-derived from the clamped balance.
-    const paid = 50_000
-    const balances = [4, 40, 400, 4_000, 40_000, 400_000].map((price) =>
-      outstandingBalance(price, paid),
-    )
-    expect(balances).toEqual([0, 0, 0, 0, 0, 350_000])
   })
 
   it('treats missing figures as zero', () => {
@@ -102,5 +94,55 @@ describe('downPaymentOf', () => {
 
   it('never goes below zero', () => {
     expect(downPaymentOf(100, 150)).toBe(0)
+  })
+})
+
+describe('outstandingBalanceFor', () => {
+  const financed: TangibleAssetFinancing = {
+    status: 'financed',
+    value: 300_000,
+    down_payment: downPaymentOf(300_000, 250_000),
+  }
+
+  it('stores the price less the down payment on a financed asset', () => {
+    expect(outstandingBalanceFor(financed)).toBe(250_000)
+  })
+
+  it('owes the whole price until a down payment is entered', () => {
+    expect(outstandingBalanceFor({ ...financed, down_payment: undefined })).toBe(300_000)
+  })
+
+  it('stores no balance on an asset paid upfront', () => {
+    expect(outstandingBalanceFor({ ...financed, status: 'fully_owned' })).toBeUndefined()
+  })
+
+  it('follows the price while it is retyped, since the down payment is its own field', () => {
+    const f = { ...financed }
+    for (const value of [4, 40, 400, 4_000, 40_000, 400_000]) f.value = value
+    expect(f.down_payment).toBe(50_000)
+    expect(outstandingBalanceFor(f)).toBe(350_000)
+  })
+
+  it('survives a detour through Upfront, since the status does not touch the down payment', () => {
+    const f = { ...financed }
+    f.status = 'fully_owned'
+    f.value = 400_000
+    expect(outstandingBalanceFor(f)).toBeUndefined()
+    f.status = 'financed'
+    expect(outstandingBalanceFor(f)).toBe(350_000)
+  })
+})
+
+describe('downPaymentExceedsPrice', () => {
+  it('flags a down payment above the price', () => {
+    expect(
+      downPaymentExceedsPrice({ status: 'financed', value: 300_000, down_payment: 500_000 }),
+    ).toBe(true)
+    expect(
+      downPaymentExceedsPrice({ status: 'financed', value: 300_000, down_payment: 300_000 }),
+    ).toBe(false)
+    expect(
+      downPaymentExceedsPrice({ status: 'financed', value: 300_000, down_payment: undefined }),
+    ).toBe(false)
   })
 })

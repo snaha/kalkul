@@ -27,6 +27,11 @@
   } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
+  import {
+    downPaymentExceedsPrice,
+    downPaymentOf,
+    outstandingBalanceFor,
+  } from '$lib/tangible-asset-form'
   import { getMonthOptions } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
@@ -98,7 +103,7 @@
     value_rate: number | undefined
     property_tax_rate: number | undefined
     // Tangible asset (financed) + liability share these
-    outstanding_balance: number | undefined
+    down_payment: number | undefined
     installment_frequency: Frequency
     annual_rate: number | undefined
     installment_amount: number | undefined
@@ -162,7 +167,7 @@
       value_over_time: 'appreciate',
       value_rate: undefined,
       property_tax_rate: undefined,
-      outstanding_balance: undefined,
+      down_payment: undefined,
       installment_frequency: 'monthly',
       annual_rate: undefined,
       installment_amount: undefined,
@@ -199,9 +204,7 @@
       const a = src.initial
       f.value = a.value > 0 ? a.value : undefined
       f.status = a.status
-      // A balance of 0 is a paid-down loan, not an unset field: keep it so the
-      // dialog shows the full price as the down payment.
-      f.outstanding_balance = a.outstanding_balance
+      f.down_payment = downPaymentOf(a.value, a.outstanding_balance)
       f.installment_frequency = a.installment_frequency ?? 'monthly'
       f.annual_rate = a.annual_rate !== undefined && a.annual_rate > 0 ? a.annual_rate : undefined
       f.installment_amount =
@@ -236,6 +239,9 @@
           timingWithinPlan(range, 'end', form.exit, form.exit_year, form.exit_age)
       : timingWithinPlan(range, 'start', form.purchase, form.purchase_year, form.purchase_age) &&
           timingWithinPlan(range, 'end', form.sale, form.sale_year, form.sale_age),
+  )
+  const canSave = $derived(
+    timingWithin && (kind !== 'tangibleAsset' || !downPaymentExceedsPrice(form)),
   )
   // "Show advanced options" disclosure for a liability and for the financing
   // of a financed tangible asset. Auto-expands when the item already carries
@@ -305,7 +311,7 @@
       name: f.name,
       value: f.value ?? 0,
       status: f.status,
-      outstanding_balance: f.status === 'financed' ? (f.outstanding_balance ?? 0) : undefined,
+      outstanding_balance: outstandingBalanceFor(f),
       installment_frequency: f.status === 'financed' ? f.installment_frequency : undefined,
       annual_rate: f.status === 'financed' ? (f.annual_rate ?? 0) : undefined,
       installment_amount: f.status === 'financed' ? (f.installment_amount ?? 0) : undefined,
@@ -379,7 +385,7 @@
   <!-- Figma 1320-1330: primary + cancel on the left, and on the right the
        advanced switch when adding or the delete button when editing. -->
   <div class="flex flex-1 items-center gap-2">
-    <Button onclick={save}>
+    <Button disabled={!canSave} onclick={save}>
       {isNew ? $_('page.plan.createItem') : $_('page.plan.saveChanges')}
     </Button>
     <Button variant="secondary" onclick={() => onOpenChange(false)}>
@@ -416,7 +422,6 @@
   {isIncluded}
   renamable={false}
   toolbar={false}
-  saveDisabled={!timingWithin}
   badge={kind === 'tangibleAsset' && form.status === 'financed' && !isNew
     ? $_('page.setup.tangibleAssets.financed')
     : undefined}
