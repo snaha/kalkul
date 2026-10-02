@@ -23,12 +23,13 @@
     getPaymentMethodItems,
     getValueOverTimeItems,
   } from '$lib/select-options'
+  import { downPaymentExceedsPrice, outstandingBalance } from '$lib/tangible-asset-form'
 
   /** The editable shape; the caller owns the surrounding state. */
   export interface TangibleAssetFieldsItem {
     value: number | undefined
     status: TangibleAssetStatus
-    outstanding_balance: number | undefined
+    down_payment: number | undefined
     installment_frequency: Frequency
     annual_rate: number | undefined
     installment_amount: number | undefined
@@ -88,16 +89,10 @@
   let valueOverTimeItems = $derived(getValueOverTimeItems($_))
 
   // The dialog asks for the down payment; the profile stores what is still
-  // owed. One is the other's complement against the purchase price.
-  let downPayment = $derived(
-    item.value === undefined
-      ? undefined
-      : Math.max(item.value - (item.outstanding_balance ?? 0), 0),
-  )
-
-  function setDownPayment(paid: number | undefined): void {
-    item.outstanding_balance = Math.max((item.value ?? 0) - (paid ?? 0), 0)
-  }
+  // owed. The down payment is the field here, and the balance is computed from
+  // it only when the dialog saves, so retyping the price leaves it as entered.
+  let remaining = $derived(outstandingBalance(item.value, item.down_payment))
+  let exceedsPrice = $derived(downPaymentExceedsPrice(item))
 </script>
 
 {#if showTiming}
@@ -161,18 +156,22 @@
       <Label for="{idPrefix}-downPayment">{$_('page.plan.downPayment')}</Label>
       <SuffixedInput
         id="{idPrefix}-downPayment"
-        value={downPayment}
+        value={item.down_payment}
         suffix={currencyLabel}
         {formatNumber}
-        onValueChange={setDownPayment}
+        aria-invalid={exceedsPrice}
+        onValueChange={(v) => {
+          item.down_payment = v
+        }}
       />
     </div>
     <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">
-      {$_('page.plan.downPaymentDescription', {
-        values: { amount: formatCurrency(item.outstanding_balance ?? 0) },
-      })}
+      {$_('page.plan.downPaymentDescription', { values: { amount: formatCurrency(remaining) } })}
     </p>
   </div>
+  {#if exceedsPrice}
+    <p class="text-xs text-destructive">{$_('validation.down_payment_above_price')}</p>
+  {/if}
 
   <div class="flex items-end gap-2">
     <div class="flex flex-1 flex-col gap-2">
