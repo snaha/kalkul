@@ -35,27 +35,18 @@
   import { getMonthOptions, monthToOption, optionToMonth } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
-  import {
-    PROFILE_LISTS,
-    duplicateProfileItem,
-    isIncludedInPlan,
-    removeProfileItem,
-    toggleIncludedInPlan,
-    upsertProfileItem,
-  } from './profile-lists'
+  import { PROFILE_LISTS, removeProfileItem, upsertProfileItem } from './profile-lists'
 
   interface Props {
     open: boolean
     onOpenChange: (open: boolean) => void
     initial: ProfileLiability | undefined
     plan: PortfolioStore
-    /** Called with the copy's id after a duplicate, so the caller can open it. */
-    onDuplicated?: (id: string) => void
   }
 
   const uid = $props.id()
 
-  let { open = $bindable(), onOpenChange, initial, plan, onDuplicated }: Props = $props()
+  let { open = $bindable(), onOpenChange, initial, plan }: Props = $props()
 
   const range = $derived(planRangeOf(plan, appStore.profile.birthDate))
   let months = $derived(getMonthOptions($locale ?? undefined))
@@ -182,7 +173,6 @@
   const isNew = $derived(initial === undefined)
 
   const listConfig = PROFILE_LISTS.liability
-  const isIncluded = $derived(isNew ? true : isIncludedInPlan(listConfig, form.id, plan))
 
   let frequencyItems = $derived(getFrequencyItems($_))
   let interestTypeItems = $derived(getInterestTypeItems($_))
@@ -270,24 +260,6 @@
     close()
   }
 
-  function duplicate(): void {
-    const hasChanges = JSON.stringify(form) !== JSON.stringify(seedForm(initial))
-    if (hasChanges && !window.confirm($_('page.plan.duplicateUnsavedConfirm'))) return
-    const copyId = duplicateProfileItem(
-      listConfig,
-      form.id,
-      (name) => $_('page.setup.common.copySuffix', { values: { name } }),
-      plan,
-    )
-    close()
-    if (copyId !== undefined) onDuplicated?.(copyId)
-  }
-
-  function toggleExclude(): void {
-    toggleIncludedInPlan(listConfig, form.id, plan)
-    close()
-  }
-
   function remove(): void {
     if (!window.confirm($_('page.plan.deleteLiabilityConfirm'))) return
     removeProfileItem(listConfig, form.id)
@@ -313,18 +285,12 @@
   bind:open
   {onOpenChange}
   name={form.name}
-  onNameChange={(v) => (form.name = v)}
   {isNew}
-  {isIncluded}
-  renamable={false}
-  toolbar={false}
   newTitle={$_('page.setup.liabilities.addLiability')}
   footer={isNew ? newLiabilityFooter : undefined}
   footerClass="bg-muted"
   saveDisabled={!canSave}
   onSave={save}
-  onDuplicate={duplicate}
-  onToggleInclude={toggleExclude}
   onDelete={remove}
 >
   <!-- Label -->

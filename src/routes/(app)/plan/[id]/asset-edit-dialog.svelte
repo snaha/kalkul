@@ -30,14 +30,7 @@
   import { getMonthOptions } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
-  import {
-    PROFILE_LISTS,
-    duplicateProfileItem,
-    isIncludedInPlan,
-    removeProfileItem,
-    toggleIncludedInPlan,
-    upsertProfileItem,
-  } from './profile-lists'
+  import { PROFILE_LISTS, removeProfileItem, upsertProfileItem } from './profile-lists'
 
   export type AssetKind = 'investment' | 'tangibleAsset'
 
@@ -53,13 +46,11 @@
     onOpenChange: (open: boolean) => void
     target: AssetTarget
     plan: PortfolioStore
-    /** Called with the copy's id after a duplicate, so the caller can open it. */
-    onDuplicated?: (id: string) => void
   }
 
   const uid = $props.id()
 
-  let { open = $bindable(), onOpenChange, target, plan, onDuplicated }: Props = $props()
+  let { open = $bindable(), onOpenChange, target, plan }: Props = $props()
 
   const kind = $derived(target.kind)
   const initial = $derived(target.initial)
@@ -266,8 +257,6 @@
 
   const listConfig = $derived(PROFILE_LISTS[kind])
 
-  const isIncluded = $derived(isNew ? true : isIncludedInPlan(listConfig, form.id, plan))
-
   function projectInvestment(f: FormState): ProfileInvestment {
     // Persist only the fee fields that the user actually touched; default
     // values (0 / ongoing / percentage) collapse back to undefined so the
@@ -345,26 +334,6 @@
     close()
   }
 
-  function duplicate() {
-    // Duplicating copies the SAVED item; edits sitting in the form would be
-    // silently lost, so ask before discarding them (issue #65).
-    const hasChanges = JSON.stringify(form) !== JSON.stringify(seedForm(target))
-    if (hasChanges && !window.confirm($_('page.plan.duplicateUnsavedConfirm'))) return
-    const copyId = duplicateProfileItem(
-      listConfig,
-      form.id,
-      (name) => $_('page.setup.common.copySuffix', { values: { name } }),
-      plan,
-    )
-    close()
-    if (copyId !== undefined) onDuplicated?.(copyId)
-  }
-
-  function toggleExclude() {
-    toggleIncludedInPlan(listConfig, form.id, plan)
-    close()
-  }
-
   function remove() {
     const confirmMessage =
       kind === 'investment'
@@ -412,11 +381,7 @@
   bind:open
   {onOpenChange}
   name={form.name}
-  onNameChange={(v) => (form.name = v)}
   {isNew}
-  {isIncluded}
-  renamable={false}
-  toolbar={false}
   saveDisabled={!timingWithin}
   badge={kind === 'tangibleAsset' && form.status === 'financed' && !isNew
     ? $_('page.setup.tangibleAssets.financed')
@@ -426,8 +391,6 @@
     : $_('page.plan.addTangibleAssetTitle')}
   footer={assetFooter}
   onSave={save}
-  onDuplicate={duplicate}
-  onToggleInclude={toggleExclude}
   onDelete={remove}
 >
   {#if kind === 'investment'}
