@@ -186,3 +186,7 @@ portfolio?.delete()
 - Financial calculations must use Decimal.js for precision
 - All dates handled through `@snaha/kalkul-maths/date` utilities
 - Run `pnpm check` before committing
+
+## License
+
+Kalkul is licensed under the [GNU Affero General Public License v3.0](LICENSE).
