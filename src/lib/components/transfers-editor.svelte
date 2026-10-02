@@ -58,6 +58,7 @@
     // picks both endpoints; the schema rejects empty endpoint ids (#305), so
     // unfinished cards are left out until they are complete.
     isComplete: (t) => t.from_asset_id !== '' && t.to_asset_id !== '',
+    onChange: (listener) => appStore.onDataChange(listener),
     persist: (data) =>
       appStore.updateProfile({
         transfers: [...data, ...planOwnedItems(appStore.profile.transfers)],
