@@ -8,7 +8,12 @@ export default defineConfig({
   // outside the roots SvelteKit allows Vite to serve (src, .svelte-kit,
   // node_modules). This only affects local development — in a build the JSON is
   // bundled like any other import.
-  server: { fs: { allow: ['examples'] } },
+  server: {
+    fs: { allow: ['examples'] },
+    // A launcher (e.g. a second dev server alongside another) can pick the
+    // port through PORT; otherwise Vite's default, 5173.
+    port: process.env.PORT ? Number(process.env.PORT) : undefined,
+  },
   // Tests that exercise Svelte effects need the client runtime — plain node
   // resolution would load Svelte's server build, where effects are inert
   // no-ops. Prefer the browser condition when running under Vitest (both
