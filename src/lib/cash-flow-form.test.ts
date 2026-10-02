@@ -4,8 +4,10 @@ import {
   blankCashFlowFields,
   cashFlowFromFields,
   cashFlowToFields,
+  cashFlowWithinPlan,
   endMinMonth,
 } from '$lib/cash-flow-form'
+import { planRangeOf } from '$lib/plan-range'
 import type { Income } from '$lib/schemas'
 
 const RECURRING: Income = {
@@ -105,5 +107,36 @@ describe('endMinMonth', () => {
     expect(endMinMonth(f)).toBeUndefined()
     f.end = 'never'
     expect(endMinMonth(f)).toBeUndefined()
+  })
+})
+
+describe('plan range', () => {
+  const range = planRangeOf({ start_date: '2030-01-01', end_date: '2040-12-01' }, undefined)
+
+  test('a new one-time date is seeded inside the plan when today is outside it', () => {
+    const f = blankCashFlowFields('x', 'Bonus', range)
+    expect(f.transaction_year).toBe(2030)
+    expect(blankCashFlowFields('x', 'Bonus').transaction_year).toBe(new Date().getFullYear())
+  })
+
+  test('a one-time date must fall inside the plan', () => {
+    const f = blankCashFlowFields('x', 'Bonus', range)
+    f.schedule = 'one_time'
+    expect(cashFlowWithinPlan(f, range)).toBe(true)
+    f.transaction_year = 2041
+    expect(cashFlowWithinPlan(f, range)).toBe(false)
+  })
+
+  test('recurring timing may only start before the plan ends and end after it starts', () => {
+    const f = cashFlowToFields(RECURRING)
+    expect(cashFlowWithinPlan(f, range)).toBe(true) // starts 2027, before the plan: clamped
+    f.start_year = 2041
+    expect(cashFlowWithinPlan(f, range)).toBe(false)
+    f.start_year = 2035
+    f.end = 'at_specific_date'
+    f.end_year = 2029
+    expect(cashFlowWithinPlan(f, range)).toBe(false)
+    f.end_year = 2050
+    expect(cashFlowWithinPlan(f, range)).toBe(true) // runs to the plan's last year
   })
 })

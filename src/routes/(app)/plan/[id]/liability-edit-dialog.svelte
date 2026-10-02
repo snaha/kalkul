@@ -15,6 +15,7 @@
   import { Switch } from '$lib/components/ui/switch'
   import { itemsForPlan } from '$lib/plan-owned'
   import { installmentAmountForLoan, termYearsForLoan } from '$lib/plan-projection'
+  import { planRangeOf, planYearOptions, timingWithinPlan } from '$lib/plan-range'
   import type {
     CashFlowStart,
     CompoundingFrequency,
@@ -32,7 +33,7 @@
   } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
-  import { getMonthOptions, getYearOptions, monthToOption, optionToMonth } from '$lib/utils'
+  import { getMonthOptions, monthToOption, optionToMonth } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
   import {
@@ -57,7 +58,7 @@
 
   let { open = $bindable(), onOpenChange, initial, plan, onDuplicated }: Props = $props()
 
-  const years = getYearOptions()
+  const range = $derived(planRangeOf(plan, appStore.profile.birthDate))
   let months = $derived(getMonthOptions($locale ?? undefined))
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
@@ -188,7 +189,9 @@
   let interestTypeItems = $derived(getInterestTypeItems($_))
   let compoundingFrequencyItems = $derived(getCompoundingFrequencyItems($_))
   let payOffItems = $derived(getLiabilityPayOffItems($_))
-  let yearItems = $derived(years.map((y) => ({ value: y, label: y })))
+  let yearItems = $derived(
+    planYearOptions(range, form.pay_off_year).map((y) => ({ value: y, label: y })),
+  )
 
   function round(value: number, decimals: number): number {
     const factor = 10 ** decimals
@@ -249,8 +252,12 @@
   const canSave = $derived(
     (form.outstanding_balance ?? 0) > 0 &&
       timingComplete(form.start, form.start_year, form.start_month, form.start_age) &&
+      timingWithinPlan(range, 'start', form.start, form.start_year, form.start_age) &&
       (form.pay_off !== 'at_specific_date' ||
-        (form.pay_off_year !== undefined && form.pay_off_month !== undefined)) &&
+        (form.pay_off_year !== undefined &&
+          form.pay_off_month !== undefined &&
+          // The pay-off is an end: after the plan it just amortizes to the last year.
+          timingWithinPlan(range, 'end', 'at_specific_date', form.pay_off_year, undefined))) &&
       // Compound interest must state its cadence.
       (form.interest_type !== 'compound' || form.compounding_frequency !== undefined),
   )
@@ -355,7 +362,7 @@
     year={form.start_year}
     month={form.start_month}
     age={form.start_age}
-    {years}
+    {range}
     {months}
     birthDateSet={appStore.profile.birth_date !== undefined}
     description={$_('page.plan.liabilityStartDescription')}
@@ -483,6 +490,11 @@
           />
           <HelpTooltip text={$_('page.plan.payOffDescription')} />
         </div>
+        {#if !timingWithinPlan(range, 'end', 'at_specific_date', form.pay_off_year, undefined)}
+          <p class="text-xs text-destructive">
+            {$_('validation.end_before_plan', { values: { start: String(range.startYear) } })}
+          </p>
+        {/if}
       {:else}
         <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">
           {$_('page.plan.payOffDescription')}
