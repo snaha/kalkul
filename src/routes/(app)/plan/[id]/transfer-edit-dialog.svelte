@@ -14,7 +14,7 @@
   import { Switch } from '$lib/components/ui/switch'
   import * as Tooltip from '$lib/components/ui/tooltip'
   import { itemsForPlan } from '$lib/plan-owned'
-  import { filterById, summarizeTransfer } from '$lib/plan-projection'
+  import { summarizeTransfer } from '$lib/plan-projection'
   import { planRangeOf, planYearOptions, yearWithinPlan } from '$lib/plan-range'
   import { sameYearMonthsInverted, timingComplete } from '$lib/schemas'
   import type { Transfer, TransferSchedule } from '$lib/schemas'
@@ -26,6 +26,7 @@
     blankTransferFields,
     endMinMonth,
     transferFromFields,
+    transferInvestments,
     transferToFields,
     transferWithinPlan,
   } from '$lib/transfer-form'
@@ -60,13 +61,13 @@
   // Transfers can only move between cash and investments. Tangible assets and
   // liabilities are intentionally excluded — selling/buying a house is more
   // naturally modelled as a one-off expense/income.
-  // The list is filtered by plan inclusion via the same filterById the
-  // projection uses, so the dropdowns and the projection see the same assets.
+  // The list is the shared investments plus this plan's own, filtered by plan
+  // inclusion, so the dropdowns and the projection see the same assets.
   const assetOptions = $derived<{ id: string; name: string }[]>([
     // Cash is always an endpoint: every plan has a cash balance (#331), and
     // a transfer into an empty one is how it gets funded.
     { id: 'cash', name: $_('page.plan.cashItem') },
-    ...filterById(appStore.profile.investments, plan.included_investment_ids).map((inv) => ({
+    ...transferInvestments(appStore.profile.investments, plan).map((inv) => ({
       id: inv.id,
       name: inv.name,
     })),

@@ -7,6 +7,7 @@ import { type Profile, type Snapshot, profileSchema } from './schemas'
 import {
   captureSnapshot,
   hasSameBalances,
+  heldProfile,
   latestSnapshot,
   profileAtSnapshot,
   removeSnapshot,
@@ -423,6 +424,26 @@ describe('captureSnapshot plan-owned items', () => {
       ],
     }
     expect(captureSnapshot(withOwned, '2026-01-01')).toEqual(captureSnapshot(PROFILE, '2026-01-01'))
+  })
+})
+
+describe('heldProfile plan-owned items', () => {
+  test('lists the shared investments and tangible assets only', () => {
+    const owned = { plan_id: 'plan-1' }
+    const withOwned: Profile = {
+      ...PROFILE,
+      investments: [
+        ...PROFILE.investments!,
+        { id: 'x', name: 'x', balance: 999, apy: 0, ...owned },
+      ],
+      tangible_assets: [
+        ...PROFILE.tangible_assets!,
+        { id: 'x', name: 'x', value: 999, status: 'fully_owned', ...owned },
+      ],
+    }
+    const held = heldProfile(withOwned, new Date(2026, 0, 1))
+    expect(held.investments).toEqual(PROFILE.investments)
+    expect(held.tangible_assets).toEqual(PROFILE.tangible_assets)
   })
 })
 

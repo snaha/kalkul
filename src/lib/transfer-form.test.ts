@@ -1,11 +1,12 @@
 import { describe, expect, test } from 'vitest'
 
 import { planRangeOf } from '$lib/plan-range'
-import type { Transfer } from '$lib/schemas'
+import type { ProfileInvestment, Transfer } from '$lib/schemas'
 import {
   blankTransferFields,
   endMinMonth,
   transferFromFields,
+  transferInvestments,
   transferToFields,
   transferWithinPlan,
 } from '$lib/transfer-form'
@@ -99,6 +100,45 @@ describe('plan ownership', () => {
     const owned: Transfer = { ...RECURRING, plan_id: 'plan-1' }
     expect(transferFromFields(transferToFields(owned))).toEqual(owned)
     expect('plan_id' in transferFromFields(transferToFields(RECURRING))).toBe(false)
+  })
+})
+
+describe('transferInvestments', () => {
+  const investment = (id: string, plan_id?: string): ProfileInvestment => ({
+    id,
+    name: id,
+    balance: 1000,
+    apy: 5,
+    ...(plan_id ? { plan_id } : {}),
+  })
+  const shared = investment('shared')
+  const own = investment('own', 'plan-1')
+  const other = investment('other', 'plan-2')
+  const all = [shared, own, other]
+
+  test('financial data offers the shared investments only', () => {
+    expect(transferInvestments(all)).toEqual([shared])
+  })
+
+  test("a plan with no include list offers the shared ones and its own, not another plan's", () => {
+    expect(transferInvestments(all, { id: 'plan-1' })).toEqual([shared, own])
+  })
+
+  test("a plan's include list narrows what it offers", () => {
+    expect(transferInvestments(all, { id: 'plan-1', included_investment_ids: ['own'] })).toEqual([
+      own,
+    ])
+  })
+
+  test("another plan's investment stays out even when the include list names it", () => {
+    expect(
+      transferInvestments(all, { id: 'plan-1', included_investment_ids: ['shared', 'other'] }),
+    ).toEqual([shared])
+  })
+
+  test('treats a missing list as empty', () => {
+    expect(transferInvestments(undefined)).toEqual([])
+    expect(transferInvestments(undefined, { id: 'plan-1' })).toEqual([])
   })
 })
 

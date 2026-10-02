@@ -1,9 +1,12 @@
+import { type PlanOwned, itemsForPlan, sharedItems } from '$lib/plan-owned'
+import { filterById } from '$lib/plan-projection'
 import { type PlanRange, clampYearToPlan, timingWithinPlan, yearWithinPlan } from '$lib/plan-range'
 import type {
   CashFlowEnd,
   CashFlowStart,
   ChangeOverTime,
   Frequency,
+  Portfolio,
   Transfer,
   TransferSchedule,
 } from '$lib/schemas'
@@ -169,4 +172,18 @@ export function transferWithinPlan(f: TransferFields, range: PlanRange): boolean
     ? yearWithinPlan(range, f.transaction_year)
     : timingWithinPlan(range, 'start', f.start, f.start_year, f.start_age) &&
         timingWithinPlan(range, 'end', f.end, f.end_year, f.end_age)
+}
+
+/**
+ * The investments a transfer can move money to or from. Without a plan
+ * (financial data): the shared ones only. In a plan: what its projection runs
+ * on, the shared ones plus its own, narrowed by its include list. Another
+ * plan's never appear.
+ */
+export function transferInvestments<T extends PlanOwned & { id: string }>(
+  investments: T[] | undefined,
+  plan?: Pick<Portfolio, 'id' | 'included_investment_ids'>,
+): T[] {
+  if (plan === undefined) return sharedItems(investments)
+  return filterById(itemsForPlan(investments, plan.id), plan.included_investment_ids)
 }
