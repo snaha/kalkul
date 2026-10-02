@@ -234,6 +234,7 @@
   })
 </script>
 
+<!-- Figma 1340-1345 / 1350-1351: the header carries the title and the close X only. -->
 <ItemEditDialogShell
   bind:open
   {onOpenChange}
@@ -245,7 +246,7 @@
   toolbar={false}
   newTitle={$_('page.plan.newTransfer')}
   saveDisabled={!canSave}
-  saveLabel={isNew ? $_('page.plan.createItem') : undefined}
+  footerClass="bg-muted"
   onSave={save}
   onDuplicate={duplicate}
   onToggleInclude={toggleExclude}

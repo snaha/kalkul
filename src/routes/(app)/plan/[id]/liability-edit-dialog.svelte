@@ -2,7 +2,6 @@
   import { _, locale } from 'svelte-i18n'
 
   import ArrowLeftRight from '@lucide/svelte/icons/arrow-left-right'
-  import Trash2 from '@lucide/svelte/icons/trash-2'
 
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
   import HelpTooltip from '$lib/components/help-tooltip.svelte'
@@ -296,36 +295,18 @@
   }
 </script>
 
-{#snippet liabilityFooter()}
-  {#if isNew}
-    <!-- Figma 1327: Create + Cancel on the left, the advanced switch on the right. -->
-    <div class="flex flex-1 items-center gap-2">
-      <Button disabled={!canSave} onclick={save}>{$_('page.plan.createItem')}</Button>
-      <Button variant="outline" onclick={close}>{$_('page.plan.cancel')}</Button>
-      <div class="flex flex-1 items-center justify-end gap-2">
-        <label class="flex cursor-pointer items-center gap-2">
-          <Switch checked={showAdvanced} onCheckedChange={(v) => (showAdvanced = v === true)} />
-          <span class="text-sm">{$_('page.plan.showAdvancedOptions')}</span>
-        </label>
-      </div>
+{#snippet newLiabilityFooter()}
+  <!-- Figma 1327: Create + Cancel on the left, the advanced switch on the right. -->
+  <div class="flex flex-1 items-center gap-2">
+    <Button disabled={!canSave} onclick={save}>{$_('page.plan.createItem')}</Button>
+    <Button variant="outline" onclick={close}>{$_('page.plan.cancel')}</Button>
+    <div class="flex flex-1 items-center justify-end gap-2">
+      <label class="flex cursor-pointer items-center gap-2">
+        <Switch checked={showAdvanced} onCheckedChange={(v) => (showAdvanced = v === true)} />
+        <span class="text-sm">{$_('page.plan.showAdvancedOptions')}</span>
+      </label>
     </div>
-  {:else}
-    <!-- Figma 1331: Save changes + Cancel on the left, delete on the right. -->
-    <div class="flex flex-1 items-center gap-2">
-      <Button disabled={!canSave} onclick={save}>{$_('page.plan.saveChanges')}</Button>
-      <Button variant="outline" onclick={close}>{$_('page.plan.cancel')}</Button>
-      <div class="flex flex-1 items-center justify-end gap-2">
-        <Button
-          variant="destructive"
-          size="icon"
-          onclick={remove}
-          aria-label={$_('page.plan.deleteItem')}
-        >
-          <Trash2 class="size-4" />
-        </Button>
-      </div>
-    </div>
-  {/if}
+  </div>
 {/snippet}
 
 <ItemEditDialogShell
@@ -338,8 +319,9 @@
   renamable={false}
   toolbar={false}
   newTitle={$_('page.setup.liabilities.addLiability')}
-  footer={liabilityFooter}
+  footer={isNew ? newLiabilityFooter : undefined}
   footerClass="bg-muted"
+  saveDisabled={!canSave}
   onSave={save}
   onDuplicate={duplicate}
   onToggleInclude={toggleExclude}

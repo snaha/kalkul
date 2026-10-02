@@ -38,15 +38,13 @@
      * only the close X, per its Figma) pass false.
      */
     toolbar?: boolean
-    /** Replaces the default Cancel/Save footer when given. */
+    /** Replaces the default footer when given. */
     footer?: Snippet
     /** Extra footer classes, e.g. the muted background some Figma footers have. */
     footerClass?: string
     /** Optional label shown next to the title, e.g. "Financed". */
     badge?: string
     saveDisabled?: boolean
-    /** Replaces the default "Save changes" label, e.g. "Create" for new items. */
-    saveLabel?: string
     onSave: () => void
     onDuplicate: () => void
     onToggleInclude: () => void
@@ -68,7 +66,6 @@
     footerClass,
     badge,
     saveDisabled = false,
-    saveLabel,
     onSave,
     onDuplicate,
     onToggleInclude,
@@ -107,7 +104,7 @@
 
 <!-- Shared frame of the plan item edit dialogs: header with the editable name
      and the rename/duplicate/include/delete toolbar, scrollable body (the
-     form comes in as a snippet), and the cancel/save footer. -->
+     form comes in as a snippet), and the save/cancel/delete footer. -->
 <Dialog.Root bind:open {onOpenChange}>
   <Dialog.Content showCloseButton={false} class="gap-0 p-0 sm:max-w-xl">
     <Dialog.Header class="flex flex-row items-center gap-1 border-b p-4 pe-3">
@@ -184,14 +181,29 @@
       {@render children()}
     </div>
 
-    <Dialog.Footer class={cn('flex flex-row justify-end gap-2 border-t p-4', footerClass)}>
+    <Dialog.Footer class={cn('flex flex-row gap-2 border-t p-4', footerClass)}>
       {#if footer}
         {@render footer()}
       {:else}
-        <Button variant="secondary" onclick={close}>{$_('page.plan.cancel')}</Button>
-        <Button disabled={saveDisabled} onclick={onSave}
-          >{saveLabel ?? $_('page.plan.saveChanges')}</Button
-        >
+        <!-- Figma "Add footer" / "Edit footer" (941-71859, 941-81371). -->
+        <div class="flex flex-1 items-center gap-2">
+          <Button disabled={saveDisabled} onclick={onSave}>
+            {isNew ? $_('page.plan.createItem') : $_('page.plan.saveChanges')}
+          </Button>
+          <Button variant="outline" onclick={close}>{$_('page.plan.cancel')}</Button>
+          {#if !isNew}
+            <div class="flex flex-1 items-center justify-end gap-2">
+              <Button
+                variant="destructive"
+                size="icon"
+                onclick={onDelete}
+                aria-label={$_('page.plan.deleteItem')}
+              >
+                <Trash2 class="size-4" />
+              </Button>
+            </div>
+          {/if}
+        </div>
       {/if}
     </Dialog.Footer>
   </Dialog.Content>
