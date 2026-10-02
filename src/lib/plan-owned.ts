@@ -7,14 +7,19 @@ export interface PlanOwned {
   plan_id?: string
 }
 
+/** Whether a plan owns the item. */
+export function isPlanOwned(item: PlanOwned): boolean {
+  return item.plan_id !== undefined
+}
+
 /** The items some plan owns: what financial data must carry through a save untouched. */
 export function planOwnedItems<T extends PlanOwned>(items: T[] | undefined): T[] {
-  return (items ?? []).filter((item) => item.plan_id !== undefined)
+  return (items ?? []).filter(isPlanOwned)
 }
 
 /** Current data only: the items no plan owns. */
 export function sharedItems<T extends PlanOwned>(items: T[] | undefined): T[] {
-  return (items ?? []).filter((item) => item.plan_id === undefined)
+  return (items ?? []).filter((item) => !isPlanOwned(item))
 }
 
 /**

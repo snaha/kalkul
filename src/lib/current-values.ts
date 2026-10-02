@@ -1,7 +1,7 @@
 import Decimal from 'decimal.js'
 
 import { DECIMAL_0, DECIMAL_1, daysBetween } from '$lib/@snaha/kalkul-maths'
-import { sharedItems } from '$lib/plan-owned'
+import { isPlanOwned, sharedItems } from '$lib/plan-owned'
 import {
   CASH_ENDPOINT,
   INSTALLMENT_PERIODS_PER_YEAR,
@@ -157,7 +157,7 @@ function annualFlowsOn(profile: Profile, asOf: Date): AnnualFlows {
     transfers: [],
   }
 
-  const investmentsById = new Map((profile.investments ?? []).map((i) => [i.id, i]))
+  const investmentsById = new Map(sharedItems(profile.investments).map((i) => [i.id, i]))
   const isEndpointActive = (id: string): boolean => {
     if (id === CASH_ENDPOINT) return true
     const investment = investmentsById.get(id)
@@ -375,6 +375,8 @@ function amortizeLoan(liability: ProfileLiability, yearFraction: Decimal): Amort
  *
  * Returns the profile unchanged when nothing has elapsed — no snapshots yet, or
  * the latest one is dated today (or, defensively, in the future).
+ *
+ * Plan-owned items are returned as stored.
  */
 export function getCurrentProfile(profile: Profile, today: Date): Profile {
   const snapshot = latestSnapshot(profile.snapshots)
@@ -440,8 +442,9 @@ export function getCurrentProfile(profile: Profile, today: Date): Profile {
     const balance = new Decimal(investment.balance)
     return boughtInWindow(investment) ? applyEntryFee(investment, balance) : balance
   }
+  const sharedInvestments = sharedItems(profile.investments)
   let cashBefore = new Decimal(profile.cash_amount ?? 0).plus(flows.cash.mul(yearFraction))
-  for (const investment of profile.investments ?? []) {
+  for (const investment of sharedInvestments) {
     if (boughtInWindow(investment)) cashBefore = cashBefore.minus(investment.balance)
     if (soldInWindow(investment)) {
       cashBefore = cashBefore.plus(applyExitFee(investment, paidIn(investment)))
@@ -450,7 +453,7 @@ export function getCurrentProfile(profile: Profile, today: Date): Profile {
 
   const before = new Map<string, Decimal>([
     [CASH_ENDPOINT, cashBefore],
-    ...(profile.investments ?? []).map((investment): [string, Decimal] => {
+    ...sharedInvestments.map((investment): [string, Decimal] => {
       if (soldInWindow(investment)) return [investment.id, DECIMAL_0]
       const held = paidIn(investment)
       return [
@@ -475,15 +478,16 @@ export function getCurrentProfile(profile: Profile, today: Date): Profile {
   return {
     ...profile,
     cash_amount: balance(CASH_ENDPOINT),
-    investments: profile.investments?.map((investment) => ({
-      ...investment,
-      balance: balance(investment.id),
-    })),
-    liabilities: profile.liabilities?.map((liability) => ({
-      ...liability,
-      ...amortizeLoan(liability, yearFraction),
-    })),
+    investments: profile.investments?.map((investment) =>
+      isPlanOwned(investment) ? investment : { ...investment, balance: balance(investment.id) },
+    ),
+    liabilities: profile.liabilities?.map((liability) =>
+      isPlanOwned(liability)
+        ? liability
+        : { ...liability, ...amortizeLoan(liability, yearFraction) },
+    ),
     tangible_assets: profile.tangible_assets?.map((asset) => {
+      if (isPlanOwned(asset)) return asset
       // A property not owned on the date is left alone for the same reason a
       // position not held is: its mortgage is not being paid yet, or was
       // settled by the sale.
