@@ -338,9 +338,19 @@
 
   function save() {
     if (kind === 'investment') {
-      upsertProfileItem(PROFILE_LISTS.investment, projectInvestment(form), plan)
+      upsertProfileItem(
+        PROFILE_LISTS.investment,
+        projectInvestment(form),
+        plan,
+        target.kind === 'investment' ? target.initial : undefined,
+      )
     } else {
-      upsertProfileItem(PROFILE_LISTS.tangibleAsset, projectTangibleAsset(form), plan)
+      upsertProfileItem(
+        PROFILE_LISTS.tangibleAsset,
+        projectTangibleAsset(form),
+        plan,
+        target.kind === 'tangibleAsset' ? target.initial : undefined,
+      )
     }
     close()
   }

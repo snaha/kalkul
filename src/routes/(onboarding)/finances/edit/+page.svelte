@@ -4,12 +4,14 @@
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
 
+  import { changedFields } from '$lib/changed-fields'
   import CheckboxCard from '$lib/components/checkbox-card.svelte'
   import OnboardingNav from '$lib/components/onboarding-nav.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Label } from '$lib/components/ui/label'
   import { getNextStepUrl } from '$lib/onboarding-steps'
   import routes from '$lib/routes'
+  import type { Profile } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
 
   // The store is loaded before render (see +layout.ts), so the profile is
@@ -20,13 +22,23 @@
   let hasTangibleAssets = $state(p.has_tangible_assets ?? false)
   let hasLiabilities = $state(p.has_liabilities ?? false)
 
-  function saveData() {
-    appStore.updateProfile({
+  /** What Continue writes, from the form as it stands. */
+  function formUpdates(): Partial<Profile> {
+    return {
       cash_amount: cashAmount,
       has_investments: hasInvestments,
       has_tangible_assets: hasTangibleAssets,
       has_liabilities: hasLiabilities,
-    })
+    }
+  }
+
+  // Continue writes only what changed since the page opened, so a change made
+  // meanwhile elsewhere (another tab) to a field left alone here is kept.
+  const openedUpdates = formUpdates()
+
+  function saveData() {
+    const updates = changedFields(openedUpdates, formUpdates())
+    if (Object.keys(updates).length > 0) appStore.updateProfile(updates)
   }
 
   function handleContinue() {

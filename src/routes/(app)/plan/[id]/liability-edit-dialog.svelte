@@ -267,7 +267,7 @@
   }
 
   function save(): void {
-    upsertProfileItem(listConfig, projectLiability(form), plan)
+    upsertProfileItem(listConfig, projectLiability(form), plan, initial)
     close()
   }
 

@@ -50,8 +50,49 @@ beforeEach(() => {
 })
 
 describe('upsertProfileItem', () => {
+  it('applies only the fields edited in the dialog, keeping a change made meanwhile elsewhere', () => {
+    const opened = { ...makeInvestment('i1'), plan_id: 'plan-1' }
+    // While the dialog was open, another tab changed the return.
+    profile.investments = [{ ...opened, apy: 7 }]
+    const plan = makePlan({ id: 'plan-1' })
+    upsertProfileItem(PROFILE_LISTS.investment, { ...opened, name: 'renamed' }, plan, opened)
+    expect(profile.investments).toEqual([{ ...opened, name: 'renamed', apy: 7 }])
+  })
+
+  it('writes a field the dialog normalised together with the edited one that belongs to it', () => {
+    // Legacy data stores the term in months; the dialog shows and saves years.
+    const opened = {
+      id: 'l1',
+      name: 'Loan',
+      outstanding_balance: 1000,
+      installment_frequency: 'monthly',
+      annual_rate: 5,
+      installment_amount: 100,
+      remaining_term: 24,
+      remaining_term_unit: 'months',
+      plan_id: 'plan-1',
+    } as const
+    profile.liabilities = [opened]
+    const edited = { ...opened, remaining_term: 3, remaining_term_unit: 'years' } as const
+    upsertProfileItem(PROFILE_LISTS.liability, edited, makePlan({ id: 'plan-1' }), opened)
+    expect(profile.liabilities?.[0]).toMatchObject({
+      remaining_term: 3,
+      remaining_term_unit: 'years',
+    })
+  })
+
+  it('forks a shared item from its current values, not those it had when the dialog opened', () => {
+    const opened = makeInvestment('i1')
+    profile.investments = [{ ...opened, apy: 7 }]
+    const plan = makePlan({ id: 'plan-1' })
+    upsertProfileItem(PROFILE_LISTS.investment, { ...opened, balance: 250 }, plan, opened)
+    const copy = profile.investments?.[1]
+    expect(copy).toMatchObject({ name: 'i1', balance: 250, apy: 7, plan_id: 'plan-1' })
+    expect(profile.investments?.[0]).toEqual({ ...opened, apy: 7 })
+  })
+
   it('appends a new item and syncs the has_* flag', () => {
-    upsertProfileItem(PROFILE_LISTS.investment, makeInvestment('i1'), makePlan())
+    upsertProfileItem(PROFILE_LISTS.investment, makeInvestment('i1'), makePlan(), undefined)
     expect(updateProfile).toHaveBeenCalledWith({
       investments: [makeInvestment('i1')],
       has_investments: true,
@@ -64,27 +105,27 @@ describe('upsertProfileItem', () => {
       { ...makeInvestment('i2'), plan_id: 'plan-1' },
     ]
     const plan = makePlan({ id: 'plan-1' })
-    upsertProfileItem(PROFILE_LISTS.investment, makeInvestment('i1', 'renamed'), plan)
+    upsertProfileItem(PROFILE_LISTS.investment, makeInvestment('i1', 'renamed'), plan, undefined)
     expect(profile.investments?.map((i) => i.name)).toEqual(['renamed', 'i2'])
   })
 
   it('adds a new id to the plan include list when the plan has one', () => {
     profile.investments = [makeInvestment('i1')]
     const plan = makePlan({ included_investment_ids: ['i1'] })
-    upsertProfileItem(PROFILE_LISTS.investment, makeInvestment('i2'), plan)
+    upsertProfileItem(PROFILE_LISTS.investment, makeInvestment('i2'), plan, undefined)
     expect(plan.included_investment_ids).toEqual(['i1', 'i2'])
   })
 
   it('leaves an undefined include list alone — that already means "all included"', () => {
     const plan = makePlan()
-    upsertProfileItem(PROFILE_LISTS.investment, makeInvestment('i1'), plan)
+    upsertProfileItem(PROFILE_LISTS.investment, makeInvestment('i1'), plan, undefined)
     expect(plan.included_investment_ids).toBeUndefined()
   })
 
   it('does not re-add the id when updating a plan-owned item', () => {
     profile.investments = [{ ...makeInvestment('i1'), plan_id: 'plan-1' }]
     const plan = makePlan({ id: 'plan-1', included_investment_ids: ['i1'] })
-    upsertProfileItem(PROFILE_LISTS.investment, makeInvestment('i1', 'renamed'), plan)
+    upsertProfileItem(PROFILE_LISTS.investment, makeInvestment('i1', 'renamed'), plan, undefined)
     expect(plan.included_investment_ids).toEqual(['i1'])
   })
 
@@ -100,7 +141,7 @@ describe('upsertProfileItem', () => {
       transaction_month: 1,
     }
     const plan = makePlan({ id: 'plan-1', included_transfer_ids: [] })
-    upsertProfileItem(PROFILE_LISTS.transfer, transfer, plan)
+    upsertProfileItem(PROFILE_LISTS.transfer, transfer, plan, undefined)
     expect(profile.transfers).toEqual([{ ...transfer, plan_id: 'plan-1' }])
     expect(plan.included_transfer_ids).toEqual(['t1'])
   })
@@ -121,6 +162,7 @@ describe('upsertProfileItem', () => {
       PROFILE_LISTS.transfer,
       { ...transfer, amount: 200 },
       makePlan({ id: 'plan-1' }),
+      undefined,
     )
     expect(profile.transfers).toEqual([{ ...transfer, amount: 200, plan_id: 'plan-1' }])
   })
@@ -212,6 +254,7 @@ describe('cash-flow lists', () => {
         change_over_time: 'none',
       },
       makePlan(),
+      undefined,
     )
     expect(updateProfile).toHaveBeenCalledWith({
       incomes: [expect.objectContaining({ id: 'inc1' })],
@@ -221,14 +264,19 @@ describe('cash-flow lists', () => {
 
 describe('plan ownership', () => {
   it('stamps a new item with the plan id so financial data never lists it', () => {
-    upsertProfileItem(PROFILE_LISTS.investment, makeInvestment('i1'), makePlan({ id: 'plan-1' }))
+    upsertProfileItem(
+      PROFILE_LISTS.investment,
+      makeInvestment('i1'),
+      makePlan({ id: 'plan-1' }),
+      undefined,
+    )
     expect(profile.investments).toEqual([{ ...makeInvestment('i1'), plan_id: 'plan-1' }])
   })
 
   it('forks an edited shared item into a plan-owned copy and leaves the original alone (#324)', () => {
     profile.investments = [makeInvestment('i1'), makeInvestment('i2')]
     const plan = makePlan({ id: 'plan-1' })
-    upsertProfileItem(PROFILE_LISTS.investment, makeInvestment('i1', 'renamed'), plan)
+    upsertProfileItem(PROFILE_LISTS.investment, makeInvestment('i1', 'renamed'), plan, undefined)
     const [original, copy, other] = profile.investments ?? []
     expect(original).toEqual(makeInvestment('i1'))
     expect(other).toEqual(makeInvestment('i2'))
@@ -242,7 +290,7 @@ describe('plan ownership', () => {
   it('swaps the original for the copy in an existing include list', () => {
     profile.investments = [makeInvestment('i1'), makeInvestment('i2')]
     const plan = makePlan({ id: 'plan-1', included_investment_ids: ['i1'] })
-    upsertProfileItem(PROFILE_LISTS.investment, makeInvestment('i1', 'renamed'), plan)
+    upsertProfileItem(PROFILE_LISTS.investment, makeInvestment('i1', 'renamed'), plan, undefined)
     const copy = profile.investments?.[1]
     expect(plan.included_investment_ids).toEqual([copy?.id])
   })
@@ -254,7 +302,12 @@ describe('plan ownership', () => {
       { ...makeInvestment('mine'), plan_id: 'plan-1' },
     ]
     const forkPlan = makePlan({ id: 'plan-1' })
-    upsertProfileItem(PROFILE_LISTS.investment, makeInvestment('i1', 'renamed'), forkPlan)
+    upsertProfileItem(
+      PROFILE_LISTS.investment,
+      makeInvestment('i1', 'renamed'),
+      forkPlan,
+      undefined,
+    )
     const copy = profile.investments?.[1]
     expect(forkPlan.included_investment_ids).toEqual(['mine', copy?.id])
 
@@ -277,6 +330,7 @@ describe('plan ownership', () => {
       PROFILE_LISTS.investment,
       makeInvestment('i1', 'renamed'),
       makePlan({ id: 'plan-1' }),
+      undefined,
     )
     expect(profile.investments).toEqual([{ ...makeInvestment('i1', 'renamed'), plan_id: 'plan-1' }])
   })
@@ -289,6 +343,7 @@ describe('plan ownership', () => {
       PROFILE_LISTS.investment,
       makeInvestment('i1', 'renamed'),
       makePlan({ id: 'plan-2' }),
+      undefined,
     )
     expect(profile.investments).toEqual([{ ...makeInvestment('i1', 'renamed'), plan_id: 'plan-1' }])
   })
@@ -306,7 +361,12 @@ describe('plan ownership', () => {
   })
 
   it('syncs the has_* flag from shared items only', () => {
-    upsertProfileItem(PROFILE_LISTS.investment, makeInvestment('i1'), makePlan({ id: 'plan-1' }))
+    upsertProfileItem(
+      PROFILE_LISTS.investment,
+      makeInvestment('i1'),
+      makePlan({ id: 'plan-1' }),
+      undefined,
+    )
     expect(profile.has_investments).toBe(false)
   })
 })

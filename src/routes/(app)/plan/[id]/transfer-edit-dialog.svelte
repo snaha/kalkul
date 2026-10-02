@@ -144,7 +144,7 @@
   }
 
   function save() {
-    upsertProfileItem(PROFILE_LISTS.transfer, transferFromFields(form), plan)
+    upsertProfileItem(PROFILE_LISTS.transfer, transferFromFields(form), plan, initial)
     close()
   }
 

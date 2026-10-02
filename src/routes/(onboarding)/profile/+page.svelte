@@ -6,6 +6,7 @@
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
 
+  import { changedFields } from '$lib/changed-fields'
   import LicenseDialog from '$lib/components/license-dialog.svelte'
   import SelectField from '$lib/components/select-field.svelte'
   import { Button } from '$lib/components/ui/button'
@@ -74,7 +75,8 @@
 
   let licenseOpen = $state(false)
 
-  function handleContinue() {
+  /** What Continue writes, from the form as it stands. */
+  function formUpdates(): Partial<Profile> {
     const updates: Partial<Profile> = {
       name: name.trim(),
       location: location || undefined,
@@ -86,7 +88,16 @@
       const date = new Date(Number(birthYear), Number(birthMonth), 1)
       updates.birth_date = toDateOnlyString(date)
     }
-    appStore.updateProfile(updates)
+    return updates
+  }
+
+  // Continue writes only what changed since the page opened, so a change made
+  // meanwhile elsewhere (another tab) to a field left alone here is kept.
+  const openedUpdates = formUpdates()
+
+  function handleContinue() {
+    const updates = changedFields(openedUpdates, formUpdates())
+    if (Object.keys(updates).length > 0) appStore.updateProfile(updates)
     goto(resolve(routes.FINANCES_EDIT))
   }
 </script>

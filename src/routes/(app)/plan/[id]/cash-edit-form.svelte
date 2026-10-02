@@ -32,7 +32,9 @@
   )
 
   function save() {
-    appStore.updateProfile({ cash_amount: amount ?? 0 })
+    // Only when edited: saving the value from when the dialog opened would
+    // undo a change made meanwhile elsewhere (another tab).
+    if ((amount ?? 0) !== (initial ?? 0)) appStore.updateProfile({ cash_amount: amount ?? 0 })
     onClose()
   }
 
