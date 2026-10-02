@@ -15,7 +15,7 @@
   import { Switch } from '$lib/components/ui/switch'
   import { itemsForPlan } from '$lib/plan-owned'
   import { installmentAmountForLoan, termYearsForLoan } from '$lib/plan-projection'
-  import { planRangeOf, planYearOptions, timingWithinPlan, yearWithinPlan } from '$lib/plan-range'
+  import { planRangeOf, planYearOptions, timingWithinPlan } from '$lib/plan-range'
   import type {
     CashFlowStart,
     CompoundingFrequency,
@@ -256,7 +256,8 @@
       (form.pay_off !== 'at_specific_date' ||
         (form.pay_off_year !== undefined &&
           form.pay_off_month !== undefined &&
-          yearWithinPlan(range, form.pay_off_year))) &&
+          // The pay-off is an end: after the plan it just amortizes to the last year.
+          timingWithinPlan(range, 'end', 'at_specific_date', form.pay_off_year, undefined))) &&
       // Compound interest must state its cadence.
       (form.interest_type !== 'compound' || form.compounding_frequency !== undefined),
   )
@@ -489,11 +490,9 @@
           />
           <HelpTooltip text={$_('page.plan.payOffDescription')} />
         </div>
-        {#if !yearWithinPlan(range, form.pay_off_year)}
+        {#if !timingWithinPlan(range, 'end', 'at_specific_date', form.pay_off_year, undefined)}
           <p class="text-xs text-destructive">
-            {$_('validation.outside_plan', {
-              values: { start: String(range.startYear), end: String(range.endYear) },
-            })}
+            {$_('validation.end_before_plan', { values: { start: String(range.startYear) } })}
           </p>
         {/if}
       {:else}
