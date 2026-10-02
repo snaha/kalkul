@@ -87,12 +87,13 @@ function persistList<K extends ProfileListKey>(
  *    list it. It joins the plan's include list when one exists, so it is
  *    visible here by default (an undefined include list means "all included").
  *  - An edited plan-owned item is replaced in place. The projected item the
- *    dialogs hand back carries no `plan_id`, so the stored one is re-attached
- *    or the item would leak into financial data as current data.
+ *    dialogs hand back carries no `plan_id` or `forked_from`, so the stored
+ *    ones are re-attached.
  *  - An edited shared item is forked: the edit lands in a new plan-owned copy
  *    right after the original, and the plan swaps the original for the copy
  *    in its include list, seeding that list when it has none. Financial data
- *    and other plans keep the original.
+ *    and other plans keep the original. The copy records the original's id
+ *    in `forked_from`.
  */
 export function upsertProfileItem<K extends ProfileListKey>(
   config: ProfileListConfig<K>,
@@ -114,11 +115,13 @@ export function upsertProfileItem<K extends ProfileListKey>(
   if (stored.plan_id !== undefined) {
     persistList(
       config,
-      existing.map((it) => (it === stored ? { ...item, plan_id: stored.plan_id } : it)),
+      existing.map((it) =>
+        it === stored ? { ...item, plan_id: stored.plan_id, forked_from: stored.forked_from } : it,
+      ),
     )
     return
   }
-  const copy = { ...item, id: crypto.randomUUID(), plan_id: plan.id }
+  const copy = { ...item, id: crypto.randomUUID(), plan_id: plan.id, forked_from: stored.id }
   // The profile is saved first so the copy exists before the plan points at
   // it. Nothing validates the reference (an include list is a plain string
   // array), but a failure between the two writes then leaves an unreferenced
@@ -134,7 +137,7 @@ export function upsertProfileItem<K extends ProfileListKey>(
  * upsertProfileItem, the copy joins the plan's include list when one exists —
  * otherwise duplicating inside a plan that excludes anything would produce a
  * copy that is excluded by default, i.e. one that looks like it never got
- * created.
+ * created. The copy never carries `forked_from`.
  */
 export function duplicateProfileItem(
   config: ProfileListConfig,
@@ -145,10 +148,11 @@ export function duplicateProfileItem(
   const existing = listItems(config)
   const idx = existing.findIndex((it) => it.id === id)
   if (idx === -1) return undefined
+  const { forked_from: _forkedFrom, ...source } = existing[idx]
   const copy = {
-    ...existing[idx],
+    ...source,
     id: crypto.randomUUID(),
-    name: copyName(existing[idx].name),
+    name: copyName(source.name),
     plan_id: plan.id,
   }
   persistList(config, [...existing.slice(0, idx + 1), copy, ...existing.slice(idx + 1)])

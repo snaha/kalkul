@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { Portfolio, Profile, ProfileInvestment } from '$lib/schemas'
+import type { Portfolio, Profile, ProfileInvestment, ProfileLiability } from '$lib/schemas'
 import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
 
 import {
@@ -28,6 +28,18 @@ vi.mock('$lib/stores/app.svelte', () => ({
 
 function makeInvestment(id: string, name = id): ProfileInvestment {
   return { id, name, balance: 100, apy: 5 }
+}
+
+function makeLiability(id: string, name = id): ProfileLiability {
+  return {
+    id,
+    name,
+    outstanding_balance: 100000,
+    installment_frequency: 'monthly',
+    annual_rate: 5,
+    installment_amount: 1000,
+    remaining_term: 120,
+  }
 }
 
 /** Minimal PortfolioStore stand-in: the helpers only touch include lists. */
@@ -232,11 +244,49 @@ describe('plan ownership', () => {
     const [original, copy, other] = profile.investments ?? []
     expect(original).toEqual(makeInvestment('i1'))
     expect(other).toEqual(makeInvestment('i2'))
-    expect(copy).toEqual({ ...makeInvestment('i1', 'renamed'), id: copy.id, plan_id: 'plan-1' })
+    expect(copy).toEqual({
+      ...makeInvestment('i1', 'renamed'),
+      id: copy.id,
+      plan_id: 'plan-1',
+      forked_from: 'i1',
+    })
     expect(copy.id).not.toBe('i1')
     // The plan swaps the original for its copy: the include list is seeded
     // from everything it could see, minus the original, plus the copy.
     expect(plan.included_investment_ids).toEqual(['i2', copy.id])
+  })
+
+  it('keeps the origin when the fork is edited again', () => {
+    profile.liabilities = [
+      makeLiability('l1'),
+      { ...makeLiability('copy'), plan_id: 'plan-1', forked_from: 'l1' },
+    ]
+    upsertProfileItem(
+      PROFILE_LISTS.liability,
+      makeLiability('copy', 'renamed again'),
+      makePlan({ id: 'plan-1' }),
+    )
+    expect(profile.liabilities?.[1]).toEqual({
+      ...makeLiability('copy', 'renamed again'),
+      plan_id: 'plan-1',
+      forked_from: 'l1',
+    })
+  })
+
+  it('does not mark a new item as a fork', () => {
+    upsertProfileItem(PROFILE_LISTS.liability, makeLiability('new'), makePlan({ id: 'plan-1' }))
+    const added = profile.liabilities?.[0]
+    expect(added).toBeDefined()
+    expect(added).not.toHaveProperty('forked_from')
+  })
+
+  it('does not carry forked_from onto a duplicate, even of a fork', () => {
+    profile.liabilities = [{ ...makeLiability('copy'), plan_id: 'plan-1', forked_from: 'l1' }]
+    const plan = makePlan({ id: 'plan-1' })
+    const dupId = duplicateProfileItem(PROFILE_LISTS.liability, 'copy', (n) => `${n} 2`, plan)
+    const dup = profile.liabilities?.find((l) => l.id === dupId)
+    expect(dup).toBeDefined()
+    expect(dup).not.toHaveProperty('forked_from')
   })
 
   it('swaps the original for the copy in an existing include list', () => {

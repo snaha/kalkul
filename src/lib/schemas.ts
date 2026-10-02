@@ -292,7 +292,8 @@ export function timingComplete(
 // Set when the item was created inside a plan: it belongs to that plan alone
 // and stays out of financial data and of other plans. Unset means the user
 // recorded it as current data, shared by every plan.
-const planOwnership = { plan_id: z.string().optional() }
+// `forked_from`: id of the financial-data item a plan-owned copy was forked from.
+const planOwnership = { plan_id: z.string().optional(), forked_from: z.string().optional() }
 
 // Incomes and expenses share one shape; the two names are kept so call sites
 // read naturally.
