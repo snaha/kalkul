@@ -663,7 +663,15 @@
       "other": "Other"
     },
     "currency": "Currency",
-    "notImplemented": "Not implemented yet"
+    "notImplemented": "Not implemented yet",
+    "unreadableData": {
+      "title": "Your saved data couldn't be read",
+      "description": "The data saved in this browser is damaged or comes from an incompatible version of Kalkul.",
+      "kept": "A copy of it was kept in this browser.",
+      "notKept": "There was no room to keep a copy, so your changes won't be saved until you download it.",
+      "download": "Download unreadable data",
+      "dismiss": "Dismiss"
+    }
   },
   "theme": {
     "light": "Light",
