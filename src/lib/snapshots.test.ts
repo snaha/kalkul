@@ -385,8 +385,6 @@ describe('withSeededSnapshot', () => {
 
   test('seeds a profile whose snapshot list is empty', () => {
     // An empty list means the same as no list: balances with no date attached.
-    // Nothing can leave one behind on purpose — deleting the last snapshot
-    // re-baselines onto today rather than clearing the history.
     const profile: Profile = { ...PROFILE, snapshots: [] }
     expect(withSeededSnapshot(profile, asOf).snapshots).toEqual([
       captureSnapshot(PROFILE, '2026-04-27'),

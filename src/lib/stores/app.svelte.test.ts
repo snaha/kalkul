@@ -683,8 +683,7 @@ describe('appStore snapshot editing', () => {
   })
 
   it('leaves the history empty when nothing is held today', () => {
-    // A position that only starts in 2030 is data, but not a balance to
-    // project from — recording an all-zero row for today would say otherwise.
+    // A position that only starts in 2030 is not held today.
     appStore.updateProfile({
       cash_amount: 0,
       investments: [
@@ -705,29 +704,14 @@ describe('appStore snapshot editing', () => {
     expect(appStore.profile.snapshots).toEqual([])
   })
 
-  it('re-baselines onto today when the last snapshot is deleted', () => {
-    // A profile holding balances with no baseline has nothing to project from:
-    // no staleness banner, no projection, and the next unrelated edit stamps
-    // today onto months-old figures. Deleting the last snapshot therefore
-    // carries its figures forward to today and records them there — the user
-    // sees exactly that as a row dated today, which they can edit or delete.
+  it('leaves the only snapshot in place while anything is held', () => {
     appStore.deleteSnapshot('2026-01-01')
+    const before = appStore.profile.toJSON()
+
     appStore.deleteSnapshot('2026-06-01')
 
-    expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual([TODAY])
-    expect(appStore.profile.cash_amount).toBe(9_000)
-  })
-
-  it('keeps that baseline across a reload and records nothing on the next edit', () => {
-    appStore.deleteSnapshot('2026-01-01')
-    appStore.deleteSnapshot('2026-06-01')
-    const recorded = appStore.profile.snapshots
-
-    appStore.load()
-    expect(appStore.profile.snapshots).toEqual(recorded)
-
-    appStore.updateProfile({ name: 'Renamed' })
-    expect(appStore.profile.snapshots).toEqual(recorded)
+    expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual(['2026-06-01'])
+    expect(appStore.profile.toJSON()).toEqual(before)
   })
 
   it('leaves an empty history empty for a profile with no balances', () => {
@@ -1129,61 +1113,5 @@ describe('appStore with a one-time cash flow', () => {
     appStore.load()
     expect(appStore.profile.name).toBe('Alice')
     expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual([TODAY])
-  })
-})
-
-describe('appStore deleting the only snapshot of a growing profile', () => {
-  // 3,000 a month arriving since 2026-01-15, read on 2026-06-15: 151 days.
-  const PROFILE: Profile = {
-    name: 'Alice',
-    email: 'a@example.com',
-    cash_amount: 10_000,
-    incomes: [
-      {
-        id: 'i1',
-        name: 'Salary',
-        amount: 3_000,
-        schedule: 'recurring',
-        frequency: 'monthly',
-        start: 'immediately',
-        end: 'never',
-        change_over_time: 'none',
-      },
-    ],
-    snapshots: [
-      {
-        date: '2026-01-15',
-        cash_amount: 10_000,
-        investments: [],
-        tangible_assets: [],
-        liabilities: [],
-        incomes: [{ id: 'i1', amount: 3_000, frequency: 'monthly' }],
-        expenses: [],
-      },
-    ],
-  }
-
-  beforeEach(() => {
-    vi.useFakeTimers()
-    vi.setSystemTime(NOW)
-    stubLocalStorage()
-    appStore.clear()
-    appStore.updateProfile(PROFILE)
-  })
-
-  afterEach(() => {
-    appStore.clear()
-    vi.unstubAllGlobals()
-    vi.useRealTimers()
-  })
-
-  it("records today's figures rather than the deleted snapshot's", () => {
-    appStore.deleteSnapshot('2026-01-15')
-
-    expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual([TODAY])
-    // Five months of salary arrived while the deleted baseline stood; stamping
-    // January's 10,000 with today's date would give that money back.
-    expect(appStore.profile.cash_amount).toBe(24_883)
-    expect(appStore.profile.snapshots?.[0].cash_amount).toBe(24_883)
   })
 })

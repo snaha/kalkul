@@ -11,7 +11,7 @@ export interface SnapshotRow {
   netWorth: number
   /** Undefined when the recorded day had no outflows to measure against. */
   fiPercent: number | undefined
-  /** Whether deleting the row would change anything; see `canDeleteSnapshot`. */
+  /** Whether the row may be deleted; see `canDeleteSnapshot`. */
   deletable: boolean
 }
 

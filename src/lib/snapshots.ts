@@ -544,30 +544,17 @@ export function withSavedSnapshot(
  * Deletes the snapshot dated `date`. Deleting the most recent one rewinds the
  * profile's baseline to the one before it — the figures the user last recorded
  * that still stand. Deleting the last one leaves the history empty and the
- * profile as it is; `appStore.deleteSnapshot` then records today's figures in
- * its place while there is anything held to record, so a profile with balances
- * never loses its baseline.
+ * profile as it is.
  */
 export function withDeletedSnapshot(profile: Profile, date: string): Profile {
   return withHistory(profile, removeSnapshot(profile.snapshots, date))
 }
 
-/**
- * Whether deleting the snapshot dated `date` would change anything.
- *
- * Deleting the only one does not while it is today's and anything is held: a
- * profile with balances is never left without a baseline, so
- * `appStore.deleteSnapshot` carries the figures forward to today and records
- * them in its place — and carried forward no time at all, they are the deleted
- * snapshot's own. The row would stay, after the user was told the deletion
- * cannot be undone.
- */
+/** Whether the snapshot dated `date` may be deleted: not the only one while anything is held. */
 export function canDeleteSnapshot(profile: Profile, date: string, today: Date): boolean {
   const snapshots = profile.snapshots ?? []
   const onlyOne = snapshots.length === 1 && snapshots[0].date === date
-  return (
-    !onlyOne || date !== toDateOnlyString(today) || !hasAnyBalance(heldBalances(profile, today))
-  )
+  return !onlyOne || !hasAnyBalance(heldBalances(profile, today))
 }
 
 /**
@@ -618,10 +605,8 @@ export function withLatestTermsRecorded(profile: Profile): Profile {
  * one point.
  *
  * An absent list and an empty one are the same thing — a profile holding
- * balances that nothing says a date for. Nothing else can leave one behind:
- * deleting the last snapshot re-baselines onto today rather than clearing the
- * history, precisely so a profile with balances always has a baseline. A no-op
- * when there are no balances to record.
+ * balances that nothing says a date for. A no-op when there are no balances to
+ * record.
  */
 export function withSeededSnapshot(profile: Profile, asOf: Date): Profile {
   if ((profile.snapshots ?? []).length > 0) return profile

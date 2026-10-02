@@ -16,10 +16,9 @@ import {
 } from '$lib/schemas'
 import type { Snapshot } from '$lib/schemas'
 import {
+  canDeleteSnapshot,
   captureSnapshot,
-  hasAnyBalance,
   hasSameBalances,
-  heldBalances,
   latestSnapshot,
   upsertSnapshot,
   withDeletedSnapshot,
@@ -435,41 +434,11 @@ function withAppStore() {
       writeProfile(withSavedSnapshot(carried, snapshot, originalDate), 'manage')
     },
 
-    /**
-     * Deletes the snapshot dated `date`.
-     *
-     * Deleting the last one would leave the profile holding balances with no
-     * baseline to project them from: no staleness banner, no projection, and
-     * the next unrelated edit stamping today's date onto months-old figures.
-     * So the deleted snapshot's figures are carried forward to today — the same
-     * model the dashboard shows them with — and recorded there. History is
-     * never empty while there are balances, and the user sees exactly what
-     * happened as a row dated today, theirs to edit or delete in turn.
-     */
+    /** Deletes the snapshot dated `date`, unless `canDeleteSnapshot` refuses. */
     deleteSnapshot(date: string) {
-      const today = new Date()
       const stored = profile.toJSON()
-      const deleted = (stored.snapshots ?? []).find((snapshot) => snapshot.date === date)
-      const next = withDeletedSnapshot(stored, date)
-      // Gated on what is held today, not on whether the profile has any data:
-      // a position that only starts in 2030 is nothing to project from, and
-      // recording an all-zero row for today would say otherwise.
-      if (
-        !deleted ||
-        (next.snapshots ?? []).length > 0 ||
-        !hasAnyBalance(heldBalances(next, today))
-      ) {
-        writeProfile(next, 'manage')
-        return
-      }
-      // The profile already holds the deleted snapshot's figures — it was the
-      // newest, and every write keeps the profile matching that one — so it is
-      // the baseline to project from.
-      const carried = getCurrentProfile({ ...next, snapshots: [deleted] }, today)
-      writeProfile(
-        { ...carried, snapshots: [captureSnapshot(carried, toDateOnlyString(today))] },
-        'manage',
-      )
+      if (!canDeleteSnapshot(stored, date, new Date())) return
+      writeProfile(withDeletedSnapshot(stored, date), 'manage')
     },
 
     // --- Portfolios ---
