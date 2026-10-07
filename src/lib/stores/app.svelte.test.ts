@@ -9,7 +9,7 @@ import { buildSnapshotSections, seedSnapshotOn, snapshotFromFields } from '$lib/
 import storageKeys from '$lib/storage-keys'
 import { toDateOnlyString } from '$lib/utils'
 
-import { appStore } from './app.svelte'
+import { type DataChange, appStore } from './app.svelte'
 
 vi.mock('$lib/analytics', async (importOriginal) => ({
   ...(await importOriginal<typeof import('$lib/analytics')>()),
@@ -1194,5 +1194,87 @@ describe('appStore with a one-time cash flow', () => {
     appStore.load()
     expect(appStore.profile.name).toBe('Alice')
     expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual([TODAY])
+  })
+})
+
+describe('appStore.onDataChange', () => {
+  const backup = (name: string) => JSON.stringify({ profile: { name, email: '' }, portfolios: [] })
+  let changes: DataChange[]
+  let unsubscribe: () => void
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
+    stubLocalStorage()
+    appStore.clear()
+    changes = []
+    unsubscribe = appStore.onDataChange((change) => changes.push(change))
+  })
+
+  afterEach(() => {
+    unsubscribe()
+    appStore.clear()
+    vi.unstubAllGlobals()
+    vi.useRealTimers()
+  })
+
+  it('reports an edit and an import, each with the new lastUpdated', () => {
+    appStore.updateProfile({ name: 'Jane' })
+    vi.setSystemTime(NOW.getTime() + 1000)
+    appStore.importBackup(backup('Eva'))
+    expect(changes).toEqual([
+      { lastUpdated: NOW.getTime(), source: 'edit' },
+      { lastUpdated: NOW.getTime() + 1000, source: 'edit' },
+    ])
+  })
+
+  it('reports nothing for an edit it rejected', () => {
+    expect(() => appStore.updateProfile({ name: 42 } as unknown as Partial<Profile>)).toThrow()
+    expect(changes).toEqual([])
+  })
+
+  it("reports another tab's save", () => {
+    let onStorage: ((event: StorageEvent) => void) | undefined
+    vi.stubGlobal('window', {
+      addEventListener: (_type: string, handler: (event: StorageEvent) => void) => {
+        onStorage = handler
+      },
+      removeEventListener: () => {},
+    })
+    const stop = appStore.startSync()
+    const stored = { lastUpdated: 42, profile: { name: 'Jane', email: '' }, portfolios: [] }
+    onStorage?.({ key: storageKeys.DATA, newValue: JSON.stringify(stored) } as StorageEvent)
+    stop()
+    expect(changes).toEqual([{ lastUpdated: 42, source: 'other-tab' }])
+    expect(appStore.profile.name).toBe('Jane')
+  })
+
+  it('reports another tab erasing the data', () => {
+    let onStorage: ((event: StorageEvent) => void) | undefined
+    vi.stubGlobal('window', {
+      addEventListener: (_type: string, handler: (event: StorageEvent) => void) => {
+        onStorage = handler
+      },
+      removeEventListener: () => {},
+    })
+    appStore.updateProfile({ name: 'Jane' })
+    changes = []
+    const stop = appStore.startSync()
+    onStorage?.({ key: storageKeys.DATA, newValue: null } as StorageEvent)
+    stop()
+    expect(changes).toEqual([{ lastUpdated: 0, source: 'other-tab' }])
+    expect(appStore.profile.name).toBe('')
+  })
+
+  it('reports loading and clearing', () => {
+    appStore.clear()
+    appStore.load()
+    expect(changes.map((change) => change.source)).toEqual(['load', 'load'])
+  })
+
+  it('stops reporting once unsubscribed', () => {
+    unsubscribe()
+    appStore.updateProfile({ name: 'Jane' })
+    expect(changes).toEqual([])
   })
 })
