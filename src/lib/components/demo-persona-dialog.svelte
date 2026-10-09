@@ -4,6 +4,7 @@
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
 
+  import { EVENTS, track } from '$lib/analytics'
   import { Button } from '$lib/components/ui/button'
   import * as Dialog from '$lib/components/ui/dialog'
   import * as RadioGroup from '$lib/components/ui/radio-group'
@@ -26,7 +27,11 @@
   let { open = $bindable() }: Props = $props()
 
   // Empty rather than undefined: the radio group's bound value has a fallback.
+  // Reset on every opening, so the chooser starts from the Figma empty state.
   let selected = $state('')
+  $effect(() => {
+    if (open) selected = ''
+  })
   const today = new Date()
 
   // Literal keys, so the locale checker can see them.
@@ -40,15 +45,16 @@
   async function start(): Promise<void> {
     const persona = DEMO_PERSONAS.find((p) => p.id === selected)
     if (!persona) return
+    track(EVENTS.LANDING_TRY_DEMO, { persona: persona.id })
     startDemo(persona, today)
     open = false
     await goto(resolve(`${routes.PLAN_VIEW}/${DEMO_PLAN_ID}`))
   }
 
   async function startWithOwnData(): Promise<void> {
-    if (appStore.demo) exitDemo()
+    const next = appStore.demo ? exitDemo() : routes.PROFILE
     open = false
-    await goto(resolve(routes.PROFILE))
+    await goto(resolve(next))
   }
 </script>
 

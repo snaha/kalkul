@@ -36,8 +36,8 @@
   import { Slider } from '$lib/components/ui/slider'
   import { CURRENT_PROJECTION_ID, buildCurrentProjectionPlan } from '$lib/current-projection'
   import { getCurrentProfile } from '$lib/current-values'
-  import { type PlanListKey, planItems } from '$lib/plan-items'
   import { DEMO_PLAN_ID } from '$lib/demo'
+  import { type PlanListKey, planItems } from '$lib/plan-items'
   import { getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
   import routes from '$lib/routes'
   import type {

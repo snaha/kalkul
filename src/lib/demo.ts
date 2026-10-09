@@ -4,6 +4,7 @@ import peter from '$examples/peter-kovac-sk-29yo.kalkul.json'
 import tereza from '$examples/tereza-svobodova-cz-20yo.kalkul.json'
 
 import { buildPlanInclusions, getDefaultPlanDates } from '$lib/plan-defaults'
+import routes from '$lib/routes'
 import { type Portfolio, type Profile, storedDataSchema } from '$lib/schemas'
 import storageKeys from '$lib/storage-keys'
 import { appStore } from '$lib/stores/app.svelte'
@@ -74,13 +75,29 @@ export function buildDemoData(persona: DemoPersona, today: Date): DemoPersona['d
 }
 
 export function startDemo(persona: DemoPersona, today: Date): void {
-  appStore.loadDemo(buildDemoData(persona, today))
-  localStorage.setItem(storageKeys.DEMO, persona.id)
+  appStore.loadDemo(buildDemoData(persona, today), today)
+  // The key only makes a reload pick the persona up again; the demo runs
+  // without it when storage is blocked.
+  try {
+    localStorage.setItem(storageKeys.DEMO, persona.id)
+  } catch (e) {
+    console.warn('Could not remember the demo persona', e)
+  }
 }
 
-export function exitDemo(): void {
-  localStorage.removeItem(storageKeys.DEMO)
+/**
+ * Leaves the demo and returns where to go next: the dashboard when this
+ * browser already holds data (another tab may have set it up during the
+ * demo), onboarding otherwise.
+ */
+export function exitDemo(): (typeof routes)['HOME' | 'PROFILE'] {
+  try {
+    localStorage.removeItem(storageKeys.DEMO)
+  } catch (e) {
+    console.warn('Could not forget the demo persona', e)
+  }
   appStore.exitDemo()
+  return appStore.profile.name ? routes.HOME : routes.PROFILE
 }
 
 /**

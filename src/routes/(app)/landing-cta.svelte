@@ -20,8 +20,8 @@
 
   let personaDialogOpen = $state(false)
 
+  // The demo event fires when a persona is picked, in the chooser itself.
   function tryDemo(): void {
-    track(EVENTS.LANDING_TRY_DEMO)
     personaDialogOpen = true
   }
 </script>
