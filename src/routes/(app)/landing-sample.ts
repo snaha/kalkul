@@ -1,4 +1,4 @@
-import claire from '$examples/claire-moreau-fr-40yo.kalkul.json'
+import claire from '$examples/claire-moreau-fr-41yo.kalkul.json'
 
 import { storedDataSchema } from '$lib/schemas'
 import {

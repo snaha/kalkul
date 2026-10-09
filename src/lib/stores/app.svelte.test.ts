@@ -517,6 +517,71 @@ describe('appStore.addPortfolio analytics', () => {
   })
 })
 
+describe('appStore demo mode', () => {
+  beforeEach(stubLocalStorage)
+
+  afterEach(() => {
+    appStore.clear()
+    vi.unstubAllGlobals()
+  })
+
+  const DEMO = { profile: { name: 'Claire Moreau', email: '', cash_amount: 100 }, portfolios: [] }
+
+  it('holds the persona in memory and never writes to storage', () => {
+    appStore.loadDemo(DEMO, NOW)
+    appStore.updateProfile({ cash_amount: 200 })
+
+    expect(appStore.demo).toBe(true)
+    expect(appStore.profile.cash_amount).toBe(200)
+    expect(backing.has(storageKeys.DATA)).toBe(false)
+  })
+
+  it('exits to empty data and persists again afterwards', () => {
+    appStore.loadDemo(DEMO, NOW)
+    appStore.exitDemo()
+
+    expect(appStore.demo).toBe(false)
+    expect(appStore.profile.name).toBe('')
+    expect(appStore.portfolios).toEqual([])
+
+    appStore.updateProfile({ name: 'Jane' })
+    expect(JSON.parse(backing.get(storageKeys.DATA) ?? '{}').profile.name).toBe('Jane')
+  })
+
+  it('exits to the data another tab stored meanwhile instead of over it', () => {
+    appStore.loadDemo(DEMO, NOW)
+    // Storage events are ignored during the demo, so the tab only sees this on exit.
+    backing.set(
+      storageKeys.DATA,
+      JSON.stringify({ lastUpdated: 1, profile: { name: 'Jane', email: '' }, portfolios: [] }),
+    )
+    appStore.exitDemo()
+
+    expect(appStore.profile.name).toBe('Jane')
+    appStore.updateProfile({ cash_amount: 5 })
+    expect(JSON.parse(backing.get(storageKeys.DATA) ?? '{}').profile.name).toBe('Jane')
+  })
+
+  it('counts nothing a demo visitor does as usage', () => {
+    vi.mocked(track).mockClear()
+    appStore.loadDemo(DEMO, NOW)
+    appStore.updateProfile({ investments: [{ id: 'i', name: 'ETF', balance: 1, apy: 1 }] })
+    appStore.addPortfolio({
+      name: 'Plan',
+      start_date: '2026-01-01',
+      end_date: '2060-01-01',
+      inflation_rate: 2,
+    })
+    expect(vi.mocked(track)).not.toHaveBeenCalled()
+  })
+
+  it('clear() leaves demo mode too', () => {
+    appStore.loadDemo(DEMO, NOW)
+    appStore.clear()
+    expect(appStore.demo).toBe(false)
+  })
+})
+
 describe('appStore.deletePortfolio', () => {
   beforeEach(stubLocalStorage)
 

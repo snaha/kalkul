@@ -1,7 +1,7 @@
 import bence from '$examples/bence-toth-hu-25yo.kalkul.json'
-import claire from '$examples/claire-moreau-fr-40yo.kalkul.json'
-import martin from '$examples/martin-kovac-sk-30yo.kalkul.json'
-import pavel from '$examples/pavel-dvorak-cz-50yo.kalkul.json'
+import claire from '$examples/claire-moreau-fr-41yo.kalkul.json'
+import jan from '$examples/jan-dvorak-cz-56yo.kalkul.json'
+import peter from '$examples/peter-kovac-sk-29yo.kalkul.json'
 import tereza from '$examples/tereza-svobodova-cz-20yo.kalkul.json'
 import Decimal from 'decimal.js'
 
@@ -378,9 +378,9 @@ const UNDERWATER: Profile = {
 export function getDevPresets(today: Date): DevPreset[] {
   const terezaData = sample(tereza)
   const benceData = sample(bence)
-  const martinData = sample(martin)
+  const peterData = sample(peter)
   const claireData = sample(claire)
-  const pavelData = sample(pavel)
+  const janData = sample(jan)
 
   return [
     {
@@ -397,24 +397,24 @@ export function getDevPresets(today: Date): DevPreset[] {
       },
     },
     {
-      name: 'Tereza, 20 — student, cash only',
+      name: 'Tereza, 20 — student, first ETF',
       description:
-        'No investments or property, income that starts on a future date. Single-segment pie; savings rate driven entirely by cash flows. Last confirmed a month ago, so Quick update is available.',
+        'A small ETF fed by a monthly transfer, no property, income that starts on a future date. Savings rate driven almost entirely by cash flows. Last confirmed a month ago, so Quick update is available.',
       data: {
         ...terezaData,
         profile: withHistory(terezaData.profile, today, 11, { latestMonthsAgo: 1 }),
       },
     },
     {
-      name: 'Martin, 30 — updated today',
+      name: 'Peter, 29 — updated today',
       description:
         'Mortgage, ETF and pension savings, confirmed today. No staleness banner; History ends on a solid point. The only preset with nothing left to confirm — every other one is stale so Quick update can record a snapshot.',
       data: {
-        ...martinData,
+        ...peterData,
         // The deliberate exception: every other preset stops short of today so
         // recording a snapshot is something to try, but the confirmed-today
         // dashboard still needs a fixture of its own.
-        profile: withHistory(martinData.profile, today, 15),
+        profile: withHistory(peterData.profile, today, 15),
         portfolios: [
           plan(today, 'plan-1', 'Pay the house off early', 'Overpay the mortgage from year 3.', 35),
         ],
@@ -430,7 +430,7 @@ export function getDevPresets(today: Date): DevPreset[] {
       },
     },
     {
-      name: 'Claire, 40 — two years of history',
+      name: 'Claire, 41 — two years of history',
       description:
         'Three investments with entry/exit fees, two financed properties, one plan with a recurring transfer. History crossing a year boundary at irregular intervals, ending a month back so it can be extended.',
       data: {
@@ -439,29 +439,29 @@ export function getDevPresets(today: Date): DevPreset[] {
       },
     },
     {
-      name: 'Martin, 30 — six years of patchy history',
+      name: 'Peter, 29 — six years of patchy history',
       description:
         'A long-standing user: balances recorded on and off since 2020, last confirmed two months ago. Long quiet stretches between points, and the X axis has to thin its month ticks across several year boundaries.',
       data: {
-        ...martinData,
-        profile: withHistory(martinData.profile, today, 72, { latestMonthsAgo: 2 }),
+        ...peterData,
+        profile: withHistory(peterData.profile, today, 72, { latestMonthsAgo: 2 }),
       },
     },
     {
-      name: 'Pavel, 50 — three projections',
+      name: 'Jan, 56 — three projections',
       description:
         'Large CZK portfolio and a retirement plan with transfers, plus two variants. Fills the Projections panel below the automatic one. Two months stale.',
       data: {
-        profile: withHistory(pavelData.profile, today, 20, { latestMonthsAgo: 2 }),
+        profile: withHistory(janData.profile, today, 20, { latestMonthsAgo: 2 }),
         portfolios: [
-          ...pavelData.portfolios,
+          ...janData.portfolios,
           plan(today, 'plan-early', 'Retire at 60', 'Five years earlier, same spending.', 40),
           plan(today, 'plan-inflation', 'High inflation', 'Same plan at 6% inflation.', 40, 0.06),
         ],
       },
     },
     {
-      name: 'Claire, 40 — saved before snapshots',
+      name: 'Claire, 41 — saved before snapshots',
       description:
         'Legacy data: balances but no history, last written four months ago. Written straight to storage, so the baseline is seeded from that date on load — staleness banner, projected figures, two-point History. Exercises the migration, tax-netted accrual and loan amortization together.',
       // Deliberately the untouched sample: the shipped example files carry no
@@ -479,11 +479,11 @@ export function getDevPresets(today: Date): DevPreset[] {
       },
     },
     {
-      name: 'Pavel, 50 — no income recorded',
+      name: 'Jan, 56 — no income recorded',
       description:
         'Same portfolio with the income lines removed. Savings rate falls back to its "add your income" hint while runway and FI still compute. A month stale, so Quick update shows cash draining with nothing coming in.',
       data: {
-        profile: withHistory({ ...pavelData.profile, incomes: [] }, today, 16, {
+        profile: withHistory({ ...janData.profile, incomes: [] }, today, 16, {
           latestMonthsAgo: 1,
         }),
         portfolios: [],

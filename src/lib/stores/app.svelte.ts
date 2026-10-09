@@ -203,6 +203,22 @@ function withAppStore() {
     for (const listener of dataListeners) listener(change)
   }
 
+  function loadFromStorage(): void {
+    const data = loadData()
+    // Data saved before snapshots existed gets its baseline from the last
+    // write. Derived on every load rather than written back, so opening the
+    // app never mutates stored data on its own.
+    profile = enrichProfile(
+      data.lastUpdated > 0
+        ? withSeededSnapshot(data.profile, new Date(data.lastUpdated))
+        : data.profile,
+    )
+    portfolios = enrichAll(data.portfolios)
+    lastUpdated = data.lastUpdated
+    loading = false
+    emitChange('load')
+  }
+
   /** Empties the in-memory state; storage is untouched. */
   function reset(): void {
     profile = enrichProfile({ ...DEFAULT_PROFILE })
@@ -211,7 +227,17 @@ function withAppStore() {
     loading = false
   }
 
+  // Demo mode holds a sample persona in memory only: nothing it does reaches
+  // localStorage, so a reload starts the persona afresh and "Get started" has
+  // nothing to wipe. Nothing it does counts as usage either.
+  let demo = $state(false)
+
+  function trackUsage(...args: Parameters<typeof track>): void {
+    if (!demo) track(...args)
+  }
+
   function persist(): void {
+    if (demo) return
     const now = Date.now()
     const stored: StoredData = {
       lastUpdated: now,
@@ -303,9 +329,9 @@ function withAppStore() {
 
     // The two funnel steps a profile write can complete: onboarding naming the
     // profile, and the first balances or cash flows going in.
-    if (!stored.name && validated.name) track(EVENTS.PROFILE_CREATED)
+    if (!stored.name && validated.name) trackUsage(EVENTS.PROFILE_CREATED)
     if (!hasAnyFinancialData(stored) && hasAnyFinancialData(validated)) {
-      track(EVENTS.FINANCES_SAVED)
+      trackUsage(EVENTS.FINANCES_SAVED)
     }
   }
 
@@ -345,6 +371,7 @@ function withAppStore() {
       return !loading && !!profile.name
     },
     clear() {
+      demo = false
       reset()
       try {
         localStorage.removeItem(storageKeys.DATA)
@@ -414,7 +441,7 @@ function withAppStore() {
      */
     confirmBalances(updates: Partial<Profile>) {
       writeProfile(updates, 'confirm')
-      track(EVENTS.BALANCES_CONFIRMED)
+      trackUsage(EVENTS.BALANCES_CONFIRMED)
     },
 
     // --- History ---
@@ -450,32 +477,18 @@ function withAppStore() {
       const enrichedPortf = withPortfolioStore(newPortfolio, appParent)
       portfolios.push(enrichedPortf)
       persist()
-      track(EVENTS.PLAN_CREATED)
-      if (portfolios.length === 1) track(EVENTS.FIRST_PLAN_CREATED)
+      trackUsage(EVENTS.PLAN_CREATED)
+      if (portfolios.length === 1) trackUsage(EVENTS.FIRST_PLAN_CREATED)
       return portId
     },
 
     // --- Load ---
 
-    load(): void {
-      const data = loadData()
-      // Data saved before snapshots existed gets its baseline from the last
-      // write. Derived on every load rather than written back, so opening the
-      // app never mutates stored data on its own.
-      profile = enrichProfile(
-        data.lastUpdated > 0
-          ? withSeededSnapshot(data.profile, new Date(data.lastUpdated))
-          : data.profile,
-      )
-      portfolios = enrichAll(data.portfolios)
-      lastUpdated = data.lastUpdated
-      loading = false
-      emitChange('load')
-    },
+    load: loadFromStorage,
 
     startSync(): () => void {
       function onStorage(event: StorageEvent): void {
-        if (event.key !== storageKeys.DATA) return
+        if (demo || event.key !== storageKeys.DATA) return
         // Another tab removed the data.
         if (!event.newValue) {
           reset()
@@ -533,6 +546,31 @@ function withAppStore() {
       portfolios = enrichAll(validated.portfolios)
       loading = false
       persist()
+    },
+
+    // --- Demo ---
+
+    get demo() {
+      return demo
+    },
+
+    /** Replaces the in-memory data with a demo persona; see `demo`. */
+    loadDemo(data: { profile: Profile; portfolios: Portfolio[] }, today: Date): void {
+      demo = true
+      profile = enrichProfile(withSeededSnapshot(data.profile, today))
+      portfolios = enrichAll(data.portfolios)
+      loading = false
+    },
+
+    /**
+     * Leaves demo mode and takes whatever storage holds now. Storage events
+     * are ignored during the demo, so another tab may have finished
+     * onboarding meanwhile; starting from an empty profile instead would
+     * persist over that data on the first edit.
+     */
+    exitDemo(): void {
+      demo = false
+      loadFromStorage()
     },
   }
 }
