@@ -15,6 +15,7 @@ import {
   parseDateOnly,
   slugify,
   toDateOnlyString,
+  yearItemsIncluding,
 } from './utils'
 
 describe('slugify', () => {
@@ -213,5 +214,35 @@ describe('month option conversion', () => {
     expect(optionToMonth('0')).toBe(1)
     expect(optionToMonth('11')).toBe(12)
     for (let m = 1; m <= 12; m++) expect(optionToMonth(monthToOption(m))).toBe(m)
+  })
+})
+
+describe('yearItemsIncluding', () => {
+  const items = (...years: string[]) => years.map((y) => ({ value: y, label: y }))
+
+  it('maps the options to items', () => {
+    expect(yearItemsIncluding(['2026', '2027'])).toEqual(items('2026', '2027'))
+  })
+
+  it('adds a stored year before the options', () => {
+    expect(yearItemsIncluding(['2026', '2027'], 2025)).toEqual(items('2025', '2026', '2027'))
+  })
+
+  it('adds a stored year after the options', () => {
+    expect(yearItemsIncluding(['2026', '2027'], 2111)).toEqual(items('2026', '2027', '2111'))
+  })
+
+  it('keeps a stored year already in the options once', () => {
+    expect(yearItemsIncluding(['2026', '2027'], 2027)).toEqual(items('2026', '2027'))
+  })
+
+  it('accepts stored years as strings', () => {
+    expect(yearItemsIncluding(['2026', '2027'], '2024', '2111')).toEqual(
+      items('2024', '2026', '2027', '2111'),
+    )
+  })
+
+  it('ignores unset stored years', () => {
+    expect(yearItemsIncluding(['2026', '2027'], undefined, '')).toEqual(items('2026', '2027'))
   })
 })
