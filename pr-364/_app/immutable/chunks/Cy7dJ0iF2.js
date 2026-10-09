@@ -1,0 +1,1 @@
+import"./CQTGtn1S.js";
