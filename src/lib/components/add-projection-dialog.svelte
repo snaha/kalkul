@@ -13,7 +13,12 @@
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
   import { Textarea } from '$lib/components/ui/textarea'
-  import { buildPlanInclusions, getDefaultPlanDates, getDefaultPlanName } from '$lib/plan-defaults'
+  import {
+    DEFAULT_INFLATION_RATE,
+    buildPlanInclusions,
+    getDefaultPlanDates,
+    getDefaultPlanName,
+  } from '$lib/plan-defaults'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
 
@@ -79,6 +84,7 @@
       name: name.trim(),
       notes: notes.trim() || undefined,
       ...getDefaultPlanDates(appStore.profile),
+      inflation_rate: appStore.profile.inflation_rate ?? DEFAULT_INFLATION_RATE,
       ...buildPlanInclusions(appStore.profile, startFromCurrentFinances),
     })
     close()

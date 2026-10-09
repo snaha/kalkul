@@ -21,19 +21,23 @@ const CURRENT_PROJECTION_YEARS = 20
  * follows the profile automatically and never needs migrating.
  *
  * Starts on the first of the current month, like a new plan, and runs
- * {@link CURRENT_PROJECTION_YEARS} ahead unless `endDate` says otherwise.
+ * {@link CURRENT_PROJECTION_YEARS} ahead unless `overrides` say otherwise.
  *
  * Every asset, liability and cash flow is in scope — the projection reads an
  * omitted `included_*_ids` list as "all of them".
  */
-export function buildCurrentProjectionPlan(today: Date, endDate?: string): Portfolio {
+export function buildCurrentProjectionPlan(
+  today: Date,
+  overrides: Partial<Pick<Portfolio, 'end_date' | 'inflation_rate'>> = {},
+): Portfolio {
   const start = new Date(today.getFullYear(), today.getMonth(), 1)
   const end = new Date(today.getFullYear() + CURRENT_PROJECTION_YEARS, today.getMonth(), 1)
   return {
     id: CURRENT_PROJECTION_ID,
     name: '',
     start_date: formatDate(start),
-    end_date: endDate ?? formatDate(end),
-    inflation_rate: DEFAULT_INFLATION_RATE,
+    end_date: overrides.end_date ?? formatDate(end),
+    // The profile's rate when set (#283): this plan has no settings page.
+    inflation_rate: overrides.inflation_rate ?? DEFAULT_INFLATION_RATE,
   }
 }

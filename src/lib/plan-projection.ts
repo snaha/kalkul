@@ -1126,7 +1126,21 @@ export function applyEntryFee(investment: ProfileInvestment | undefined, amount:
   return Decimal.max(amount.mul(DECIMAL_1.minus(upfrontPct.div(100))), DECIMAL_0)
 }
 
-export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): YearlyProjection[] {
+/** How the projection reports its figures. */
+export interface ProjectionOptions {
+  /**
+   * Report nominal amounts (the money of each future year) instead of today's
+   * money. Inflation-adjusted flows still grow either way; this only decides
+   * whether the results are deflated back at the end.
+   */
+  nominal?: boolean
+}
+
+export function getYearlyPlanProjection(
+  plan: Portfolio,
+  profile: Profile,
+  options: ProjectionOptions = {},
+): YearlyProjection[] {
   // Shared profile items plus this plan's own; another plan's never take part.
   const visible = <T extends PlanOwned>(items: T[] | undefined): T[] => itemsForPlan(items, plan.id)
   const startYear = yearOf(plan.start_date)
@@ -1567,8 +1581,10 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     // Integer-year deflation: the projection runs in annual buckets, so
     // deflate by (1 + inflation)^yearsSincePlanStart directly. This is the
     // exact inverse of integer-year compounding; using day-based deflation
-    // would drift across leap years.
-    const deflationFactor = DECIMAL_1.plus(inflationRate).pow(yearsSincePlanStart)
+    // would drift across leap years. A nominal report skips it.
+    const deflationFactor = options.nominal
+      ? DECIMAL_1
+      : DECIMAL_1.plus(inflationRate).pow(yearsSincePlanStart)
     const cashReal = cashNominal.div(deflationFactor)
     const investmentsReal = investmentsNominal.div(deflationFactor)
     const liabilitiesReal = liabilitiesOutstandingNominal.div(deflationFactor)

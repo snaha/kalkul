@@ -14,7 +14,9 @@ describe('buildCurrentProjectionPlan', () => {
   })
 
   test('takes an explicit end date instead', () => {
-    expect(buildCurrentProjectionPlan(TODAY, '2075-03-01').end_date).toBe('2075-03-01')
+    expect(buildCurrentProjectionPlan(TODAY, { end_date: '2075-03-01' }).end_date).toBe(
+      '2075-03-01',
+    )
   })
 
   test('includes every asset, liability and cash flow', () => {
@@ -29,6 +31,10 @@ describe('buildCurrentProjectionPlan', () => {
 
   test('carries a stable id so it never collides with a saved plan', () => {
     expect(buildCurrentProjectionPlan(TODAY).id).toBe(CURRENT_PROJECTION_ID)
+  })
+
+  test('prefers the inflation rate set on the profile (#283)', () => {
+    expect(buildCurrentProjectionPlan(TODAY, { inflation_rate: 0.035 }).inflation_rate).toBe(0.035)
   })
 
   test('uses the default inflation rate', () => {
