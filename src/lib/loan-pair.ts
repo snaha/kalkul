@@ -8,7 +8,8 @@ export interface LoanPairFields {
   annual_rate: number | undefined
   installment_amount: number | undefined
   remaining_term: number | undefined
-  remaining_term_unit: RemainingTermUnit
+  /** Years when absent. */
+  remaining_term_unit?: RemainingTermUnit
   interest_type?: InterestType
   compounding_frequency?: CompoundingFrequency
 }
