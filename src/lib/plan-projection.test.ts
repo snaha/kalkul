@@ -3513,6 +3513,34 @@ describe('plan ownership', () => {
   })
 })
 
+describe('nominal reporting', () => {
+  const salary: Income = {
+    id: 'i',
+    name: 'Salary',
+    amount: 1000,
+    schedule: 'recurring',
+    frequency: 'yearly',
+    start: 'immediately',
+    end: 'never',
+    change_over_time: 'none',
+    inflation_adjusted: true,
+  }
+  const plan = makePlan({ start_date: '2025-01-01', end_date: '2027-01-01', inflation_rate: 0.1 })
+  const profile = makeProfile({ cash_amount: 0, incomes: [salary] })
+
+  it("reports today's money by default: the inflated salary deflates back to 1000", () => {
+    const real = getYearlyPlanProjection(plan, profile)
+    expect(real.map((y) => y.totalIncome)).toEqual([1000, 1000, 1000])
+    expect(real.map((y) => Math.round(y.cash))).toEqual([1000, 1909, 2736])
+  })
+
+  it('keeps the flows growing and skips only the deflation when nominal', () => {
+    const nominal = getYearlyPlanProjection(plan, profile, { nominal: true })
+    expect(nominal.map((y) => y.totalIncome)).toEqual([1000, 1100, 1210])
+    expect(nominal.map((y) => y.cash)).toEqual([1000, 2100, 3310])
+  })
+})
+
 describe('liability start and pay-off', () => {
   it('defers a liability until its planned start year', () => {
     const liabilities: ProfileLiability[] = [

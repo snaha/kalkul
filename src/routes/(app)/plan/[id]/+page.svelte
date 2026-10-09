@@ -22,6 +22,7 @@
     type BarData,
     type HoverPosition,
   } from '$lib/components/stacked-bar-chart.svelte'
+  import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Badge } from '$lib/components/ui/badge'
   import { Button } from '$lib/components/ui/button'
   import {
@@ -30,10 +31,13 @@
     CollapsibleTrigger,
   } from '$lib/components/ui/collapsible'
   import { Input } from '$lib/components/ui/input'
+  import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
   import { Slider } from '$lib/components/ui/slider'
+  import { Switch } from '$lib/components/ui/switch'
   import { CURRENT_PROJECTION_ID, buildCurrentProjectionPlan } from '$lib/current-projection'
   import { getCurrentProfile } from '$lib/current-values'
+  import { toInflationPercent } from '$lib/plan-defaults'
   import { itemsForPlan } from '$lib/plan-owned'
   import { getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
   import routes from '$lib/routes'
@@ -75,7 +79,13 @@
     readOnly ? getCurrentProfile(appStore.profile.toJSON(), clock.today) : appStore.profile,
   )
   const plan = $derived<Portfolio | undefined>(
-    readOnly ? (appStore.loading ? undefined : buildCurrentProjectionPlan(clock.today)) : savedPlan,
+    readOnly
+      ? appStore.loading
+        ? undefined
+        : buildCurrentProjectionPlan(clock.today, {
+            inflation_rate: appStore.profile.inflation_rate,
+          })
+      : savedPlan,
   )
   // Nothing on the Current projection can be edited: every "add" opens the
   // Model changes dialog, which starts a plan to make the change in.
@@ -236,8 +246,32 @@
   const tangibleAssetsCount = $derived(itemsForPlan(profile.tangible_assets, planId).length)
   const liabilitiesCount = $derived(itemsForPlan(profile.liabilities, planId).length)
 
-  // Yearly projection (real / inflation-adjusted values)
-  const projection = $derived(plan ? getYearlyPlanProjection(plan, profile) : [])
+  // "Show inflation" on reports the projection in today's money, off in the
+  // money of each future year (nominal). Inflation-adjusted flows grow either
+  // way; the switch only changes how the results are shown, so it is page
+  // state, not part of the plan, and comes back on for every plan opened.
+  let showInflation = $state(true)
+  $effect(() => {
+    void planId
+    showInflation = true
+  })
+  const inflationPercent = $derived(plan ? toInflationPercent(plan.inflation_rate) : undefined)
+  // The rate input writes the plan (or, for the Current projection, the
+  // profile) once editing ends, not on every keystroke.
+  let inflationDraft = $state<number | undefined>(undefined)
+  function commitInflation() {
+    const percent = inflationDraft
+    inflationDraft = undefined
+    if (percent === undefined || percent === inflationPercent) return
+    const inflation_rate = percent / 100
+    if (readOnly) appStore.updateProfile({ inflation_rate })
+    else savedPlan?.update({ inflation_rate })
+  }
+
+  // Yearly projection, in today's money unless the switch says nominal.
+  const projection = $derived(
+    plan ? getYearlyPlanProjection(plan, profile, { nominal: !showInflation }) : [],
+  )
   const selectedYearProjection = $derived(projection.find((p) => p.year === selectedYear))
 
   // Union of per-year warning IDs — a transfer or expense that fails in any
@@ -734,14 +768,41 @@
         {/if}
       </div>
 
-      <!-- Legend -->
-      <div class="flex justify-center gap-6 px-4 py-3">
-        {#each legendItems as item (item.id)}
-          <div class="flex items-center gap-1.5">
-            <div class="size-2.5 rounded-[2px]" style="background-color: {item.color}"></div>
-            <span class="text-xs">{item.label}</span>
+      <!-- Show inflation + legend -->
+      <div class="flex flex-wrap items-center gap-2.5 p-4">
+        <div class="flex items-center gap-2">
+          <Switch
+            id="show-inflation"
+            checked={showInflation}
+            onCheckedChange={(v) => (showInflation = v === true)}
+          />
+          <Label for="show-inflation" class="cursor-pointer">{$_('page.plan.showInflation')}</Label>
+          <div class="w-20" onfocusout={commitInflation}>
+            <SuffixedInput
+              value={inflationDraft ?? inflationPercent}
+              suffix="%"
+              class="h-8"
+              aria-label={$_('page.planSettings.inflation', {
+                values: { currency: appStore.profile.currencyOrDefault },
+              })}
+              formatNumber={appStore.formatNumber}
+              onValueChange={(v) => (inflationDraft = v)}
+            />
           </div>
-        {/each}
+          <span class="text-xs text-muted-foreground">
+            {showInflation
+              ? $_('page.plan.showInflationReal')
+              : $_('page.plan.showInflationNominal')}
+          </span>
+        </div>
+        <div class="flex flex-1 flex-wrap items-center justify-end gap-4">
+          {#each legendItems as item (item.id)}
+            <div class="flex items-center gap-1.5">
+              <div class="size-2 rounded-[2px]" style="background-color: {item.color}"></div>
+              <span class="text-xs">{item.label}</span>
+            </div>
+          {/each}
+        </div>
       </div>
 
       <!-- Compare button -->
