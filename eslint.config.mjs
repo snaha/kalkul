@@ -70,6 +70,22 @@ export default typescriptEslint.config(
     },
   },
   {
+    // A projection never writes financial data (AGENTS.md): the plan route
+    // writes to its plan only, through src/lib/plan-items.ts or plan.update.
+    files: ['src/routes/(app)/plan/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "MemberExpression[object.name='appStore'][property.name=/^(updateProfile|confirmBalances|saveSnapshot|deleteSnapshot|importBackup|clear)$/]",
+          message:
+            'Financial data is never written from a projection. Change the plan instead (src/lib/plan-items.ts, plan.update).',
+        },
+      ],
+    },
+  },
+  {
     ignores: [
       '**/.svelte-kit',
       '**/build',

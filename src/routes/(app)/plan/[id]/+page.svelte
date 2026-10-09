@@ -234,7 +234,8 @@
   }
   const incomesCount = $derived(listOf('incomes').length)
   const expensesCount = $derived(listOf('expenses').length)
-  const cashCount = $derived(profile.cash_amount ? 1 : 0)
+  // Cash always exists (#331): the plan's own opening balance, else current cash.
+  const openingCash = $derived(plan?.cash_amount ?? profile.cash_amount ?? 0)
   const investmentsCount = $derived(listOf('investments').length)
   const tangibleAssetsCount = $derived(listOf('tangible_assets').length)
   const liabilitiesCount = $derived(listOf('liabilities').length)
@@ -345,18 +346,17 @@
     {
       id: 'cash',
       label: $_('page.plan.cash'),
-      count: cashCount,
-      items:
-        profile.cash_amount && matchesSearch($_('page.plan.cashItem'), searchQuery)
-          ? [
-              {
-                id: 'cash',
-                name: $_('page.plan.cashItem'),
-                value: appStore.formatCurrencyCode(profile.cash_amount),
-                onClick: () => (cashDialogOpen = true),
-              },
-            ]
-          : [],
+      count: 1,
+      items: matchesSearch($_('page.plan.cashItem'), searchQuery)
+        ? [
+            {
+              id: 'cash',
+              name: $_('page.plan.cashItem'),
+              value: appStore.formatCurrencyCode(openingCash),
+              onClick: () => (cashDialogOpen = true),
+            },
+          ]
+        : [],
     },
     {
       id: 'investments',
@@ -1003,7 +1003,11 @@
       />
 
       <!-- Cash edit dialog -->
-      <CashEditDialog bind:open={cashDialogOpen} onOpenChange={(v) => (cashDialogOpen = v)} />
+      <CashEditDialog
+        bind:open={cashDialogOpen}
+        onOpenChange={(v) => (cashDialogOpen = v)}
+        plan={savedPlan}
+      />
     {/if}
 
     <!-- Hover tooltip - at page level to allow overlaying sidebars -->

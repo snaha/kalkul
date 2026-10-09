@@ -1,7 +1,7 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import Trash2 from '@lucide/svelte/icons/trash-2'
+  import Undo2 from '@lucide/svelte/icons/undo-2'
   import X from '@lucide/svelte/icons/x'
 
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
@@ -9,36 +9,36 @@
   import * as Dialog from '$lib/components/ui/dialog'
   import { Label } from '$lib/components/ui/label'
   import { appStore } from '$lib/stores/app.svelte'
+  import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
 
   interface Props {
-    initial: number | undefined
+    plan: PortfolioStore
     onClose: () => void
   }
 
   const uid = $props.id()
 
-  let { initial, onClose }: Props = $props()
+  let { plan, onClose }: Props = $props()
 
-  // Seeded synchronously from `initial` at mount. Because this component is
-  // wrapped in `{#if open}` by the parent, it re-mounts each time the dialog
-  // opens — so reopening always re-seeds from the current cash balance.
+  // The cash this plan opens with: its own opening balance, else the current
+  // cash. Edits land on the plan; financial data is never written from here.
+  const currentCash = $derived(appStore.profile.cash_amount ?? 0)
+  // Seeded synchronously at mount; the parent re-mounts this form per opening.
   // svelte-ignore state_referenced_locally
-  let amount = $state<number | undefined>(initial)
+  let amount = $state<number | undefined>(plan.cash_amount ?? appStore.profile.cash_amount)
 
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
-  const isExisting = $derived(
-    appStore.profile.cash_amount !== undefined && appStore.profile.cash_amount > 0,
-  )
+  const hasOverride = $derived(plan.cash_amount !== undefined)
 
   function save() {
-    appStore.updateProfile({ cash_amount: amount ?? 0 })
+    plan.update({ cash_amount: amount ?? 0 })
     onClose()
   }
 
-  function remove() {
-    if (!window.confirm($_('page.plan.clearCashConfirm'))) return
-    appStore.updateProfile({ cash_amount: 0 })
+  function reset() {
+    if (!window.confirm($_('page.plan.resetCashConfirm'))) return
+    plan.update({ cash_amount: undefined })
     onClose()
   }
 </script>
@@ -48,9 +48,9 @@
     {$_('page.plan.cashItem')}
   </Dialog.Title>
 
-  {#if isExisting}
-    <Button variant="ghost" size="icon" onclick={remove} aria-label={$_('page.plan.deleteItem')}>
-      <Trash2 class="size-4" />
+  {#if hasOverride}
+    <Button variant="ghost" size="icon" onclick={reset} aria-label={$_('page.plan.resetCash')}>
+      <Undo2 class="size-4" />
     </Button>
   {/if}
 
@@ -61,7 +61,7 @@
 
 <div class="flex flex-col gap-4 p-4">
   <div class="flex flex-col gap-2">
-    <Label for="{uid}-amount">{$_('page.setup.common.amount')}</Label>
+    <Label for="{uid}-amount">{$_('page.plan.openingCash')}</Label>
     <SuffixedInput
       id="{uid}-amount"
       value={amount}
@@ -69,6 +69,11 @@
       formatNumber={appStore.formatNumber}
       onValueChange={(v) => (amount = v)}
     />
+    <p class="text-xs text-muted-foreground">
+      {$_('page.plan.openingCashHint', {
+        values: { amount: appStore.formatCurrencyCode(currentCash) },
+      })}
+    </p>
   </div>
 </div>
 

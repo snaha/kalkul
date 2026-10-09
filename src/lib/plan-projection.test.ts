@@ -3420,6 +3420,15 @@ describe('capital gains tax on withdrawals', () => {
   })
 })
 
+describe('opening cash', () => {
+  it("opens at the plan's own cash amount when set, else the profile's, else 0", () => {
+    const profile = makeProfile({ cash_amount: 1000 })
+    expect(getYearlyPlanProjection(makePlan({ cash_amount: 250 }), profile)[0].cash).toBe(250)
+    expect(getYearlyPlanProjection(makePlan(), profile)[0].cash).toBe(1000)
+    expect(getYearlyPlanProjection(makePlan(), makeProfile())[0].cash).toBe(0)
+  })
+})
+
 describe("the plan's own items", () => {
   const flow: Income = {
     id: 'f',

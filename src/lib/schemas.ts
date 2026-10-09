@@ -897,6 +897,10 @@ export const portfolioSchema = z.object({
   included_income_ids: z.array(z.string()).optional(),
   included_expense_ids: z.array(z.string()).optional(),
   included_transfer_ids: z.array(z.string()).optional(),
+  // The cash the plan opens with. Unset means the profile's current cash: a
+  // plan reads financial data and never changes it, so a different opening
+  // balance is a setting of the plan.
+  cash_amount: z.number().optional(),
   // What the plan changes on top of financial data. An item whose id matches a
   // financial-data item overrides it for this plan; any other id is an item the
   // plan alone has. Financial data and other plans never see these

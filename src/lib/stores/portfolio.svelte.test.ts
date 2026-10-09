@@ -29,6 +29,7 @@ const fixture: Portfolio = {
   included_income_ids: ['income-1'],
   included_expense_ids: ['expense-1'],
   included_transfer_ids: ['transfer-1'],
+  cash_amount: 500,
   investments: [{ id: 'inv-2', name: 'ETF', balance: 1, apy: 1 }],
   tangible_assets: [{ id: 'asset-2', name: 'Flat', value: 1, status: 'fully_owned' }],
   liabilities: [
