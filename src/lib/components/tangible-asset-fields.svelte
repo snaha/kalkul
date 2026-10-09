@@ -9,11 +9,14 @@
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
+  import { type LoanPairAnchor, rederiveLoanPair } from '$lib/loan-pair'
   import { type PlanRange } from '$lib/plan-range'
   import type {
     CashFlowEnd,
     CashFlowStart,
+    CompoundingFrequency,
     Frequency,
+    InterestType,
     RemainingTermUnit,
     TangibleAssetStatus,
     ValueOverTime,
@@ -34,6 +37,10 @@
     installment_amount: number | undefined
     remaining_term: number | undefined
     remaining_term_unit: RemainingTermUnit
+    // The loan's interest options, when the caller's form has them: the
+    // Installment amount ⇄ Term derivation compounds the way the engine will.
+    interest_type?: InterestType
+    compounding_frequency?: CompoundingFrequency
     purchase: CashFlowStart
     purchase_year: number | undefined
     purchase_month: number | undefined
@@ -97,7 +104,12 @@
 
   function setDownPayment(paid: number | undefined): void {
     item.outstanding_balance = Math.max((item.value ?? 0) - (paid ?? 0), 0)
+    rederiveLoanPair(item, anchor)
   }
+
+  // Installment amount ⇄ Term (#319): the side last edited anchors the pair,
+  // and the financed amount, rate and frequency re-derive the other.
+  let anchor = $state<LoanPairAnchor>('term')
 </script>
 
 {#if showTiming}
@@ -185,6 +197,7 @@
         items={frequencyItems}
         onValueChange={(v) => {
           if (v) item.installment_frequency = v
+          rederiveLoanPair(item, anchor)
         }}
       />
     </div>
@@ -197,6 +210,7 @@
         {formatNumber}
         onValueChange={(v) => {
           item.annual_rate = v
+          rederiveLoanPair(item, anchor)
         }}
       />
     </div>
@@ -214,6 +228,8 @@
         {formatNumber}
         onValueChange={(v) => {
           item.installment_amount = v
+          anchor = 'amount'
+          rederiveLoanPair(item, anchor)
         }}
       />
     </div>
@@ -233,6 +249,8 @@
         {formatNumber}
         onValueChange={(v) => {
           item.remaining_term = v
+          anchor = 'term'
+          rederiveLoanPair(item, anchor)
         }}
       />
     </div>

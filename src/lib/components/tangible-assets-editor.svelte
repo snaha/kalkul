@@ -14,6 +14,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
   import { createListEditor } from '$lib/list-editor.svelte'
+  import { rederiveLoanPair } from '$lib/loan-pair'
   import { planOwnedItems, sharedItems } from '$lib/plan-owned'
   import type { ProfileTangibleAsset } from '$lib/schemas'
   import {
@@ -54,6 +55,7 @@
       // not hidden here.
       showAdvanced: a.value_rate !== undefined || a.property_tax_rate !== undefined,
       editing: false,
+      derivedFrom: 'term',
     }),
     makeBlank: (index) => ({
       id: crypto.randomUUID(),
@@ -71,6 +73,7 @@
       property_tax_rate: undefined,
       showAdvanced: false,
       editing: true,
+      derivedFrom: 'term',
     }),
     copyName: (name) => $_('page.setup.common.copySuffix', { values: { name } }),
     hasValue: (a) => (a.value ?? 0) > 0,
@@ -160,6 +163,7 @@
                 formatNumber={appStore.formatNumber}
                 onValueChange={(v) => {
                   asset.outstanding_balance = v
+                  rederiveLoanPair(asset, asset.derivedFrom)
                 }}
               />
             </div>
@@ -174,6 +178,7 @@
                   items={frequencyItems}
                   onValueChange={(v) => {
                     asset.installment_frequency = v
+                    rederiveLoanPair(asset, asset.derivedFrom)
                   }}
                 />
               </div>
@@ -188,6 +193,7 @@
                   formatNumber={appStore.formatNumber}
                   onValueChange={(v) => {
                     asset.annual_rate = v
+                    rederiveLoanPair(asset, asset.derivedFrom)
                   }}
                 />
               </div>
@@ -204,6 +210,8 @@
                   formatNumber={appStore.formatNumber}
                   onValueChange={(v) => {
                     asset.installment_amount = v
+                    asset.derivedFrom = 'amount'
+                    rederiveLoanPair(asset, asset.derivedFrom)
                   }}
                 />
               </div>
@@ -222,6 +230,8 @@
                     class="w-24"
                     onValueChange={(v) => {
                       asset.remaining_term = v
+                      asset.derivedFrom = 'term'
+                      rederiveLoanPair(asset, asset.derivedFrom)
                     }}
                   />
                   <SelectField
@@ -230,6 +240,7 @@
                     items={remainingTermUnitItems}
                     onValueChange={(v) => {
                       if (v) asset.remaining_term_unit = v
+                      rederiveLoanPair(asset, asset.derivedFrom)
                     }}
                   />
                 </div>
