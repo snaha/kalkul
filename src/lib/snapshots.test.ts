@@ -414,7 +414,7 @@ describe('captureSnapshot and one-time cash flows', () => {
     }
     const snapshot = captureSnapshot(withTrip, '2026-04-27')
     expect(snapshot.expenses).toEqual([{ id: 'e1', amount: 2_000, frequency: 'monthly' }])
-    expect(profileSchema.safeParse({ ...withTrip, snapshots: [snapshot] }).success).toBe(true)
+    expect(profileSchema.safeParse({ ...PROFILE, snapshots: [snapshot] }).success).toBe(true)
   })
 })
 
