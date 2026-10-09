@@ -22,8 +22,7 @@
   let feedbackOpen = $state(false)
 
   async function getStarted(): Promise<void> {
-    exitDemo()
-    await goto(resolve(routes.PROFILE))
+    await goto(resolve(exitDemo()))
   }
 </script>
 
