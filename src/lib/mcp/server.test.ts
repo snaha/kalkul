@@ -56,15 +56,17 @@ describe('createKalkulMcpServer', () => {
     vi.unstubAllGlobals()
   })
 
-  it('lists the six tools', async () => {
+  it('lists the eight tools', async () => {
     const { tools } = await client.listTools()
     expect(tools.map((t) => t.name).sort()).toEqual([
       'add_portfolio',
       'delete_portfolio',
       'get_data',
       'get_projection',
+      'remove_plan_item',
       'update_portfolio',
       'update_profile',
+      'upsert_plan_item',
     ])
   })
 
@@ -110,6 +112,37 @@ describe('createKalkulMcpServer', () => {
     expect((await call('delete_portfolio', { id: 'nope' })).isError).toBe(true)
     await call('delete_portfolio', { id: 'p1' })
     expect(appStore.portfolios).toEqual([])
+  })
+
+  const etf = { id: 'etf', name: 'ETF', balance: 100, apy: 5 }
+
+  it('upsert_plan_item puts the item on the plan and leaves financial data alone', async () => {
+    await call('update_profile', { investments: [etf] })
+    const result = await call('upsert_plan_item', {
+      portfolio_id: 'p1',
+      list: 'investments',
+      item: { ...etf, balance: 900 },
+    })
+    expect(result.isError).toBeUndefined()
+    expect(appStore.portfolios[0]?.investments).toEqual([{ ...etf, balance: 900 }])
+    expect(appStore.profile.investments).toEqual([etf])
+  })
+
+  it('upsert_plan_item validates the item against the list it is for', async () => {
+    const result = await call('upsert_plan_item', {
+      portfolio_id: 'p1',
+      list: 'liabilities',
+      item: etf,
+    })
+    expect(result.isError).toBe(true)
+    expect(appStore.portfolios[0]?.liabilities).toBeUndefined()
+  })
+
+  it('remove_plan_item excludes a profile item from the plan without touching it', async () => {
+    await call('update_profile', { investments: [etf] })
+    await call('remove_plan_item', { portfolio_id: 'p1', list: 'investments', id: 'etf' })
+    expect(appStore.portfolios[0]?.included_investment_ids).toEqual([])
+    expect(appStore.profile.investments).toEqual([etf])
   })
 
   it('get_projection returns yearly rows', async () => {

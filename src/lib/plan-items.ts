@@ -42,6 +42,13 @@ export const PLAN_LISTS = {
   transfer: { key: 'transfers', includedKey: 'included_transfer_ids' },
 } as const satisfies Record<string, PlanListConfig>
 
+export const PLAN_LIST_KEYS = Object.values(PLAN_LISTS).map((c) => c.key)
+
+/** The config for a list named by its field (`investments`, ...), as the MCP tools take it. */
+export function planListConfig(key: PlanListKey): PlanListConfig {
+  return Object.values(PLAN_LISTS).find((c) => c.key === key) as PlanListConfig
+}
+
 function list<K extends PlanListKey>(
   owner: Profile | Portfolio | undefined,
   key: K,
