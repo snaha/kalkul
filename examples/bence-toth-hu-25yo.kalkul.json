@@ -62,8 +62,7 @@
         "amount": 60000,
         "frequency": "monthly",
         "start": "immediately",
-        "end": "when_age_is",
-        "end_age": 30,
+        "end": "never",
         "change_over_time": "none"
       }
     ],
@@ -101,11 +100,43 @@
         "amount": 250000,
         "frequency": "yearly",
         "start": "immediately",
-        "end": "when_age_is",
-        "end_age": 35,
+        "end": "never",
         "change_over_time": "none"
       }
     ]
   },
-  "portfolios": []
+  "portfolios": [
+    {
+      "id": "plan-1",
+      "name": "Settling down",
+      "notes": "DJ gigs stop at 30 and the festival trips at 35.",
+      "start_date": "2026-09-01",
+      "end_date": "2066-09-01",
+      "inflation_rate": 0.03,
+      "incomes": [
+        {
+          "id": "inc-2",
+          "name": "Weekend DJ gigs",
+          "amount": 60000,
+          "frequency": "monthly",
+          "start": "immediately",
+          "end": "when_age_is",
+          "end_age": 30,
+          "change_over_time": "none"
+        }
+      ],
+      "expenses": [
+        {
+          "id": "exp-4",
+          "name": "Summer festival trip",
+          "amount": 250000,
+          "frequency": "yearly",
+          "start": "immediately",
+          "end": "when_age_is",
+          "end_age": 35,
+          "change_over_time": "none"
+        }
+      ]
+    }
+  ]
 }

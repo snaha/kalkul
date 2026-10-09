@@ -59,17 +59,6 @@
         "amount": 70300,
         "frequency": "monthly",
         "start": "immediately",
-        "end": "when_age_is",
-        "end_age": 65,
-        "change_over_time": "match_inflation"
-      },
-      {
-        "id": "inc-2",
-        "name": "State pension",
-        "amount": 24000,
-        "frequency": "monthly",
-        "start": "when_age_is",
-        "start_age": 65,
         "end": "never",
         "change_over_time": "match_inflation"
       }
@@ -109,39 +98,11 @@
         "amount": 12000,
         "frequency": "monthly",
         "start": "immediately",
-        "end": "at_specific_date",
-        "end_year": 2030,
-        "end_month": 6,
-        "change_over_time": "none"
-      }
-    ],
-    "transfers": [
-      {
-        "id": "tr-1",
-        "name": "Move building savings to bonds at retirement",
-        "from_asset_id": "inv-3",
-        "to_asset_id": "inv-2",
-        "amount": 0,
-        "transfer_all": true,
-        "schedule": "one_time",
-        "transaction_year": 2041,
-        "transaction_month": 11
-      },
-      {
-        "id": "tr-2",
-        "name": "Monthly pension top-up from ETF",
-        "from_asset_id": "inv-1",
-        "to_asset_id": "cash",
-        "amount": 30000,
-        "inflation_adjusted": true,
-        "schedule": "recurring",
-        "frequency": "monthly",
-        "start": "when_age_is",
-        "start_age": 65,
         "end": "never",
         "change_over_time": "none"
       }
-    ]
+    ],
+    "transfers": []
   },
   "portfolios": [
     {
@@ -156,8 +117,69 @@
       "included_income_ids": ["inc-1", "inc-2"],
       "included_expense_ids": ["exp-1", "exp-2", "exp-3", "exp-4"],
       "included_transfer_ids": ["tr-1", "tr-2"],
-      "investments": [],
-      "goals": []
+      "goals": [],
+      "incomes": [
+        {
+          "id": "inc-1",
+          "name": "Salary (senior engineer)",
+          "amount": 70300,
+          "frequency": "monthly",
+          "start": "immediately",
+          "end": "when_age_is",
+          "end_age": 65,
+          "change_over_time": "match_inflation"
+        },
+        {
+          "id": "inc-2",
+          "name": "State pension",
+          "amount": 24000,
+          "frequency": "monthly",
+          "start": "when_age_is",
+          "start_age": 65,
+          "end": "never",
+          "change_over_time": "match_inflation"
+        }
+      ],
+      "expenses": [
+        {
+          "id": "exp-4",
+          "name": "Support for daughter at university",
+          "amount": 12000,
+          "frequency": "monthly",
+          "start": "immediately",
+          "end": "at_specific_date",
+          "end_year": 2030,
+          "end_month": 6,
+          "change_over_time": "none"
+        }
+      ],
+      "transfers": [
+        {
+          "id": "tr-1",
+          "name": "Move building savings to bonds at retirement",
+          "from_asset_id": "inv-3",
+          "to_asset_id": "inv-2",
+          "amount": 0,
+          "transfer_all": true,
+          "schedule": "one_time",
+          "transaction_year": 2041,
+          "transaction_month": 11
+        },
+        {
+          "id": "tr-2",
+          "name": "Monthly pension top-up from ETF",
+          "from_asset_id": "inv-1",
+          "to_asset_id": "cash",
+          "amount": 30000,
+          "inflation_adjusted": true,
+          "schedule": "recurring",
+          "frequency": "monthly",
+          "start": "when_age_is",
+          "start_age": 65,
+          "end": "never",
+          "change_over_time": "none"
+        }
+      ]
     }
   ]
 }
