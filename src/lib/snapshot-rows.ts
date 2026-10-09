@@ -23,13 +23,10 @@ export interface SnapshotRow {
  * then, the debt outstanding then, and financial independence measured against
  * the outflows that were running then.
  *
- * Net worth is taken from the snapshot itself rather than through `getNetWorth`,
- * which filters by what the profile holds *today*: a position sold since would
- * otherwise be counted in the row's total assets and left out of its net worth,
- * so the row would not add up and would disagree with the point the chart plots
- * for the same date.
+ * Net worth is taken from the snapshot itself, the same figure the chart plots
+ * for the date.
  */
-export function buildSnapshotRows(profile: Profile, today: Date): SnapshotRow[] {
+export function buildSnapshotRows(profile: Profile): SnapshotRow[] {
   return (profile.snapshots ?? [])
     .map((snapshot) => {
       const at = profileAtSnapshot(profile, snapshot)
@@ -39,7 +36,7 @@ export function buildSnapshotRows(profile: Profile, today: Date): SnapshotRow[] 
         liabilities: getLiabilitiesTotal(at),
         netWorth: snapshotNetWorth(snapshot),
         fiPercent: getFiPercent(at),
-        deletable: canDeleteSnapshot(profile, snapshot.date, today),
+        deletable: canDeleteSnapshot(profile, snapshot.date),
       }
     })
     .sort((a, b) => b.date.localeCompare(a.date))

@@ -10,7 +10,6 @@ import {
   byId,
   captureSnapshot,
   countedCashFlows,
-  heldProfile,
   profileAtSnapshot,
   recordsDebt,
   withMissingEntries,
@@ -92,7 +91,7 @@ export function buildSnapshotSections(
   source: Snapshot,
   date: string,
 ): SnapshotSection[] {
-  const held = heldProfile(profile, parseDateOnly(date))
+  const held = profile
   const estimate = seedSnapshotOn(profile, date)
   // Where a cash flow `source` never recorded is read from: see the exception above.
   const flowFallback =

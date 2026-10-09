@@ -555,10 +555,7 @@ export function monthIndex(year: number, month: number): number {
  * The month an explicitly planned start falls in, or undefined when the start
  * is not planned ('immediately'/'now') or its field was never filled in.
  */
-export function plannedStartsAt(
-  flow: TimingWindow,
-  birthYear: number | undefined,
-): number | undefined {
+function plannedStartsAt(flow: TimingWindow, birthYear: number | undefined): number | undefined {
   if (flow.start === 'at_specific_date' && flow.start_year !== undefined) {
     return monthIndex(flow.start_year, flow.start_month ?? 1)
   }
@@ -566,70 +563,6 @@ export function plannedStartsAt(
     return monthIndex(birthYear + flow.start_age, 1)
   }
   return undefined
-}
-
-/**
- * The last month an explicitly planned end covers, or undefined when there is
- * no planned end or its field was never filled in.
- */
-export function plannedEndsAt(
-  flow: TimingWindow,
-  birthYear: number | undefined,
-): number | undefined {
-  if (flow.end === 'at_specific_date' && flow.end_year !== undefined) {
-    return monthIndex(flow.end_year, flow.end_month ?? 12)
-  }
-  if (flow.end === 'when_age_is' && birthYear !== undefined && flow.end_age !== undefined) {
-    return monthIndex(birthYear + flow.end_age, 12)
-  }
-  return undefined
-}
-
-/**
- * Whether a cash flow, a held investment or an owned asset is running on
- * `asOf`. Month-precise, unlike `resolveStartYear`/`resolveEndYear`, which the
- * yearly engine resolves to whole years: 'at_specific_date' is precise to the
- * month, 'when_age_is' covers the whole calendar year the user reaches that
- * age, and 'immediately'/'now' are always running. An edge with incomplete data
- * (a mode whose field was never filled in, or an age window on a profile with
- * no birth date) is treated as unbounded, mirroring the projection's fallback
- * to the plan's first year / no end.
- *
- * Exported so the carry-forward in `current-values.ts` and the balances behind
- * net worth in `snapshots.ts` resolve a window exactly one way.
- */
-export function isActiveOn(flow: TimingWindow, asOf: Date, birthYear: number | undefined): boolean {
-  const now = monthIndex(asOf.getFullYear(), asOf.getMonth() + 1)
-
-  const startsAt = plannedStartsAt(flow, birthYear) ?? Number.NEGATIVE_INFINITY
-  if (now < startsAt) return false
-  return now <= (plannedEndsAt(flow, birthYear) ?? Number.POSITIVE_INFINITY)
-}
-
-/**
- * Whether the profile actually holds this investment on `asOf`.
- *
- * Planned timing makes the balance a statement about a different date: a start
- * in the future is the amount the plan buys out of cash that year, and an exit
- * in the past liquidated it back into cash. `heldAtPlanStart` is the yearly
- * engine's form of the same question — it seeds such an investment at zero
- * rather than counting it.
- */
-export function isHeldOn(
-  investment: ProfileInvestment,
-  asOf: Date,
-  birthYear: number | undefined,
-): boolean {
-  return isActiveOn(investmentToTemporal(investment), asOf, birthYear)
-}
-
-/** `isHeldOn` for a tangible asset, whose timing fields are purchase/sale. */
-export function isOwnedOn(
-  asset: ProfileTangibleAsset,
-  asOf: Date,
-  birthYear: number | undefined,
-): boolean {
-  return isActiveOn(tangibleToTemporal(asset), asOf, birthYear)
 }
 
 interface PlannedWindow {
