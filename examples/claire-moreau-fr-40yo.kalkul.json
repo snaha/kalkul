@@ -61,23 +61,6 @@
         "name": "Car (Peugeot 5008)",
         "value": 21000,
         "status": "fully_owned"
-      },
-      {
-        "id": "ta-4",
-        "plan_id": "plan-2",
-        "name": "Holiday chalet (Vercors)",
-        "value": 200000,
-        "status": "financed",
-        "outstanding_balance": 134000,
-        "installment_frequency": "monthly",
-        "annual_rate": 3.4,
-        "installment_amount": 770,
-        "remaining_term": 20,
-        "value_over_time": "appreciate",
-        "value_rate": 3.5,
-        "purchase": "at_specific_date",
-        "purchase_year": 2030,
-        "purchase_month": 5
       }
     ],
     "has_liabilities": true,
@@ -201,7 +184,25 @@
       "included_liability_ids": ["li-1"],
       "included_income_ids": ["inc-1", "inc-2", "inc-3"],
       "included_expense_ids": ["exp-1", "exp-2", "exp-3", "exp-4", "exp-5"],
-      "included_transfer_ids": ["tr-1"]
+      "included_transfer_ids": ["tr-1"],
+      "tangible_assets": [
+        {
+          "id": "ta-4",
+          "name": "Holiday chalet (Vercors)",
+          "value": 200000,
+          "status": "financed",
+          "outstanding_balance": 134000,
+          "installment_frequency": "monthly",
+          "annual_rate": 3.4,
+          "installment_amount": 770,
+          "remaining_term": 20,
+          "value_over_time": "appreciate",
+          "value_rate": 3.5,
+          "purchase": "at_specific_date",
+          "purchase_year": 2030,
+          "purchase_month": 5
+        }
+      ]
     },
     {
       "id": "plan-1",

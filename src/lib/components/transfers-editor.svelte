@@ -12,7 +12,6 @@
   import { Button } from '$lib/components/ui/button'
   import { Label } from '$lib/components/ui/label'
   import { createListEditor } from '$lib/list-editor.svelte'
-  import { planOwnedItems, sharedItems } from '$lib/plan-owned'
   import type { Frequency, Transfer as TransferData } from '$lib/schemas'
   import { getFrequencyItems, getFrequencyShortLabel } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
@@ -28,7 +27,7 @@
   const editor = createListEditor<TransferData, TransferUI>({
     // Financial data holds the shared transfers only. Those created in a plan
     // carry its id, stay hidden here and are carried through every save.
-    load: () => sharedItems(appStore.profile.transfers),
+    load: () => appStore.profile.transfers ?? [],
     // The card renders From/To, Amount/Frequency and the inflation toggle
     // only; Start/End/Change belong to the plan dialog. Timing fields are still
     // carried on the UI item so a save here round-trips them untouched.
@@ -61,7 +60,7 @@
     onChange: (listener) => appStore.onDataChange(listener),
     persist: (data) =>
       appStore.updateProfile({
-        transfers: [...data, ...planOwnedItems(appStore.profile.transfers)],
+        transfers: data,
       }),
     // Unlike incomes or expenses, a regular transfer is not something to
     // assume everyone has — the page opens empty and waits for Add (#259).

@@ -18,7 +18,7 @@
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
-  import { itemsForPlan } from '$lib/plan-owned'
+  import { PLAN_LISTS, planItems, removePlanItem, upsertPlanItem } from '$lib/plan-items'
   import { summarizeCashFlow } from '$lib/plan-projection'
   import { planRangeOf, planYearOptions, yearWithinPlan } from '$lib/plan-range'
   import { sameYearMonthsInverted, timingComplete } from '$lib/schemas'
@@ -29,7 +29,6 @@
   import { getMonthOptions, monthToOption, optionToMonth } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
-  import { PROFILE_LISTS, removeProfileItem, upsertProfileItem } from './profile-lists'
 
   type CashFlow = Income | Expense
 
@@ -60,8 +59,8 @@
   function blankForm(): CashFlowFields {
     const counter =
       kind === 'income'
-        ? itemsForPlan(appStore.profile.incomes, plan.id).length + 1
-        : itemsForPlan(appStore.profile.expenses, plan.id).length + 1
+        ? planItems(appStore.profile, plan, 'incomes').length + 1
+        : planItems(appStore.profile, plan, 'expenses').length + 1
     const name =
       kind === 'income'
         ? $_('page.setup.income.defaultName', { values: { index: counter } })
@@ -87,7 +86,7 @@
     wasOpen = open
   })
 
-  const listConfig = $derived(PROFILE_LISTS[kind])
+  const listConfig = $derived(PLAN_LISTS[kind])
 
   // Same-year ranges can't end before they start: an end month that a later
   // start/year change turned invalid is cleared so the user picks again (Save
@@ -128,7 +127,7 @@
   }
 
   function save() {
-    upsertProfileItem(listConfig, cashFlowFromFields(form), plan)
+    upsertPlanItem(listConfig, cashFlowFromFields(form), plan, appStore.profile)
     close()
   }
 
@@ -136,7 +135,7 @@
     const confirmMessage =
       kind === 'income' ? $_('page.plan.deleteIncomeConfirm') : $_('page.plan.deleteExpenseConfirm')
     if (!window.confirm(confirmMessage)) return
-    removeProfileItem(listConfig, form.id)
+    removePlanItem(listConfig, form.id, plan, appStore.profile)
     close()
   }
 

@@ -9,7 +9,6 @@
   import InvestmentFields from '$lib/components/investment-fields.svelte'
   import { Button } from '$lib/components/ui/button'
   import { createListEditor } from '$lib/list-editor.svelte'
-  import { planOwnedItems, sharedItems } from '$lib/plan-owned'
   import type {
     CashFlowEnd,
     CashFlowStart,
@@ -51,9 +50,7 @@
   }
 
   const editor = createListEditor<ProfileInvestment, InvestmentUI>({
-    // Financial data holds the shared items only. Those created in a plan
-    // carry its id, stay hidden here and are carried through every save.
-    load: () => sharedItems(appStore.profile.investments),
+    load: () => appStore.profile.investments ?? [],
     toUI: (inv) => ({
       id: inv.id,
       name: inv.name,
@@ -140,7 +137,7 @@
     onChange: (listener) => appStore.onDataChange(listener),
     persist: (data) =>
       appStore.updateProfile({
-        investments: [...data, ...planOwnedItems(appStore.profile.investments)],
+        investments: data,
       }),
   })
   onDestroy(editor.flushSave)

@@ -1,5 +1,4 @@
 import { getCurrentProfile } from '$lib/current-values'
-import { sharedItems } from '$lib/plan-owned'
 import {
   type Frequency,
   type Profile,
@@ -186,7 +185,7 @@ export function buildSnapshotSections(
     { id: 'tangible_assets', fields: tangibleFields },
     {
       id: 'liabilities',
-      fields: sharedItems(profile.liabilities).map((liability) => {
+      fields: (profile.liabilities ?? []).map((liability) => {
         const entry = liabilityEntry(liability.id)
         return {
           key: `liabilities:${liability.id}`,
