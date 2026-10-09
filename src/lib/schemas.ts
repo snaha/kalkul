@@ -216,7 +216,7 @@ function repairSnapshot(snapshot: unknown, profile: Record<string, unknown>): vo
     const flows = profile[key]
     snapshot[key] = (Array.isArray(flows) ? flows : [])
       .filter(isRecord)
-      .filter((flow) => flow.plan_id === undefined && flow.schedule !== 'one_time')
+      .filter((flow) => flow.schedule !== 'one_time')
       .map(({ id, amount, frequency }) => ({ id, amount, frequency }))
   }
 }
@@ -270,9 +270,42 @@ export function repairStoredData(data: unknown): unknown {
       })
     if (Array.isArray(profile.snapshots))
       for (const snapshot of profile.snapshots) repairSnapshot(snapshot, profile)
+    movePlanOwnedItems(profile, data.portfolios)
   }
   return data
 }
+
+/**
+ * Items a plan owned used to sit in the profile's lists with a `plan_id`; they
+ * now live on the plan. Each one moves onto its plan's list, or is dropped with
+ * its plan gone, so none of them turns into financial data. Transitional, see
+ * AGENTS.md.
+ */
+function movePlanOwnedItems(profile: Record<string, unknown>, portfolios: unknown): void {
+  const plans = Array.isArray(portfolios) ? portfolios.filter(isRecord) : []
+  for (const key of PLAN_LIST_KEYS) {
+    const items = profile[key]
+    if (!Array.isArray(items)) continue
+    profile[key] = items.filter((item) => {
+      if (!isRecord(item) || item.plan_id === undefined) return true
+      const { plan_id, ...rest } = item
+      const plan = plans.find((p) => p.id === plan_id)
+      if (plan === undefined) return false
+      const list = Array.isArray(plan[key]) ? plan[key] : []
+      plan[key] = [...list, rest]
+      return false
+    })
+  }
+}
+
+const PLAN_LIST_KEYS = [
+  'investments',
+  'tangible_assets',
+  'liabilities',
+  'incomes',
+  'expenses',
+  'transfers',
+] as const
 
 // A timing edge ('start' or 'end') is complete only once the mode-specific
 // field is filled — otherwise the projection would silently fall back to the
@@ -288,11 +321,6 @@ export function timingComplete(
   if (mode === 'when_age_is') return age !== undefined
   return true
 }
-
-// Set when the item was created inside a plan: it belongs to that plan alone
-// and stays out of financial data and of other plans. Unset means the user
-// recorded it as current data, shared by every plan.
-const planOwnership = { plan_id: z.string().optional() }
 
 // Incomes and expenses share one shape; the two names are kept so call sites
 // read naturally.
@@ -325,7 +353,6 @@ const cashFlowSchema = z
     inflation_adjusted: z.boolean().optional(),
     change_over_time: changeOverTimeSchema.optional(),
     change_percentage: z.number().optional(),
-    ...planOwnership,
   })
   .superRefine((obj, ctx) => {
     if (obj.schedule === 'one_time') {
@@ -434,7 +461,6 @@ export const profileInvestmentSchema = z
     name: z.string(),
     balance: z.number(),
     apy: z.number(),
-    ...planOwnership,
     // Total expense ratio (annual %): drag on compounding APY.
     ter: z.number().optional(),
     // Entry fee charged when money is transferred INTO this investment. The
@@ -487,7 +513,6 @@ export const profileTangibleAssetSchema = z
     name: z.string(),
     value: z.number(),
     status: tangibleAssetStatusSchema,
-    ...planOwnership,
     outstanding_balance: z.number().optional(),
     installment_frequency: frequencySchema.optional(),
     annual_rate: z.number().optional(),
@@ -571,7 +596,6 @@ export const profileLiabilitySchema = z
     outstanding_balance: z.number(),
     installment_frequency: frequencySchema,
     annual_rate: z.number(),
-    ...planOwnership,
     installment_amount: z.number(),
     remaining_term: z.number(),
     remaining_term_unit: remainingTermUnitSchema.optional(),
@@ -749,7 +773,6 @@ export const transferSchema = z
     end_age: z.number().optional(),
     change_over_time: changeOverTimeSchema.optional(),
     change_percentage: z.number().optional(),
-    ...planOwnership,
   })
   .superRefine((obj, ctx) => {
     if (obj.from_asset_id === obj.to_asset_id) {
@@ -874,6 +897,20 @@ export const portfolioSchema = z.object({
   included_income_ids: z.array(z.string()).optional(),
   included_expense_ids: z.array(z.string()).optional(),
   included_transfer_ids: z.array(z.string()).optional(),
+  // The cash the plan opens with. Unset means the profile's current cash: a
+  // plan reads financial data and never changes it, so a different opening
+  // balance is a setting of the plan.
+  cash_amount: z.number().optional(),
+  // What the plan changes on top of financial data. An item whose id matches a
+  // financial-data item overrides it for this plan; any other id is an item the
+  // plan alone has. Financial data and other plans never see these
+  // (`src/lib/plan-items.ts`).
+  investments: z.array(profileInvestmentSchema).optional(),
+  tangible_assets: z.array(profileTangibleAssetSchema).optional(),
+  liabilities: z.array(profileLiabilitySchema).optional(),
+  incomes: z.array(incomeSchema).optional(),
+  expenses: z.array(expenseSchema).optional(),
+  transfers: z.array(transferSchema).optional(),
 })
 
 export const storedDataSchema = z.object({

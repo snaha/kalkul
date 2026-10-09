@@ -12,7 +12,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
   import { Switch } from '$lib/components/ui/switch'
-  import { itemsForPlan } from '$lib/plan-owned'
+  import { PLAN_LISTS, planItems, removePlanItem, upsertPlanItem } from '$lib/plan-items'
   import { installmentAmountForLoan, termYearsForLoan } from '$lib/plan-projection'
   import { planRangeOf, planYearOptions, timingWithinPlan } from '$lib/plan-range'
   import type {
@@ -35,7 +35,6 @@
   import { getMonthOptions, monthToOption, optionToMonth } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
-  import { PROFILE_LISTS, removeProfileItem, upsertProfileItem } from './profile-lists'
 
   interface Props {
     open: boolean
@@ -73,7 +72,7 @@
   }
 
   function blankForm(): FormState {
-    const counter = itemsForPlan(appStore.profile.liabilities, plan.id).length + 1
+    const counter = planItems(appStore.profile, plan, 'liabilities').length + 1
     return {
       id: crypto.randomUUID(),
       name: $_('page.setup.liabilities.defaultName', { values: { index: counter } }),
@@ -172,7 +171,7 @@
 
   const isNew = $derived(initial === undefined)
 
-  const listConfig = PROFILE_LISTS.liability
+  const listConfig = PLAN_LISTS.liability
 
   let frequencyItems = $derived(getFrequencyItems($_))
   let interestTypeItems = $derived(getInterestTypeItems($_))
@@ -256,13 +255,13 @@
   }
 
   function save(): void {
-    upsertProfileItem(listConfig, projectLiability(form), plan)
+    upsertPlanItem(listConfig, projectLiability(form), plan, appStore.profile)
     close()
   }
 
   function remove(): void {
     if (!window.confirm($_('page.plan.deleteLiabilityConfirm'))) return
-    removeProfileItem(listConfig, form.id)
+    removePlanItem(listConfig, form.id, plan, appStore.profile)
     close()
   }
 </script>

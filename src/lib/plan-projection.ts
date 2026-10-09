@@ -1,7 +1,7 @@
 import Decimal from 'decimal.js'
 
 import { DECIMAL_0, DECIMAL_1 } from '$lib/@snaha/kalkul-maths'
-import { type PlanOwned, itemsForPlan } from '$lib/plan-owned'
+import { type PlanListKey, planItems } from '$lib/plan-items'
 import type {
   CashFlowEnd,
   CashFlowSchedule,
@@ -1127,8 +1127,8 @@ export function applyEntryFee(investment: ProfileInvestment | undefined, amount:
 }
 
 export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): YearlyProjection[] {
-  // Shared profile items plus this plan's own; another plan's never take part.
-  const visible = <T extends PlanOwned>(items: T[] | undefined): T[] => itemsForPlan(items, plan.id)
+  // Financial data with this plan's overrides and own items; another plan's never take part.
+  const visible = <K extends PlanListKey>(key: K) => planItems(profile, plan, key)
   const startYear = yearOf(plan.start_date)
   const endYear = yearOf(plan.end_date)
 
@@ -1137,19 +1137,16 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   const birthYear = profile.birth_date ? yearOf(profile.birth_date) : undefined
 
   const investments: ProfileInvestment[] = filterById(
-    visible(profile.investments),
+    visible('investments'),
     plan.included_investment_ids,
   )
   const liabilities: ProfileLiability[] = filterById(
-    visible(profile.liabilities),
+    visible('liabilities'),
     plan.included_liability_ids,
   )
-  const tangibleAssets = filterById(
-    visible(profile.tangible_assets),
-    plan.included_tangible_asset_ids,
-  )
-  const incomes: Income[] = filterById(visible(profile.incomes), plan.included_income_ids)
-  const expenses: Expense[] = filterById(visible(profile.expenses), plan.included_expense_ids)
+  const tangibleAssets = filterById(visible('tangible_assets'), plan.included_tangible_asset_ids)
+  const incomes: Income[] = filterById(visible('incomes'), plan.included_income_ids)
+  const expenses: Expense[] = filterById(visible('expenses'), plan.included_expense_ids)
 
   // One map for both kinds: investments and tangible assets share the planned
   // buy/sell machinery, so the transfer loop guards them with the same check.
@@ -1182,15 +1179,17 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       lastYear: liabilityPayOffYear(l),
     }),
   )
-  // The year each plan-owned loan's principal lands in cash (#322): a loan
-  // the plan takes on is new money, whereas a financial-data liability is
-  // debt the user already carries, so that money is already in today's
-  // balances. A start before the plan pays in at plan start. A planned
-  // pay-off before that start means the schedule above never goes live, so
-  // nothing is borrowed either.
+  // The year each loan the plan takes on pays its principal into cash (#322):
+  // that is new money, whereas a financial-data liability is debt the user
+  // already carries, so that money is already in today's balances. The plan's
+  // override of such a liability is the same debt, so it is not credited
+  // either. A start before the plan pays in at plan start. A planned pay-off
+  // before that start means the schedule above never goes live, so nothing is
+  // borrowed either.
+  const currentDebtIds = new Set((profile.liabilities ?? []).map((l) => l.id))
   const borrowedByYear = new Map<number, Decimal>()
   for (const l of liabilities) {
-    if (l.plan_id === undefined) continue
+    if (currentDebtIds.has(l.id)) continue
     const firstYear = Math.max(liabilityStartYear(l, birthYear) ?? startYear, startYear)
     const lastYear = liabilityPayOffYear(l)
     if (lastYear !== undefined && lastYear < firstYear) continue
@@ -1219,10 +1218,11 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   const abandonedAssetIds = new Set<string>()
 
   // Every plan has a cash balance and every flow runs through it (#331): it
-  // opens at the profile's cash amount, 0 when none is set, and income,
-  // transfers, expenses and installments all go through it with the
-  // insufficient-funds check applied. There is no way to exclude cash.
-  const initialCashNominal = profile.cash_amount ?? 0
+  // opens at the plan's own opening balance when one is set, else the
+  // profile's cash amount, else 0, and income, transfers, expenses and
+  // installments all go through it with the insufficient-funds check applied.
+  // There is no way to exclude cash.
+  const initialCashNominal = plan.cash_amount ?? profile.cash_amount ?? 0
 
   let cashNominal = new Decimal(initialCashNominal)
   const inflationRate = new Decimal(plan.inflation_rate)
@@ -1303,7 +1303,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   ]
   const planTransfers = [
     ...timingTransfers.map((t) => t.start).filter((t): t is Transfer => t !== undefined),
-    ...filterById(visible(profile.transfers), plan.included_transfer_ids).filter(
+    ...filterById(visible('transfers'), plan.included_transfer_ids).filter(
       (t) => knownAssetIds.has(t.from_asset_id) && knownAssetIds.has(t.to_asset_id),
     ),
     ...timingTransfers.map((t) => t.exit).filter((t): t is Transfer => t !== undefined),

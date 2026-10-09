@@ -9,7 +9,7 @@
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
-  import { itemsForPlan } from '$lib/plan-owned'
+  import { PLAN_LISTS, planItems, removePlanItem, upsertPlanItem } from '$lib/plan-items'
   import { planRangeOf, timingWithinPlan } from '$lib/plan-range'
   import type {
     CashFlowEnd,
@@ -30,7 +30,6 @@
   import { getMonthOptions } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
-  import { PROFILE_LISTS, removeProfileItem, upsertProfileItem } from './profile-lists'
 
   export type AssetKind = 'investment' | 'tangibleAsset'
 
@@ -112,10 +111,10 @@
   function blankForm(): FormState {
     const counter =
       kind === 'investment'
-        ? itemsForPlan(appStore.profile.investments, plan.id).length + 1
+        ? planItems(appStore.profile, plan, 'investments').length + 1
         : kind === 'tangibleAsset'
-          ? itemsForPlan(appStore.profile.tangible_assets, plan.id).length + 1
-          : itemsForPlan(appStore.profile.liabilities, plan.id).length + 1
+          ? planItems(appStore.profile, plan, 'tangible_assets').length + 1
+          : planItems(appStore.profile, plan, 'liabilities').length + 1
     const defaultName =
       kind === 'investment'
         ? $_('page.setup.investments.defaultName', { values: { index: counter } })
@@ -255,7 +254,7 @@
 
   const isNew = $derived(initial === undefined)
 
-  const listConfig = $derived(PROFILE_LISTS[kind])
+  const listConfig = $derived(PLAN_LISTS[kind])
 
   function projectInvestment(f: FormState): ProfileInvestment {
     // Persist only the fee fields that the user actually touched; default
@@ -327,9 +326,9 @@
 
   function save() {
     if (kind === 'investment') {
-      upsertProfileItem(PROFILE_LISTS.investment, projectInvestment(form), plan)
+      upsertPlanItem(PLAN_LISTS.investment, projectInvestment(form), plan, appStore.profile)
     } else {
-      upsertProfileItem(PROFILE_LISTS.tangibleAsset, projectTangibleAsset(form), plan)
+      upsertPlanItem(PLAN_LISTS.tangibleAsset, projectTangibleAsset(form), plan, appStore.profile)
     }
     close()
   }
@@ -340,7 +339,7 @@
         ? $_('page.plan.deleteInvestmentConfirm')
         : $_('page.plan.deleteTangibleAssetConfirm')
     if (!window.confirm(confirmMessage)) return
-    removeProfileItem(listConfig, form.id)
+    removePlanItem(listConfig, form.id, plan, appStore.profile)
     close()
   }
 </script>

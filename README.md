@@ -124,8 +124,11 @@ were removed with it; restoring workflow-level coverage is tracked in
 
 The application uses a single reactive store (`appStore`) that manages all domain data for a
 single user. All financial data (cash, investments, tangible assets, liabilities, incomes,
-expenses) lives flat on the profile; portfolios ("plans") reference profile items by id and add
-plan-specific settings (dates, inflation, transfers). Data is persisted to localStorage.
+expenses, transfers) lives flat on the profile. Portfolios ("plans", projections) are scenarios
+computed from it: they add dates and inflation, include lists over the profile's items, and their
+own items (`src/lib/plan-items.ts`): an item under a profile item's id overrides it for that plan,
+any other is the plan's alone. A plan never writes the profile (see AGENTS.md). Data is persisted
+to localStorage.
 
 ### Data Hierarchy
 
@@ -162,10 +165,10 @@ Raw data loaded from localStorage is plain JSON. The store "enriches" this data 
 
 ### PortfolioStore
 
-| Method            | Description                                     |
-| ----------------- | ----------------------------------------------- |
-| `update(updates)` | Update name, notes, dates, inflation, transfers |
-| `delete()`        | Remove portfolio from store                     |
+| Method            | Description                                         |
+| ----------------- | --------------------------------------------------- |
+| `update(updates)` | Update settings, include lists and the plan's items |
+| `delete()`        | Remove portfolio from store                         |
 
 ### Usage Example
 

@@ -202,19 +202,12 @@ describe('buildSnapshotSections', () => {
     ).toEqual([])
   })
 
-  test('offers no field for an item a plan owns or a one-time cash flow', () => {
-    // A snapshot records neither — a plan's items are not the user's current
-    // data, and a one-time expense is an event rather than a rate — so a field
-    // for one would write into the snapshot what capturing it leaves out.
-    const owned = { plan_id: 'plan-1' }
+  test('offers no field for a one-time cash flow', () => {
+    // A snapshot does not record one — a one-time expense is an event rather
+    // than a rate — so a field for it would write into the snapshot what
+    // capturing it leaves out.
     const withExtras: Profile = {
       ...PROFILE,
-      investments: [
-        ...PROFILE.investments!,
-        { id: 'inv9', name: 'Plan ETF', balance: 1, apy: 0, ...owned },
-      ],
-      liabilities: [...PROFILE.liabilities!, { ...PROFILE.liabilities![0], id: 'l9', ...owned }],
-      incomes: [...PROFILE.incomes!, { ...PROFILE.incomes![0], id: 'i9', ...owned }],
       expenses: [
         ...PROFILE.expenses!,
         {

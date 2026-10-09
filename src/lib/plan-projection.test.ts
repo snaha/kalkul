@@ -3420,8 +3420,16 @@ describe('capital gains tax on withdrawals', () => {
   })
 })
 
-describe('plan ownership', () => {
-  const other = { plan_id: 'plan-2' }
+describe('opening cash', () => {
+  it("opens at the plan's own cash amount when set, else the profile's, else 0", () => {
+    const profile = makeProfile({ cash_amount: 1000 })
+    expect(getYearlyPlanProjection(makePlan({ cash_amount: 250 }), profile)[0].cash).toBe(250)
+    expect(getYearlyPlanProjection(makePlan(), profile)[0].cash).toBe(1000)
+    expect(getYearlyPlanProjection(makePlan(), makeProfile())[0].cash).toBe(0)
+  })
+})
+
+describe("the plan's own items", () => {
   const flow: Income = {
     id: 'f',
     name: 'Flow',
@@ -3433,16 +3441,33 @@ describe('plan ownership', () => {
     change_over_time: 'none',
   }
 
-  it("keeps another plan's transfer out of the projection even without a whitelist", () => {
-    const investments: ProfileInvestment[] = [{ id: 'inv1', name: 'Stocks', balance: 0, apy: 0 }]
+  it("counts the plan's own items beside financial data", () => {
     const result = getYearlyPlanProjection(
-      makePlan(),
-      makeProfile({
-        cash_amount: 5000,
-        investments,
+      makePlan({
+        incomes: [{ ...flow, id: 'i' }],
+        investments: [{ id: 'v', name: 'ETF', balance: 100, apy: 0 }],
+      }),
+      makeProfile({ cash_amount: 1000 }),
+    )
+    expect(result[0].totalIncome).toBe(1200)
+    expect(result[0].investments).toBe(100)
+  })
+
+  it("uses the plan's override of a financial-data item in place of the original", () => {
+    const result = getYearlyPlanProjection(
+      makePlan({ investments: [{ id: 'v', name: 'ETF', balance: 900, apy: 0 }] }),
+      makeProfile({ investments: [{ id: 'v', name: 'ETF', balance: 100, apy: 0 }] }),
+    )
+    expect(result[0].investments).toBe(900)
+  })
+
+  it("honours the plan's transfer into its own investment without a whitelist", () => {
+    const result = getYearlyPlanProjection(
+      makePlan({
+        investments: [{ id: 'inv1', name: 'Stocks', balance: 0, apy: 0 }],
         transfers: [
           {
-            id: 'other',
+            id: 'own',
             name: 'Buy',
             from_asset_id: 'cash',
             to_asset_id: 'inv1',
@@ -3450,66 +3475,13 @@ describe('plan ownership', () => {
             transaction_year: 2026,
             transaction_month: 1,
             amount: 1000,
-            ...other,
           },
         ],
       }),
+      makeProfile({ cash_amount: 5000 }),
     )
-    expect(result[2].cash).toBeCloseTo(5000, 6)
-    expect(result[2].investments).toBeCloseTo(0, 6)
-  })
-
-  it("keeps another plan's income and expense out", () => {
-    const result = getYearlyPlanProjection(
-      makePlan(),
-      makeProfile({
-        cash_amount: 1000,
-        incomes: [{ ...flow, id: 'i', ...other }],
-        expenses: [{ ...flow, id: 'e', amount: 50, ...other }],
-      }),
-    )
-    expect(result[0].totalIncome).toBe(0)
-    expect(result[0].totalExpenses).toBe(0)
-    expect(result[0].cash).toBe(1000)
-  })
-
-  it("keeps another plan's investment, tangible asset and liability out", () => {
-    const result = getYearlyPlanProjection(
-      makePlan(),
-      makeProfile({
-        investments: [{ id: 'v', name: 'ETF', balance: 100, apy: 0, ...other }],
-        tangible_assets: [{ id: 'a', name: 'Flat', value: 100, status: 'fully_owned', ...other }],
-        liabilities: [
-          {
-            id: 'l',
-            name: 'Loan',
-            outstanding_balance: 100,
-            installment_frequency: 'monthly',
-            annual_rate: 0,
-            installment_amount: 1,
-            remaining_term: 10,
-            ...other,
-          },
-        ],
-      }),
-    )
-    expect(result[0].investments).toBe(0)
-    expect(result[0].tangibleAssets).toBe(0)
-    expect(result[0].liabilities).toBe(0)
-  })
-
-  it("counts the plan's own items", () => {
-    const own = { plan_id: 'plan-1' }
-    const result = getYearlyPlanProjection(
-      makePlan(),
-      makeProfile({
-        cash_amount: 1000,
-        incomes: [{ ...flow, id: 'i', ...own }],
-        investments: [{ id: 'v', name: 'ETF', balance: 100, apy: 0, ...own }],
-      }),
-    )
-    expect(result[0].totalIncome).toBe(1200)
-    expect(result[0].investments).toBe(100)
+    expect(result[2].cash).toBeCloseTo(4000, 6)
+    expect(result[2].investments).toBeCloseTo(1000, 6)
   })
 })
 
@@ -3549,17 +3521,17 @@ describe('liability start and pay-off', () => {
 
   it('pays the principal of a loan the plan takes on into cash in its start year (#322)', () => {
     const liabilities: ProfileLiability[] = [
-      { ...loan, plan_id: 'plan-1', start: 'at_specific_date', start_year: 2027, start_month: 1 },
+      { ...loan, start: 'at_specific_date', start_year: 2027, start_month: 1 },
     ]
-    const result = getYearlyPlanProjection(plan, makeProfile({ liabilities }))
+    const result = getYearlyPlanProjection({ ...plan, liabilities }, makeProfile())
     expect(result.map((r) => Math.round(r.cash))).toEqual([0, 0, 750, 500, 250, 0])
     expect(result.map((r) => Math.round(r.netWorth))).toEqual([0, 0, 0, 0, 0, 0])
     expect(result.map((r) => r.totalIncome)).toEqual([0, 0, 0, 0, 0, 0])
   })
 
-  it('pays the principal in the first year when the plan-owned loan starts with the plan', () => {
-    const liabilities: ProfileLiability[] = [{ ...loan, plan_id: 'plan-1' }]
-    const result = getYearlyPlanProjection(plan, makeProfile({ liabilities }))
+  it('pays the principal in the first year when the loan starts with the plan', () => {
+    const liabilities: ProfileLiability[] = [{ ...loan }]
+    const result = getYearlyPlanProjection({ ...plan, liabilities }, makeProfile())
     expect(result.map((r) => Math.round(r.cash))).toEqual([750, 500, 250, 0, 0, 0])
   })
 
@@ -3569,12 +3541,21 @@ describe('liability start and pay-off', () => {
     expect(result.map((r) => Math.round(r.liabilities))).toEqual([750, 500, 250, 0, 0, 0])
   })
 
+  it("adds nothing to cash for the plan's override of a loan the user already carries (#347)", () => {
+    // Editing the loan inside the plan puts an override under the same id on
+    // the plan; it is still debt the user has, not new borrowing.
+    const result = getYearlyPlanProjection(
+      { ...plan, liabilities: [{ ...loan, name: 'Renamed', installment_amount: 500 }] },
+      makeProfile({ liabilities: [loan] }),
+    )
+    expect(result.map((r) => Math.round(r.cash))).toEqual([0, 0, 0, 0, 0, 0])
+    expect(result.map((r) => Math.round(r.liabilities))).toEqual([500, 0, 0, 0, 0, 0])
+  })
+
   it('pays nothing in when a planned pay-off precedes the start, since the loan never goes live', () => {
     const payOff = { pay_off: 'at_specific_date' as const, pay_off_month: 1 }
-    const beforePlan: ProfileLiability[] = [
-      { ...loan, plan_id: 'plan-1', ...payOff, pay_off_year: 2020 },
-    ]
-    let result = getYearlyPlanProjection(plan, makeProfile({ liabilities: beforePlan }))
+    const beforePlan: ProfileLiability[] = [{ ...loan, ...payOff, pay_off_year: 2020 }]
+    let result = getYearlyPlanProjection({ ...plan, liabilities: beforePlan }, makeProfile())
     expect(result.map((r) => Math.round(r.cash))).toEqual([0, 0, 0, 0, 0, 0])
     expect(result.map((r) => Math.round(r.liabilities))).toEqual([0, 0, 0, 0, 0, 0])
     expect(result.map((r) => Math.round(r.netWorth))).toEqual([0, 0, 0, 0, 0, 0])
@@ -3582,7 +3563,6 @@ describe('liability start and pay-off', () => {
     const beforeStart: ProfileLiability[] = [
       {
         ...loan,
-        plan_id: 'plan-1',
         start: 'at_specific_date',
         start_year: 2028,
         start_month: 1,
@@ -3590,16 +3570,16 @@ describe('liability start and pay-off', () => {
         pay_off_year: 2026,
       },
     ]
-    result = getYearlyPlanProjection(plan, makeProfile({ liabilities: beforeStart }))
+    result = getYearlyPlanProjection({ ...plan, liabilities: beforeStart }, makeProfile())
     expect(result.map((r) => Math.round(r.cash))).toEqual([0, 0, 0, 0, 0, 0])
     expect(result.map((r) => Math.round(r.liabilities))).toEqual([0, 0, 0, 0, 0, 0])
   })
 
   it('pays a loan dated before the plan in at plan start', () => {
     const liabilities: ProfileLiability[] = [
-      { ...loan, plan_id: 'plan-1', start: 'at_specific_date', start_year: 2020, start_month: 1 },
+      { ...loan, start: 'at_specific_date', start_year: 2020, start_month: 1 },
     ]
-    const result = getYearlyPlanProjection(plan, makeProfile({ liabilities }))
+    const result = getYearlyPlanProjection({ ...plan, liabilities }, makeProfile())
     expect(result.map((r) => Math.round(r.cash))).toEqual([750, 500, 250, 0, 0, 0])
     expect(result.map((r) => Math.round(r.liabilities))).toEqual([750, 500, 250, 0, 0, 0])
   })
@@ -3607,9 +3587,9 @@ describe('liability start and pay-off', () => {
   it("pays a loan starting 'now' in at plan start when the plan starts later", () => {
     vi.setSystemTime(new Date('2026-04-15'))
     try {
-      const liabilities: ProfileLiability[] = [{ ...loan, plan_id: 'plan-1', start: 'now' }]
+      const liabilities: ProfileLiability[] = [{ ...loan, start: 'now' }]
       const later = makePlan({ start_date: '2028-01-01', end_date: '2033-01-01' })
-      const result = getYearlyPlanProjection(later, makeProfile({ liabilities }))
+      const result = getYearlyPlanProjection({ ...later, liabilities }, makeProfile())
       expect(result.map((r) => Math.round(r.cash))).toEqual([750, 500, 250, 0, 0, 0])
     } finally {
       vi.useRealTimers()
@@ -3618,14 +3598,14 @@ describe('liability start and pay-off', () => {
 
   it('leaves net worth unchanged by the loan under inflation too', () => {
     const liabilities: ProfileLiability[] = [
-      { ...loan, plan_id: 'plan-1', start: 'at_specific_date', start_year: 2027, start_month: 1 },
+      { ...loan, start: 'at_specific_date', start_year: 2027, start_month: 1 },
     ]
     const inflated = makePlan({
       start_date: '2025-01-01',
       end_date: '2030-01-01',
       inflation_rate: 5,
     })
-    const result = getYearlyPlanProjection(inflated, makeProfile({ liabilities }))
+    const result = getYearlyPlanProjection({ ...inflated, liabilities }, makeProfile())
     expect(result.map((r) => Math.round(r.netWorth))).toEqual([0, 0, 0, 0, 0, 0])
     expect(result.map((r) => r.cash)).toEqual(result.map((r) => r.liabilities))
   })

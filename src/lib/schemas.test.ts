@@ -366,18 +366,13 @@ describe('repairStoredData: snapshots', () => {
   it('fills them with only the flows a snapshot records', () => {
     // A one-time expense has no frequency, so copying it would write an entry
     // the schema rejects — failing the whole dataset, which then falls back to
-    // the empty profile. A plan's own income is not the user's current data.
-    // Both are left out, exactly as `captureSnapshot` leaves them out.
+    // the empty profile. It is left out, exactly as `captureSnapshot` leaves it out.
     const stored = storedWith({ date: '2026-01-01', cash_amount: 1_000 })
     const repaired = storedDataSchema.parse(
       repairStoredData({
         ...stored,
         profile: {
           ...stored.profile,
-          incomes: [
-            ...stored.profile.incomes,
-            { ...baseIncome, id: 'plan-income', amount: 900, plan_id: 'plan-1' },
-          ],
           expenses: [
             ...stored.profile.expenses,
             {
@@ -1199,54 +1194,38 @@ describe('profileSchema tax rules', () => {
   })
 })
 
-describe('transferSchema plan ownership', () => {
-  it('keeps plan_id so a transfer created in a plan stays owned by it', () => {
-    const owned = {
-      id: 't1',
-      name: 'Buy stocks',
-      from_asset_id: 'cash',
-      to_asset_id: 'inv1',
-      amount: 1000,
-      schedule: 'one_time',
-      transaction_year: 2027,
-      transaction_month: 6,
-      plan_id: 'plan-1',
+describe('repairStoredData: items a plan owned move onto the plan', () => {
+  it('moves each plan_id item onto its plan, without the tag, and drops those of a deleted plan', () => {
+    const investment = { id: 'own', name: 'ETF', balance: 1, apy: 1 }
+    const stored = {
+      lastUpdated: 1,
+      profile: {
+        name: 'Test',
+        email: '',
+        investments: [
+          { id: 'shared', name: 'ETF', balance: 1, apy: 1 },
+          { ...investment, plan_id: 'plan-1' },
+          { ...investment, id: 'orphan', plan_id: 'gone' },
+        ],
+        incomes: [{ ...baseIncome, id: 'own-income', plan_id: 'plan-1' }],
+      },
+      portfolios: [
+        {
+          id: 'plan-1',
+          name: 'Plan',
+          start_date: '2026-01-01',
+          end_date: '2030-01-01',
+          inflation_rate: 0,
+          investments: [{ ...investment, id: 'already' }],
+        },
+      ],
     }
-    expect(transferSchema.parse(owned)).toEqual(owned)
-  })
-})
-
-describe('plan ownership', () => {
-  it('keeps plan_id on every kind of item created in a plan', () => {
-    const owned = { plan_id: 'plan-1' }
-    const flow = {
-      id: 'f',
-      name: 'Side gig',
-      amount: 100,
-      frequency: 'monthly',
-      start: 'immediately',
-      end: 'never',
-      change_over_time: 'none',
-      ...owned,
-    }
-    // The absent schedule parses as the 'recurring' default.
-    expect(incomeSchema.parse(flow)).toEqual({ ...flow, schedule: 'recurring' })
-    expect(expenseSchema.parse(flow)).toEqual({ ...flow, schedule: 'recurring' })
-    const investment = { id: 'v', name: 'ETF', balance: 1, apy: 1, ...owned }
-    expect(profileInvestmentSchema.parse(investment)).toEqual(investment)
-    const asset = { id: 'a', name: 'Flat', value: 1, status: 'fully_owned', ...owned }
-    expect(profileTangibleAssetSchema.parse(asset)).toEqual(asset)
-    const liability = {
-      id: 'l',
-      name: 'Loan',
-      outstanding_balance: 1,
-      installment_frequency: 'monthly',
-      annual_rate: 1,
-      installment_amount: 1,
-      remaining_term: 1,
-      ...owned,
-    }
-    expect(profileLiabilitySchema.parse(liability)).toEqual(liability)
+    const repaired = storedDataSchema.parse(repairStoredData(stored))
+    expect(repaired.profile.investments?.map((i) => i.id)).toEqual(['shared'])
+    expect(repaired.profile.incomes).toEqual([])
+    expect(repaired.portfolios[0].investments?.map((i) => i.id)).toEqual(['already', 'own'])
+    expect(repaired.portfolios[0].incomes?.map((i) => i.id)).toEqual(['own-income'])
+    expect('plan_id' in (repaired.portfolios[0].investments?.[1] ?? {})).toBe(false)
   })
 })
 
