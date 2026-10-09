@@ -248,13 +248,7 @@ describe('repairStoredData: inverted cash-flow months', () => {
   function storedWithInverted() {
     return {
       lastUpdated: 1,
-      profile: {
-        name: 'Test',
-        email: '',
-        incomes: [{ ...baseIncome, ...sameYearInverted }],
-        expenses: [{ ...baseExpense, ...sameYearInverted }],
-        transfers: [{ ...baseTransfer, ...sameYearInverted }],
-      },
+      profile: { name: 'Test', email: '' },
       portfolios: [
         {
           id: 'portfolio-1',
@@ -262,6 +256,9 @@ describe('repairStoredData: inverted cash-flow months', () => {
           start_date: '2026-01-01',
           end_date: '2060-01-01',
           inflation_rate: 2,
+          incomes: [{ ...baseIncome, ...sameYearInverted }],
+          expenses: [{ ...baseExpense, ...sameYearInverted }],
+          transfers: [{ ...baseTransfer, ...sameYearInverted }],
         },
       ],
     }
@@ -270,26 +267,27 @@ describe('repairStoredData: inverted cash-flow months', () => {
   it('swaps inverted same-year months everywhere so stored data still parses', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const repaired = storedDataSchema.parse(repairStoredData(storedWithInverted()))
-    expect(repaired.profile.incomes?.[0]).toMatchObject({ start_month: 3, end_month: 8 })
-    expect(repaired.profile.expenses?.[0]).toMatchObject({ start_month: 3, end_month: 8 })
-    expect(repaired.profile.transfers?.[0]).toMatchObject({ start_month: 3, end_month: 8 })
+    const plan = repaired.portfolios[0]
+    expect(plan.incomes?.[0]).toMatchObject({ start_month: 3, end_month: 8 })
+    expect(plan.expenses?.[0]).toMatchObject({ start_month: 3, end_month: 8 })
+    expect(plan.transfers?.[0]).toMatchObject({ start_month: 3, end_month: 8 })
     expect(warn).toHaveBeenCalledTimes(3)
     warn.mockRestore()
   })
 
   it('leaves an ordered same-year range untouched', () => {
     const stored = storedWithInverted()
-    stored.profile.incomes[0].start_month = 3
-    stored.profile.incomes[0].end_month = 8
+    stored.portfolios[0].incomes[0].start_month = 3
+    stored.portfolios[0].incomes[0].end_month = 8
     repairStoredData(stored)
-    expect(stored.profile.incomes[0]).toMatchObject({ start_month: 3, end_month: 8 })
+    expect(stored.portfolios[0].incomes[0]).toMatchObject({ start_month: 3, end_month: 8 })
   })
 
   it('leaves months in different years untouched', () => {
     const stored = storedWithInverted()
-    stored.profile.incomes[0].end_year = 2031
+    stored.portfolios[0].incomes[0].end_year = 2031
     repairStoredData(stored)
-    expect(stored.profile.incomes[0]).toMatchObject({ start_month: 8, end_month: 3 })
+    expect(stored.portfolios[0].incomes[0]).toMatchObject({ start_month: 8, end_month: 3 })
   })
 
   it('passes through data that is not a stored-data object', () => {
@@ -1006,11 +1004,6 @@ describe('storedDataSchema golden fixture', () => {
             entry_fee_type: 'forty-sixty',
             exit_fee: 0.5,
             exit_fee_type: 'percentage',
-            start: 'at_specific_date',
-            start_year: 2030,
-            start_month: 5,
-            exit: 'when_age_is',
-            exit_age: 65,
           },
         ],
         tangible_assets: [
@@ -1026,11 +1019,6 @@ describe('storedDataSchema golden fixture', () => {
             remaining_term: 22,
             interest_type: 'compound',
             compounding_frequency: 'monthly',
-            purchase: 'at_specific_date',
-            purchase_year: 2029,
-            purchase_month: 3,
-            sale: 'when_age_is',
-            sale_age: 70,
             value_over_time: 'appreciate',
             value_rate: 1.5,
             property_tax_rate: 0.2,
@@ -1057,8 +1045,7 @@ describe('storedDataSchema golden fixture', () => {
             amount: 65_000,
             frequency: 'monthly',
             start: 'immediately',
-            end: 'when_age_is',
-            end_age: 65,
+            end: 'never',
             inflation_adjusted: true,
             change_over_time: 'increase_yearly',
             change_percentage: 2,
@@ -1086,21 +1073,9 @@ describe('storedDataSchema golden fixture', () => {
             schedule: 'recurring',
             frequency: 'monthly',
             start: 'immediately',
-            end: 'when_age_is',
-            end_age: 60,
+            end: 'never',
             inflation_adjusted: true,
             change_over_time: 'none',
-          },
-          {
-            id: 'transfer-2',
-            name: 'Sell the car',
-            from_asset_id: 'asset-2',
-            to_asset_id: 'cash',
-            amount: 0,
-            transfer_all: true,
-            schedule: 'one_time',
-            transaction_year: 2032,
-            transaction_month: 6,
           },
         ],
       },
@@ -1118,6 +1093,70 @@ describe('storedDataSchema golden fixture', () => {
           included_income_ids: ['income-1'],
           included_expense_ids: ['expense-1'],
           included_transfer_ids: ['transfer-1', 'transfer-2'],
+          cash_amount: 200_000,
+          // The plan's copies: what the plan changes, planned timing included.
+          investments: [
+            {
+              id: 'inv-1',
+              name: 'ETF portfolio',
+              balance: 800_000,
+              apy: 7,
+              start: 'at_specific_date',
+              start_year: 2030,
+              start_month: 5,
+              exit: 'when_age_is',
+              exit_age: 65,
+            },
+          ],
+          tangible_assets: [
+            {
+              id: 'asset-1',
+              name: 'Apartment',
+              value: 6_500_000,
+              status: 'financed',
+              outstanding_balance: 3_200_000,
+              installment_frequency: 'monthly',
+              annual_rate: 4.79,
+              installment_amount: 18_500,
+              remaining_term: 22,
+              interest_type: 'compound',
+              compounding_frequency: 'monthly',
+              purchase: 'at_specific_date',
+              purchase_year: 2029,
+              purchase_month: 3,
+              sale: 'when_age_is',
+              sale_age: 70,
+              value_over_time: 'appreciate',
+              value_rate: 1.5,
+              property_tax_rate: 0.2,
+            },
+          ],
+          incomes: [
+            {
+              id: 'income-1',
+              name: 'Salary',
+              amount: 65_000,
+              frequency: 'monthly',
+              start: 'immediately',
+              end: 'when_age_is',
+              end_age: 65,
+              change_over_time: 'increase_yearly',
+              change_percentage: 2,
+            },
+          ],
+          transfers: [
+            {
+              id: 'transfer-2',
+              name: 'Sell the car',
+              from_asset_id: 'asset-2',
+              to_asset_id: 'cash',
+              amount: 0,
+              transfer_all: true,
+              schedule: 'one_time',
+              transaction_year: 2032,
+              transaction_month: 6,
+            },
+          ],
         },
       ],
     }
@@ -1128,15 +1167,17 @@ describe('storedDataSchema golden fixture', () => {
     expect(result.data?.profile.tangible_assets?.[0]).toMatchObject({
       interest_type: 'compound',
       compounding_frequency: 'monthly',
-      purchase: 'at_specific_date',
-      purchase_year: 2029,
-      sale: 'when_age_is',
-      sale_age: 70,
       value_over_time: 'appreciate',
       value_rate: 1.5,
       property_tax_rate: 0.2,
     })
-    expect(result.data?.profile.investments?.[0]).toMatchObject({
+    expect(result.data?.portfolios[0].tangible_assets?.[0]).toMatchObject({
+      purchase: 'at_specific_date',
+      purchase_year: 2029,
+      sale: 'when_age_is',
+      sale_age: 70,
+    })
+    expect(result.data?.portfolios[0].investments?.[0]).toMatchObject({
       start: 'at_specific_date',
       start_year: 2030,
       exit: 'when_age_is',
@@ -1194,6 +1235,158 @@ describe('profileSchema tax rules', () => {
   })
 })
 
+describe('profileSchema: financial data has no planned timing', () => {
+  const base = { name: 'Test', email: '' }
+
+  it('accepts items that are already running', () => {
+    const profile = {
+      ...base,
+      incomes: [baseIncome, { ...baseIncome, id: 'now', start: 'now' }],
+      investments: [{ id: 'i', name: 'ETF', balance: 1, apy: 1 }],
+      liabilities: [
+        {
+          id: 'l',
+          name: 'Loan',
+          outstanding_balance: 1,
+          installment_frequency: 'monthly',
+          annual_rate: 1,
+          installment_amount: 1,
+          remaining_term: 1,
+          pay_off: 'at_term',
+        },
+      ],
+    }
+    expect(profileSchema.safeParse(profile).success).toBe(true)
+  })
+
+  it.each([
+    ['incomes', { ...baseIncome, end: 'when_age_is', end_age: 55 }, 'end'],
+    [
+      'expenses',
+      { ...baseExpense, start: 'at_specific_date', start_year: 2030, start_month: 1 },
+      'start',
+    ],
+    [
+      'transfers',
+      { ...baseTransfer, schedule: 'one_time', transaction_year: 2030, transaction_month: 1 },
+      'schedule',
+    ],
+    [
+      'investments',
+      { id: 'i', name: 'ETF', balance: 1, apy: 1, exit: 'when_age_is', exit_age: 65 },
+      'exit',
+    ],
+    [
+      'tangible_assets',
+      {
+        id: 't',
+        name: 'Flat',
+        value: 1,
+        status: 'fully_owned',
+        sale: 'at_specific_date',
+        sale_year: 2030,
+        sale_month: 1,
+      },
+      'sale',
+    ],
+    [
+      'liabilities',
+      {
+        id: 'l',
+        name: 'Loan',
+        outstanding_balance: 1,
+        installment_frequency: 'monthly',
+        annual_rate: 1,
+        installment_amount: 1,
+        remaining_term: 1,
+        pay_off: 'at_specific_date',
+        pay_off_year: 2030,
+        pay_off_month: 1,
+      },
+      'pay_off',
+    ],
+  ])('rejects planned timing on %s (#318)', (list, item, field) => {
+    const result = profileSchema.safeParse({ ...base, [list]: [item] })
+    expect(result.success).toBe(false)
+    expect(result.error?.issues.map((i) => i.path)).toEqual([[list, 0, field]])
+  })
+
+  it('rejects a dated field even when the mode says already running', () => {
+    const result = profileSchema.safeParse({ ...base, incomes: [{ ...baseIncome, end_age: 55 }] })
+    expect(result.error?.issues.map((i) => i.path)).toEqual([['incomes', 0, 'end_age']])
+  })
+})
+
+describe('repairStoredData: planned timing on financial data', () => {
+  it('sets a dated item back to running, drops a one-time one, and leaves the plans alone', () => {
+    const stored = {
+      lastUpdated: 1,
+      profile: {
+        name: 'Test',
+        email: '',
+        incomes: [{ ...baseIncome, end: 'when_age_is', end_age: 55 }],
+        expenses: [
+          {
+            ...baseExpense,
+            id: 'trip',
+            schedule: 'one_time',
+            transaction_year: 2030,
+            transaction_month: 1,
+          },
+        ],
+        investments: [
+          {
+            id: 'i',
+            name: 'ETF',
+            balance: 1,
+            apy: 1,
+            start: 'at_specific_date',
+            start_year: 2030,
+            start_month: 1,
+            exit: 'when_age_is',
+            exit_age: 65,
+          },
+        ],
+        liabilities: [
+          {
+            id: 'l',
+            name: 'Loan',
+            outstanding_balance: 1,
+            installment_frequency: 'monthly',
+            annual_rate: 1,
+            installment_amount: 1,
+            remaining_term: 1,
+            start: 'now',
+            pay_off: 'at_specific_date',
+            pay_off_year: 2030,
+            pay_off_month: 1,
+          },
+        ],
+      },
+      portfolios: [
+        {
+          id: 'plan-1',
+          name: 'Plan',
+          start_date: '2026-01-01',
+          end_date: '2060-01-01',
+          inflation_rate: 0,
+          incomes: [{ ...baseIncome, end: 'when_age_is', end_age: 55 }],
+        },
+      ],
+    }
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const repaired = storedDataSchema.parse(repairStoredData(stored))
+    expect(repaired.profile.incomes).toEqual([baseIncome])
+    expect(repaired.profile.expenses).toEqual([])
+    expect(repaired.profile.investments).toEqual([{ id: 'i', name: 'ETF', balance: 1, apy: 1 }])
+    expect(repaired.profile.liabilities?.[0]).toMatchObject({ start: 'now' })
+    expect(repaired.profile.liabilities?.[0]).not.toHaveProperty('pay_off')
+    expect(repaired.portfolios[0].incomes?.[0]).toMatchObject({ end: 'when_age_is', end_age: 55 })
+    expect(warn).toHaveBeenCalledTimes(4)
+    warn.mockRestore()
+  })
+})
+
 describe('repairStoredData: items a plan owned move onto the plan', () => {
   it('moves each plan_id item onto its plan, without the tag, and drops those of a deleted plan', () => {
     const investment = { id: 'own', name: 'ETF', balance: 1, apy: 1 }
@@ -1233,24 +1426,27 @@ describe('repairStoredData: zero-based months from the old timing selector', () 
   it('bumps a stored month 0 to January (1) on every timing field', () => {
     const stored = {
       lastUpdated: 1,
-      profile: {
-        name: 'Test',
-        email: '',
-        incomes: [{ ...baseIncome, start: 'at_specific_date', start_year: 2030, start_month: 0 }],
-        transfers: [{ ...baseTransfer, end: 'at_specific_date', end_year: 2030, end_month: 0 }],
-        investments: [{ id: 'i1', name: 'ETF', start_month: 0, exit_month: 0 }],
-        tangible_assets: [{ id: 't1', name: 'Car', purchase_month: 0, sale_month: 0 }],
-        liabilities: [{ id: 'l1', name: 'Loan', start_month: 0 }],
-      },
-      portfolios: [],
+      profile: { name: 'Test', email: '' },
+      portfolios: [
+        {
+          id: 'plan-1',
+          name: 'Plan',
+          incomes: [{ ...baseIncome, start: 'at_specific_date', start_year: 2030, start_month: 0 }],
+          transfers: [{ ...baseTransfer, end: 'at_specific_date', end_year: 2030, end_month: 0 }],
+          investments: [{ id: 'i1', name: 'ETF', start_month: 0, exit_month: 0 }],
+          tangible_assets: [{ id: 't1', name: 'Car', purchase_month: 0, sale_month: 0 }],
+          liabilities: [{ id: 'l1', name: 'Loan', start_month: 0 }],
+        },
+      ],
     }
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     repairStoredData(stored)
-    expect(stored.profile.incomes[0].start_month).toBe(1)
-    expect(stored.profile.transfers[0].end_month).toBe(1)
-    expect(stored.profile.investments[0]).toMatchObject({ start_month: 1, exit_month: 1 })
-    expect(stored.profile.tangible_assets[0]).toMatchObject({ purchase_month: 1, sale_month: 1 })
-    expect(stored.profile.liabilities[0].start_month).toBe(1)
+    const plan = stored.portfolios[0]
+    expect(plan.incomes[0].start_month).toBe(1)
+    expect(plan.transfers[0].end_month).toBe(1)
+    expect(plan.investments[0]).toMatchObject({ start_month: 1, exit_month: 1 })
+    expect(plan.tangible_assets[0]).toMatchObject({ purchase_month: 1, sale_month: 1 })
+    expect(plan.liabilities[0].start_month).toBe(1)
     expect(warn).toHaveBeenCalledTimes(7)
     warn.mockRestore()
   })

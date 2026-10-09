@@ -438,7 +438,7 @@ function withAppStore() {
     /** Deletes the snapshot dated `date`, unless `canDeleteSnapshot` refuses. */
     deleteSnapshot(date: string) {
       const stored = profile.toJSON()
-      if (!canDeleteSnapshot(stored, date, new Date())) return
+      if (!canDeleteSnapshot(stored, date)) return
       writeProfile(withDeletedSnapshot(stored, date), 'manage')
     },
 

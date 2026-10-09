@@ -10,13 +10,12 @@
       {
         "id": "inc-1",
         "name": "Part-time job (café)",
-        "amount": 2800,
+        "amount": 3200,
         "frequency": "weekly",
         "start": "immediately",
-        "end": "at_specific_date",
-        "end_year": 2029,
-        "end_month": 6,
-        "change_over_time": "none"
+        "end": "never",
+        "change_over_time": "increase_yearly",
+        "change_percentage": 3
       },
       {
         "id": "inc-2",
@@ -24,21 +23,8 @@
         "amount": 4000,
         "frequency": "monthly",
         "start": "immediately",
-        "end": "when_age_is",
-        "end_age": 24,
-        "change_over_time": "none"
-      },
-      {
-        "id": "inc-3",
-        "name": "First full-time salary",
-        "amount": 33180,
-        "frequency": "monthly",
-        "start": "at_specific_date",
-        "start_year": 2029,
-        "start_month": 7,
         "end": "never",
-        "change_over_time": "increase_yearly",
-        "change_percentage": 4
+        "change_over_time": "none"
       }
     ],
     "expenses": [
@@ -67,8 +53,7 @@
         "amount": 1280,
         "frequency": "yearly",
         "start": "immediately",
-        "end": "when_age_is",
-        "end_age": 26,
+        "end": "never",
         "change_over_time": "none"
       },
       {
@@ -82,5 +67,62 @@
       }
     ]
   },
-  "portfolios": []
+  "portfolios": [
+    {
+      "id": "plan-1",
+      "name": "After graduation",
+      "notes": "Café job and allowance end with the degree in 2029; the first full-time salary starts that July.",
+      "start_date": "2026-09-01",
+      "end_date": "2071-02-01",
+      "inflation_rate": 0.02,
+      "incomes": [
+        {
+          "id": "inc-1",
+          "name": "Part-time job (café)",
+          "amount": 3200,
+          "frequency": "weekly",
+          "start": "immediately",
+          "end": "at_specific_date",
+          "end_year": 2029,
+          "end_month": 6,
+          "change_over_time": "increase_yearly",
+          "change_percentage": 3
+        },
+        {
+          "id": "inc-2",
+          "name": "Allowance from parents",
+          "amount": 4000,
+          "frequency": "monthly",
+          "start": "immediately",
+          "end": "when_age_is",
+          "end_age": 24,
+          "change_over_time": "none"
+        },
+        {
+          "id": "inc-3",
+          "name": "First full-time salary",
+          "amount": 33180,
+          "frequency": "monthly",
+          "start": "at_specific_date",
+          "start_year": 2029,
+          "start_month": 7,
+          "end": "never",
+          "change_over_time": "increase_yearly",
+          "change_percentage": 4
+        }
+      ],
+      "expenses": [
+        {
+          "id": "exp-3",
+          "name": "Student transport pass",
+          "amount": 1280,
+          "frequency": "yearly",
+          "start": "immediately",
+          "end": "when_age_is",
+          "end_age": 26,
+          "change_over_time": "none"
+        }
+      ]
+    }
+  ]
 }

@@ -122,9 +122,7 @@
         "amount": 520,
         "frequency": "monthly",
         "start": "immediately",
-        "end": "at_specific_date",
-        "end_year": 2036,
-        "end_month": 6,
+        "end": "never",
         "change_over_time": "match_inflation"
       },
       {
@@ -165,8 +163,7 @@
         "schedule": "recurring",
         "frequency": "monthly",
         "start": "immediately",
-        "end": "when_age_is",
-        "end_age": 65,
+        "end": "never",
         "change_over_time": "match_inflation"
       }
     ]
@@ -202,6 +199,34 @@
           "purchase_year": 2030,
           "purchase_month": 5
         }
+      ],
+      "expenses": [
+        {
+          "id": "exp-2",
+          "name": "Children's school & activities",
+          "amount": 520,
+          "frequency": "monthly",
+          "start": "immediately",
+          "end": "at_specific_date",
+          "end_year": 2036,
+          "end_month": 6,
+          "change_over_time": "match_inflation"
+        }
+      ],
+      "transfers": [
+        {
+          "id": "tr-1",
+          "name": "Monthly ETF contribution",
+          "from_asset_id": "cash",
+          "to_asset_id": "inv-1",
+          "amount": 950,
+          "schedule": "recurring",
+          "frequency": "monthly",
+          "start": "immediately",
+          "end": "when_age_is",
+          "end_age": 65,
+          "change_over_time": "match_inflation"
+        }
       ]
     },
     {
@@ -217,8 +242,35 @@
       "included_income_ids": ["inc-1", "inc-2", "inc-3"],
       "included_expense_ids": ["exp-1", "exp-2", "exp-3", "exp-4", "exp-5"],
       "included_transfer_ids": ["tr-1"],
-      "investments": [],
-      "goals": []
+      "goals": [],
+      "expenses": [
+        {
+          "id": "exp-2",
+          "name": "Children's school & activities",
+          "amount": 520,
+          "frequency": "monthly",
+          "start": "immediately",
+          "end": "at_specific_date",
+          "end_year": 2036,
+          "end_month": 6,
+          "change_over_time": "match_inflation"
+        }
+      ],
+      "transfers": [
+        {
+          "id": "tr-1",
+          "name": "Monthly ETF contribution",
+          "from_asset_id": "cash",
+          "to_asset_id": "inv-1",
+          "amount": 950,
+          "schedule": "recurring",
+          "frequency": "monthly",
+          "start": "immediately",
+          "end": "when_age_is",
+          "end_age": 65,
+          "change_over_time": "match_inflation"
+        }
+      ]
     }
   ]
 }
