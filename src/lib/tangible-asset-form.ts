@@ -28,6 +28,9 @@ export interface TangibleAssetUI {
   // card menu.
   showAdvanced: boolean
   editing: boolean
+  // UI-only: which of Installment amount / Term the user last edited, so the
+  // financed amount, rate and frequency re-derive its counterpart (#319).
+  derivedFrom: 'amount' | 'term'
 }
 
 // Spread the stored asset first so the plan-dialog-only fields — planned

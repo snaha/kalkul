@@ -12,8 +12,8 @@
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
   import { Switch } from '$lib/components/ui/switch'
+  import { type LoanPairAnchor, rederiveLoanPair } from '$lib/loan-pair'
   import { itemsForPlan } from '$lib/plan-owned'
-  import { installmentAmountForLoan, termYearsForLoan } from '$lib/plan-projection'
   import { planRangeOf, planYearOptions, timingWithinPlan } from '$lib/plan-range'
   import type {
     CashFlowStart,
@@ -182,44 +182,13 @@
     planYearOptions(range, form.pay_off_year).map((y) => ({ value: y, label: y })),
   )
 
-  function round(value: number, decimals: number): number {
-    const factor = 10 ** decimals
-    return Math.round((value + Number.EPSILON) * factor) / factor
-  }
-
-  function loanTerms() {
-    return {
-      outstanding_balance: form.outstanding_balance ?? 0,
-      installment_frequency: form.installment_frequency,
-      annual_rate: form.annual_rate ?? 0,
-      interest_type: form.interest_type,
-      compounding_frequency: form.compounding_frequency,
-    }
-  }
-
-  // Installment amount ⇄ Term (issue #258): the field the user last edited is
-  // the anchor and the other is derived from the principal, rate and frequency.
-  // Changing any of those inputs re-derives the anchor's counterpart, so
-  // editing the percentage updates the payment (or the term).
-  let derivedFrom = $state<'amount' | 'term'>('term')
+  // Installment amount ⇄ Term (#258): the field the user last edited is the
+  // anchor; rederiveLoanPair derives the other from the principal, rate and
+  // frequency whenever any of them changes.
+  let derivedFrom = $state<LoanPairAnchor>('term')
 
   function rederiveFromAnchor(): void {
-    if (derivedFrom === 'term') {
-      if ((form.remaining_term ?? 0) <= 0) return
-      const amount = installmentAmountForLoan({
-        ...loanTerms(),
-        remaining_term: form.remaining_term as number,
-      })
-      if (amount !== undefined) form.installment_amount = round(amount, 2)
-    } else {
-      if ((form.installment_amount ?? 0) <= 0) return
-      const term = termYearsForLoan({
-        ...loanTerms(),
-        remaining_term: 0,
-        installment_amount: form.installment_amount as number,
-      })
-      if (term !== undefined) form.remaining_term = round(term, 2)
-    }
+    rederiveLoanPair(form, derivedFrom)
   }
 
   function onInstallmentAmountChange(v: number | undefined): void {

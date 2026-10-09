@@ -14,8 +14,8 @@
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
   import { createListEditor } from '$lib/list-editor.svelte'
+  import { rederiveLoanPair } from '$lib/loan-pair'
   import { planOwnedItems, sharedItems } from '$lib/plan-owned'
-  import { installmentAmountForLoan, termYearsForLoan } from '$lib/plan-projection'
   import type {
     CompoundingFrequency,
     Frequency,
@@ -139,52 +139,11 @@
     return appStore.formatCurrencyCode(val)
   }
 
-  function round(value: number, decimals: number): number {
-    const factor = 10 ** decimals
-    return Math.round((value + Number.EPSILON) * factor) / factor
-  }
-
-  // Installment amount ⇄ Remaining term (issue #258). The field the user last
-  // edited anchors the pair; the other is derived from the outstanding balance,
-  // rate and frequency. Changing any of those inputs (or the interest options)
-  // re-derives the anchor's counterpart, so editing the percentage updates the
-  // payment — or the term. The term is written in the card's chosen unit.
+  // Installment amount ⇄ Term (#258): the field the user last edited anchors
+  // the pair; rederiveLoanPair derives the other from the principal, rate,
+  // frequency and unit whenever any of them changes.
   function rederive(liability: LiabilityUI): void {
-    if (liability.derivedFrom === 'term') {
-      const years = termYearsFromUnit(liability)
-      if (years === undefined) return
-      const amount = installmentAmountForLoan({
-        outstanding_balance: liability.outstanding_balance ?? 0,
-        installment_frequency: liability.installment_frequency,
-        annual_rate: liability.annual_rate ?? 0,
-        remaining_term: years,
-        interest_type: liability.interest_type,
-        compounding_frequency: liability.compounding_frequency,
-      })
-      if (amount !== undefined) liability.installment_amount = round(amount, 2)
-    } else {
-      const amount = liability.installment_amount
-      if (amount === undefined || amount <= 0) return
-      const termYears = termYearsForLoan({
-        outstanding_balance: liability.outstanding_balance ?? 0,
-        installment_frequency: liability.installment_frequency,
-        annual_rate: liability.annual_rate ?? 0,
-        remaining_term: 0,
-        installment_amount: amount,
-        interest_type: liability.interest_type,
-        compounding_frequency: liability.compounding_frequency,
-      })
-      if (termYears === undefined) return
-      liability.remaining_term =
-        liability.remaining_term_unit === 'months' ? round(termYears * 12, 2) : round(termYears, 2)
-    }
-  }
-
-  function termYearsFromUnit(liability: LiabilityUI): number | undefined {
-    if (liability.remaining_term === undefined || liability.remaining_term <= 0) return undefined
-    return liability.remaining_term_unit === 'months'
-      ? liability.remaining_term / 12
-      : liability.remaining_term
+    rederiveLoanPair(liability, liability.derivedFrom)
   }
 
   function onInstallmentAmountChange(liability: LiabilityUI, v: number | undefined): void {

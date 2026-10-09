@@ -18,6 +18,7 @@ const base: TangibleAssetUI = {
   property_tax_rate: undefined,
   showAdvanced: false,
   editing: false,
+  derivedFrom: 'term',
 }
 
 describe('toStoredTangibleAsset', () => {
