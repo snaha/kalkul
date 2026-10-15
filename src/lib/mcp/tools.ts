@@ -140,13 +140,16 @@ export function kalkulTools(app: App = appStore): KalkulTool[] {
       'Add or change an item in a plan. The change lands on the plan only: an item with the id of a profile item overrides it for this plan, any other id is an item the plan alone has. Use this, never update_profile, for whatever is changed while working on a plan. Returns the portfolio.',
       z.object({
         ...planListInput,
-        item: z.union(Object.values(LIST_ITEM_SCHEMAS)),
+        // Not a union of the item schemas: z.union takes the first that parses
+        // and z.object strips unknown keys, so a transfer would come out as an
+        // income without its endpoints. The list's own schema validates below.
+        item: z.looseObject({ id: z.string() }),
       }),
       WRITE,
       ({ portfolio_id, list, item }) => {
         const portfolio = findPortfolio(app, portfolio_id)
         const parsed = LIST_ITEM_SCHEMAS[list].parse(item)
-        upsertPlanItem(planListConfig(list), parsed, portfolio, app.profile)
+        upsertPlanItem(planListConfig(list), parsed, portfolio)
         return text(portfolio.toJSON())
       },
     ),

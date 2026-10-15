@@ -25,8 +25,7 @@
   type TransferUI = TransferFields & { editing: boolean }
 
   const editor = createListEditor<TransferData, TransferUI>({
-    // Financial data holds the shared transfers only. Those created in a plan
-    // carry its id, stay hidden here and are carried through every save.
+    // Financial data only; a plan's transfers live on the plan.
     load: () => appStore.profile.transfers ?? [],
     // The card renders From/To, Amount/Frequency and the inflation toggle
     // only; Start/End/Change belong to the plan dialog. Timing fields are still

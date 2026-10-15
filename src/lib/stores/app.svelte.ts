@@ -5,6 +5,7 @@ import {
   withBalancesCarriedForward,
 } from '$lib/current-values'
 import { hasAnyFinancialData } from '$lib/financial-totals'
+import { dropOverridesOfRemoved } from '$lib/plan-items'
 import {
   type Portfolio,
   type Profile,
@@ -264,6 +265,7 @@ function withAppStore() {
     // carry forward — the figures it supplies are the ones to keep.
     if (history === 'manage') {
       profile = enrichProfile(profileSchema.parse(next))
+      dropOverridesOfRemoved(stored, profile.toJSON(), portfolios)
       persist()
       return
     }
@@ -299,6 +301,7 @@ function withAppStore() {
           // History-page save would re-baseline the old one back.
           withLatestTermsRecorded(validated),
     )
+    dropOverridesOfRemoved(stored, profile.toJSON(), portfolios)
     persist()
 
     // The two funnel steps a profile write can complete: onboarding naming the

@@ -127,7 +127,7 @@
   }
 
   function save() {
-    upsertPlanItem(listConfig, cashFlowFromFields(form), plan, appStore.profile)
+    upsertPlanItem(listConfig, cashFlowFromFields(form), plan)
     close()
   }
 

@@ -255,7 +255,7 @@
   }
 
   function save(): void {
-    upsertPlanItem(listConfig, projectLiability(form), plan, appStore.profile)
+    upsertPlanItem(listConfig, projectLiability(form), plan)
     close()
   }
 

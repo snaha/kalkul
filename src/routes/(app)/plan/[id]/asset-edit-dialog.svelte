@@ -326,9 +326,9 @@
 
   function save() {
     if (kind === 'investment') {
-      upsertPlanItem(PLAN_LISTS.investment, projectInvestment(form), plan, appStore.profile)
+      upsertPlanItem(PLAN_LISTS.investment, projectInvestment(form), plan)
     } else {
-      upsertPlanItem(PLAN_LISTS.tangibleAsset, projectTangibleAsset(form), plan, appStore.profile)
+      upsertPlanItem(PLAN_LISTS.tangibleAsset, projectTangibleAsset(form), plan)
     }
     close()
   }

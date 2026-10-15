@@ -214,7 +214,8 @@
   })
 
   // What this plan sees: financial data with the plan's overrides and own
-  // items. Nothing until the plan has resolved.
+  // items, less what its include lists leave out, the same as the engine.
+  // Nothing until the plan has resolved.
   function listOf<K extends PlanListKey>(key: K) {
     return plan ? planItems(profile, plan, key) : []
   }

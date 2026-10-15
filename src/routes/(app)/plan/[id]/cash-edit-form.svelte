@@ -31,8 +31,11 @@
 
   const hasOverride = $derived(plan.cash_amount !== undefined)
 
+  // An amount equal to current cash is not an override: the plan keeps
+  // following current cash instead of pinning today's value.
   function save() {
-    plan.update({ cash_amount: amount ?? 0 })
+    const value = amount ?? 0
+    plan.update({ cash_amount: value === currentCash ? undefined : value })
     onClose()
   }
 

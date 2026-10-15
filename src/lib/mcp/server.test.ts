@@ -128,6 +128,28 @@ describe('createKalkulMcpServer', () => {
     expect(appStore.profile.investments).toEqual([etf])
   })
 
+  it('upsert_plan_item takes a transfer, whose shape another list would also accept', async () => {
+    const transfer = {
+      id: 't1',
+      name: 'Monthly ETF',
+      from_asset_id: 'cash',
+      to_asset_id: 'etf',
+      amount: 500,
+      schedule: 'recurring',
+      frequency: 'monthly',
+      start: 'immediately',
+      end: 'never',
+      change_over_time: 'none',
+    }
+    const result = await call('upsert_plan_item', {
+      portfolio_id: 'p1',
+      list: 'transfers',
+      item: transfer,
+    })
+    expect(result.isError).toBeUndefined()
+    expect(appStore.portfolios[0]?.transfers).toEqual([transfer])
+  })
+
   it('upsert_plan_item validates the item against the list it is for', async () => {
     const result = await call('upsert_plan_item', {
       portfolio_id: 'p1',

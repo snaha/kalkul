@@ -1052,16 +1052,6 @@ function accumulateCashFlows<T extends ScheduledCashFlow & { id: string }>(
   return { total, activeIds }
 }
 
-export function filterById<T extends { id: string }>(
-  items: T[] | undefined,
-  includedIds: string[] | undefined,
-): T[] {
-  if (!items) return []
-  if (!includedIds) return items
-  const set = new Set(includedIds)
-  return items.filter((item) => set.has(item.id))
-}
-
 /**
  * Year of a date-only ISO string (`YYYY-MM-DD`), parsed directly from the
  * string. ISO date-only strings parse as UTC, so `new Date(...).getFullYear()`
@@ -1127,7 +1117,8 @@ export function applyEntryFee(investment: ProfileInvestment | undefined, amount:
 }
 
 export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): YearlyProjection[] {
-  // Financial data with this plan's overrides and own items; another plan's never take part.
+  // Financial data with this plan's overrides and own items, less what its
+  // include lists leave out; another plan's never take part.
   const visible = <K extends PlanListKey>(key: K) => planItems(profile, plan, key)
   const startYear = yearOf(plan.start_date)
   const endYear = yearOf(plan.end_date)
@@ -1136,17 +1127,11 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
 
   const birthYear = profile.birth_date ? yearOf(profile.birth_date) : undefined
 
-  const investments: ProfileInvestment[] = filterById(
-    visible('investments'),
-    plan.included_investment_ids,
-  )
-  const liabilities: ProfileLiability[] = filterById(
-    visible('liabilities'),
-    plan.included_liability_ids,
-  )
-  const tangibleAssets = filterById(visible('tangible_assets'), plan.included_tangible_asset_ids)
-  const incomes: Income[] = filterById(visible('incomes'), plan.included_income_ids)
-  const expenses: Expense[] = filterById(visible('expenses'), plan.included_expense_ids)
+  const investments: ProfileInvestment[] = visible('investments')
+  const liabilities: ProfileLiability[] = visible('liabilities')
+  const tangibleAssets = visible('tangible_assets')
+  const incomes: Income[] = visible('incomes')
+  const expenses: Expense[] = visible('expenses')
 
   // One map for both kinds: investments and tangible assets share the planned
   // buy/sell machinery, so the transfer loop guards them with the same check.
@@ -1280,15 +1265,12 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
 
   // Only honor transfers whose endpoints are part of this plan; anything else
   // is ignored (e.g. a transfer referencing an investment that was excluded).
-  // Also honor the plan's `included_transfer_ids` whitelist when set. Transfers
-  // live on the profile and are referenced by the plan by id, mirroring how
-  // incomes and expenses behave.
   const knownAssetIds = new Set<string>([
     CASH_ENDPOINT,
     ...investments.map((i) => i.id),
     ...tangibleAssets.map((a) => a.id),
   ])
-  // Planned buys/sells belong to their investment, not to the profile's
+  // Planned buys/sells belong to their investment, not to the plan's
   // transfer list, so they bypass the included_transfer_ids whitelist. Buys
   // run before the user's transfers so a same-year contribution lands in a
   // live investment, and sells run last so that contribution is swept out
@@ -1303,7 +1285,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   ]
   const planTransfers = [
     ...timingTransfers.map((t) => t.start).filter((t): t is Transfer => t !== undefined),
-    ...filterById(visible('transfers'), plan.included_transfer_ids).filter(
+    ...visible('transfers').filter(
       (t) => knownAssetIds.has(t.from_asset_id) && knownAssetIds.has(t.to_asset_id),
     ),
     ...timingTransfers.map((t) => t.exit).filter((t): t is Transfer => t !== undefined),
