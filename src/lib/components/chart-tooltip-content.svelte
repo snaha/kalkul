@@ -25,6 +25,7 @@
   import { _ } from 'svelte-i18n'
 
   import { CATEGORY_COLORS } from '$lib/chart-colors'
+  import RecordedCategoryRows from '$lib/components/recorded-category-rows.svelte'
   import { cn } from '$lib/utils'
 
   type Props = {
@@ -135,15 +136,7 @@
         </span>
       </div>
       {#if recordedItem}
-        <div class="-mt-1 flex flex-wrap items-center justify-between gap-x-2 pb-1 pl-6 text-xs">
-          <span class="whitespace-nowrap text-muted-foreground tabular-nums">
-            {$_('page.plan.recordedValue', { values: { value: recordedItem.value } })}
-          </span>
-          <!-- Right-aligned on a line of its own when both do not fit. -->
-          <span class={cn('ml-auto whitespace-nowrap tabular-nums', recordedItem.differenceClass)}>
-            {recordedItem.difference}
-          </span>
-        </div>
+        <RecordedCategoryRows recorded={recordedItem} />
       {/if}
     {/each}
   </div>

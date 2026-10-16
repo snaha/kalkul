@@ -21,6 +21,7 @@
     type RecordedComparison,
   } from '$lib/components/chart-tooltip-content.svelte'
   import Loader from '$lib/components/loader.svelte'
+  import RecordedCategoryRows from '$lib/components/recorded-category-rows.svelte'
   import StackedBarChart, {
     type BarData,
     type HoverPosition,
@@ -865,7 +866,7 @@
               <line x1="0" y1="5" x2="16" y2="5" stroke="currentColor" stroke-width="2" />
               <circle cx="8" cy="5" r="3" fill="currentColor" />
             </svg>
-            <span class="text-xs">{$_('page.plan.recordedLegend')}</span>
+            <span class="text-xs">{$_('page.plan.recorded')}</span>
           </div>
         {/if}
       </div>
@@ -958,22 +959,7 @@
                 </span>
               </div>
               {#if recordedItem}
-                <div
-                  class="-mt-1 flex flex-wrap items-center justify-between gap-x-2 pb-1 pl-6 text-xs"
-                >
-                  <span class="whitespace-nowrap text-muted-foreground tabular-nums">
-                    {$_('page.plan.recordedValue', { values: { value: recordedItem.value } })}
-                  </span>
-                  <!-- Right-aligned on a line of its own when both do not fit. -->
-                  <span
-                    class={cn(
-                      'ml-auto whitespace-nowrap tabular-nums',
-                      recordedItem.differenceClass,
-                    )}
-                  >
-                    {recordedItem.difference}
-                  </span>
-                </div>
+                <RecordedCategoryRows recorded={recordedItem} />
               {/if}
             {/each}
           </div>
