@@ -91,7 +91,6 @@ export function buildSnapshotSections(
   source: Snapshot,
   date: string,
 ): SnapshotSection[] {
-  const held = profile
   const estimate = seedSnapshotOn(profile, date)
   // Where a cash flow `source` never recorded is read from: see the exception above.
   const flowFallback =
@@ -130,7 +129,7 @@ export function buildSnapshotSections(
     }
   }
 
-  const tangibleFields = (held.tangible_assets ?? []).flatMap((asset): SnapshotField[] => {
+  const tangibleFields = (profile.tangible_assets ?? []).flatMap((asset): SnapshotField[] => {
     const entry = assetEntry(asset.id)
     const value: SnapshotField = {
       key: `tangible_assets:${asset.id}`,
@@ -173,7 +172,7 @@ export function buildSnapshotSections(
     },
     {
       id: 'investments',
-      fields: (held.investments ?? []).map((investment) => ({
+      fields: (profile.investments ?? []).map((investment) => ({
         key: `investments:${investment.id}`,
         itemId: investment.id,
         label: investment.name,
