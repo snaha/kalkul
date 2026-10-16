@@ -5,6 +5,8 @@
     investments: number
     tangibleAssets: number
     liabilities: number // Positive number, rendered as negative
+    // A year taken from recorded history rather than projected. Drawn faded.
+    recorded?: boolean
   }
 
   export type HoverPosition = {
@@ -111,6 +113,7 @@
   const PADDING_BOTTOM = 20
   const CORNER_RADIUS = 2
   const GRID_LINE_COUNT = 5
+  const RECORDED_OPACITY = 0.45
 
   // Calculate the baseline position (where positive/negative values meet)
   // Baseline is positioned so roughly 25% of chart is for liabilities (below baseline)
@@ -181,6 +184,7 @@
       return {
         year: d.year,
         x,
+        recorded: d.recorded === true,
         segments: [
           // Cash (top of positive stack)
           {
@@ -342,31 +346,33 @@
         height={chartHeight}
         fill="transparent"
       />
-      {#each bar.segments as segment (segment.id)}
-        {#if segment.roundTop || segment.roundBottom}
-          <!-- Use path for rounded corners -->
-          <path
-            d={createRoundedRectPath(
-              bar.x,
-              segment.y,
-              barWidth,
-              segment.height,
-              segment.roundTop ? cornerRadius : 0,
-              segment.roundBottom ? cornerRadius : 0,
-            )}
-            fill={segment.color}
-          />
-        {:else}
-          <!-- Use rect for non-rounded segments -->
-          <rect
-            x={bar.x}
-            y={segment.y}
-            width={barWidth}
-            height={segment.height}
-            fill={segment.color}
-          />
-        {/if}
-      {/each}
+      <g opacity={bar.recorded ? RECORDED_OPACITY : undefined}>
+        {#each bar.segments as segment (segment.id)}
+          {#if segment.roundTop || segment.roundBottom}
+            <!-- Use path for rounded corners -->
+            <path
+              d={createRoundedRectPath(
+                bar.x,
+                segment.y,
+                barWidth,
+                segment.height,
+                segment.roundTop ? cornerRadius : 0,
+                segment.roundBottom ? cornerRadius : 0,
+              )}
+              fill={segment.color}
+            />
+          {:else}
+            <!-- Use rect for non-rounded segments -->
+            <rect
+              x={bar.x}
+              y={segment.y}
+              width={barWidth}
+              height={segment.height}
+              fill={segment.color}
+            />
+          {/if}
+        {/each}
+      </g>
     </g>
   {/each}
 
