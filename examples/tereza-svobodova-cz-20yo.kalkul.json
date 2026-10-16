@@ -10,12 +10,11 @@
       {
         "id": "inc-1",
         "name": "Part-time job (café)",
-        "amount": 3200,
+        "amount": 2800,
         "frequency": "weekly",
         "start": "immediately",
         "end": "never",
-        "change_over_time": "increase_yearly",
-        "change_percentage": 3
+        "change_over_time": "none"
       },
       {
         "id": "inc-2",
@@ -83,14 +82,13 @@
         {
           "id": "inc-1",
           "name": "Part-time job (café)",
-          "amount": 3200,
+          "amount": 2800,
           "frequency": "weekly",
           "start": "immediately",
           "end": "at_specific_date",
           "end_year": 2029,
           "end_month": 6,
-          "change_over_time": "increase_yearly",
-          "change_percentage": 3
+          "change_over_time": "none"
         },
         {
           "id": "inc-2",
@@ -165,12 +163,11 @@
           {
             "id": "inc-1",
             "name": "Part-time job (café)",
-            "amount": 3200,
+            "amount": 2800,
             "frequency": "weekly",
             "start": "immediately",
             "end": "never",
-            "change_over_time": "increase_yearly",
-            "change_percentage": 3
+            "change_over_time": "none"
           },
           {
             "id": "inc-2",
