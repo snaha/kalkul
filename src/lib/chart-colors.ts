@@ -30,3 +30,12 @@ export const CATEGORY_COLORS = {
     '#991b1b', // red-800
   ],
 }
+
+// Darker shades for lines drawn over the chart's bars, where the bar colors
+// themselves (light cash above all) would not stand out.
+export const LINE_COLORS = {
+  cash: '#0284c7', // sky-600
+  investments: CATEGORY_COLORS.investments[2],
+  tangibleAssets: CATEGORY_COLORS.tangibleAssets[3],
+  liabilities: CATEGORY_COLORS.liabilities[2],
+}

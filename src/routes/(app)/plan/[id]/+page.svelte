@@ -17,7 +17,9 @@
 
   import { CATEGORY_COLORS } from '$lib/chart-colors'
   import AddProjectionDialog from '$lib/components/add-projection-dialog.svelte'
-  import ChartTooltipContent from '$lib/components/chart-tooltip-content.svelte'
+  import ChartTooltipContent, {
+    type RecordedComparison,
+  } from '$lib/components/chart-tooltip-content.svelte'
   import Loader from '$lib/components/loader.svelte'
   import StackedBarChart, {
     type BarData,
@@ -37,7 +39,13 @@
   import { getCurrentProfile } from '$lib/current-values'
   import { isPlanOutdated } from '$lib/plan-base'
   import { type YearlyProjection, getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
-  import { getRecordedYears } from '$lib/recorded-years'
+  import {
+    differenceFromPlan,
+    differencesFromPlan,
+    getRecordedPlanSamples,
+    getRecordedYears,
+    latestOfEachYear,
+  } from '$lib/recorded-years'
   import routes from '$lib/routes'
   import type {
     Expense,
@@ -271,6 +279,51 @@
   }
   const selectedRecordedOn = $derived(recordedOnLabel(selectedYear))
 
+  // A saved plan is held against what the user has recorded since it started,
+  // so they can see how far off it they are.
+  const recordedPlanSamples = $derived(
+    !readOnly && plan ? getRecordedPlanSamples(appStore.profile.toJSON(), plan) : [],
+  )
+  const recordedPlanYears = $derived(latestOfEachYear(recordedPlanSamples))
+  function recordedComparison(
+    year: number,
+    planned: Pick<BarData, 'cash' | 'investments' | 'tangibleAssets' | 'liabilities'> & {
+      netWorth: number
+    },
+  ): RecordedComparison | undefined {
+    const recorded = recordedPlanYears.find((y) => y.year === year)
+    if (!recorded) return undefined
+    const categories = differencesFromPlan(recorded, planned)
+    // A category nothing was planned or recorded for has nothing to compare.
+    const category = (key: keyof typeof categories, value: string) =>
+      recorded[key] === 0 && planned[key] === 0
+        ? undefined
+        : {
+            value,
+            difference: changeLabel(categories[key].amount, categories[key].percent),
+            differenceClass: changeClass(categories[key].amount),
+          }
+    const format = appStore.formatCurrencyCode
+    const net = differenceFromPlan(recorded.netWorth, planned.netWorth)
+    return {
+      label: $_('page.plan.recordedOn', {
+        values: { date: appStore.formatDateOnly(recorded.recordedOn) },
+      }),
+      netWorth: recorded.netWorth,
+      difference: changeLabel(net.amount, net.percent),
+      differenceClass: changeClass(net.amount),
+      categories: {
+        cash: category('cash', format(recorded.cash)),
+        investments: category('investments', format(recorded.investments)),
+        tangibleAssets: category('tangibleAssets', format(recorded.tangibleAssets)),
+        liabilities: category(
+          'liabilities',
+          recorded.liabilities > 0 ? `-${format(recorded.liabilities)}` : format(0),
+        ),
+      },
+    }
+  }
+
   // Union of per-year warning IDs — a transfer or expense that fails in any
   // year of the plan is surfaced in the sidebar with a destructive badge.
   const failingTransferIds = $derived(
@@ -454,7 +507,7 @@
   // Breakdown items for the right panel
   const breakdownItems = $derived([
     {
-      id: 'cash',
+      id: 'cash' as const,
       label: $_('page.plan.cash'),
       color: CATEGORY_COLORS.cash,
       value: cashValue,
@@ -462,7 +515,7 @@
       isNegative: false,
     },
     {
-      id: 'investments',
+      id: 'investments' as const,
       label: $_('page.plan.investments'),
       color: CATEGORY_COLORS.investments[0],
       value: investmentsValue,
@@ -470,7 +523,7 @@
       isNegative: false,
     },
     {
-      id: 'tangibleAssets',
+      id: 'tangibleAssets' as const,
       label: $_('page.plan.tangibleAssets'),
       color: CATEGORY_COLORS.tangibleAssets[0],
       value: tangibleAssetsValue,
@@ -478,7 +531,7 @@
       isNegative: false,
     },
     {
-      id: 'liabilities',
+      id: 'liabilities' as const,
       label: $_('page.plan.liabilities'),
       color: CATEGORY_COLORS.liabilities[0],
       value: liabilitiesValue,
@@ -512,17 +565,32 @@
     return formatted
   }
 
-  const yearOnYearLabel = $derived.by(() => {
-    if (yearOnYearDelta === undefined) return '—'
-    const amount = signed(yearOnYearDelta, appStore.formatCurrencyCode(Math.abs(yearOnYearDelta)))
-    if (yearOnYearPercent === undefined) return amount
-    const pctSign = yearOnYearPercent > 0 ? '+' : ''
-    return `${amount} (${pctSign}${appStore.formatPercent(yearOnYearPercent, 1)})`
-  })
-  const yearOnYearClass = $derived.by(() => {
-    if (yearOnYearDelta === undefined || yearOnYearDelta === 0) return undefined
-    return yearOnYearDelta > 0 ? 'text-success' : 'text-destructive'
-  })
+  // A change in net worth as a signed amount, with its percentage when there is one.
+  function changeLabel(delta: number, percent: number | undefined): string {
+    const amount = signed(delta, appStore.formatCurrencyCode(Math.abs(delta)))
+    if (percent === undefined) return amount
+    const pctSign = percent > 0 ? '+' : ''
+    return `${amount} (${pctSign}${appStore.formatPercent(percent, 1)})`
+  }
+  function changeClass(delta: number | undefined): string | undefined {
+    if (delta === undefined || delta === 0) return undefined
+    return delta > 0 ? 'text-success' : 'text-destructive'
+  }
+
+  const yearOnYearLabel = $derived(
+    yearOnYearDelta === undefined ? '—' : changeLabel(yearOnYearDelta, yearOnYearPercent),
+  )
+  const yearOnYearClass = $derived(changeClass(yearOnYearDelta))
+
+  const selectedRecorded = $derived(
+    recordedComparison(selectedYear, {
+      cash: cashValue,
+      investments: investmentsValue,
+      tangibleAssets: tangibleAssetsValue,
+      liabilities: liabilitiesValue,
+      netWorth,
+    }),
+  )
 
   const totalIncomeValue = $derived(selectedYearProjection?.totalIncome ?? 0)
   const totalExpensesValue = $derived(selectedYearProjection?.totalExpenses ?? 0)
@@ -549,6 +617,14 @@
     if (hoveredYear === undefined) return undefined
     return chartData.find((d) => d.year === hoveredYear)
   })
+  const hoveredNetWorth = $derived(
+    hoveredData
+      ? hoveredData.cash +
+          hoveredData.investments +
+          hoveredData.tangibleAssets -
+          hoveredData.liabilities
+      : 0,
+  )
 
   // Calculate tooltip position relative to the page container (allows tooltip to overlay sidebars)
   const tooltipPosition = $derived.by(() => {
@@ -765,6 +841,7 @@
             firstErrorTooltip={firstErrorYear !== undefined
               ? $_('page.plan.firstErrorTooltip', { values: { year: firstErrorYear } })
               : undefined}
+            recordedSamples={recordedPlanSamples}
             onYearClick={handleYearClick}
             onYearHover={handleYearHover}
             showSelectedIndicator={isPanelOpen}
@@ -782,6 +859,15 @@
             <span class="text-xs">{item.label}</span>
           </div>
         {/each}
+        {#if recordedPlanSamples.length > 0}
+          <div class="flex items-center gap-1.5">
+            <svg class="h-2.5 w-4 text-foreground" viewBox="0 0 16 10" aria-hidden="true">
+              <line x1="0" y1="5" x2="16" y2="5" stroke="currentColor" stroke-width="2" />
+              <circle cx="8" cy="5" r="3" fill="currentColor" />
+            </svg>
+            <span class="text-xs">{$_('page.plan.recordedLegend')}</span>
+          </div>
+        {/if}
       </div>
 
       <!-- Compare button -->
@@ -842,10 +928,26 @@
             <p class="text-sm font-medium">{$_('page.plan.netWorth')}</p>
             <p class="mt-1 text-lg">{appStore.formatCurrencyCode(netWorth)}</p>
           </div>
+          {#if selectedRecorded}
+            <div class="-mt-4 flex flex-col">
+              <PlanSidebarRow
+                dense
+                name={selectedRecorded.label}
+                value={appStore.formatCurrencyCode(selectedRecorded.netWorth)}
+              />
+              <PlanSidebarRow
+                dense
+                name={$_('page.plan.againstPlan')}
+                value={selectedRecorded.difference}
+                valueClass={selectedRecorded.differenceClass}
+              />
+            </div>
+          {/if}
 
           <!-- Category breakdown (4 rows, 28px each, with 16x16 squares) -->
           <div class="flex flex-col px-2 py-2">
             {#each breakdownItems as item (item.id)}
+              {@const recordedItem = selectedRecorded?.categories[item.id]}
               <div class="flex h-7 items-center justify-between">
                 <div class="flex items-center gap-2">
                   <div class="size-4 rounded-[2px]" style="background-color: {item.color}"></div>
@@ -855,6 +957,24 @@
                   {item.formattedValue}
                 </span>
               </div>
+              {#if recordedItem}
+                <div
+                  class="-mt-1 flex flex-wrap items-center justify-between gap-x-2 pb-1 pl-6 text-xs"
+                >
+                  <span class="whitespace-nowrap text-muted-foreground tabular-nums">
+                    {$_('page.plan.recordedValue', { values: { value: recordedItem.value } })}
+                  </span>
+                  <!-- Right-aligned on a line of its own when both do not fit. -->
+                  <span
+                    class={cn(
+                      'ml-auto whitespace-nowrap tabular-nums',
+                      recordedItem.differenceClass,
+                    )}
+                  >
+                    {recordedItem.difference}
+                  </span>
+                </div>
+              {/if}
             {/each}
           </div>
 
@@ -1063,16 +1183,17 @@
         <ChartTooltipContent
           year={hoveredData.year}
           age={hoveredAge}
-          netWorth={hoveredData.cash +
-            hoveredData.investments +
-            hoveredData.tangibleAssets -
-            hoveredData.liabilities}
+          netWorth={hoveredNetWorth}
           cash={hoveredData.cash}
           investments={hoveredData.investments}
           tangibleAssets={hoveredData.tangibleAssets}
           liabilities={hoveredData.liabilities}
           formatCurrency={appStore.formatCurrencyCode}
           note={recordedOnLabel(hoveredData.year)}
+          recorded={recordedComparison(hoveredData.year, {
+            ...hoveredData,
+            netWorth: hoveredNetWorth,
+          })}
         />
       </div>
     {/if}

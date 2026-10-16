@@ -9,6 +9,18 @@
     recorded?: boolean
   }
 
+  // Figures recorded on a date during the projection. Liabilities are positive,
+  // like a bar's.
+  export type RecordedSample = {
+    // Where the date falls on a continuous year axis, 2025 being 1 January 2025.
+    // A bar stands for the end of its year, so the 2024 bar sits at 2025.
+    position: number
+    cash: number
+    investments: number
+    tangibleAssets: number
+    liabilities: number
+  }
+
   export type HoverPosition = {
     x: number
     y: number
@@ -68,7 +80,7 @@
 <script lang="ts">
   import TriangleAlert from '@lucide/svelte/icons/triangle-alert'
 
-  import { CATEGORY_COLORS } from '$lib/chart-colors'
+  import { CATEGORY_COLORS, LINE_COLORS } from '$lib/chart-colors'
   import * as Tooltip from '$lib/components/ui/tooltip'
 
   type Props = {
@@ -84,6 +96,10 @@
     // corresponding bar so the user can spot when things start going wrong.
     firstErrorYear?: number
     firstErrorTooltip?: string
+    // Figures recorded since the projection started, drawn as one line per
+    // stack boundary over the bars, each point where its date falls. The bars
+    // the recordings have passed are drawn faded, like recorded years.
+    recordedSamples?: RecordedSample[]
     onYearClick?: (year: number) => void
     onYearHover?: (year: number | undefined, position?: HoverPosition) => void
   }
@@ -98,6 +114,7 @@
     showSelectedIndicator = true,
     firstErrorYear,
     firstErrorTooltip,
+    recordedSamples = [],
     onYearClick,
     onYearHover,
   }: Props = $props()
@@ -114,6 +131,40 @@
   const CORNER_RADIUS = 2
   const GRID_LINE_COUNT = 5
   const RECORDED_OPACITY = 0.45
+  const RECORDED_LINE_WIDTH = 2
+  const RECORDED_DOT_RADIUS = 3
+
+  /** One line per stack boundary, drawn bottom-up so the top one ends up over the rest. */
+  const RECORDED_LINES = [
+    {
+      id: 'liabilities',
+      color: LINE_COLORS.liabilities,
+      amount: (f: RecordedSample) => f.liabilities,
+      below: true,
+      reach: (f: RecordedSample) => f.liabilities,
+    },
+    {
+      id: 'tangibleAssets',
+      color: LINE_COLORS.tangibleAssets,
+      amount: (f: RecordedSample) => f.tangibleAssets,
+      below: false,
+      reach: (f: RecordedSample) => f.tangibleAssets,
+    },
+    {
+      id: 'investments',
+      color: LINE_COLORS.investments,
+      amount: (f: RecordedSample) => f.investments,
+      below: false,
+      reach: (f: RecordedSample) => f.tangibleAssets + f.investments,
+    },
+    {
+      id: 'cash',
+      color: LINE_COLORS.cash,
+      amount: (f: RecordedSample) => f.cash,
+      below: false,
+      reach: (f: RecordedSample) => f.tangibleAssets + f.investments + f.cash,
+    },
+  ]
 
   // Calculate the baseline position (where positive/negative values meet)
   // Baseline is positioned so roughly 25% of chart is for liabilities (below baseline)
@@ -148,6 +199,7 @@
     if (data.length === 0) return 1
     const max = Math.max(
       ...data.map((d) => d.cash + d.investments + d.tangibleAssets),
+      ...recordedSamples.map((r) => r.cash + r.investments + r.tangibleAssets),
       1, // Ensure at least 1 to avoid division by zero
     )
     return max
@@ -155,13 +207,22 @@
 
   const maxNegative = $derived.by(() => {
     if (data.length === 0) return 1
-    const max = Math.max(...data.map((d) => d.liabilities), 1)
+    const max = Math.max(
+      ...data.map((d) => d.liabilities),
+      ...recordedSamples.map((r) => r.liabilities),
+      1,
+    )
     return max
   })
 
   // Scale functions
   const scalePositive = $derived((value: number) => (value / maxPositive) * positiveHeight)
   const scaleNegative = $derived((value: number) => (value / maxNegative) * negativeHeight)
+
+  // The bars the recordings have passed: a bar stands for the end of its year.
+  const lastRecordedPosition = $derived(recordedSamples.at(-1)?.position)
+  const isPast = (year: number) =>
+    lastRecordedPosition !== undefined && year + 1 <= lastRecordedPosition
 
   // Generate bar segments for each data point
   const bars = $derived.by(() => {
@@ -184,7 +245,7 @@
       return {
         year: d.year,
         x,
-        recorded: d.recorded === true,
+        faded: d.recorded === true || isPast(d.year),
         segments: [
           // Cash (top of positive stack)
           {
@@ -225,6 +286,29 @@
         ].filter((s) => s.height > 0), // Only render segments with height
       }
     })
+  })
+
+  // Recorded figures as lines, one per stack boundary, through each sample
+  // where its date falls and straight across any year without one. A
+  // category never recorded above zero is left out: its line would only
+  // retrace the one below.
+  const recordedLines = $derived.by(() => {
+    if (data.length === 0) return []
+    const firstYear = data[0].year
+    const xAt = (position: number) =>
+      PADDING_LEFT + barWidth / 2 + (position - 1 - firstYear) * (barWidth + BAR_GAP)
+    return RECORDED_LINES.filter((line) => recordedSamples.some((r) => line.amount(r) > 0)).map(
+      (line) => ({
+        id: line.id,
+        color: line.color,
+        points: recordedSamples.map((r) => ({
+          x: xAt(r.position),
+          y: line.below
+            ? baselineY + scaleNegative(line.reach(r))
+            : baselineY - scalePositive(line.reach(r)),
+        })),
+      }),
+    )
   })
 
   // Grid lines positions
@@ -346,7 +430,7 @@
         height={chartHeight}
         fill="transparent"
       />
-      <g opacity={bar.recorded ? RECORDED_OPACITY : undefined}>
+      <g opacity={bar.faded ? RECORDED_OPACITY : undefined}>
         {#each bar.segments as segment (segment.id)}
           {#if segment.roundTop || segment.roundBottom}
             <!-- Use path for rounded corners -->
@@ -373,6 +457,40 @@
           {/if}
         {/each}
       </g>
+    </g>
+  {/each}
+
+  <!-- Recorded figures: a halo in the background colour keeps each line
+       legible over the bars, light cash included. -->
+  {#each recordedLines as line (line.id)}
+    {@const points = line.points.map((p) => `${p.x},${p.y}`).join(' ')}
+    <g class="pointer-events-none">
+      <polyline
+        {points}
+        fill="none"
+        stroke="currentColor"
+        stroke-width={RECORDED_LINE_WIDTH + 2}
+        stroke-linejoin="round"
+        class="text-background"
+      />
+      <polyline
+        {points}
+        fill="none"
+        stroke={line.color}
+        stroke-width={RECORDED_LINE_WIDTH}
+        stroke-linejoin="round"
+      />
+      {#each line.points as point, i (i)}
+        <circle
+          cx={point.x}
+          cy={point.y}
+          r={RECORDED_DOT_RADIUS}
+          fill={line.color}
+          stroke="currentColor"
+          stroke-width="1.5"
+          class="text-background"
+        />
+      {/each}
     </g>
   {/each}
 

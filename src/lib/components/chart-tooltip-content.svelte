@@ -1,7 +1,31 @@
+<script lang="ts" module>
+  export type RecordedCategory = {
+    // The recorded value, formatted like the plan's beside it.
+    value: string
+    // The signed difference from the plan, formatted.
+    difference: string
+    differenceClass?: string
+  }
+
+  export type RecordedComparison = {
+    // e.g. "Recorded 15 Sep 2026"
+    label: string
+    netWorth: number
+    // The signed difference from the plan, formatted.
+    difference: string
+    differenceClass?: string
+    // A category nothing was planned or recorded for is left out.
+    categories: Partial<
+      Record<'cash' | 'investments' | 'tangibleAssets' | 'liabilities', RecordedCategory>
+    >
+  }
+</script>
+
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
   import { CATEGORY_COLORS } from '$lib/chart-colors'
+  import { cn } from '$lib/utils'
 
   type Props = {
     year: number
@@ -14,6 +38,8 @@
     formatCurrency: (value: number) => string
     // A line under the year, e.g. when the year was recorded rather than projected.
     note?: string
+    // What was recorded for a projected year, held against its net worth.
+    recorded?: RecordedComparison
   }
 
   const {
@@ -26,11 +52,12 @@
     liabilities,
     formatCurrency,
     note,
+    recorded,
   }: Props = $props()
 
   const breakdownItems = $derived([
     {
-      id: 'cash',
+      id: 'cash' as const,
       label: $_('page.plan.cash'),
       color: CATEGORY_COLORS.cash,
       value: cash,
@@ -38,7 +65,7 @@
       isNegative: false,
     },
     {
-      id: 'investments',
+      id: 'investments' as const,
       label: $_('page.plan.investments'),
       color: CATEGORY_COLORS.investments[0],
       value: investments,
@@ -46,7 +73,7 @@
       isNegative: false,
     },
     {
-      id: 'tangibleAssets',
+      id: 'tangibleAssets' as const,
       label: $_('page.plan.tangibleAssets'),
       color: CATEGORY_COLORS.tangibleAssets[0],
       value: tangibleAssets,
@@ -54,7 +81,7 @@
       isNegative: false,
     },
     {
-      id: 'liabilities',
+      id: 'liabilities' as const,
       label: $_('page.plan.liabilities'),
       color: CATEGORY_COLORS.liabilities[0],
       value: liabilities,
@@ -80,11 +107,24 @@
   <div class="flex flex-col gap-1 px-2">
     <span class="text-sm font-medium">{$_('page.plan.netWorth')}</span>
     <span class="text-lg">{formatCurrency(netWorth)}</span>
+    {#if recorded}
+      <div class="flex items-center justify-between gap-2 text-sm">
+        <span class="text-muted-foreground">{recorded.label}</span>
+        <span class="whitespace-nowrap tabular-nums">{formatCurrency(recorded.netWorth)}</span>
+      </div>
+      <div class="flex items-center justify-between gap-2 text-sm">
+        <span class="text-muted-foreground">{$_('page.plan.againstPlan')}</span>
+        <span class={cn('whitespace-nowrap tabular-nums', recorded.differenceClass)}>
+          {recorded.difference}
+        </span>
+      </div>
+    {/if}
   </div>
 
   <!-- Category breakdown -->
   <div class="flex flex-col p-2">
     {#each breakdownItems as item (item.id)}
+      {@const recordedItem = recorded?.categories[item.id]}
       <div class="flex items-center gap-2 py-1">
         <div class="flex flex-1 items-center gap-2">
           <div class="size-4 rounded-[2px]" style="background-color: {item.color}"></div>
@@ -94,6 +134,17 @@
           {item.formattedValue}
         </span>
       </div>
+      {#if recordedItem}
+        <div class="-mt-1 flex flex-wrap items-center justify-between gap-x-2 pb-1 pl-6 text-xs">
+          <span class="whitespace-nowrap text-muted-foreground tabular-nums">
+            {$_('page.plan.recordedValue', { values: { value: recordedItem.value } })}
+          </span>
+          <!-- Right-aligned on a line of its own when both do not fit. -->
+          <span class={cn('ml-auto whitespace-nowrap tabular-nums', recordedItem.differenceClass)}>
+            {recordedItem.difference}
+          </span>
+        </div>
+      {/if}
     {/each}
   </div>
 </div>
