@@ -39,12 +39,12 @@
   import { CURRENT_PROJECTION_ID, buildCurrentProjectionPlan } from '$lib/current-projection'
   import { getCurrentProfile } from '$lib/current-values'
   import { isPlanOutdated } from '$lib/plan-base'
-  import { type YearlyProjection, getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
+  import { getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
   import {
     differenceFromPlan,
     differencesFromPlan,
     getRecordedPlanSamples,
-    getRecordedYears,
+    getRecordedSamples,
     latestOfEachYear,
   } from '$lib/recorded-years'
   import routes from '$lib/routes'
@@ -229,8 +229,11 @@
 
   // Clamp selected year to valid range when portfolio changes
   $effect(() => {
-    if (selectedYear < firstYear) selectedYear = firstYear
+    if (selectedYear < startYear) selectedYear = startYear
     if (selectedYear > endYear) selectedYear = endYear
+    if (selectedSample !== undefined && selectedSample >= historySamples.length) {
+      selectedSample = undefined
+    }
   })
 
   // The plan's own items, the same the engine sees. Nothing until the plan
@@ -262,23 +265,42 @@
 
   // Yearly projection (real / inflation-adjusted values)
   const projection = $derived(plan ? getYearlyPlanProjection(plan, profile) : [])
-  // The Current projection is preceded by the years the user recorded, so it
-  // reads as a continuation of their history. A saved plan is a scenario
-  // starting on its own date and stays as it is.
-  const recordedYears = $derived(
-    readOnly && plan ? getRecordedYears(appStore.profile.toJSON(), plan) : [],
+  // The Current projection is preceded by everything the user recorded, drawn
+  // as lines through each snapshot, so it reads as a continuation of their
+  // history. A saved plan is a scenario starting on its own date; there the
+  // recordings since it started are held against it instead.
+  const historySamples = $derived(
+    readOnly && plan ? getRecordedSamples(appStore.profile.toJSON(), plan) : [],
   )
-  const years = $derived<YearlyProjection[]>([...recordedYears, ...projection])
-  const firstYear = $derived(recordedYears[0]?.year ?? startYear)
-  const selectedYearProjection = $derived(years.find((p) => p.year === selectedYear))
-  const recordedOnLabel = (year: number | undefined) => {
-    const recordedOn = recordedYears.find((y) => y.year === year)?.recordedOn
-    if (recordedOn === undefined) return undefined
-    return $_('page.plan.recordedOn', {
-      values: { date: appStore.formatDateOnly(recordedOn) },
-    })
+  // The latest recording of each year before the projection, for the
+  // year-on-year change across its start.
+  const historyYears = $derived(latestOfEachYear(historySamples.filter((s) => s.year < startYear)))
+  // A recording picked in the history, by index into `historySamples`. While
+  // set, it takes the selected year's place.
+  let selectedSample = $state<number | undefined>(undefined)
+  let hoveredSample = $state<number | undefined>(undefined)
+  const selectedSampleData = $derived(
+    selectedSample === undefined ? undefined : historySamples[selectedSample],
+  )
+  const hoveredSampleData = $derived(
+    hoveredSample === undefined ? undefined : historySamples[hoveredSample],
+  )
+  const selectedYearProjection = $derived(
+    selectedSampleData ?? projection.find((p) => p.year === selectedYear),
+  )
+  // The slider steps through every recording, then every projected year.
+  const lastStop = $derived(historySamples.length + endYear - startYear)
+  const selectedStop = $derived(selectedSample ?? historySamples.length + selectedYear - startYear)
+  function selectStop(stop: number) {
+    if (stop < historySamples.length) {
+      selectedSample = stop
+      return
+    }
+    selectedSample = undefined
+    selectedYear = startYear + stop - historySamples.length
   }
-  const selectedRecordedOn = $derived(recordedOnLabel(selectedYear))
+  const recordedOnLabel = (date: string) =>
+    $_('page.plan.recordedOn', { values: { date: appStore.formatDateOnly(date) } })
 
   // A saved plan is held against what the user has recorded since it started,
   // so they can see how far off it they are.
@@ -286,6 +308,7 @@
     !readOnly && plan ? getRecordedPlanSamples(appStore.profile.toJSON(), plan) : [],
   )
   const recordedPlanYears = $derived(latestOfEachYear(recordedPlanSamples))
+  const chartSamples = $derived(readOnly ? historySamples : recordedPlanSamples)
   function recordedComparison(
     year: number,
     planned: Pick<BarData, 'cash' | 'investments' | 'tangibleAssets' | 'liabilities'> & {
@@ -545,7 +568,11 @@
   ])
 
   // Previous-year projection for year-on-year delta
-  const previousYearProjection = $derived(years.find((p) => p.year === selectedYear - 1))
+  // The projection's figures for the year before, or the latest recording of it.
+  const previousYearProjection = $derived.by(() => {
+    const year = (selectedSampleData?.year ?? selectedYear) - 1
+    return projection.find((p) => p.year === year) ?? historyYears.find((p) => p.year === year)
+  })
 
   // Liquid net worth: cash + investments − liabilities (excludes tangibles, which are less liquid)
   const liquidNetWorth = $derived(cashValue + investmentsValue - liabilitiesValue)
@@ -603,14 +630,16 @@
   const currentAge = $derived.by(() => {
     const birthDate = appStore.profile.birthDate
     if (!birthDate) return undefined
-    return selectedYear - birthDate.getFullYear()
+    const year = selectedSampleData ? yearOf(selectedSampleData.recordedOn) : selectedYear
+    return year - birthDate.getFullYear()
   })
 
   // Calculate age for hovered year
   const hoveredAge = $derived.by(() => {
     const birthDate = appStore.profile.birthDate
-    if (!birthDate || hoveredYear === undefined) return undefined
-    return hoveredYear - birthDate.getFullYear()
+    const year = hoveredSampleData ? yearOf(hoveredSampleData.recordedOn) : hoveredYear
+    if (!birthDate || year === undefined) return undefined
+    return year - birthDate.getFullYear()
   })
 
   // Get data for hovered year
@@ -639,19 +668,29 @@
 
   // Chart data derived from the yearly projection (real / inflation-adjusted values)
   const chartData = $derived<BarData[]>(
-    years.map((p, i) => ({
+    projection.map((p) => ({
       year: p.year,
       cash: p.cash,
       investments: p.investments,
       tangibleAssets: p.tangibleAssets,
       liabilities: p.liabilities,
-      recorded: i < recordedYears.length,
     })),
   )
 
   function handleYearClick(year: number) {
+    selectedSample = undefined
     selectedYear = year
     isPanelOpen = true
+  }
+
+  function handleSampleClick(index: number) {
+    selectedSample = index
+    isPanelOpen = true
+  }
+
+  function handleSampleHover(index: number | undefined, position?: HoverPosition) {
+    hoveredSample = index
+    hoverPosition = position
   }
 
   function handleYearHover(year: number | undefined, position?: HoverPosition) {
@@ -833,7 +872,7 @@
         {#if chartData.length > 0 && chartContainerHeight > 0 && chartContainerWidth > 0}
           <StackedBarChart
             data={chartData}
-            {selectedYear}
+            selectedYear={selectedSample === undefined ? selectedYear : undefined}
             {hoveredYear}
             height={chartContainerHeight}
             width={chartContainerWidth}
@@ -842,9 +881,14 @@
             firstErrorTooltip={firstErrorYear !== undefined
               ? $_('page.plan.firstErrorTooltip', { values: { year: firstErrorYear } })
               : undefined}
-            recordedSamples={recordedPlanSamples}
+            recordedSamples={chartSamples}
+            {selectedSample}
+            {hoveredSample}
+            sampleAriaLabel={(index) => recordedOnLabel(historySamples[index].recordedOn)}
             onYearClick={handleYearClick}
             onYearHover={handleYearHover}
+            onSampleClick={readOnly ? handleSampleClick : undefined}
+            onSampleHover={readOnly ? handleSampleHover : undefined}
             showSelectedIndicator={isPanelOpen}
           />
         {:else}
@@ -860,7 +904,7 @@
             <span class="text-xs">{item.label}</span>
           </div>
         {/each}
-        {#if recordedPlanSamples.length > 0}
+        {#if chartSamples.length > 0}
           <div class="flex items-center gap-1.5">
             <svg class="h-2.5 w-4 text-foreground" viewBox="0 0 16 10" aria-hidden="true">
               <line x1="0" y1="5" x2="16" y2="5" stroke="currentColor" stroke-width="2" />
@@ -888,9 +932,13 @@
           <!-- Year + close button row -->
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
-              <p class="text-lg font-bold">{selectedYear}</p>
-              {#if selectedRecordedOn}
-                <Badge variant="outline">{selectedRecordedOn}</Badge>
+              {#if selectedSampleData}
+                <p class="text-lg font-bold">
+                  {appStore.formatDateOnly(selectedSampleData.recordedOn)}
+                </p>
+                <Badge variant="outline">{$_('page.plan.recorded')}</Badge>
+              {:else}
+                <p class="text-lg font-bold">{selectedYear}</p>
               {/if}
             </div>
             <Button
@@ -914,9 +962,9 @@
             <Slider
               type="single"
               class="mt-3"
-              bind:value={selectedYear}
-              min={firstYear}
-              max={endYear}
+              bind:value={() => selectedStop, selectStop}
+              min={0}
+              max={lastStop}
               step={1}
             />
           </div>
@@ -1159,28 +1207,41 @@
     {/if}
 
     <!-- Hover tooltip - at page level to allow overlaying sidebars -->
-    {#if hoveredData && tooltipPosition}
+    {#if (hoveredSampleData || hoveredData) && tooltipPosition}
       <div
         class="pointer-events-none absolute z-50 w-[320px] rounded-lg border bg-popover p-2.5 text-popover-foreground shadow-md"
         style="left: {tooltipPosition.left}px; top: {tooltipPosition.top}px; transform: {tooltipPosition.isRightSide
           ? 'translate(-100%, 0) translateY(8px)'
           : 'translateY(8px)'};"
       >
-        <ChartTooltipContent
-          year={hoveredData.year}
-          age={hoveredAge}
-          netWorth={hoveredNetWorth}
-          cash={hoveredData.cash}
-          investments={hoveredData.investments}
-          tangibleAssets={hoveredData.tangibleAssets}
-          liabilities={hoveredData.liabilities}
-          formatCurrency={appStore.formatCurrencyCode}
-          note={recordedOnLabel(hoveredData.year)}
-          recorded={recordedComparison(hoveredData.year, {
-            ...hoveredData,
-            netWorth: hoveredNetWorth,
-          })}
-        />
+        {#if hoveredSampleData}
+          <ChartTooltipContent
+            year={appStore.formatDateOnly(hoveredSampleData.recordedOn)}
+            age={hoveredAge}
+            netWorth={hoveredSampleData.netWorth}
+            cash={hoveredSampleData.cash}
+            investments={hoveredSampleData.investments}
+            tangibleAssets={hoveredSampleData.tangibleAssets}
+            liabilities={hoveredSampleData.liabilities}
+            formatCurrency={appStore.formatCurrencyCode}
+            note={$_('page.plan.recorded')}
+          />
+        {:else if hoveredData}
+          <ChartTooltipContent
+            year={hoveredData.year}
+            age={hoveredAge}
+            netWorth={hoveredNetWorth}
+            cash={hoveredData.cash}
+            investments={hoveredData.investments}
+            tangibleAssets={hoveredData.tangibleAssets}
+            liabilities={hoveredData.liabilities}
+            formatCurrency={appStore.formatCurrencyCode}
+            recorded={recordedComparison(hoveredData.year, {
+              ...hoveredData,
+              netWorth: hoveredNetWorth,
+            })}
+          />
+        {/if}
       </div>
     {/if}
   </div>

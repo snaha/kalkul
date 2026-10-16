@@ -11,12 +11,6 @@ import { type YearlyProjection, type YearlyProjectionItem, yearOf } from '$lib/p
 import { type Portfolio, type Profile, type Snapshot, normalizeSnapshots } from '$lib/schemas'
 import { profileAtSnapshot } from '$lib/snapshots'
 
-/** A year as a snapshot recorded it. */
-export interface RecordedYear extends YearlyProjection {
-  /** Date of the snapshot the year's figures come from. */
-  recordedOn: string
-}
-
 /**
  * The year a snapshot closes. The projection's bars stand for the end of each
  * year, and a snapshot dated 1 January states the balances the year before it
@@ -28,45 +22,12 @@ function closingYear(snapshot: Snapshot): number {
 }
 
 /**
- * The years leading up to a plan, from the profile's recorded history: one per
- * year, from the latest snapshot that year closed on, in the shape the
- * projection gives the years it projects. Chart, tooltip and inspector read
- * both the same way, and the year-on-year change across the plan's start
- * compares the first projected year against the last recorded one.
- *
- * Only the unbroken run of years right before the plan is returned. A year
- * without a snapshot ends it: its bar would have to be either left empty,
- * reading as net worth falling to nothing, or invented from its neighbours.
- *
- * Figures are restated in the plan's starting money, the way the projection
- * deflates the years after its start: a year `n` years before it is multiplied
- * by (1 + inflation)^n. Without that, the recorded years would sit in older,
- * cheaper money next to projected ones and overstate the growth between them.
+ * A snapshot in the shape of a projected year, `year` being the year it closes,
+ * so chart, tooltip and inspector read it like one.
  */
-export function getRecordedYears(
-  profile: Profile,
-  plan: Pick<Portfolio, 'start_date' | 'inflation_rate'>,
-): RecordedYear[] {
-  const startYear = yearOf(plan.start_date)
-  // Date-ascending, so the last snapshot a year closed on wins.
-  const byYear = new Map<number, Snapshot>()
-  for (const snapshot of normalizeSnapshots(profile.snapshots ?? [])) {
-    byYear.set(closingYear(snapshot), snapshot)
-  }
-
-  const inflation = DECIMAL_1.plus(plan.inflation_rate)
-  const years: RecordedYear[] = []
-  for (let year = startYear - 1; byYear.has(year); year--) {
-    const snapshot = byYear.get(year) as Snapshot
-    const factor = inflation.pow(startYear - year)
-    const inPlanMoney = (value: number | Decimal) => new Decimal(value).mul(factor).toNumber()
-    years.unshift(recordedYear(profile, snapshot, year, inPlanMoney))
-  }
-  return years
-}
-
-/** A snapshot taken during a plan, in the shape of a projected year. */
-export interface RecordedSample extends RecordedYear {
+export interface RecordedSample extends YearlyProjection {
+  /** Date of the snapshot. */
+  recordedOn: string
   /** Where the snapshot falls in time, on the axis `yearPosition` lays out. */
   position: number
 }
@@ -85,36 +46,48 @@ export function yearPosition(date: string): number {
 
 /**
  * Every snapshot taken since a plan started, to hold against what the plan
- * projected: date-ascending, each where it falls in time.
+ * projected.
  *
  * A snapshot from before the plan's start, or on it, is what the plan set out
  * from rather than how it went, so it does not count even in the plan's first
  * year.
- *
- * Figures are restated in the plan's starting money as of the snapshot's own
- * date. The projection deflates the end of a year `n` years after its first by
- * (1 + inflation)^n; a snapshot part of the way through a year is deflated by
- * that part of the year's inflation too, so two taken a day apart either side
- * of 1 January differ by a day's inflation rather than a year's.
  */
 export function getRecordedPlanSamples(
   profile: Profile,
   plan: Pick<Portfolio, 'start_date' | 'end_date' | 'inflation_rate'>,
 ): RecordedSample[] {
-  const startYear = yearOf(plan.start_date)
   const endYear = yearOf(plan.end_date)
+  return getRecordedSamples(profile, plan).filter(
+    (s) => s.recordedOn > plan.start_date && s.year <= endYear,
+  )
+}
+
+/**
+ * Every snapshot the profile recorded, date-ascending, each where it falls in
+ * time.
+ *
+ * Figures are restated in the plan's starting money as of the snapshot's own
+ * date. The projection deflates the end of a year `n` years after its first by
+ * (1 + inflation)^n; a snapshot part of the way through a year is deflated by
+ * that part of the year's inflation too, so two taken a day apart either side
+ * of 1 January differ by a day's inflation rather than a year's. A snapshot
+ * from before the plan is inflated by the same rule.
+ */
+export function getRecordedSamples(
+  profile: Profile,
+  plan: Pick<Portfolio, 'start_date' | 'inflation_rate'>,
+): RecordedSample[] {
+  const startYear = yearOf(plan.start_date)
   const rate = DECIMAL_1.plus(plan.inflation_rate)
-  return normalizeSnapshots(profile.snapshots ?? [])
-    .filter((s) => s.date > plan.start_date && closingYear(s) <= endYear)
-    .map((snapshot) => {
-      const position = yearPosition(snapshot.date)
-      const deflator = rate.pow(position - startYear - 1)
-      const inPlanMoney = (value: number | Decimal) => new Decimal(value).div(deflator).toNumber()
-      return {
-        ...recordedYear(profile, snapshot, closingYear(snapshot), inPlanMoney),
-        position,
-      }
-    })
+  return normalizeSnapshots(profile.snapshots ?? []).map((snapshot) => {
+    const position = yearPosition(snapshot.date)
+    const deflator = rate.pow(position - startYear - 1)
+    const inPlanMoney = (value: number | Decimal) => new Decimal(value).div(deflator).toNumber()
+    return {
+      ...recordedYear(profile, snapshot, closingYear(snapshot), inPlanMoney),
+      position,
+    }
+  })
 }
 
 /**
@@ -167,7 +140,7 @@ function recordedYear(
   snapshot: Snapshot,
   year: number,
   inPlanMoney: (value: number | Decimal) => number,
-): RecordedYear {
+): Omit<RecordedSample, 'position'> {
   const at = profileAtSnapshot(profile, snapshot)
   const item = (id: string, name: string, value: number): YearlyProjectionItem => ({
     id,

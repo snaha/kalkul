@@ -29,7 +29,8 @@
   import { cn } from '$lib/utils'
 
   type Props = {
-    year: number
+    // The heading: a year, or the date of a recording.
+    year: number | string
     age?: number
     netWorth: number
     cash: number
@@ -37,7 +38,7 @@
     tangibleAssets: number
     liabilities: number
     formatCurrency: (value: number) => string
-    // A line under the year, e.g. when the year was recorded rather than projected.
+    // A line under the heading, e.g. when its figures were recorded rather than projected.
     note?: string
     // What was recorded for a projected year, held against its net worth.
     recorded?: RecordedComparison

@@ -4,14 +4,11 @@ import {
   differenceFromPlan,
   differencesFromPlan,
   getRecordedPlanSamples,
-  getRecordedYears,
+  getRecordedSamples,
   latestOfEachYear,
   yearPosition,
 } from './recorded-years'
 import type { Profile, Snapshot } from './schemas'
-
-// A plan starting in October 2026, with no inflation unless a test sets one.
-const PLAN = { start_date: '2026-10-01', inflation_rate: 0 }
 
 const PROFILE: Profile = {
   name: 'Test',
@@ -100,99 +97,6 @@ function snapshot(date: string, scale = 1): Snapshot {
 }
 
 const withSnapshots = (...snapshots: Snapshot[]): Profile => ({ ...PROFILE, snapshots })
-const yearsOf = (profile: Profile, plan = PLAN) =>
-  getRecordedYears(profile, plan).map((y) => [y.year, y.recordedOn])
-
-describe('getRecordedYears', () => {
-  test('is empty without snapshots', () => {
-    expect(getRecordedYears(PROFILE, PLAN)).toEqual([])
-  })
-
-  test('a snapshot dated 1 January records the year before', () => {
-    expect(yearsOf(withSnapshots(snapshot('2026-01-01')))).toEqual([[2025, '2026-01-01']])
-  })
-
-  test('takes the latest snapshot of each year', () => {
-    const profile = withSnapshots(
-      snapshot('2024-06-30'),
-      snapshot('2025-04-01'),
-      snapshot('2025-10-01'),
-    )
-    expect(yearsOf(profile)).toEqual([
-      [2024, '2024-06-30'],
-      [2025, '2025-10-01'],
-    ])
-  })
-
-  test("leaves the plan's own years to the projection", () => {
-    const profile = withSnapshots(snapshot('2025-07-01'), snapshot('2026-04-01'))
-    expect(yearsOf(profile)).toEqual([[2025, '2025-07-01']])
-  })
-
-  test('stops at the first year without a snapshot', () => {
-    const profile = withSnapshots(snapshot('2022-12-01'), snapshot('2025-07-01'))
-    expect(yearsOf(profile)).toEqual([[2025, '2025-07-01']])
-  })
-
-  test('is empty when the year before the plan has no snapshot', () => {
-    expect(getRecordedYears(withSnapshots(snapshot('2024-07-01')), PLAN)).toEqual([])
-  })
-
-  test('splits the recorded figures into the categories the projection uses', () => {
-    const [year] = getRecordedYears(withSnapshots(snapshot('2025-10-01')), PLAN)
-    expect(year).toEqual({
-      year: 2025,
-      recordedOn: '2025-10-01',
-      cash: 50_000,
-      investments: 1_060_000,
-      tangibleAssets: 15_500_000,
-      // The house's mortgage and the standalone loan.
-      liabilities: 8_400_000,
-      netWorth: 8_210_000,
-      investmentsByItem: [
-        { id: 'fund', name: 'Fund', value: 1_000_000 },
-        { id: 'pension', name: 'Pension', value: 60_000 },
-      ],
-      tangibleAssetsByItem: [
-        { id: 'flat', name: 'Flat', value: 5_500_000 },
-        { id: 'house', name: 'House', value: 10_000_000 },
-      ],
-      // Like the projection, only standalone liabilities are listed; a
-      // financed asset's debt is part of the asset.
-      liabilitiesByItem: [{ id: 'car-loan', name: 'Car loan', value: 300_000 }],
-      // The flows running on the date, annualized.
-      totalIncome: 1_080_000,
-      totalExpenses: 420_000,
-      // (50,000 + 1,060,000 − 300,000) / ((420,000 + 600,000 + 120,000) × 25)
-      fiPercent: 2.8421052631578947,
-      runwayYears: 0.7105263157894737,
-      insufficientFundTransferIds: [],
-      insufficientFundAssetIds: [],
-      insufficientFundExpenseIds: [],
-    })
-  })
-
-  test("states each year in the plan's starting money", () => {
-    const profile = withSnapshots(snapshot('2024-12-01'), snapshot('2025-12-01'))
-    const years = getRecordedYears(profile, { ...PLAN, inflation_rate: 0.02 })
-    // One year back is worth 2 % more in 2026 money, two years back 4.04 %.
-    expect(years.map((y) => [y.year, y.cash, y.netWorth, y.totalIncome])).toEqual([
-      [2024, 52_020, 8_541_684, 1_123_632],
-      [2025, 51_000, 8_374_200, 1_101_600],
-    ])
-    expect(years[0].investmentsByItem[0].value).toEqual(1_040_400)
-  })
-
-  test('keeps an item the profile has since dropped, without a name', () => {
-    const profile = withSnapshots({
-      ...snapshot('2025-10-01'),
-      investments: [{ id: 'sold-fund', balance: 70_000 }],
-    })
-    const [year] = getRecordedYears(profile, PLAN)
-    expect(year.investments).toEqual(70_000)
-    expect(year.investmentsByItem).toEqual([{ id: 'sold-fund', name: '', value: 70_000 }])
-  })
-})
 
 describe('yearPosition', () => {
   test('puts 1 January on the year itself', () => {
@@ -272,6 +176,27 @@ describe('getRecordedPlanSamples', () => {
       ['2027-01-01', 48_058.43906189927, 7_891_195.69396386],
     ])
     expect(samples[1].investmentsByItem[0].value).toEqual(980_392.1568627451)
+  })
+})
+
+describe('getRecordedSamples', () => {
+  test('keeps every snapshot, those before the plan in its starting money too', () => {
+    const profile = withSnapshots(
+      { ...snapshot('2025-01-01'), cash_amount: 50_000 },
+      snapshot('2026-08-01'),
+      snapshot('2026-11-01'),
+    )
+    const samples = getRecordedSamples(profile, {
+      start_date: '2026-10-01',
+      inflation_rate: 0.02,
+    })
+    // 1 January 2025 is two years before the end of the plan's first year.
+    expect(samples.map((s) => [s.recordedOn, s.year, s.position])).toEqual([
+      ['2025-01-01', 2024, 2025],
+      ['2026-08-01', 2026, 2026.5808219178082],
+      ['2026-11-01', 2026, 2026.8328767123287],
+    ])
+    expect(samples[0].cash).toEqual(52_020)
   })
 })
 
