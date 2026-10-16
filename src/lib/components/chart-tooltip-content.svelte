@@ -12,6 +12,8 @@
     tangibleAssets: number
     liabilities: number
     formatCurrency: (value: number) => string
+    // A line under the year, e.g. when the year was recorded rather than projected.
+    note?: string
   }
 
   const {
@@ -23,6 +25,7 @@
     tangibleAssets,
     liabilities,
     formatCurrency,
+    note,
   }: Props = $props()
 
   const breakdownItems = $derived([
@@ -69,6 +72,9 @@
       <span class="text-sm">{$_('page.plan.age', { values: { age } })}</span>
     {/if}
   </div>
+  {#if note}
+    <p class="-mt-2 px-2 text-xs text-muted-foreground">{note}</p>
+  {/if}
 
   <!-- Net worth -->
   <div class="flex flex-col gap-1 px-2">

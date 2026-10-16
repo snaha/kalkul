@@ -36,7 +36,8 @@
   import { CURRENT_PROJECTION_ID, buildCurrentProjectionPlan } from '$lib/current-projection'
   import { getCurrentProfile } from '$lib/current-values'
   import { isPlanOutdated } from '$lib/plan-base'
-  import { getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
+  import { type YearlyProjection, getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
+  import { getRecordedYears } from '$lib/recorded-years'
   import routes from '$lib/routes'
   import type {
     Expense,
@@ -219,7 +220,7 @@
 
   // Clamp selected year to valid range when portfolio changes
   $effect(() => {
-    if (selectedYear < startYear) selectedYear = startYear
+    if (selectedYear < firstYear) selectedYear = firstYear
     if (selectedYear > endYear) selectedYear = endYear
   })
 
@@ -252,7 +253,23 @@
 
   // Yearly projection (real / inflation-adjusted values)
   const projection = $derived(plan ? getYearlyPlanProjection(plan, profile) : [])
-  const selectedYearProjection = $derived(projection.find((p) => p.year === selectedYear))
+  // The Current projection is preceded by the years the user recorded, so it
+  // reads as a continuation of their history. A saved plan is a scenario
+  // starting on its own date and stays as it is.
+  const recordedYears = $derived(
+    readOnly && plan ? getRecordedYears(appStore.profile.toJSON(), plan) : [],
+  )
+  const years = $derived<YearlyProjection[]>([...recordedYears, ...projection])
+  const firstYear = $derived(recordedYears[0]?.year ?? startYear)
+  const selectedYearProjection = $derived(years.find((p) => p.year === selectedYear))
+  const recordedOnLabel = (year: number | undefined) => {
+    const recordedOn = recordedYears.find((y) => y.year === year)?.recordedOn
+    if (recordedOn === undefined) return undefined
+    return $_('page.plan.recordedOn', {
+      values: { date: appStore.formatDateOnly(recordedOn) },
+    })
+  }
+  const selectedRecordedOn = $derived(recordedOnLabel(selectedYear))
 
   // Union of per-year warning IDs — a transfer or expense that fails in any
   // year of the plan is surfaced in the sidebar with a destructive badge.
@@ -474,7 +491,7 @@
   ])
 
   // Previous-year projection for year-on-year delta
-  const previousYearProjection = $derived(projection.find((p) => p.year === selectedYear - 1))
+  const previousYearProjection = $derived(years.find((p) => p.year === selectedYear - 1))
 
   // Liquid net worth: cash + investments − liabilities (excludes tangibles, which are less liquid)
   const liquidNetWorth = $derived(cashValue + investmentsValue - liabilitiesValue)
@@ -545,12 +562,13 @@
 
   // Chart data derived from the yearly projection (real / inflation-adjusted values)
   const chartData = $derived<BarData[]>(
-    projection.map((p) => ({
+    years.map((p, i) => ({
       year: p.year,
       cash: p.cash,
       investments: p.investments,
       tangibleAssets: p.tangibleAssets,
       liabilities: p.liabilities,
+      recorded: i < recordedYears.length,
     })),
   )
 
@@ -782,7 +800,12 @@
         <div class="flex shrink-0 flex-col gap-4 p-4">
           <!-- Year + close button row -->
           <div class="flex items-center justify-between">
-            <p class="text-lg font-bold">{selectedYear}</p>
+            <div class="flex items-center gap-2">
+              <p class="text-lg font-bold">{selectedYear}</p>
+              {#if selectedRecordedOn}
+                <Badge variant="outline">{selectedRecordedOn}</Badge>
+              {/if}
+            </div>
             <Button
               variant="ghost"
               size="icon"
@@ -805,7 +828,7 @@
               type="single"
               class="mt-3"
               bind:value={selectedYear}
-              min={startYear}
+              min={firstYear}
               max={endYear}
               step={1}
             />
@@ -1049,6 +1072,7 @@
           tangibleAssets={hoveredData.tangibleAssets}
           liabilities={hoveredData.liabilities}
           formatCurrency={appStore.formatCurrencyCode}
+          note={recordedOnLabel(hoveredData.year)}
         />
       </div>
     {/if}

@@ -171,6 +171,7 @@
       "interestDescription": "Složený úrok se přičítá k předchozím úrokům podle zvolené frekvence; jednoduchý úrok se počítá pouze ze zůstatku jistiny. Denní úročení dává nejvyšší efektivní sazbu.",
       "insufficientFundsTooltip": "Zdroj nemá v některém roce tohoto plánu dostatek prostředků.",
       "firstErrorTooltip": "První upozornění na nedostatek prostředků se objevuje v roce {year}.",
+      "recordedOn": "Zaznamenáno {date}",
       "transferStartDescription": "Kdy plánujete tento převod zahájit.",
       "transferEndDescription": "Kdy plánujete tento převod ukončit.",
       "transferChangeDescription": "Jak se částka tohoto převodu mění v průběhu projekce.",
