@@ -346,6 +346,31 @@ function profileAsOf(profile: Profile, date: string): Profile {
 }
 
 /**
+ * Pavel with a loan still running on the cottage, so a plan of his has debt to
+ * hold the recorded figures against. Small enough for his salary to carry
+ * alongside his spending without running his cash out.
+ */
+function withCottageLoan(profile: Profile): Profile {
+  return {
+    ...profile,
+    tangible_assets: profile.tangible_assets?.map((asset) =>
+      asset.id === 'ta-2'
+        ? {
+            ...asset,
+            status: 'financed',
+            outstanding_balance: 480_000,
+            installment_frequency: 'monthly',
+            annual_rate: 5.4,
+            installment_amount: 9_146,
+            remaining_term: 5,
+            remaining_term_unit: 'years',
+          }
+        : asset,
+    ),
+  }
+}
+
+/**
  * A plan created from `profile`, like the Add projection dialog makes one,
  * `startedYearsAgo` years back. Pass the profile as it stood then.
  */
@@ -463,7 +488,10 @@ export function getDevPresets(today: Date): DevPreset[] {
   const pavelData = sample(pavel)
   // Pavel five years into a plan: the history it is held against.
   const pavelSincePlan = withYearSkipped(
-    withHistory(pavelData.profile, today, 66, { latestMonthsAgo: 2, marketSwing: 0.15 }),
+    withHistory(withCottageLoan(pavelData.profile), today, 66, {
+      latestMonthsAgo: 2,
+      marketSwing: 0.15,
+    }),
     today.getFullYear() - 3,
   )
 
@@ -570,7 +598,7 @@ export function getDevPresets(today: Date): DevPreset[] {
     {
       name: 'Pavel, 50 — five years into a plan',
       description:
-        'A plan set up five years ago, held against what was recorded since: the years behind it faded, the recorded figures drawn as lines through every snapshot with investments swinging with the market, and one year without a snapshot that the lines run straight across. The tooltip and inspector compare each category with the plan. Two months stale.',
+        'A plan set up five years ago, held against what was recorded since: the years behind it faded, the recorded figures drawn as lines through every snapshot with investments swinging with the market and the cottage loan paying down, and one year without a snapshot that the lines run straight across. The tooltip and inspector compare each category with the plan. Two months stale.',
       data: {
         profile: pavelSincePlan,
         portfolios: [
@@ -579,7 +607,7 @@ export function getDevPresets(today: Date): DevPreset[] {
             profileAsOf(pavelSincePlan, planStart(today, 5)),
             'plan-since',
             'Retire at 60',
-            'Set up five years ago, the year the cottage was paid off.',
+            'Set up five years ago, after buying the cottage.',
             10,
             0.02,
             5,
