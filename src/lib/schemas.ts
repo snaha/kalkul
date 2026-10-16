@@ -198,8 +198,9 @@ function repairZeroMonths(item: unknown): void {
  * stays as it is.
  *
  * Only the flows a snapshot records are filled in (`countedCashFlows` in
- * `snapshots.ts`, which this raw data cannot go through): none a plan owns, and
- * no one-time flow. A one-time flow has no frequency, so copying it would
+ * `snapshots.ts`, which this raw data cannot go through): no one-time flow,
+ * and only financial data, which is why this runs after `materializePlans` has
+ * moved a plan's own flows out of the profile. A one-time flow has no frequency, so copying it would
  * write an entry the very validation this repair runs ahead of rejects.
  *
  * A recorded debt's missing loan term is deliberately *not* filled in. The
@@ -228,7 +229,7 @@ function repairSnapshot(snapshot: unknown, profile: Record<string, unknown>): vo
  * make `loadData()` fall back to the empty default profile and overwrite the
  * user's entire dataset on the next persist.
  *
- * Four repairs today. Data persisted before the same-year month-order rule
+ * Five repairs today. Data persisted before the same-year month-order rule
  * existed may hold a cash flow whose start month is after its end month, which
  * `storedDataSchema` now rejects; the two months are swapped, so both
  * user-entered values survive and the flow spans the range the user visibly
@@ -236,8 +237,9 @@ function repairSnapshot(snapshot: unknown, profile: Record<string, unknown>): vo
  * `cashFlowTemporalRefinement` applies to: incomes, expenses and transfers. A
  * timing month stored as 0 by the old zero-based selector becomes January
  * (`repairZeroMonths`). A transfer stored with an empty endpoint, from before
- * the schema required both (#305), is dropped. And snapshots are filled in as
- * `repairSnapshot` describes.
+ * the schema required both (#305), is dropped. A plan without a `base` gets
+ * its copy of financial data (`materializePlans`). And snapshots are filled in
+ * as `repairSnapshot` describes.
  */
 export function repairStoredData(data: unknown): unknown {
   if (!isRecord(data)) return data
@@ -268,9 +270,11 @@ export function repairStoredData(data: unknown): unknown {
         )
         return false
       })
+    // Before the snapshots: a plan's own cash flows must leave the profile
+    // first, or `repairSnapshot` would record them as financial data.
+    materializePlans(profile, data.portfolios)
     if (Array.isArray(profile.snapshots))
       for (const snapshot of profile.snapshots) repairSnapshot(snapshot, profile)
-    materializePlans(profile, data.portfolios)
   }
   return data
 }
@@ -317,9 +321,13 @@ function materializePlans(profile: Record<string, unknown>, portfolios: unknown)
         )
         .map(({ plan_id: _, ...rest }) => rest)
       // Items the plan already held (from the interim shape where a plan
-      // listed only its own items) stay, after the copies.
+      // listed only its own items) win over the copies: one under a
+      // financial-data id is the plan's edit of that item.
       const own = Array.isArray(plan[key]) ? plan[key].filter(isRecord) : []
-      plan[key] = [...copied, ...own.filter((o) => !copied.some((c) => c.id === o.id))]
+      plan[key] = [
+        ...copied.map((c) => own.find((o) => o.id === c.id) ?? c),
+        ...own.filter((o) => !copied.some((c) => c.id === o.id)),
+      ]
       delete plan[INCLUDED_IDS[key]]
     }
     if (typeof plan.cash_amount !== 'number') plan.cash_amount = cash

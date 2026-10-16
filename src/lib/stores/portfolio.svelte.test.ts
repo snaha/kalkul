@@ -1,9 +1,15 @@
+import { init } from 'svelte-i18n'
+
 import { describe, expect, it } from 'vitest'
 
 import { portfolioSchema } from '$lib/schemas'
 import type { Income, Portfolio } from '$lib/schemas'
 
 import { withPortfolioStore } from './portfolio.svelte'
+
+// `update` validates with portfolioSchema, whose refinements resolve their
+// messages through svelte-i18n.
+init({ fallbackLocale: 'en', initialLocale: 'en' })
 
 // Minimal AppParent stub. The store only calls persist()/deletePortfolio()
 // on user actions, never during construction or serialisation, so no-op
@@ -47,6 +53,10 @@ const fixture: Portfolio = {
       to_asset_id: 'inv-2',
       amount: 1,
       schedule: 'recurring',
+      frequency: 'monthly',
+      start: 'immediately',
+      end: 'never',
+      change_over_time: 'none',
     },
   ],
   base: {
@@ -102,6 +112,20 @@ describe('withPortfolioStore', () => {
     const store = withPortfolioStore(fixture, app)
     expect(store.notes).toBe('Long-term retirement plan')
     expect(store.toJSON().notes).toBe('Long-term retirement plan')
+  })
+
+  it('rejects an update the schema does not accept and leaves the plan as it was', () => {
+    let persisted = 0
+    const store = withPortfolioStore(fixture, { ...app, persist: () => persisted++ })
+    const invalid = [
+      { id: 'inv-3', name: 'No year', balance: 1, apy: 1, start: 'at_specific_date' },
+    ]
+    expect(() => store.update({ investments: invalid as Portfolio['investments'] })).toThrow()
+    expect(store.investments).toEqual(fixture.investments)
+    expect(persisted).toBe(0)
+    store.update({ investments: [] })
+    expect(store.investments).toEqual([])
+    expect(persisted).toBe(1)
   })
 
   it('omits notes from toJSON() when unset', () => {

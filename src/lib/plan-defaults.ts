@@ -65,18 +65,20 @@ export function toInflationPercent(rate: number): number {
 }
 
 /**
- * A new plan: a copy of current financial data, or nothing at all when the
- * user does not start from their current finances. Either way the plan keeps
- * the financial data of the moment as its base.
+ * A new plan: a copy of current financial data, or only the cash when the
+ * user does not start from their current finances (the switch's help text
+ * promises the cash balance stays either way). Either way the plan keeps the
+ * financial data of the moment as its base.
  */
 export function createPlan(
   profile: Profile,
   fields: PlanFields,
   startFromCurrentFinances = true,
 ): Omit<Portfolio, 'id'> {
+  const data = snapshotFinancialData(profile)
   return {
     ...fields,
-    ...(startFromCurrentFinances ? snapshotFinancialData(profile) : emptyPlanData()),
+    ...(startFromCurrentFinances ? data : { ...emptyPlanData(), cash_amount: data.cash_amount }),
     base: snapshotFinancialData(profile),
   }
 }

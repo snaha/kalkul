@@ -16,7 +16,9 @@ const PORTFOLIO_KEYS = Object.keys(portfolioSchema.shape) as (keyof Portfolio)[]
 export function withPortfolioStore(portfolio: Portfolio, app: AppParent): PortfolioStore {
   const data = $state<Portfolio>({ ...portfolio })
   const store = {
+    /** The validation gate for a plan, as `updateProfile` is for financial data: an update the schema rejects throws and nothing is written. */
     update(updates: Partial<Omit<Portfolio, 'id'>>) {
+      portfolioSchema.parse({ ...$state.snapshot(data), ...updates })
       Object.assign(data, updates)
       app.persist()
     },

@@ -125,10 +125,10 @@ were removed with it; restoring workflow-level coverage is tracked in
 The application uses a single reactive store (`appStore`) that manages all domain data for a
 single user. All financial data (cash, investments, tangible assets, liabilities, incomes,
 expenses, transfers) lives flat on the profile. Portfolios ("plans", projections) are scenarios
-computed from it: they add dates and inflation, include lists over the profile's items, and their
-own items (`src/lib/plan-items.ts`): an item under a profile item's id overrides it for that plan,
-any other is the plan's alone. A plan never writes the profile (see AGENTS.md). Data is persisted
-to localStorage.
+built on a copy of it: a plan is created from the financial data of the moment (`createPlan` in
+`src/lib/plan-defaults.ts`), holds its own cash and items from then on (`src/lib/plan-items.ts`),
+and keeps what it was created from as its `base`, which tells the plan page when financial data has
+moved on. A plan never writes the profile (see AGENTS.md). Data is persisted to localStorage.
 
 ### Data Hierarchy
 
@@ -165,10 +165,10 @@ Raw data loaded from localStorage is plain JSON. The store "enriches" this data 
 
 ### PortfolioStore
 
-| Method            | Description                                         |
-| ----------------- | --------------------------------------------------- |
-| `update(updates)` | Update settings, include lists and the plan's items |
-| `delete()`        | Remove portfolio from store                         |
+| Method            | Description                                        |
+| ----------------- | -------------------------------------------------- |
+| `update(updates)` | Validate (Zod) and update settings, cash and items |
+| `delete()`        | Remove portfolio from store                        |
 
 ### Usage Example
 
@@ -176,8 +176,8 @@ Raw data loaded from localStorage is plain JSON. The store "enriches" this data 
 // Update profile (validated by profileSchema before persisting)
 appStore.updateProfile({ name: 'John', cash_amount: 5000 })
 
-// Add and work with portfolios
-const portfolioId = appStore.addPortfolio({ name: 'Retirement', ... })
+// Add and work with portfolios: a plan starts as a copy of today's financial data
+const portfolioId = appStore.addPortfolio(createPlan(appStore.profile, { name: 'Retirement', ... }))
 const portfolio = appStore.portfolios.find((p) => p.id === portfolioId)
 portfolio?.update({ name: 'New Name' })
 portfolio?.delete()

@@ -1,6 +1,6 @@
 import { addMessages, init } from 'svelte-i18n'
 
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import en from './locales/en.json'
 import {
@@ -1208,7 +1208,12 @@ describe('repairStoredData: a plan without a base gets its copy of financial dat
   const shared = { id: 'shared', name: 'ETF', balance: 1, apy: 1 }
   const other = { id: 'other', name: 'Bonds', balance: 2, apy: 1 }
   const own = { id: 'own', name: 'Own', balance: 3, apy: 1 }
-  const stored = {
+  // The repair works in place, so every test gets its own copy.
+  let stored: typeof fixture
+  beforeEach(() => {
+    stored = structuredClone(fixture)
+  })
+  const fixture = {
     lastUpdated: 1,
     profile: {
       name: 'Test',
@@ -1270,6 +1275,32 @@ describe('repairStoredData: a plan without a base gets its copy of financial dat
       expenses: [],
       transfers: [],
     })
+  })
+
+  it("keeps the plan's own version of an item it had already edited (interim shape)", () => {
+    const edited = { ...shared, balance: 999 }
+    const interim = {
+      ...stored,
+      portfolios: [{ ...stored.portfolios[0], investments: [edited] }],
+    }
+    const repaired = storedDataSchema.parse(repairStoredData(interim))
+    expect(repaired.portfolios[0].investments).toEqual([edited, own])
+  })
+
+  it("fills in a snapshot from financial data only, never from a plan's own cash flows", () => {
+    const withSnapshot = {
+      ...stored,
+      profile: {
+        ...stored.profile,
+        incomes: [
+          { ...baseIncome, id: 'sal', amount: 10, frequency: 'monthly' },
+          { ...baseIncome, id: 'side', amount: 5, frequency: 'monthly', plan_id: 'plan-1' },
+        ],
+        snapshots: [{ date: '2026-01-01', cash_amount: 1 }],
+      },
+    }
+    const repaired = storedDataSchema.parse(repairStoredData(withSnapshot))
+    expect(repaired.profile.snapshots?.[0].incomes?.map((i) => i.id)).toEqual(['sal'])
   })
 
   it('leaves a plan that has a base alone', () => {

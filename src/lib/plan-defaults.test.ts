@@ -184,9 +184,9 @@ describe('createPlan', () => {
     expect(plan.transfers).toEqual(profile.transfers)
   })
 
-  it('starts empty otherwise, but still remembers the financial data of the moment as its base', () => {
+  it('starts empty otherwise, except for the cash, and still remembers the financial data of the moment as its base', () => {
     const plan = createPlan({ ...profile, cash_amount: 300 }, fields, false)
-    expect(plan.cash_amount).toBe(0)
+    expect(plan.cash_amount).toBe(300)
     expect(plan.investments).toEqual([])
     expect(plan.transfers).toEqual([])
     expect(plan.base.cash_amount).toBe(300)

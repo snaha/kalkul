@@ -1200,11 +1200,10 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   const abandonedAssetIds = new Set<string>()
 
   // Every plan has a cash balance and every flow runs through it (#331): it
-  // opens at the plan's own opening balance when one is set, else the
-  // profile's cash amount, else 0, and income, transfers, expenses and
-  // installments all go through it with the insufficient-funds check applied.
-  // There is no way to exclude cash.
-  const initialCashNominal = plan.cash_amount ?? profile.cash_amount ?? 0
+  // opens at the plan's own cash (copied from the profile at creation), and
+  // income, transfers, expenses and installments all go through it with the
+  // insufficient-funds check applied. There is no way to exclude cash.
+  const initialCashNominal = plan.cash_amount
 
   let cashNominal = new Decimal(initialCashNominal)
   const inflationRate = new Decimal(plan.inflation_rate)

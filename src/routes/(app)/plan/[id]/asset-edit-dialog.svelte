@@ -25,6 +25,7 @@
     TangibleAssetStatus,
     ValueOverTime,
   } from '$lib/schemas'
+  import { timingComplete } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
   import { getMonthOptions } from '$lib/utils'
@@ -220,12 +221,18 @@
   }
 
   let form = $state<FormState>(blankForm())
-  // A start after the plan or an end before it could never take effect.
+  // Both timing edges must be filled in (the schema rejects a date mode
+  // without its year and month), and a start after the plan or an end before
+  // it could never take effect.
   const timingWithin = $derived(
     kind === 'investment'
-      ? timingWithinPlan(range, 'start', form.start, form.start_year, form.start_age) &&
+      ? timingComplete(form.start, form.start_year, form.start_month, form.start_age) &&
+          timingComplete(form.exit, form.exit_year, form.exit_month, form.exit_age) &&
+          timingWithinPlan(range, 'start', form.start, form.start_year, form.start_age) &&
           timingWithinPlan(range, 'end', form.exit, form.exit_year, form.exit_age)
-      : timingWithinPlan(range, 'start', form.purchase, form.purchase_year, form.purchase_age) &&
+      : timingComplete(form.purchase, form.purchase_year, form.purchase_month, form.purchase_age) &&
+          timingComplete(form.sale, form.sale_year, form.sale_month, form.sale_age) &&
+          timingWithinPlan(range, 'start', form.purchase, form.purchase_year, form.purchase_age) &&
           timingWithinPlan(range, 'end', form.sale, form.sale_year, form.sale_age),
   )
   // "Show advanced options" disclosure for a liability and for the financing
