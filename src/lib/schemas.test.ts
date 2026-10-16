@@ -1112,12 +1112,22 @@ describe('storedDataSchema golden fixture', () => {
           start_date: '2026-07-01',
           end_date: '2055-06-01',
           inflation_rate: 0.02,
-          included_investment_ids: ['inv-1'],
-          included_tangible_asset_ids: ['asset-1', 'asset-2'],
-          included_liability_ids: ['liab-1'],
-          included_income_ids: ['income-1'],
-          included_expense_ids: ['expense-1'],
-          included_transfer_ids: ['transfer-1', 'transfer-2'],
+          cash_amount: 1000,
+          investments: [{ id: 'inv-1', name: 'ETF', balance: 1, apy: 1 }],
+          tangible_assets: [],
+          liabilities: [],
+          incomes: [],
+          expenses: [],
+          transfers: [],
+          base: {
+            cash_amount: 1000,
+            investments: [{ id: 'inv-1', name: 'ETF', balance: 1, apy: 1 }],
+            tangible_assets: [],
+            liabilities: [],
+            incomes: [],
+            expenses: [],
+            transfers: [],
+          },
         },
       ],
     }
@@ -1194,38 +1204,78 @@ describe('profileSchema tax rules', () => {
   })
 })
 
-describe('repairStoredData: items a plan owned move onto the plan', () => {
-  it('moves each plan_id item onto its plan, without the tag, and drops those of a deleted plan', () => {
-    const investment = { id: 'own', name: 'ETF', balance: 1, apy: 1 }
-    const stored = {
-      lastUpdated: 1,
-      profile: {
-        name: 'Test',
-        email: '',
-        investments: [
-          { id: 'shared', name: 'ETF', balance: 1, apy: 1 },
-          { ...investment, plan_id: 'plan-1' },
-          { ...investment, id: 'orphan', plan_id: 'gone' },
-        ],
-        incomes: [{ ...baseIncome, id: 'own-income', plan_id: 'plan-1' }],
-      },
-      portfolios: [
-        {
-          id: 'plan-1',
-          name: 'Plan',
-          start_date: '2026-01-01',
-          end_date: '2030-01-01',
-          inflation_rate: 0,
-          investments: [{ ...investment, id: 'already' }],
-        },
+describe('repairStoredData: a plan without a base gets its copy of financial data', () => {
+  const shared = { id: 'shared', name: 'ETF', balance: 1, apy: 1 }
+  const other = { id: 'other', name: 'Bonds', balance: 2, apy: 1 }
+  const own = { id: 'own', name: 'Own', balance: 3, apy: 1 }
+  const stored = {
+    lastUpdated: 1,
+    profile: {
+      name: 'Test',
+      email: '',
+      cash_amount: 700,
+      investments: [
+        shared,
+        { ...own, plan_id: 'plan-1' },
+        other,
+        { ...own, id: 'orphan', plan_id: 'gone' },
       ],
-    }
+      incomes: [{ ...baseIncome, id: 'own-income', plan_id: 'plan-1' }],
+    },
+    portfolios: [
+      {
+        id: 'plan-1',
+        name: 'Plan',
+        start_date: '2026-01-01',
+        end_date: '2030-01-01',
+        inflation_rate: 0,
+        included_investment_ids: ['shared', 'own'],
+        investments: [{ ...own, id: 'already' }],
+      },
+      {
+        id: 'plan-2',
+        name: 'All',
+        start_date: '2026-01-01',
+        end_date: '2030-01-01',
+        inflation_rate: 0,
+        cash_amount: 5,
+      },
+    ],
+  }
+
+  it('copies the items the plan included and its own, without the tag, and drops those of a deleted plan', () => {
     const repaired = storedDataSchema.parse(repairStoredData(stored))
-    expect(repaired.profile.investments?.map((i) => i.id)).toEqual(['shared'])
+    expect(repaired.profile.investments).toEqual([shared, other])
     expect(repaired.profile.incomes).toEqual([])
-    expect(repaired.portfolios[0].investments?.map((i) => i.id)).toEqual(['already', 'own'])
-    expect(repaired.portfolios[0].incomes?.map((i) => i.id)).toEqual(['own-income'])
-    expect('plan_id' in (repaired.portfolios[0].investments?.[1] ?? {})).toBe(false)
+    const [plan, all] = repaired.portfolios
+    expect(plan.investments).toEqual([shared, own, { ...own, id: 'already' }])
+    expect(plan.incomes.map((i) => i.id)).toEqual(['own-income'])
+    expect(plan.tangible_assets).toEqual([])
+    // No include list means every financial-data item.
+    expect(all.investments).toEqual([shared, other])
+    expect('included_investment_ids' in plan).toBe(false)
+  })
+
+  it("opens at the profile's cash unless the plan already had its own, and keeps the financial data of the moment as its base", () => {
+    const repaired = storedDataSchema.parse(repairStoredData(stored))
+    const [plan, all] = repaired.portfolios
+    expect(plan.cash_amount).toBe(700)
+    expect(all.cash_amount).toBe(5)
+    expect(plan.base).toEqual({
+      cash_amount: 700,
+      investments: [shared, other],
+      tangible_assets: [],
+      liabilities: [],
+      incomes: [],
+      expenses: [],
+      transfers: [],
+    })
+  })
+
+  it('leaves a plan that has a base alone', () => {
+    const once = repairStoredData(JSON.parse(JSON.stringify(stored)))
+    const twice = repairStoredData(JSON.parse(JSON.stringify(once)))
+    expect(twice).toEqual(once)
   })
 })
 

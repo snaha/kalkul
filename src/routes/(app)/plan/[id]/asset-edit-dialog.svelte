@@ -9,7 +9,7 @@
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
-  import { PLAN_LISTS, planItems, removePlanItem, upsertPlanItem } from '$lib/plan-items'
+  import { removePlanItem, upsertPlanItem } from '$lib/plan-items'
   import { planRangeOf, timingWithinPlan } from '$lib/plan-range'
   import type {
     CashFlowEnd,
@@ -111,10 +111,10 @@
   function blankForm(): FormState {
     const counter =
       kind === 'investment'
-        ? planItems(appStore.profile, plan, 'investments').length + 1
+        ? plan.investments.length + 1
         : kind === 'tangibleAsset'
-          ? planItems(appStore.profile, plan, 'tangible_assets').length + 1
-          : planItems(appStore.profile, plan, 'liabilities').length + 1
+          ? plan.tangible_assets.length + 1
+          : plan.liabilities.length + 1
     const defaultName =
       kind === 'investment'
         ? $_('page.setup.investments.defaultName', { values: { index: counter } })
@@ -254,7 +254,7 @@
 
   const isNew = $derived(initial === undefined)
 
-  const listConfig = $derived(PLAN_LISTS[kind])
+  const listKey = $derived(kind === 'investment' ? 'investments' : 'tangible_assets')
 
   function projectInvestment(f: FormState): ProfileInvestment {
     // Persist only the fee fields that the user actually touched; default
@@ -326,9 +326,9 @@
 
   function save() {
     if (kind === 'investment') {
-      upsertPlanItem(PLAN_LISTS.investment, projectInvestment(form), plan)
+      upsertPlanItem('investments', projectInvestment(form), plan)
     } else {
-      upsertPlanItem(PLAN_LISTS.tangibleAsset, projectTangibleAsset(form), plan)
+      upsertPlanItem('tangible_assets', projectTangibleAsset(form), plan)
     }
     close()
   }
@@ -339,7 +339,7 @@
         ? $_('page.plan.deleteInvestmentConfirm')
         : $_('page.plan.deleteTangibleAssetConfirm')
     if (!window.confirm(confirmMessage)) return
-    removePlanItem(listConfig, form.id, plan, appStore.profile)
+    removePlanItem(listKey, form.id, plan)
     close()
   }
 </script>

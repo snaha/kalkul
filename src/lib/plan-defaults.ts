@@ -1,5 +1,6 @@
 import { formatDate } from '$lib/@snaha/kalkul-maths'
 
+import { emptyPlanData, snapshotFinancialData } from './plan-base'
 import type { PlanEndType, PlanStartType, Portfolio, Profile } from './schemas'
 import { parseDateOnly } from './utils'
 
@@ -9,17 +10,7 @@ export const DEFAULT_INFLATION_RATE = 0.02
 const DEFAULT_END_AGE = 85
 
 type PlanDates = Pick<Portfolio, 'start_date' | 'end_date' | 'inflation_rate'>
-type PlanInclusions = Required<
-  Pick<
-    Portfolio,
-    | 'included_investment_ids'
-    | 'included_tangible_asset_ids'
-    | 'included_liability_ids'
-    | 'included_income_ids'
-    | 'included_expense_ids'
-    | 'included_transfer_ids'
-  >
->
+type PlanFields = Pick<Portfolio, 'name' | 'notes'> & PlanDates
 
 /**
  * Timeline defaults for a plan created from the Add projection dialog, which
@@ -74,24 +65,19 @@ export function toInflationPercent(rate: number): number {
 }
 
 /**
- * Turn the "Start from your current finances" switch into the plan's
- * `included_*` lists: everything the profile holds, or nothing at all. Cash is
- * not a list item: every plan opens at the profile's cash amount.
+ * A new plan: a copy of current financial data, or nothing at all when the
+ * user does not start from their current finances. Either way the plan keeps
+ * the financial data of the moment as its base.
  */
-export function buildPlanInclusions(
+export function createPlan(
   profile: Profile,
-  startFromCurrentFinances: boolean,
-): PlanInclusions {
-  const ids = (items: { id: string }[] | undefined) =>
-    startFromCurrentFinances ? (items ?? []).map((i) => i.id) : []
-
+  fields: PlanFields,
+  startFromCurrentFinances = true,
+): Omit<Portfolio, 'id'> {
   return {
-    included_investment_ids: ids(profile.investments ?? []),
-    included_tangible_asset_ids: ids(profile.tangible_assets ?? []),
-    included_liability_ids: ids(profile.liabilities ?? []),
-    included_income_ids: ids(profile.incomes ?? []),
-    included_expense_ids: ids(profile.expenses ?? []),
-    included_transfer_ids: ids(profile.transfers ?? []),
+    ...fields,
+    ...(startFromCurrentFinances ? snapshotFinancialData(profile) : emptyPlanData()),
+    base: snapshotFinancialData(profile),
   }
 }
 

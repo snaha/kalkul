@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  buildPlanInclusions,
+  createPlan,
   getDefaultPlanDates,
   getDefaultPlanName,
   getPlanSpan,
@@ -113,7 +113,7 @@ describe('getDefaultPlanName', () => {
   })
 })
 
-describe('buildPlanInclusions', () => {
+describe('createPlan', () => {
   const profile: Profile = {
     ...emptyProfile,
     investments: [{ id: 'inv-1', name: 'ETF', balance: 10_000, apy: 5 }],
@@ -165,36 +165,45 @@ describe('buildPlanInclusions', () => {
     ],
   }
 
-  it('includes every profile item when starting from current finances', () => {
-    expect(buildPlanInclusions(profile, true)).toEqual({
-      included_investment_ids: ['inv-1'],
-      included_tangible_asset_ids: ['ta-1'],
-      included_liability_ids: ['li-1'],
-      included_income_ids: ['in-1'],
-      included_expense_ids: ['ex-1'],
-      included_transfer_ids: ['tr-1'],
-    })
+  const fields = {
+    name: 'Plan',
+    notes: undefined,
+    start_date: '2026-01-01',
+    end_date: '2060-01-01',
+    inflation_rate: 0.02,
+  }
+
+  it('copies every profile item and the cash when starting from current finances', () => {
+    const plan = createPlan({ ...profile, cash_amount: 300 }, fields, true)
+    expect(plan).toMatchObject({ ...fields, cash_amount: 300 })
+    expect(plan.investments).toEqual(profile.investments)
+    expect(plan.tangible_assets).toEqual(profile.tangible_assets)
+    expect(plan.liabilities).toEqual(profile.liabilities)
+    expect(plan.incomes).toEqual(profile.incomes)
+    expect(plan.expenses).toEqual(profile.expenses)
+    expect(plan.transfers).toEqual(profile.transfers)
   })
 
-  it('includes nothing when not starting from current finances', () => {
-    expect(buildPlanInclusions(profile, false)).toEqual({
-      included_investment_ids: [],
-      included_tangible_asset_ids: [],
-      included_liability_ids: [],
-      included_income_ids: [],
-      included_expense_ids: [],
-      included_transfer_ids: [],
-    })
+  it('starts empty otherwise, but still remembers the financial data of the moment as its base', () => {
+    const plan = createPlan({ ...profile, cash_amount: 300 }, fields, false)
+    expect(plan.cash_amount).toBe(0)
+    expect(plan.investments).toEqual([])
+    expect(plan.transfers).toEqual([])
+    expect(plan.base.cash_amount).toBe(300)
+    expect(plan.base.investments).toEqual(profile.investments)
   })
 
   it('handles a profile with no lists at all', () => {
-    expect(buildPlanInclusions(emptyProfile, true)).toEqual({
-      included_investment_ids: [],
-      included_tangible_asset_ids: [],
-      included_liability_ids: [],
-      included_income_ids: [],
-      included_expense_ids: [],
-      included_transfer_ids: [],
+    const plan = createPlan(emptyProfile, fields)
+    expect(plan.investments).toEqual([])
+    expect(plan.base).toEqual({
+      cash_amount: 0,
+      investments: [],
+      tangible_assets: [],
+      liabilities: [],
+      incomes: [],
+      expenses: [],
+      transfers: [],
     })
   })
 })

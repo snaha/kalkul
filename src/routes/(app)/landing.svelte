@@ -46,7 +46,7 @@
   // years: the comparison reads net worth at 65 off it.
   const currentYears = $derived(
     getYearlyPlanProjection(
-      buildCurrentProjectionPlan(today, getDefaultPlanDates(profile, today).end_date),
+      buildCurrentProjectionPlan(profile, today, getDefaultPlanDates(profile, today).end_date),
       profile,
     ),
   )

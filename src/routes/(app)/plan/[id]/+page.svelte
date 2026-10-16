@@ -10,6 +10,7 @@
   import Rows2 from '@lucide/svelte/icons/rows-2'
   import Search from '@lucide/svelte/icons/search'
   import Settings2 from '@lucide/svelte/icons/settings-2'
+  import TriangleAlert from '@lucide/svelte/icons/triangle-alert'
 
   import { resolve } from '$app/paths'
   import { page } from '$app/state'
@@ -34,12 +35,13 @@
   import { Slider } from '$lib/components/ui/slider'
   import { CURRENT_PROJECTION_ID, buildCurrentProjectionPlan } from '$lib/current-projection'
   import { getCurrentProfile } from '$lib/current-values'
-  import { type PlanListKey, planItems } from '$lib/plan-items'
+  import { isPlanOutdated } from '$lib/plan-base'
   import { getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
   import routes from '$lib/routes'
   import type {
     Expense,
     Income,
+    PlanListKey,
     Portfolio,
     Profile,
     ProfileLiability,
@@ -75,8 +77,16 @@
     readOnly ? getCurrentProfile(appStore.profile.toJSON(), clock.today) : appStore.profile,
   )
   const plan = $derived<Portfolio | undefined>(
-    readOnly ? (appStore.loading ? undefined : buildCurrentProjectionPlan(clock.today)) : savedPlan,
+    readOnly
+      ? appStore.loading
+        ? undefined
+        : buildCurrentProjectionPlan(profile, clock.today)
+      : savedPlan,
   )
+  // A saved plan is a copy of the financial data of its creation. Once that
+  // data moves on, the plan no longer starts from what the user has today;
+  // bringing it up to date is a planned feature, so for now the page says so.
+  const outdated = $derived(!readOnly && plan !== undefined && isPlanOutdated(plan, profile))
   // Nothing on the Current projection can be edited: every "add" opens the
   // Model changes dialog, which starts a plan to make the change in.
   let modelChangesOpen = $state(false)
@@ -213,11 +223,10 @@
     if (selectedYear > endYear) selectedYear = endYear
   })
 
-  // What this plan sees: financial data with the plan's overrides and own
-  // items, less what its include lists leave out, the same as the engine.
-  // Nothing until the plan has resolved.
-  function listOf<K extends PlanListKey>(key: K) {
-    return plan ? planItems(profile, plan, key) : []
+  // The plan's own items, the same the engine sees. Nothing until the plan
+  // has resolved.
+  function listOf<K extends PlanListKey>(key: K): Portfolio[K] {
+    return plan ? plan[key] : []
   }
   const planTransfers = $derived(listOf('transfers'))
   const transfersCount = $derived(planTransfers.length)
@@ -235,8 +244,8 @@
   }
   const incomesCount = $derived(listOf('incomes').length)
   const expensesCount = $derived(listOf('expenses').length)
-  // Cash always exists (#331): the plan's own opening balance, else current cash.
-  const openingCash = $derived(plan?.cash_amount ?? profile.cash_amount ?? 0)
+  // Cash always exists (#331): the plan opens at its own balance.
+  const openingCash = $derived(plan?.cash_amount ?? 0)
   const investmentsCount = $derived(listOf('investments').length)
   const tangibleAssetsCount = $derived(listOf('tangible_assets').length)
   const liabilitiesCount = $derived(listOf('liabilities').length)
@@ -711,6 +720,15 @@
           </Button>
         {/if}
       </div>
+
+      {#if outdated}
+        <div
+          class="flex items-center gap-2 border-b bg-muted px-4 py-2 text-sm text-muted-foreground"
+        >
+          <TriangleAlert class="size-4 shrink-0" />
+          {$_('page.plan.outdated')}
+        </div>
+      {/if}
 
       <!-- Chart -->
       <div

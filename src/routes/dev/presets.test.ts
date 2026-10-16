@@ -227,15 +227,9 @@ describe('dev presets', () => {
   })
 
   test('at least one plan includes transfers, so thumbnails exercise that path', () => {
-    // Transfers live on the profile; a plan opts in by id. Both halves have to
-    // be present for the projection to move anything between assets.
-    const included = presets.flatMap((preset) =>
-      preset.data.portfolios.flatMap((plan) =>
-        (plan.included_transfer_ids ?? []).filter((id) =>
-          (preset.data.profile.transfers ?? []).some((transfer) => transfer.id === id),
-        ),
-      ),
+    const transfers = presets.flatMap((preset) =>
+      preset.data.portfolios.flatMap((plan) => plan.transfers),
     )
-    expect(included.length).toBeGreaterThan(0)
+    expect(transfers.length).toBeGreaterThan(0)
   })
 })

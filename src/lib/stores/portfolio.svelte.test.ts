@@ -23,12 +23,6 @@ const fixture: Portfolio = {
   start_date: '2024-01-01',
   end_date: '2054-01-01',
   inflation_rate: 0.03,
-  included_investment_ids: ['inv-1'],
-  included_tangible_asset_ids: ['asset-1'],
-  included_liability_ids: ['liab-1'],
-  included_income_ids: ['income-1'],
-  included_expense_ids: ['expense-1'],
-  included_transfer_ids: ['transfer-1'],
   cash_amount: 500,
   investments: [{ id: 'inv-2', name: 'ETF', balance: 1, apy: 1 }],
   tangible_assets: [{ id: 'asset-2', name: 'Flat', value: 1, status: 'fully_owned' }],
@@ -55,6 +49,15 @@ const fixture: Portfolio = {
       schedule: 'recurring',
     },
   ],
+  base: {
+    cash_amount: 400,
+    investments: [{ id: 'inv-1', name: 'ETF', balance: 1, apy: 1 }],
+    tangible_assets: [],
+    liabilities: [],
+    incomes: [],
+    expenses: [],
+    transfers: [],
+  },
 }
 
 function flow(id: string): Income {

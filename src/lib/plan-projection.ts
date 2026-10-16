@@ -1,7 +1,6 @@
 import Decimal from 'decimal.js'
 
 import { DECIMAL_0, DECIMAL_1 } from '$lib/@snaha/kalkul-maths'
-import { type PlanListKey, planItems } from '$lib/plan-items'
 import type {
   CashFlowEnd,
   CashFlowSchedule,
@@ -1117,9 +1116,6 @@ export function applyEntryFee(investment: ProfileInvestment | undefined, amount:
 }
 
 export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): YearlyProjection[] {
-  // Financial data with this plan's overrides and own items, less what its
-  // include lists leave out; another plan's never take part.
-  const visible = <K extends PlanListKey>(key: K) => planItems(profile, plan, key)
   const startYear = yearOf(plan.start_date)
   const endYear = yearOf(plan.end_date)
 
@@ -1127,11 +1123,13 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
 
   const birthYear = profile.birth_date ? yearOf(profile.birth_date) : undefined
 
-  const investments: ProfileInvestment[] = visible('investments')
-  const liabilities: ProfileLiability[] = visible('liabilities')
-  const tangibleAssets = visible('tangible_assets')
-  const incomes: Income[] = visible('incomes')
-  const expenses: Expense[] = visible('expenses')
+  // A plan holds its own copy of everything it projects; financial data is
+  // only consulted for what a plan does not copy (birth date, tax rules).
+  const investments: ProfileInvestment[] = plan.investments
+  const liabilities: ProfileLiability[] = plan.liabilities
+  const tangibleAssets = plan.tangible_assets
+  const incomes: Income[] = plan.incomes
+  const expenses: Expense[] = plan.expenses
 
   // One map for both kinds: investments and tangible assets share the planned
   // buy/sell machinery, so the transfer loop guards them with the same check.
@@ -1165,13 +1163,12 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     }),
   )
   // The year each loan the plan takes on pays its principal into cash (#322):
-  // that is new money, whereas a financial-data liability is debt the user
-  // already carries, so that money is already in today's balances. The plan's
-  // override of such a liability is the same debt, so it is not credited
-  // either. A start before the plan pays in at plan start. A planned pay-off
-  // before that start means the schedule above never goes live, so nothing is
-  // borrowed either.
-  const currentDebtIds = new Set((profile.liabilities ?? []).map((l) => l.id))
+  // that is new money, whereas a liability the plan was created with is debt
+  // the user already carries, so that money is already in today's balances,
+  // however the plan has edited it since. A start before the plan pays in at
+  // plan start. A planned pay-off before that start means the schedule above
+  // never goes live, so nothing is borrowed either.
+  const currentDebtIds = new Set(plan.base.liabilities.map((l) => l.id))
   const borrowedByYear = new Map<number, Decimal>()
   for (const l of liabilities) {
     if (currentDebtIds.has(l.id)) continue
@@ -1271,7 +1268,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     ...tangibleAssets.map((a) => a.id),
   ])
   // Planned buys/sells belong to their investment, not to the plan's
-  // transfer list, so they bypass the included_transfer_ids whitelist. Buys
+  // transfer list, so they are never filtered by endpoint. Buys
   // run before the user's transfers so a same-year contribution lands in a
   // live investment, and sells run last so that contribution is swept out
   // with the rest rather than stranded in a liquidated asset.
@@ -1285,7 +1282,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   ]
   const planTransfers = [
     ...timingTransfers.map((t) => t.start).filter((t): t is Transfer => t !== undefined),
-    ...visible('transfers').filter(
+    ...plan.transfers.filter(
       (t) => knownAssetIds.has(t.from_asset_id) && knownAssetIds.has(t.to_asset_id),
     ),
     ...timingTransfers.map((t) => t.exit).filter((t): t is Transfer => t !== undefined),

@@ -6,6 +6,7 @@ import tereza from '$examples/tereza-svobodova-cz-20yo.kalkul.json'
 import Decimal from 'decimal.js'
 
 import { getCurrentProfile } from '$lib/current-values'
+import { createPlan } from '$lib/plan-defaults'
 import {
   INSTALLMENT_PERIODS_PER_YEAR,
   financingToLiability,
@@ -273,8 +274,10 @@ function withHistory(
   }
 }
 
+/** A plan created from `profile` today, like the Add projection dialog makes one. */
 function plan(
   today: Date,
+  profile: Profile,
   id: string,
   name: string,
   notes: string,
@@ -282,12 +285,14 @@ function plan(
   inflationRate = 0.02,
 ): Portfolio {
   return {
+    ...createPlan(profile, {
+      name,
+      notes,
+      start_date: toDateOnlyString(new Date(today.getFullYear(), today.getMonth(), 1)),
+      end_date: toDateOnlyString(new Date(today.getFullYear() + endYearsOut, 0, 1)),
+      inflation_rate: inflationRate,
+    }),
     id,
-    name,
-    notes,
-    start_date: toDateOnlyString(new Date(today.getFullYear(), today.getMonth(), 1)),
-    end_date: toDateOnlyString(new Date(today.getFullYear() + endYearsOut, 0, 1)),
-    inflation_rate: inflationRate,
   }
 }
 
@@ -416,7 +421,14 @@ export function getDevPresets(today: Date): DevPreset[] {
         // dashboard still needs a fixture of its own.
         profile: withHistory(martinData.profile, today, 15),
         portfolios: [
-          plan(today, 'plan-1', 'Pay the house off early', 'Overpay the mortgage from year 3.', 35),
+          plan(
+            today,
+            martinData.profile,
+            'plan-1',
+            'Pay the house off early',
+            'Overpay the mortgage from year 3.',
+            35,
+          ),
         ],
       },
     },
@@ -455,8 +467,23 @@ export function getDevPresets(today: Date): DevPreset[] {
         profile: withHistory(pavelData.profile, today, 20, { latestMonthsAgo: 2 }),
         portfolios: [
           ...pavelData.portfolios,
-          plan(today, 'plan-early', 'Retire at 60', 'Five years earlier, same spending.', 40),
-          plan(today, 'plan-inflation', 'High inflation', 'Same plan at 6% inflation.', 40, 0.06),
+          plan(
+            today,
+            pavelData.profile,
+            'plan-early',
+            'Retire at 60',
+            'Five years earlier, same spending.',
+            40,
+          ),
+          plan(
+            today,
+            pavelData.profile,
+            'plan-inflation',
+            'High inflation',
+            'Same plan at 6% inflation.',
+            40,
+            0.06,
+          ),
         ],
       },
     },

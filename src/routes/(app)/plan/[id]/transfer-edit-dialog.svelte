@@ -13,7 +13,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
   import * as Tooltip from '$lib/components/ui/tooltip'
-  import { PLAN_LISTS, planItems, removePlanItem, upsertPlanItem } from '$lib/plan-items'
+  import { removePlanItem, upsertPlanItem } from '$lib/plan-items'
   import { summarizeTransfer } from '$lib/plan-projection'
   import { planRangeOf, planYearOptions, yearWithinPlan } from '$lib/plan-range'
   import { sameYearMonthsInverted, timingComplete } from '$lib/schemas'
@@ -51,20 +51,19 @@
   // Transfers can only move between cash and investments. Tangible assets and
   // liabilities are intentionally excluded — selling/buying a house is more
   // naturally modelled as a one-off expense/income.
-  // planItems applies the plan's include list, so the dropdowns and the
-  // projection see the same assets.
+  // The plan's own investments, the same the projection sees.
   const assetOptions = $derived<{ id: string; name: string }[]>([
     // Cash is always an endpoint: every plan has a cash balance (#331), and
     // a transfer into an empty one is how it gets funded.
     { id: 'cash', name: $_('page.plan.cashItem') },
-    ...planItems(appStore.profile, plan, 'investments').map((inv) => ({
+    ...plan.investments.map((inv) => ({
       id: inv.id,
       name: inv.name,
     })),
   ])
 
   function blankForm(): TransferFields {
-    const counter = planItems(appStore.profile, plan, 'transfers').length + 1
+    const counter = plan.transfers.length + 1
     return blankTransferFields(
       crypto.randomUUID(),
       $_('page.plan.defaultTransferName', { values: { index: counter } }),
@@ -121,15 +120,13 @@
   }
 
   function save() {
-    upsertPlanItem(PLAN_LISTS.transfer, transferFromFields(form), plan)
+    upsertPlanItem('transfers', transferFromFields(form), plan)
     close()
   }
 
   function remove() {
     if (!window.confirm($_('page.plan.deleteTransferConfirm'))) return
-    // Like the other dialogs, the id may linger in the plan's include list;
-    // planItems ignores ids with no item behind them.
-    removePlanItem(PLAN_LISTS.transfer, form.id, plan, appStore.profile)
+    removePlanItem('transfers', form.id, plan)
     close()
   }
 

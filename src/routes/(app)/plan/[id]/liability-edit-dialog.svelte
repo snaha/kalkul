@@ -12,7 +12,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
   import { Switch } from '$lib/components/ui/switch'
-  import { PLAN_LISTS, planItems, removePlanItem, upsertPlanItem } from '$lib/plan-items'
+  import { removePlanItem, upsertPlanItem } from '$lib/plan-items'
   import { installmentAmountForLoan, termYearsForLoan } from '$lib/plan-projection'
   import { planRangeOf, planYearOptions, timingWithinPlan } from '$lib/plan-range'
   import type {
@@ -72,7 +72,7 @@
   }
 
   function blankForm(): FormState {
-    const counter = planItems(appStore.profile, plan, 'liabilities').length + 1
+    const counter = plan.liabilities.length + 1
     return {
       id: crypto.randomUUID(),
       name: $_('page.setup.liabilities.defaultName', { values: { index: counter } }),
@@ -171,7 +171,7 @@
 
   const isNew = $derived(initial === undefined)
 
-  const listConfig = PLAN_LISTS.liability
+  const listKey = 'liabilities'
 
   let frequencyItems = $derived(getFrequencyItems($_))
   let interestTypeItems = $derived(getInterestTypeItems($_))
@@ -255,13 +255,13 @@
   }
 
   function save(): void {
-    upsertPlanItem(listConfig, projectLiability(form), plan)
+    upsertPlanItem(listKey, projectLiability(form), plan)
     close()
   }
 
   function remove(): void {
     if (!window.confirm($_('page.plan.deleteLiabilityConfirm'))) return
-    removePlanItem(listConfig, form.id, plan, appStore.profile)
+    removePlanItem(listKey, form.id, plan)
     close()
   }
 </script>

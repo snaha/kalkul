@@ -18,7 +18,7 @@
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
-  import { PLAN_LISTS, planItems, removePlanItem, upsertPlanItem } from '$lib/plan-items'
+  import { removePlanItem, upsertPlanItem } from '$lib/plan-items'
   import { summarizeCashFlow } from '$lib/plan-projection'
   import { planRangeOf, planYearOptions, yearWithinPlan } from '$lib/plan-range'
   import { sameYearMonthsInverted, timingComplete } from '$lib/schemas'
@@ -57,10 +57,7 @@
   const isNew = $derived(initial === undefined)
 
   function blankForm(): CashFlowFields {
-    const counter =
-      kind === 'income'
-        ? planItems(appStore.profile, plan, 'incomes').length + 1
-        : planItems(appStore.profile, plan, 'expenses').length + 1
+    const counter = kind === 'income' ? plan.incomes.length + 1 : plan.expenses.length + 1
     const name =
       kind === 'income'
         ? $_('page.setup.income.defaultName', { values: { index: counter } })
@@ -86,7 +83,7 @@
     wasOpen = open
   })
 
-  const listConfig = $derived(PLAN_LISTS[kind])
+  const listKey = $derived(kind === 'income' ? 'incomes' : 'expenses')
 
   // Same-year ranges can't end before they start: an end month that a later
   // start/year change turned invalid is cleared so the user picks again (Save
@@ -127,7 +124,7 @@
   }
 
   function save() {
-    upsertPlanItem(listConfig, cashFlowFromFields(form), plan)
+    upsertPlanItem(listKey, cashFlowFromFields(form), plan)
     close()
   }
 
@@ -135,7 +132,7 @@
     const confirmMessage =
       kind === 'income' ? $_('page.plan.deleteIncomeConfirm') : $_('page.plan.deleteExpenseConfirm')
     if (!window.confirm(confirmMessage)) return
-    removePlanItem(listConfig, form.id, plan, appStore.profile)
+    removePlanItem(listKey, form.id, plan)
     close()
   }
 

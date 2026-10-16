@@ -3,6 +3,7 @@ import { init } from 'svelte-i18n'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { track } from '$lib/analytics'
+import { createPlan } from '$lib/plan-defaults'
 import { getYearlyPlanProjection } from '$lib/plan-projection'
 import type { Portfolio, Profile, StoredData } from '$lib/schemas'
 import { buildSnapshotSections, seedSnapshotOn, snapshotFromFields } from '$lib/snapshot-form'
@@ -507,13 +508,19 @@ describe('appStore.addPortfolio analytics', () => {
     vi.unstubAllGlobals()
   })
 
-  const plan = { name: 'Plan', start_date: '2026-01-01', end_date: '2060-01-01', inflation_rate: 2 }
+  const plan = () =>
+    createPlan(appStore.profile, {
+      name: 'Plan',
+      start_date: '2026-01-01',
+      end_date: '2060-01-01',
+      inflation_rate: 2,
+    })
 
   it('reports the first plan separately from later ones', () => {
-    appStore.addPortfolio(plan)
+    appStore.addPortfolio(plan())
     expect(vi.mocked(track).mock.calls).toEqual([['plan-created'], ['first-plan-created']])
 
-    appStore.addPortfolio(plan)
+    appStore.addPortfolio(plan())
     expect(vi.mocked(track).mock.calls.slice(2)).toEqual([['plan-created']])
   })
 })
@@ -1008,8 +1015,12 @@ describe('appStore saving a snapshot dated past a planned sale', () => {
       },
     ],
   }
-  const PLAN: Portfolio = {
+  // A plan created from the profile as it stands when the test asks for it.
+  const planNow = (): Portfolio => ({
+    ...createPlan(appStore.profile.toJSON(), PLAN),
     id: 'plan-1',
+  })
+  const PLAN = {
     name: 'Plan',
     start_date: TODAY,
     end_date: '2036-06-15',
@@ -1051,7 +1062,7 @@ describe('appStore saving a snapshot dated past a planned sale', () => {
     addUntouched(TODAY)
     expect(appStore.profile.cash_amount).toBe(15_000)
     expect(etf()?.balance).toBe(0)
-    expect(getYearlyPlanProjection(PLAN, appStore.profile.toJSON())[0].netWorth).toBe(15_000)
+    expect(getYearlyPlanProjection(planNow(), appStore.profile.toJSON())[0].netWorth).toBe(15_000)
   })
 
   it('puts the position back when that snapshot is deleted again', () => {

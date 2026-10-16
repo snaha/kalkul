@@ -270,42 +270,63 @@ export function repairStoredData(data: unknown): unknown {
       })
     if (Array.isArray(profile.snapshots))
       for (const snapshot of profile.snapshots) repairSnapshot(snapshot, profile)
-    movePlanOwnedItems(profile, data.portfolios)
+    materializePlans(profile, data.portfolios)
   }
   return data
 }
 
-/**
- * Items a plan owned used to sit in the profile's lists with a `plan_id`; they
- * now live on the plan. Each one moves onto its plan's list, or is dropped with
- * its plan gone, so none of them turns into financial data. Transitional, see
- * AGENTS.md.
- */
-function movePlanOwnedItems(profile: Record<string, unknown>, portfolios: unknown): void {
-  const plans = Array.isArray(portfolios) ? portfolios.filter(isRecord) : []
-  for (const key of PLAN_LIST_KEYS) {
-    const items = profile[key]
-    if (!Array.isArray(items)) continue
-    profile[key] = items.filter((item) => {
-      if (!isRecord(item) || item.plan_id === undefined) return true
-      const { plan_id, ...rest } = item
-      const plan = plans.find((p) => p.id === plan_id)
-      if (plan === undefined) return false
-      const list = Array.isArray(plan[key]) ? plan[key] : []
-      plan[key] = [...list, rest]
-      return false
-    })
-  }
+const INCLUDED_IDS: Record<PlanListKey, string> = {
+  investments: 'included_investment_ids',
+  tangible_assets: 'included_tangible_asset_ids',
+  liabilities: 'included_liability_ids',
+  incomes: 'included_income_ids',
+  expenses: 'included_expense_ids',
+  transfers: 'included_transfer_ids',
 }
 
-const PLAN_LIST_KEYS = [
-  'investments',
-  'tangible_assets',
-  'liabilities',
-  'incomes',
-  'expenses',
-  'transfers',
-] as const
+/**
+ * A plan used to pick financial-data items by id (`included_*_ids`, unset =
+ * all) and keep its own in the profile's lists under its `plan_id`; it now
+ * holds a copy of everything it projects. A plan without a `base` gets the
+ * items it included plus its own, its opening cash, and the financial data of
+ * the moment as its base. Items of a deleted plan are dropped, so none of them
+ * turns into financial data. Transitional, see AGENTS.md.
+ */
+function materializePlans(profile: Record<string, unknown>, portfolios: unknown): void {
+  const plans = Array.isArray(portfolios) ? portfolios.filter(isRecord) : []
+  const cash = typeof profile.cash_amount === 'number' ? profile.cash_amount : 0
+  const items = Object.fromEntries(
+    PLAN_LIST_KEYS.map((key) => [
+      key,
+      Array.isArray(profile[key]) ? profile[key].filter(isRecord) : [],
+    ]),
+  ) as Record<PlanListKey, Record<string, unknown>[]>
+  const shared = Object.fromEntries(
+    PLAN_LIST_KEYS.map((key) => [key, items[key].filter((it) => it.plan_id === undefined)]),
+  )
+  for (const plan of plans) {
+    if (isRecord(plan.base)) continue
+    for (const key of PLAN_LIST_KEYS) {
+      const included = plan[INCLUDED_IDS[key]]
+      const ids = Array.isArray(included) ? new Set(included) : undefined
+      const copied = items[key]
+        .filter(
+          (it) =>
+            it.plan_id === plan.id ||
+            (it.plan_id === undefined && (ids === undefined || ids.has(it.id))),
+        )
+        .map(({ plan_id: _, ...rest }) => rest)
+      // Items the plan already held (from the interim shape where a plan
+      // listed only its own items) stay, after the copies.
+      const own = Array.isArray(plan[key]) ? plan[key].filter(isRecord) : []
+      plan[key] = [...copied, ...own.filter((o) => !copied.some((c) => c.id === o.id))]
+      delete plan[INCLUDED_IDS[key]]
+    }
+    if (typeof plan.cash_amount !== 'number') plan.cash_amount = cash
+    plan.base = { cash_amount: cash, ...shared }
+  }
+  for (const key of PLAN_LIST_KEYS) if (profile[key] !== undefined) profile[key] = shared[key]
+}
 
 // A timing edge ('start' or 'end') is complete only once the mode-specific
 // field is filled — otherwise the projection would silently fall back to the
@@ -884,6 +905,29 @@ export const profileSchema = z.object({
   snapshots: z.array(snapshotSchema).overwrite(normalizeSnapshots).optional(),
 })
 
+// The financial data a plan holds: the cash it opens with and the items it
+// projects. Same shape for the plan's own data and for its `base`.
+const planDataShape = {
+  cash_amount: z.number(),
+  investments: z.array(profileInvestmentSchema),
+  tangible_assets: z.array(profileTangibleAssetSchema),
+  liabilities: z.array(profileLiabilitySchema),
+  incomes: z.array(incomeSchema),
+  expenses: z.array(expenseSchema),
+  transfers: z.array(transferSchema),
+}
+export const planDataSchema = z.object(planDataShape)
+
+export const PLAN_LIST_KEYS = [
+  'investments',
+  'tangible_assets',
+  'liabilities',
+  'incomes',
+  'expenses',
+  'transfers',
+] as const
+export type PlanListKey = (typeof PLAN_LIST_KEYS)[number]
+
 export const portfolioSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -891,26 +935,16 @@ export const portfolioSchema = z.object({
   start_date: z.string(),
   end_date: z.string(),
   inflation_rate: z.number(),
-  included_investment_ids: z.array(z.string()).optional(),
-  included_tangible_asset_ids: z.array(z.string()).optional(),
-  included_liability_ids: z.array(z.string()).optional(),
-  included_income_ids: z.array(z.string()).optional(),
-  included_expense_ids: z.array(z.string()).optional(),
-  included_transfer_ids: z.array(z.string()).optional(),
-  // The cash the plan opens with. Unset means the profile's current cash: a
-  // plan reads financial data and never changes it, so a different opening
-  // balance is a setting of the plan.
-  cash_amount: z.number().optional(),
-  // What the plan changes on top of financial data. An item whose id matches a
-  // financial-data item overrides it for this plan; any other id is an item the
-  // plan alone has. Financial data and other plans never see these
-  // (`src/lib/plan-items.ts`).
-  investments: z.array(profileInvestmentSchema).optional(),
-  tangible_assets: z.array(profileTangibleAssetSchema).optional(),
-  liabilities: z.array(profileLiabilitySchema).optional(),
-  incomes: z.array(incomeSchema).optional(),
-  expenses: z.array(expenseSchema).optional(),
-  transfers: z.array(transferSchema).optional(),
+  // A plan is a scenario built on a copy of financial data taken when the plan
+  // was created (empty lists when the user chose to start from nothing).
+  // Everything changed inside the plan lands here; financial data and other
+  // plans never see it (`src/lib/plan-items.ts`).
+  ...planDataShape,
+  // The financial data the plan was created from, untouched since. Compared
+  // with current financial data to tell the user the plan is outdated
+  // (`src/lib/plan-base.ts`), and the common ancestor for bringing a plan up
+  // to date, once that exists.
+  base: planDataSchema,
 })
 
 export const storedDataSchema = z.object({
@@ -934,6 +968,7 @@ export type Income = z.infer<typeof incomeSchema>
 export type Expense = z.infer<typeof expenseSchema>
 export type Profile = z.infer<typeof profileSchema>
 export type Portfolio = z.infer<typeof portfolioSchema>
+export type PlanData = z.infer<typeof planDataSchema>
 export type Transfer = z.infer<typeof transferSchema>
 export type TransferSchedule = z.infer<typeof cashFlowScheduleSchema>
 export type CashFlowSchedule = z.infer<typeof cashFlowScheduleSchema>

@@ -1,166 +1,33 @@
-import type { Portfolio, Profile } from '$lib/schemas'
+import type { PlanListKey, Portfolio } from '$lib/schemas'
 import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
 
 /**
- * What a plan changes on top of financial data, and the only way a plan dialog
- * or MCP tool may change it. Financial data (the profile's lists) is read here
- * and never written: every write below goes to `plan.update`.
- *
- * A plan's own list holds two kinds of item. One whose id matches a
- * financial-data item overrides it for this plan; any other id is an item the
- * plan alone has. Deleting either takes the item out of the plan; financial
- * data keeps its item.
+ * The only way a plan dialog or MCP tool changes a plan's items. A plan holds
+ * its own copy of everything it projects (`portfolioSchema`), so every write
+ * here goes to `plan.update`; financial data is never touched.
  */
 
-export type PlanListKey =
-  | 'investments'
-  | 'tangible_assets'
-  | 'liabilities'
-  | 'incomes'
-  | 'expenses'
-  | 'transfers'
+export type PlanListItem<K extends PlanListKey> = Portfolio[K][number]
 
-export type PlanListItem<K extends PlanListKey> = NonNullable<Profile[K]>[number]
-
-export interface PlanListConfig<K extends PlanListKey = PlanListKey> {
-  key: K
-  /** The plan's include list for this kind (undefined on the plan = all included). */
-  includedKey:
-    | 'included_investment_ids'
-    | 'included_tangible_asset_ids'
-    | 'included_liability_ids'
-    | 'included_income_ids'
-    | 'included_expense_ids'
-    | 'included_transfer_ids'
+function list<K extends PlanListKey>(plan: Portfolio, key: K): PlanListItem<K>[] {
+  return plan[key] as PlanListItem<K>[]
 }
 
-export const PLAN_LISTS = {
-  investment: { key: 'investments', includedKey: 'included_investment_ids' },
-  tangibleAsset: { key: 'tangible_assets', includedKey: 'included_tangible_asset_ids' },
-  liability: { key: 'liabilities', includedKey: 'included_liability_ids' },
-  income: { key: 'incomes', includedKey: 'included_income_ids' },
-  expense: { key: 'expenses', includedKey: 'included_expense_ids' },
-  transfer: { key: 'transfers', includedKey: 'included_transfer_ids' },
-} as const satisfies Record<string, PlanListConfig>
-
-export const PLAN_LIST_KEYS = Object.values(PLAN_LISTS).map((c) => c.key)
-
-/** The config for a list named by its field (`investments`, ...), as the MCP tools take it. */
-export function planListConfig(key: PlanListKey): PlanListConfig {
-  return Object.values(PLAN_LISTS).find((c) => c.key === key) as PlanListConfig
-}
-
-function list<K extends PlanListKey>(
-  owner: Profile | Portfolio | undefined,
-  key: K,
-): PlanListItem<K>[] {
-  return (owner?.[key] ?? []) as PlanListItem<K>[]
-}
-
-/**
- * What a plan sees: financial data with the plan's overrides in place, then the
- * items only the plan has, less whatever the plan's include list leaves out
- * (no list = all included). The sidebar, the dialogs, the MCP tools and the
- * engine all read through here, so they cannot disagree. Another plan's items
- * never take part because they live on that plan.
- */
-export function planItems<K extends PlanListKey>(
-  profile: Profile,
-  plan: Portfolio | undefined,
-  key: K,
-): PlanListItem<K>[] {
-  const own = list(plan, key)
-  const shared = list(profile, key)
-  const sharedIds = new Set(shared.map((it) => it.id))
-  const all = [
-    ...shared.map((it) => own.find((o) => o.id === it.id) ?? it),
-    ...own.filter((o) => !sharedIds.has(o.id)),
-  ]
-  const included = plan?.[planListConfig(key).includedKey]
-  if (!included) return all
-  const set = new Set(included)
-  return all.filter((it) => set.has(it.id))
-}
-
-/** Ids of what the plan sees, the seed for an include list the plan has not got yet. */
-function visibleIds(config: PlanListConfig, plan: PortfolioStore, profile: Profile): string[] {
-  return planItems(profile, plan, config.key).map((it) => it.id)
-}
-
-function isShared(config: PlanListConfig, id: string, profile: Profile): boolean {
-  return list(profile, config.key).some((it) => it.id === id)
-}
-
-/**
- * Save an item edited or created inside a plan. It lands on the plan: a
- * financial-data item edited here becomes an override under the same id, so
- * transfers pointing at it keep working and financial data keeps the original.
- * The item joins the plan's include list when one exists, so what was just
- * saved is in the plan (an undefined include list means "all included").
- */
+/** Save an item edited or created inside a plan: replaced in place by id, else appended. */
 export function upsertPlanItem<K extends PlanListKey>(
-  config: PlanListConfig<K>,
+  key: K,
   item: PlanListItem<K>,
   plan: PortfolioStore,
 ): void {
-  const own = list(plan, config.key)
+  const own = list(plan, key)
   const idx = own.findIndex((it) => it.id === item.id)
   const next = idx === -1 ? [...own, item] : own.map((it, i) => (i === idx ? item : it))
   // Computed keys widen to an index signature, so the update is asserted back.
-  const update = { [config.key]: next } as Partial<Omit<Portfolio, 'id'>>
-  const included = plan[config.includedKey]
-  if (included !== undefined && !included.includes(item.id)) {
-    update[config.includedKey] = [...included, item.id]
-  }
-  plan.update(update)
+  plan.update({ [key]: next } as Partial<Omit<Portfolio, 'id'>>)
 }
 
-/**
- * Financial data lost some items. A plan's override of one has nothing left to
- * override and would silently turn into an item the plan alone has: a loan the
- * plan takes on, a sold investment that keeps projecting. It goes with its
- * original. Called from the profile write, the one place financial data changes.
- */
-export function dropOverridesOfRemoved(
-  before: Profile,
-  after: Profile,
-  plans: PortfolioStore[],
-): void {
-  for (const key of PLAN_LIST_KEYS) {
-    const kept = new Set(list(after, key).map((it) => it.id))
-    const gone = new Set(
-      list(before, key)
-        .filter((it) => !kept.has(it.id))
-        .map((it) => it.id),
-    )
-    if (gone.size === 0) continue
-    for (const plan of plans) {
-      const own = list(plan, key)
-      if (!own.some((it) => gone.has(it.id))) continue
-      plan.update({ [key]: own.filter((it) => !gone.has(it.id)) } as Partial<Omit<Portfolio, 'id'>>)
-    }
-  }
-}
-
-/**
- * The plan no longer has the item. A plan item (or override) is dropped from
- * the plan's list; a financial-data item is excluded from the plan. Financial
- * data itself is never touched.
- */
-export function removePlanItem(
-  config: PlanListConfig,
-  id: string,
-  plan: PortfolioStore,
-  profile: Profile,
-): void {
-  const own = list(plan, config.key)
-  const update: Partial<Omit<Portfolio, 'id'>> = {}
-  if (own.some((it) => it.id === id)) {
-    Object.assign(update, { [config.key]: own.filter((it) => it.id !== id) })
-  }
-  const shared = isShared(config, id, profile)
-  const included =
-    plan[config.includedKey] ?? (shared ? visibleIds(config, plan, profile) : undefined)
-  if (included !== undefined) update[config.includedKey] = included.filter((x) => x !== id)
-  plan.update(update)
+/** The plan no longer has the item. */
+export function removePlanItem(key: PlanListKey, id: string, plan: PortfolioStore): void {
+  const next = list(plan, key).filter((it) => it.id !== id)
+  plan.update({ [key]: next } as Partial<Omit<Portfolio, 'id'>>)
 }
