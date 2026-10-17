@@ -198,8 +198,9 @@ function repairZeroMonths(item: unknown): void {
  * stays as it is.
  *
  * Only the flows a snapshot records are filled in (`countedCashFlows` in
- * `snapshots.ts`, which this raw data cannot go through): none a plan owns, and
- * no one-time flow. A one-time flow has no frequency, so copying it would
+ * `snapshots.ts`, which this raw data cannot go through): no one-time flow,
+ * and only financial data, which is why this runs after `materializePlans` has
+ * moved a plan's own flows out of the profile. A one-time flow has no frequency, so copying it would
  * write an entry the very validation this repair runs ahead of rejects.
  *
  * A recorded debt's missing loan term is deliberately *not* filled in. The
@@ -216,7 +217,7 @@ function repairSnapshot(snapshot: unknown, profile: Record<string, unknown>): vo
     const flows = profile[key]
     snapshot[key] = (Array.isArray(flows) ? flows : [])
       .filter(isRecord)
-      .filter((flow) => flow.plan_id === undefined && flow.schedule !== 'one_time')
+      .filter((flow) => flow.schedule !== 'one_time')
       .map(({ id, amount, frequency }) => ({ id, amount, frequency }))
   }
 }
@@ -228,7 +229,7 @@ function repairSnapshot(snapshot: unknown, profile: Record<string, unknown>): vo
  * make `loadData()` fall back to the empty default profile and overwrite the
  * user's entire dataset on the next persist.
  *
- * Four repairs today. Data persisted before the same-year month-order rule
+ * Five repairs today. Data persisted before the same-year month-order rule
  * existed may hold a cash flow whose start month is after its end month, which
  * `storedDataSchema` now rejects; the two months are swapped, so both
  * user-entered values survive and the flow spans the range the user visibly
@@ -236,8 +237,9 @@ function repairSnapshot(snapshot: unknown, profile: Record<string, unknown>): vo
  * `cashFlowTemporalRefinement` applies to: incomes, expenses and transfers. A
  * timing month stored as 0 by the old zero-based selector becomes January
  * (`repairZeroMonths`). A transfer stored with an empty endpoint, from before
- * the schema required both (#305), is dropped. And snapshots are filled in as
- * `repairSnapshot` describes.
+ * the schema required both (#305), is dropped. A plan without a `base` gets
+ * its copy of financial data (`materializePlans`). And snapshots are filled in
+ * as `repairSnapshot` describes.
  */
 export function repairStoredData(data: unknown): unknown {
   if (!isRecord(data)) return data
@@ -268,10 +270,70 @@ export function repairStoredData(data: unknown): unknown {
         )
         return false
       })
+    // Before the snapshots: a plan's own cash flows must leave the profile
+    // first, or `repairSnapshot` would record them as financial data.
+    materializePlans(profile, data.portfolios)
     if (Array.isArray(profile.snapshots))
       for (const snapshot of profile.snapshots) repairSnapshot(snapshot, profile)
   }
   return data
+}
+
+const INCLUDED_IDS: Record<PlanListKey, string> = {
+  investments: 'included_investment_ids',
+  tangible_assets: 'included_tangible_asset_ids',
+  liabilities: 'included_liability_ids',
+  incomes: 'included_income_ids',
+  expenses: 'included_expense_ids',
+  transfers: 'included_transfer_ids',
+}
+
+/**
+ * A plan used to pick financial-data items by id (`included_*_ids`, unset =
+ * all) and keep its own in the profile's lists under its `plan_id`; it now
+ * holds a copy of everything it projects. A plan without a `base` gets the
+ * items it included plus its own, its opening cash, and the financial data of
+ * the moment as its base. Items of a deleted plan are dropped, so none of them
+ * turns into financial data. Transitional, see AGENTS.md.
+ */
+function materializePlans(profile: Record<string, unknown>, portfolios: unknown): void {
+  const plans = Array.isArray(portfolios) ? portfolios.filter(isRecord) : []
+  const cash = typeof profile.cash_amount === 'number' ? profile.cash_amount : 0
+  const items = Object.fromEntries(
+    PLAN_LIST_KEYS.map((key) => [
+      key,
+      Array.isArray(profile[key]) ? profile[key].filter(isRecord) : [],
+    ]),
+  ) as Record<PlanListKey, Record<string, unknown>[]>
+  const shared = Object.fromEntries(
+    PLAN_LIST_KEYS.map((key) => [key, items[key].filter((it) => it.plan_id === undefined)]),
+  )
+  for (const plan of plans) {
+    if (isRecord(plan.base)) continue
+    for (const key of PLAN_LIST_KEYS) {
+      const included = plan[INCLUDED_IDS[key]]
+      const ids = Array.isArray(included) ? new Set(included) : undefined
+      const copied = items[key]
+        .filter(
+          (it) =>
+            it.plan_id === plan.id ||
+            (it.plan_id === undefined && (ids === undefined || ids.has(it.id))),
+        )
+        .map(({ plan_id: _, ...rest }) => rest)
+      // Items the plan already held (from the interim shape where a plan
+      // listed only its own items) win over the copies: one under a
+      // financial-data id is the plan's edit of that item.
+      const own = Array.isArray(plan[key]) ? plan[key].filter(isRecord) : []
+      plan[key] = [
+        ...copied.map((c) => own.find((o) => o.id === c.id) ?? c),
+        ...own.filter((o) => !copied.some((c) => c.id === o.id)),
+      ]
+      delete plan[INCLUDED_IDS[key]]
+    }
+    if (typeof plan.cash_amount !== 'number') plan.cash_amount = cash
+    plan.base = { cash_amount: cash, ...shared }
+  }
+  for (const key of PLAN_LIST_KEYS) if (profile[key] !== undefined) profile[key] = shared[key]
 }
 
 // A timing edge ('start' or 'end') is complete only once the mode-specific
@@ -288,11 +350,6 @@ export function timingComplete(
   if (mode === 'when_age_is') return age !== undefined
   return true
 }
-
-// Set when the item was created inside a plan: it belongs to that plan alone
-// and stays out of financial data and of other plans. Unset means the user
-// recorded it as current data, shared by every plan.
-const planOwnership = { plan_id: z.string().optional() }
 
 // Incomes and expenses share one shape; the two names are kept so call sites
 // read naturally.
@@ -325,7 +382,6 @@ const cashFlowSchema = z
     inflation_adjusted: z.boolean().optional(),
     change_over_time: changeOverTimeSchema.optional(),
     change_percentage: z.number().optional(),
-    ...planOwnership,
   })
   .superRefine((obj, ctx) => {
     if (obj.schedule === 'one_time') {
@@ -434,7 +490,6 @@ export const profileInvestmentSchema = z
     name: z.string(),
     balance: z.number(),
     apy: z.number(),
-    ...planOwnership,
     // Total expense ratio (annual %): drag on compounding APY.
     ter: z.number().optional(),
     // Entry fee charged when money is transferred INTO this investment. The
@@ -487,7 +542,6 @@ export const profileTangibleAssetSchema = z
     name: z.string(),
     value: z.number(),
     status: tangibleAssetStatusSchema,
-    ...planOwnership,
     outstanding_balance: z.number().optional(),
     installment_frequency: frequencySchema.optional(),
     annual_rate: z.number().optional(),
@@ -571,7 +625,6 @@ export const profileLiabilitySchema = z
     outstanding_balance: z.number(),
     installment_frequency: frequencySchema,
     annual_rate: z.number(),
-    ...planOwnership,
     installment_amount: z.number(),
     remaining_term: z.number(),
     remaining_term_unit: remainingTermUnitSchema.optional(),
@@ -749,7 +802,6 @@ export const transferSchema = z
     end_age: z.number().optional(),
     change_over_time: changeOverTimeSchema.optional(),
     change_percentage: z.number().optional(),
-    ...planOwnership,
   })
   .superRefine((obj, ctx) => {
     if (obj.from_asset_id === obj.to_asset_id) {
@@ -861,6 +913,29 @@ export const profileSchema = z.object({
   snapshots: z.array(snapshotSchema).overwrite(normalizeSnapshots).optional(),
 })
 
+// The financial data a plan holds: the cash it opens with and the items it
+// projects. Same shape for the plan's own data and for its `base`.
+const planDataShape = {
+  cash_amount: z.number(),
+  investments: z.array(profileInvestmentSchema),
+  tangible_assets: z.array(profileTangibleAssetSchema),
+  liabilities: z.array(profileLiabilitySchema),
+  incomes: z.array(incomeSchema),
+  expenses: z.array(expenseSchema),
+  transfers: z.array(transferSchema),
+}
+export const planDataSchema = z.object(planDataShape)
+
+export const PLAN_LIST_KEYS = [
+  'investments',
+  'tangible_assets',
+  'liabilities',
+  'incomes',
+  'expenses',
+  'transfers',
+] as const
+export type PlanListKey = (typeof PLAN_LIST_KEYS)[number]
+
 export const portfolioSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -868,12 +943,16 @@ export const portfolioSchema = z.object({
   start_date: z.string(),
   end_date: z.string(),
   inflation_rate: z.number(),
-  included_investment_ids: z.array(z.string()).optional(),
-  included_tangible_asset_ids: z.array(z.string()).optional(),
-  included_liability_ids: z.array(z.string()).optional(),
-  included_income_ids: z.array(z.string()).optional(),
-  included_expense_ids: z.array(z.string()).optional(),
-  included_transfer_ids: z.array(z.string()).optional(),
+  // A plan is a scenario built on a copy of financial data taken when the plan
+  // was created (empty lists when the user chose to start from nothing).
+  // Everything changed inside the plan lands here; financial data and other
+  // plans never see it (`src/lib/plan-items.ts`).
+  ...planDataShape,
+  // The financial data the plan was created from, untouched since. Compared
+  // with current financial data to tell the user the plan is outdated
+  // (`src/lib/plan-base.ts`), and the common ancestor for bringing a plan up
+  // to date, once that exists.
+  base: planDataSchema,
 })
 
 export const storedDataSchema = z.object({
@@ -897,6 +976,7 @@ export type Income = z.infer<typeof incomeSchema>
 export type Expense = z.infer<typeof expenseSchema>
 export type Profile = z.infer<typeof profileSchema>
 export type Portfolio = z.infer<typeof portfolioSchema>
+export type PlanData = z.infer<typeof planDataSchema>
 export type Transfer = z.infer<typeof transferSchema>
 export type TransferSchedule = z.infer<typeof cashFlowScheduleSchema>
 export type CashFlowSchedule = z.infer<typeof cashFlowScheduleSchema>

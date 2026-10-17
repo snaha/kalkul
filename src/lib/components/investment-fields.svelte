@@ -7,6 +7,7 @@
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
+  import { type PlanRange } from '$lib/plan-range'
   import type { CashFlowEnd, CashFlowStart, EntryFeeType, ExitFeeType } from '$lib/schemas'
   import { getEntryFeeTypeItems, getExitFeeTypeItems } from '$lib/select-options'
 
@@ -47,7 +48,9 @@
      */
     showTiming?: boolean
     currencyLabel: string
+    /** Year options when there is no plan; with `range` the plan's years are used. */
     years?: string[]
+    range?: PlanRange
     months?: { value: string; label: string }[]
     birthDateSet?: boolean
     formatNumber: (n: number) => string
@@ -61,6 +64,7 @@
     showTiming = false,
     currencyLabel,
     years = [],
+    range,
     months = [],
     birthDateSet = true,
     formatNumber,
@@ -81,6 +85,7 @@
     month={item.start_month}
     age={item.start_age}
     {years}
+    {range}
     {months}
     {birthDateSet}
     {formatNumber}
@@ -137,6 +142,7 @@
     month={item.exit_month}
     age={item.exit_age}
     {years}
+    {range}
     {months}
     {birthDateSet}
     {formatNumber}

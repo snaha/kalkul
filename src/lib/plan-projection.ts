@@ -1,7 +1,6 @@
 import Decimal from 'decimal.js'
 
 import { DECIMAL_0, DECIMAL_1 } from '$lib/@snaha/kalkul-maths'
-import { type PlanOwned, itemsForPlan } from '$lib/plan-owned'
 import type {
   CashFlowEnd,
   CashFlowSchedule,
@@ -1052,16 +1051,6 @@ function accumulateCashFlows<T extends ScheduledCashFlow & { id: string }>(
   return { total, activeIds }
 }
 
-export function filterById<T extends { id: string }>(
-  items: T[] | undefined,
-  includedIds: string[] | undefined,
-): T[] {
-  if (!items) return []
-  if (!includedIds) return items
-  const set = new Set(includedIds)
-  return items.filter((item) => set.has(item.id))
-}
-
 /**
  * Year of a date-only ISO string (`YYYY-MM-DD`), parsed directly from the
  * string. ISO date-only strings parse as UTC, so `new Date(...).getFullYear()`
@@ -1127,8 +1116,6 @@ export function applyEntryFee(investment: ProfileInvestment | undefined, amount:
 }
 
 export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): YearlyProjection[] {
-  // Shared profile items plus this plan's own; another plan's never take part.
-  const visible = <T extends PlanOwned>(items: T[] | undefined): T[] => itemsForPlan(items, plan.id)
   const startYear = yearOf(plan.start_date)
   const endYear = yearOf(plan.end_date)
 
@@ -1136,20 +1123,13 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
 
   const birthYear = profile.birth_date ? yearOf(profile.birth_date) : undefined
 
-  const investments: ProfileInvestment[] = filterById(
-    visible(profile.investments),
-    plan.included_investment_ids,
-  )
-  const liabilities: ProfileLiability[] = filterById(
-    visible(profile.liabilities),
-    plan.included_liability_ids,
-  )
-  const tangibleAssets = filterById(
-    visible(profile.tangible_assets),
-    plan.included_tangible_asset_ids,
-  )
-  const incomes: Income[] = filterById(visible(profile.incomes), plan.included_income_ids)
-  const expenses: Expense[] = filterById(visible(profile.expenses), plan.included_expense_ids)
+  // A plan holds its own copy of everything it projects; financial data is
+  // only consulted for what a plan does not copy (birth date, tax rules).
+  const investments: ProfileInvestment[] = plan.investments
+  const liabilities: ProfileLiability[] = plan.liabilities
+  const tangibleAssets = plan.tangible_assets
+  const incomes: Income[] = plan.incomes
+  const expenses: Expense[] = plan.expenses
 
   // One map for both kinds: investments and tangible assets share the planned
   // buy/sell machinery, so the transfer loop guards them with the same check.
@@ -1182,15 +1162,16 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       lastYear: liabilityPayOffYear(l),
     }),
   )
-  // The year each plan-owned loan's principal lands in cash (#322): a loan
-  // the plan takes on is new money, whereas a financial-data liability is
-  // debt the user already carries, so that money is already in today's
-  // balances. A start before the plan pays in at plan start. A planned
-  // pay-off before that start means the schedule above never goes live, so
-  // nothing is borrowed either.
+  // The year each loan the plan takes on pays its principal into cash (#322):
+  // that is new money, whereas a liability the plan was created with is debt
+  // the user already carries, so that money is already in today's balances,
+  // however the plan has edited it since. A start before the plan pays in at
+  // plan start. A planned pay-off before that start means the schedule above
+  // never goes live, so nothing is borrowed either.
+  const currentDebtIds = new Set(plan.base.liabilities.map((l) => l.id))
   const borrowedByYear = new Map<number, Decimal>()
   for (const l of liabilities) {
-    if (l.plan_id === undefined) continue
+    if (currentDebtIds.has(l.id)) continue
     const firstYear = Math.max(liabilityStartYear(l, birthYear) ?? startYear, startYear)
     const lastYear = liabilityPayOffYear(l)
     if (lastYear !== undefined && lastYear < firstYear) continue
@@ -1219,10 +1200,10 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   const abandonedAssetIds = new Set<string>()
 
   // Every plan has a cash balance and every flow runs through it (#331): it
-  // opens at the profile's cash amount, 0 when none is set, and income,
-  // transfers, expenses and installments all go through it with the
+  // opens at the plan's own cash (copied from the profile at creation), and
+  // income, transfers, expenses and installments all go through it with the
   // insufficient-funds check applied. There is no way to exclude cash.
-  const initialCashNominal = profile.cash_amount ?? 0
+  const initialCashNominal = plan.cash_amount
 
   let cashNominal = new Decimal(initialCashNominal)
   const inflationRate = new Decimal(plan.inflation_rate)
@@ -1280,16 +1261,13 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
 
   // Only honor transfers whose endpoints are part of this plan; anything else
   // is ignored (e.g. a transfer referencing an investment that was excluded).
-  // Also honor the plan's `included_transfer_ids` whitelist when set. Transfers
-  // live on the profile and are referenced by the plan by id, mirroring how
-  // incomes and expenses behave.
   const knownAssetIds = new Set<string>([
     CASH_ENDPOINT,
     ...investments.map((i) => i.id),
     ...tangibleAssets.map((a) => a.id),
   ])
-  // Planned buys/sells belong to their investment, not to the profile's
-  // transfer list, so they bypass the included_transfer_ids whitelist. Buys
+  // Planned buys/sells belong to their investment, not to the plan's
+  // transfer list, so they are never filtered by endpoint. Buys
   // run before the user's transfers so a same-year contribution lands in a
   // live investment, and sells run last so that contribution is swept out
   // with the rest rather than stranded in a liquidated asset.
@@ -1303,7 +1281,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   ]
   const planTransfers = [
     ...timingTransfers.map((t) => t.start).filter((t): t is Transfer => t !== undefined),
-    ...filterById(visible(profile.transfers), plan.included_transfer_ids).filter(
+    ...plan.transfers.filter(
       (t) => knownAssetIds.has(t.from_asset_id) && knownAssetIds.has(t.to_asset_id),
     ),
     ...timingTransfers.map((t) => t.exit).filter((t): t is Transfer => t !== undefined),

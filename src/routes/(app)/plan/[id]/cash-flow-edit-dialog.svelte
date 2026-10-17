@@ -8,6 +8,7 @@
     blankCashFlowFields,
     cashFlowFromFields,
     cashFlowToFields,
+    cashFlowWithinPlan,
     endMinMonth,
   } from '$lib/cash-flow-form'
   import ChangeOverTimeSelector from '$lib/components/change-over-time-selector.svelte'
@@ -15,27 +16,19 @@
   import InflationAdjustToggle from '$lib/components/inflation-adjust-toggle.svelte'
   import SelectField, { type SelectFieldItem } from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
-  import { Button } from '$lib/components/ui/button'
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
-  import { itemsForPlan } from '$lib/plan-owned'
+  import { removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
   import { summarizeCashFlow } from '$lib/plan-projection'
+  import { planRangeOf, planYearOptions, yearWithinPlan } from '$lib/plan-range'
   import { sameYearMonthsInverted, timingComplete } from '$lib/schemas'
   import type { CashFlowSchedule, Expense, Income } from '$lib/schemas'
   import { getFrequencyItems } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
-  import { getMonthOptions, getYearOptions, monthToOption, optionToMonth } from '$lib/utils'
+  import { getMonthOptions, monthToOption, optionToMonth } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
-  import {
-    PROFILE_LISTS,
-    duplicateProfileItem,
-    isIncludedInPlan,
-    removeProfileItem,
-    toggleIncludedInPlan,
-    upsertProfileItem,
-  } from './profile-lists'
 
   type CashFlow = Income | Expense
 
@@ -45,15 +38,13 @@
     kind: 'income' | 'expense'
     initial: CashFlow | undefined
     plan: PortfolioStore
-    /** Called with the copy's id after a duplicate, so the caller can open it. */
-    onDuplicated?: (id: string) => void
   }
 
   const uid = $props.id()
 
-  let { open = $bindable(), onOpenChange, kind, initial, plan, onDuplicated }: Props = $props()
+  let { open = $bindable(), onOpenChange, kind, initial, plan }: Props = $props()
 
-  const years = getYearOptions()
+  const range = $derived(planRangeOf(plan, appStore.profile.birthDate))
   let months = $derived(getMonthOptions($locale ?? undefined))
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
@@ -62,20 +53,16 @@
     { value: 'one_time', label: $_('page.plan.scheduleOneTime') },
     { value: 'recurring', label: $_('page.plan.scheduleRecurring') },
   ])
-  let yearItems = $derived(years.map((y) => ({ value: y, label: y })))
 
   const isNew = $derived(initial === undefined)
 
   function blankForm(): CashFlowFields {
-    const counter =
-      kind === 'income'
-        ? itemsForPlan(appStore.profile.incomes, plan.id).length + 1
-        : itemsForPlan(appStore.profile.expenses, plan.id).length + 1
+    const counter = kind === 'income' ? plan.incomes.length + 1 : plan.expenses.length + 1
     const name =
       kind === 'income'
         ? $_('page.setup.income.defaultName', { values: { index: counter } })
         : $_('page.setup.expenses.defaultName', { values: { index: counter } })
-    return blankCashFlowFields(crypto.randomUUID(), name)
+    return blankCashFlowFields(crypto.randomUUID(), name, range)
   }
 
   function seedForm(src: CashFlow | undefined): CashFlowFields {
@@ -83,6 +70,9 @@
   }
 
   let form = $state<CashFlowFields>(blankForm())
+  let yearItems = $derived(
+    planYearOptions(range, form.transaction_year).map((y) => ({ value: y, label: y })),
+  )
 
   // Re-seed form whenever the dialog opens, so reopening discards prior edits.
   let wasOpen = false
@@ -93,9 +83,7 @@
     wasOpen = open
   })
 
-  const listConfig = $derived(PROFILE_LISTS[kind])
-
-  const isIncluded = $derived(isNew ? true : isIncludedInPlan(listConfig, form.id, plan))
+  const listKey = $derived(kind === 'income' ? 'incomes' : 'expenses')
 
   // Same-year ranges can't end before they start: an end month that a later
   // start/year change turned invalid is cleared so the user picks again (Save
@@ -117,6 +105,7 @@
 
   const canSave = $derived(
     (form.amount ?? 0) > 0 &&
+      cashFlowWithinPlan(form, range) &&
       (form.schedule === 'one_time' ||
         (timingComplete(form.start, form.start_year, form.start_month, form.start_age) &&
           timingComplete(form.end, form.end_year, form.end_month, form.end_age) &&
@@ -135,27 +124,7 @@
   }
 
   function save() {
-    upsertProfileItem(listConfig, cashFlowFromFields(form), plan, initial)
-    close()
-  }
-
-  function duplicate() {
-    // Duplicating copies the SAVED item; edits sitting in the form would be
-    // silently lost, so ask before discarding them (issue #65).
-    const hasChanges = JSON.stringify(form) !== JSON.stringify(seedForm(initial))
-    if (hasChanges && !window.confirm($_('page.plan.duplicateUnsavedConfirm'))) return
-    const copyId = duplicateProfileItem(
-      listConfig,
-      form.id,
-      (name) => $_('page.setup.common.copySuffix', { values: { name } }),
-      plan,
-    )
-    close()
-    if (copyId !== undefined) onDuplicated?.(copyId)
-  }
-
-  function toggleExclude() {
-    toggleIncludedInPlan(listConfig, form.id, plan)
+    saveEditedPlanItem(listKey, cashFlowFromFields(form), initial, plan)
     close()
   }
 
@@ -163,7 +132,7 @@
     const confirmMessage =
       kind === 'income' ? $_('page.plan.deleteIncomeConfirm') : $_('page.plan.deleteExpenseConfirm')
     if (!window.confirm(confirmMessage)) return
-    removeProfileItem(listConfig, form.id)
+    removePlanItem(listKey, form.id, plan)
     close()
   }
 
@@ -182,39 +151,19 @@
   })
 </script>
 
-{#snippet cashFlowFooter()}
-  <!-- Figma 941-71859: Create + Cancel on the left in a muted footer. -->
-  <div class="flex flex-1 items-center gap-2">
-    <Button disabled={!canSave} onclick={save}>
-      {isNew ? $_('page.plan.createItem') : $_('page.plan.saveChanges')}
-    </Button>
-    <Button variant="outline" onclick={() => onOpenChange(false)}>
-      {$_('page.plan.cancel')}
-    </Button>
-  </div>
-{/snippet}
-
-<!-- Figma 941-71859 / 941-72501: the header carries the title and the close X
-     only — no rename/duplicate/include/delete toolbar. -->
 <ItemEditDialogShell
   bind:open
   {onOpenChange}
   name={form.name}
-  onNameChange={(v) => (form.name = v)}
   {isNew}
-  {isIncluded}
-  renamable={false}
-  toolbar={false}
   newTitle={isNew
     ? kind === 'income'
       ? $_('page.plan.newIncome')
       : $_('page.plan.newExpense')
     : undefined}
-  footer={cashFlowFooter}
+  saveDisabled={!canSave}
   footerClass="bg-muted"
   onSave={save}
-  onDuplicate={duplicate}
-  onToggleInclude={toggleExclude}
   onDelete={remove}
 >
   <!-- Label -->
@@ -251,6 +200,7 @@
           <SelectField
             id="{uid}-transactionYear"
             class="max-w-24"
+            placeholder={$_('page.setup.aboutYou.selectYear')}
             aria-label={$_('page.setup.aboutYou.selectYear')}
             value={form.transaction_year !== undefined ? String(form.transaction_year) : ''}
             items={yearItems}
@@ -259,6 +209,7 @@
             }}
           />
           <SelectField
+            placeholder={$_('page.setup.aboutYou.selectMonth')}
             aria-label={$_('page.setup.aboutYou.selectMonth')}
             value={form.transaction_month !== undefined
               ? monthToOption(form.transaction_month)
@@ -269,6 +220,13 @@
             }}
           />
         </div>
+        {#if !yearWithinPlan(range, form.transaction_year)}
+          <p class="text-xs text-destructive">
+            {$_('validation.outside_plan', {
+              values: { start: String(range.startYear), end: String(range.endYear) },
+            })}
+          </p>
+        {/if}
       </div>
     {:else}
       <div class="flex flex-1 flex-col gap-2">
@@ -314,7 +272,7 @@
       year={form.start_year}
       month={form.start_month}
       age={form.start_age}
-      {years}
+      {range}
       {months}
       birthDateSet={appStore.profile.birthDate !== undefined}
       description={kind === 'income'
@@ -333,7 +291,7 @@
       year={form.end_year}
       month={form.end_month}
       age={form.end_age}
-      {years}
+      {range}
       {months}
       minMonth={endMinMonth(form)}
       birthDateSet={appStore.profile.birthDate !== undefined}

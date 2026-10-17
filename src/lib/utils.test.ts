@@ -55,6 +55,15 @@ describe('formatCompactCurrency', () => {
     // the one Hungarian-locale bug it was written against.
     expect(formatCompactCurrency(150200, 'EUR', 'en')).toBe('€150.2K')
   })
+
+  it('drops the trailing .0 on round values', () => {
+    expect(formatCompactCurrency(0, 'USD', 'en-US')).toBe('$0')
+    expect(formatCompactCurrency(12, 'USD', 'en-US')).toBe('$12')
+    expect(formatCompactCurrency(1000, 'USD', 'en-US')).toBe('$1K')
+    expect(formatCompactCurrency(2000000, 'USD', 'en-US')).toBe('$2M')
+    expect(formatCompactCurrency(-1000, 'USD', 'en-US')).toBe('-$1K')
+    expect(formatCompactCurrency(2000, 'CZK', 'cs-CZ')).toBe('2 tis. Kč')
+  })
 })
 
 describe('cached formatters', () => {
@@ -88,7 +97,7 @@ describe('cached formatters', () => {
     expect(formatNumber(-0, 'en-US')).toBe('0')
     expect(formatCurrency(-0, 'USD', 'en-US')).toBe('$0')
     expect(formatCurrencyCode(-0, 'USD', 'en-US')).toBe('USD 0')
-    expect(formatCompactCurrency(-0, 'USD', 'en-US')).toBe('$0.0')
+    expect(formatCompactCurrency(-0, 'USD', 'en-US')).toBe('$0')
   })
 
   it('keeps the minus sign for real negative values', () => {

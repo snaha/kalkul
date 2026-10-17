@@ -45,8 +45,10 @@ describe('registerWebMcpTools', () => {
       'delete_portfolio',
       'get_data',
       'get_projection',
+      'remove_plan_item',
       'update_portfolio',
       'update_profile',
+      'upsert_plan_item',
     ])
     expect(ctx.tools.get('get_data')?.inputSchema).toEqual({ type: 'object', properties: {} })
     const del = ctx.tools.get('delete_portfolio')?.inputSchema

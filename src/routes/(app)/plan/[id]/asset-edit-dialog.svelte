@@ -9,7 +9,8 @@
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
-  import { itemsForPlan } from '$lib/plan-owned'
+  import { removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
+  import { planRangeOf, timingWithinPlan } from '$lib/plan-range'
   import type {
     CashFlowEnd,
     CashFlowStart,
@@ -24,19 +25,12 @@
     TangibleAssetStatus,
     ValueOverTime,
   } from '$lib/schemas'
+  import { timingComplete } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
-  import { getMonthOptions, getYearOptions } from '$lib/utils'
+  import { getMonthOptions } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
-  import {
-    PROFILE_LISTS,
-    duplicateProfileItem,
-    isIncludedInPlan,
-    removeProfileItem,
-    toggleIncludedInPlan,
-    upsertProfileItem,
-  } from './profile-lists'
 
   export type AssetKind = 'investment' | 'tangibleAsset'
 
@@ -52,13 +46,11 @@
     onOpenChange: (open: boolean) => void
     target: AssetTarget
     plan: PortfolioStore
-    /** Called with the copy's id after a duplicate, so the caller can open it. */
-    onDuplicated?: (id: string) => void
   }
 
   const uid = $props.id()
 
-  let { open = $bindable(), onOpenChange, target, plan, onDuplicated }: Props = $props()
+  let { open = $bindable(), onOpenChange, target, plan }: Props = $props()
 
   const kind = $derived(target.kind)
   const initial = $derived(target.initial)
@@ -113,17 +105,17 @@
 
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
-  const years = getYearOptions()
+  const range = $derived(planRangeOf(plan, appStore.profile.birthDate))
 
   let months = $derived(getMonthOptions($locale ?? undefined))
 
   function blankForm(): FormState {
     const counter =
       kind === 'investment'
-        ? itemsForPlan(appStore.profile.investments, plan.id).length + 1
+        ? plan.investments.length + 1
         : kind === 'tangibleAsset'
-          ? itemsForPlan(appStore.profile.tangible_assets, plan.id).length + 1
-          : itemsForPlan(appStore.profile.liabilities, plan.id).length + 1
+          ? plan.tangible_assets.length + 1
+          : plan.liabilities.length + 1
     const defaultName =
       kind === 'investment'
         ? $_('page.setup.investments.defaultName', { values: { index: counter } })
@@ -229,6 +221,20 @@
   }
 
   let form = $state<FormState>(blankForm())
+  // Both timing edges must be filled in (the schema rejects a date mode
+  // without its year and month), and a start after the plan or an end before
+  // it could never take effect.
+  const timingWithin = $derived(
+    kind === 'investment'
+      ? timingComplete(form.start, form.start_year, form.start_month, form.start_age) &&
+          timingComplete(form.exit, form.exit_year, form.exit_month, form.exit_age) &&
+          timingWithinPlan(range, 'start', form.start, form.start_year, form.start_age) &&
+          timingWithinPlan(range, 'end', form.exit, form.exit_year, form.exit_age)
+      : timingComplete(form.purchase, form.purchase_year, form.purchase_month, form.purchase_age) &&
+          timingComplete(form.sale, form.sale_year, form.sale_month, form.sale_age) &&
+          timingWithinPlan(range, 'start', form.purchase, form.purchase_year, form.purchase_age) &&
+          timingWithinPlan(range, 'end', form.sale, form.sale_year, form.sale_age),
+  )
   // "Show advanced options" disclosure for a liability and for the financing
   // of a financed tangible asset. Auto-expands when the item already carries
   // non-default interest settings so the user can see what's driving the math.
@@ -255,9 +261,7 @@
 
   const isNew = $derived(initial === undefined)
 
-  const listConfig = $derived(PROFILE_LISTS[kind])
-
-  const isIncluded = $derived(isNew ? true : isIncludedInPlan(listConfig, form.id, plan))
+  const listKey = $derived(kind === 'investment' ? 'investments' : 'tangible_assets')
 
   function projectInvestment(f: FormState): ProfileInvestment {
     // Persist only the fee fields that the user actually touched; default
@@ -329,40 +333,20 @@
 
   function save() {
     if (kind === 'investment') {
-      upsertProfileItem(
-        PROFILE_LISTS.investment,
+      saveEditedPlanItem(
+        'investments',
         projectInvestment(form),
-        plan,
         target.kind === 'investment' ? target.initial : undefined,
+        plan,
       )
     } else {
-      upsertProfileItem(
-        PROFILE_LISTS.tangibleAsset,
+      saveEditedPlanItem(
+        'tangible_assets',
         projectTangibleAsset(form),
-        plan,
         target.kind === 'tangibleAsset' ? target.initial : undefined,
+        plan,
       )
     }
-    close()
-  }
-
-  function duplicate() {
-    // Duplicating copies the SAVED item; edits sitting in the form would be
-    // silently lost, so ask before discarding them (issue #65).
-    const hasChanges = JSON.stringify(form) !== JSON.stringify(seedForm(target))
-    if (hasChanges && !window.confirm($_('page.plan.duplicateUnsavedConfirm'))) return
-    const copyId = duplicateProfileItem(
-      listConfig,
-      form.id,
-      (name) => $_('page.setup.common.copySuffix', { values: { name } }),
-      plan,
-    )
-    close()
-    if (copyId !== undefined) onDuplicated?.(copyId)
-  }
-
-  function toggleExclude() {
-    toggleIncludedInPlan(listConfig, form.id, plan)
     close()
   }
 
@@ -372,7 +356,7 @@
         ? $_('page.plan.deleteInvestmentConfirm')
         : $_('page.plan.deleteTangibleAssetConfirm')
     if (!window.confirm(confirmMessage)) return
-    removeProfileItem(listConfig, form.id)
+    removePlanItem(listKey, form.id, plan)
     close()
   }
 </script>
@@ -413,11 +397,8 @@
   bind:open
   {onOpenChange}
   name={form.name}
-  onNameChange={(v) => (form.name = v)}
   {isNew}
-  {isIncluded}
-  renamable={false}
-  toolbar={false}
+  saveDisabled={!timingWithin}
   badge={kind === 'tangibleAsset' && form.status === 'financed' && !isNew
     ? $_('page.setup.tangibleAssets.financed')
     : undefined}
@@ -426,8 +407,6 @@
     : $_('page.plan.addTangibleAssetTitle')}
   footer={assetFooter}
   onSave={save}
-  onDuplicate={duplicate}
-  onToggleInclude={toggleExclude}
   onDelete={remove}
 >
   {#if kind === 'investment'}
@@ -447,7 +426,7 @@
       {showAdvanced}
       showTiming
       {currencyLabel}
-      {years}
+      {range}
       {months}
       birthDateSet={appStore.profile.birth_date !== undefined}
       formatNumber={appStore.formatNumber}
@@ -468,7 +447,7 @@
       {showAdvanced}
       showTiming
       {currencyLabel}
-      {years}
+      {range}
       {months}
       birthDateSet={appStore.profile.birth_date !== undefined}
       formatNumber={appStore.formatNumber}

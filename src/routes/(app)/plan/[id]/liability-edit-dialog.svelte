@@ -2,7 +2,6 @@
   import { _, locale } from 'svelte-i18n'
 
   import ArrowLeftRight from '@lucide/svelte/icons/arrow-left-right'
-  import Trash2 from '@lucide/svelte/icons/trash-2'
 
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
   import HelpTooltip from '$lib/components/help-tooltip.svelte'
@@ -13,8 +12,9 @@
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
   import { Switch } from '$lib/components/ui/switch'
-  import { itemsForPlan } from '$lib/plan-owned'
+  import { removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
   import { installmentAmountForLoan, termYearsForLoan } from '$lib/plan-projection'
+  import { planRangeOf, planYearOptions, timingWithinPlan } from '$lib/plan-range'
   import type {
     CashFlowStart,
     CompoundingFrequency,
@@ -32,32 +32,22 @@
   } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
-  import { getMonthOptions, getYearOptions, monthToOption, optionToMonth } from '$lib/utils'
+  import { getMonthOptions, monthToOption, optionToMonth } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
-  import {
-    PROFILE_LISTS,
-    duplicateProfileItem,
-    isIncludedInPlan,
-    removeProfileItem,
-    toggleIncludedInPlan,
-    upsertProfileItem,
-  } from './profile-lists'
 
   interface Props {
     open: boolean
     onOpenChange: (open: boolean) => void
     initial: ProfileLiability | undefined
     plan: PortfolioStore
-    /** Called with the copy's id after a duplicate, so the caller can open it. */
-    onDuplicated?: (id: string) => void
   }
 
   const uid = $props.id()
 
-  let { open = $bindable(), onOpenChange, initial, plan, onDuplicated }: Props = $props()
+  let { open = $bindable(), onOpenChange, initial, plan }: Props = $props()
 
-  const years = getYearOptions()
+  const range = $derived(planRangeOf(plan, appStore.profile.birthDate))
   let months = $derived(getMonthOptions($locale ?? undefined))
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
@@ -82,7 +72,7 @@
   }
 
   function blankForm(): FormState {
-    const counter = itemsForPlan(appStore.profile.liabilities, plan.id).length + 1
+    const counter = plan.liabilities.length + 1
     return {
       id: crypto.randomUUID(),
       name: $_('page.setup.liabilities.defaultName', { values: { index: counter } }),
@@ -181,14 +171,15 @@
 
   const isNew = $derived(initial === undefined)
 
-  const listConfig = PROFILE_LISTS.liability
-  const isIncluded = $derived(isNew ? true : isIncludedInPlan(listConfig, form.id, plan))
+  const listKey = 'liabilities'
 
   let frequencyItems = $derived(getFrequencyItems($_))
   let interestTypeItems = $derived(getInterestTypeItems($_))
   let compoundingFrequencyItems = $derived(getCompoundingFrequencyItems($_))
   let payOffItems = $derived(getLiabilityPayOffItems($_))
-  let yearItems = $derived(years.map((y) => ({ value: y, label: y })))
+  let yearItems = $derived(
+    planYearOptions(range, form.pay_off_year).map((y) => ({ value: y, label: y })),
+  )
 
   function round(value: number, decimals: number): number {
     const factor = 10 ** decimals
@@ -249,8 +240,12 @@
   const canSave = $derived(
     (form.outstanding_balance ?? 0) > 0 &&
       timingComplete(form.start, form.start_year, form.start_month, form.start_age) &&
+      timingWithinPlan(range, 'start', form.start, form.start_year, form.start_age) &&
       (form.pay_off !== 'at_specific_date' ||
-        (form.pay_off_year !== undefined && form.pay_off_month !== undefined)) &&
+        (form.pay_off_year !== undefined &&
+          form.pay_off_month !== undefined &&
+          // The pay-off is an end: after the plan it just amortizes to the last year.
+          timingWithinPlan(range, 'end', 'at_specific_date', form.pay_off_year, undefined))) &&
       // Compound interest must state its cadence.
       (form.interest_type !== 'compound' || form.compounding_frequency !== undefined),
   )
@@ -260,82 +255,41 @@
   }
 
   function save(): void {
-    upsertProfileItem(listConfig, projectLiability(form), plan, initial)
-    close()
-  }
-
-  function duplicate(): void {
-    const hasChanges = JSON.stringify(form) !== JSON.stringify(seedForm(initial))
-    if (hasChanges && !window.confirm($_('page.plan.duplicateUnsavedConfirm'))) return
-    const copyId = duplicateProfileItem(
-      listConfig,
-      form.id,
-      (name) => $_('page.setup.common.copySuffix', { values: { name } }),
-      plan,
-    )
-    close()
-    if (copyId !== undefined) onDuplicated?.(copyId)
-  }
-
-  function toggleExclude(): void {
-    toggleIncludedInPlan(listConfig, form.id, plan)
+    saveEditedPlanItem(listKey, projectLiability(form), initial, plan)
     close()
   }
 
   function remove(): void {
     if (!window.confirm($_('page.plan.deleteLiabilityConfirm'))) return
-    removeProfileItem(listConfig, form.id)
+    removePlanItem(listKey, form.id, plan)
     close()
   }
 </script>
 
-{#snippet liabilityFooter()}
-  {#if isNew}
-    <!-- Figma 1327: Create + Cancel on the left, the advanced switch on the right. -->
-    <div class="flex flex-1 items-center gap-2">
-      <Button disabled={!canSave} onclick={save}>{$_('page.plan.createItem')}</Button>
-      <Button variant="outline" onclick={close}>{$_('page.plan.cancel')}</Button>
-      <div class="flex flex-1 items-center justify-end gap-2">
-        <label class="flex cursor-pointer items-center gap-2">
-          <Switch checked={showAdvanced} onCheckedChange={(v) => (showAdvanced = v === true)} />
-          <span class="text-sm">{$_('page.plan.showAdvancedOptions')}</span>
-        </label>
-      </div>
+{#snippet newLiabilityFooter()}
+  <!-- Figma 1327: Create + Cancel on the left, the advanced switch on the right. -->
+  <div class="flex flex-1 items-center gap-2">
+    <Button disabled={!canSave} onclick={save}>{$_('page.plan.createItem')}</Button>
+    <Button variant="outline" onclick={close}>{$_('page.plan.cancel')}</Button>
+    <div class="flex flex-1 items-center justify-end gap-2">
+      <label class="flex cursor-pointer items-center gap-2">
+        <Switch checked={showAdvanced} onCheckedChange={(v) => (showAdvanced = v === true)} />
+        <span class="text-sm">{$_('page.plan.showAdvancedOptions')}</span>
+      </label>
     </div>
-  {:else}
-    <!-- Figma 1331: Save changes + Cancel on the left, delete on the right. -->
-    <div class="flex flex-1 items-center gap-2">
-      <Button disabled={!canSave} onclick={save}>{$_('page.plan.saveChanges')}</Button>
-      <Button variant="outline" onclick={close}>{$_('page.plan.cancel')}</Button>
-      <div class="flex flex-1 items-center justify-end gap-2">
-        <Button
-          variant="destructive"
-          size="icon"
-          onclick={remove}
-          aria-label={$_('page.plan.deleteItem')}
-        >
-          <Trash2 class="size-4" />
-        </Button>
-      </div>
-    </div>
-  {/if}
+  </div>
 {/snippet}
 
 <ItemEditDialogShell
   bind:open
   {onOpenChange}
   name={form.name}
-  onNameChange={(v) => (form.name = v)}
   {isNew}
-  {isIncluded}
-  renamable={false}
-  toolbar={false}
   newTitle={$_('page.setup.liabilities.addLiability')}
-  footer={liabilityFooter}
+  footer={isNew ? newLiabilityFooter : undefined}
   footerClass="bg-muted"
+  saveDisabled={!canSave}
   onSave={save}
-  onDuplicate={duplicate}
-  onToggleInclude={toggleExclude}
   onDelete={remove}
 >
   <!-- Label -->
@@ -355,7 +309,7 @@
     year={form.start_year}
     month={form.start_month}
     age={form.start_age}
-    {years}
+    {range}
     {months}
     birthDateSet={appStore.profile.birth_date !== undefined}
     description={$_('page.plan.liabilityStartDescription')}
@@ -466,6 +420,7 @@
         <div class="flex flex-1 items-center gap-2">
           <SelectField
             class="max-w-24"
+            placeholder={$_('page.setup.aboutYou.selectYear')}
             aria-label={$_('page.setup.aboutYou.selectYear')}
             value={form.pay_off_year !== undefined ? String(form.pay_off_year) : ''}
             items={yearItems}
@@ -474,6 +429,7 @@
             }}
           />
           <SelectField
+            placeholder={$_('page.setup.aboutYou.selectMonth')}
             aria-label={$_('page.setup.aboutYou.selectMonth')}
             value={form.pay_off_month !== undefined ? monthToOption(form.pay_off_month) : ''}
             items={months}
@@ -483,6 +439,11 @@
           />
           <HelpTooltip text={$_('page.plan.payOffDescription')} />
         </div>
+        {#if !timingWithinPlan(range, 'end', 'at_specific_date', form.pay_off_year, undefined)}
+          <p class="text-xs text-destructive">
+            {$_('validation.end_before_plan', { values: { start: String(range.startYear) } })}
+          </p>
+        {/if}
       {:else}
         <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">
           {$_('page.plan.payOffDescription')}

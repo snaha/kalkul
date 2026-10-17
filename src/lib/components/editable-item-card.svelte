@@ -47,16 +47,13 @@
     expandedContent,
   }: Props = $props()
 
-  // Whether the name is shown as an editable input (toggled by the SquarePen
-  // button). Separate from the card's collapsed/expanded state.
+  // Whether the name is shown as an editable input. Separate from the card's
+  // collapsed/expanded state.
   let renaming = $state(false)
 
   // Snapshot for Escape-to-revert; inputs commit live via oninput.
   let nameBeforeEdit = ''
 
-  // Focus and select all text as soon as the rename input is revealed by the
-  // edit button. Awaits tick() so the conditionally-rendered input is mounted
-  // before we focus it.
   let nameInputRef: HTMLInputElement | undefined = $state()
 
   // Close the rename input whenever the card collapses.
@@ -64,6 +61,7 @@
     if (!item.editing) renaming = false
   })
 
+  // Show the rename input, then focus it and select its text once tick() has mounted it.
   async function startRename() {
     nameBeforeEdit = item.name
     renaming = true
@@ -102,7 +100,15 @@
               class="min-w-0 flex-1"
             />
           {:else}
-            <span class="min-w-0 flex-1 truncate text-base font-medium">{item.name}</span>
+            <button
+              type="button"
+              tabindex="-1"
+              class="flex h-8 min-w-0 flex-1 cursor-text items-center text-left text-base font-medium"
+              title={$_('page.setup.common.rename')}
+              onclick={startRename}
+            >
+              <span class="truncate">{item.name}</span>
+            </button>
           {/if}
           <Button
             variant="ghost"

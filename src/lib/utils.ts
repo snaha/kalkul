@@ -198,6 +198,8 @@ export function formatCompactCurrency(value: number, currency: string, locale?: 
       style: 'currency',
       currency,
       notation: 'compact',
+      // Explicit: older V8 (Node 22) defaults it to 1 here and renders "$1.0K"
+      minimumFractionDigits: 0,
       maximumFractionDigits: 1,
     }).format(value)
   } catch {

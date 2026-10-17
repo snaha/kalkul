@@ -1,11 +1,13 @@
 import { describe, expect, test } from 'vitest'
 
+import { planRangeOf } from '$lib/plan-range'
 import type { Transfer } from '$lib/schemas'
 import {
   blankTransferFields,
   endMinMonth,
   transferFromFields,
   transferToFields,
+  transferWithinPlan,
 } from '$lib/transfer-form'
 
 const RECURRING: Transfer = {
@@ -88,18 +90,6 @@ describe('transfer-form round trip', () => {
   })
 })
 
-describe('plan ownership', () => {
-  test('a blank transfer has no owner', () => {
-    expect(blankTransferFields('x', 'X').plan_id).toBeUndefined()
-  })
-
-  test('plan_id round-trips and is omitted when unset', () => {
-    const owned: Transfer = { ...RECURRING, plan_id: 'plan-1' }
-    expect(transferFromFields(transferToFields(owned))).toEqual(owned)
-    expect('plan_id' in transferFromFields(transferToFields(RECURRING))).toBe(false)
-  })
-})
-
 describe('endMinMonth', () => {
   test('is the start month only when both dates are in the same year', () => {
     const f = transferToFields(RECURRING)
@@ -110,5 +100,32 @@ describe('endMinMonth', () => {
     expect(endMinMonth(f)).toBeUndefined()
     f.end = 'never'
     expect(endMinMonth(f)).toBeUndefined()
+  })
+})
+
+describe('plan range', () => {
+  const range = planRangeOf({ start_date: '2030-01-01', end_date: '2040-12-01' }, undefined)
+
+  test('a new one-time date is seeded inside the plan when today is outside it', () => {
+    expect(blankTransferFields('x', 'Move', range).transaction_year).toBe(2030)
+    expect(blankTransferFields('x', 'Move').transaction_year).toBe(new Date().getFullYear())
+  })
+
+  test('a one-time date must fall inside the plan', () => {
+    const f = blankTransferFields('x', 'Move', range)
+    expect(transferWithinPlan(f, range)).toBe(true)
+    f.transaction_year = 2029
+    expect(transferWithinPlan(f, range)).toBe(false)
+  })
+
+  test('recurring timing may only start before the plan ends and end after it starts', () => {
+    const f = transferToFields(RECURRING)
+    expect(transferWithinPlan(f, range)).toBe(true)
+    f.start_year = 2041
+    expect(transferWithinPlan(f, range)).toBe(false)
+    f.start_year = 2035
+    f.end = 'at_specific_date'
+    f.end_year = 2029
+    expect(transferWithinPlan(f, range)).toBe(false)
   })
 })

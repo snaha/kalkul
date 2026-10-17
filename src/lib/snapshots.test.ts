@@ -385,46 +385,10 @@ describe('withSeededSnapshot', () => {
 
   test('seeds a profile whose snapshot list is empty', () => {
     // An empty list means the same as no list: balances with no date attached.
-    // Nothing can leave one behind on purpose — deleting the last snapshot
-    // re-baselines onto today rather than clearing the history.
     const profile: Profile = { ...PROFILE, snapshots: [] }
     expect(withSeededSnapshot(profile, asOf).snapshots).toEqual([
       captureSnapshot(PROFILE, '2026-04-27'),
     ])
-  })
-})
-
-describe('captureSnapshot plan-owned items', () => {
-  test('records current data only, never what a plan owns', () => {
-    const owned = { plan_id: 'plan-1' }
-    const withOwned: Profile = {
-      ...PROFILE,
-      investments: [
-        ...PROFILE.investments!,
-        { id: 'x', name: 'x', balance: 999, apy: 0, ...owned },
-      ],
-      tangible_assets: [
-        ...PROFILE.tangible_assets!,
-        { id: 'x', name: 'x', value: 999, status: 'fully_owned', ...owned },
-      ],
-      liabilities: [...PROFILE.liabilities!, { ...PROFILE.liabilities![0], id: 'x', ...owned }],
-      // Beside the profile's own salary: a snapshot records cash flows too.
-      incomes: [
-        ...PROFILE.incomes!,
-        {
-          id: 'x',
-          name: 'x',
-          amount: 999,
-          schedule: 'recurring',
-          frequency: 'monthly',
-          start: 'immediately',
-          end: 'never',
-          change_over_time: 'none',
-          ...owned,
-        },
-      ],
-    }
-    expect(captureSnapshot(withOwned, '2026-01-01')).toEqual(captureSnapshot(PROFILE, '2026-01-01'))
   })
 })
 

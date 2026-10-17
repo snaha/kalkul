@@ -1,6 +1,7 @@
 import { formatDate } from '$lib/@snaha/kalkul-maths'
+import { snapshotFinancialData } from '$lib/plan-base'
 import { DEFAULT_INFLATION_RATE } from '$lib/plan-defaults'
-import type { Portfolio } from '$lib/schemas'
+import type { Portfolio, Profile } from '$lib/schemas'
 
 /**
  * Id of the synthesized plan. Deliberately not a UUID so it can never be
@@ -23,10 +24,14 @@ const CURRENT_PROJECTION_YEARS = 20
  * Starts on the first of the current month, like a new plan, and runs
  * {@link CURRENT_PROJECTION_YEARS} ahead unless `endDate` says otherwise.
  *
- * Every asset, liability and cash flow is in scope — the projection reads an
- * omitted `included_*_ids` list as "all of them".
+ * Every asset, liability and cash flow of `profile` is in scope: the plan is
+ * a copy of it, taken now, like a saved plan is at creation.
  */
-export function buildCurrentProjectionPlan(today: Date, endDate?: string): Portfolio {
+export function buildCurrentProjectionPlan(
+  profile: Profile,
+  today: Date,
+  endDate?: string,
+): Portfolio {
   const start = new Date(today.getFullYear(), today.getMonth(), 1)
   const end = new Date(today.getFullYear() + CURRENT_PROJECTION_YEARS, today.getMonth(), 1)
   return {
@@ -35,5 +40,7 @@ export function buildCurrentProjectionPlan(today: Date, endDate?: string): Portf
     start_date: formatDate(start),
     end_date: endDate ?? formatDate(end),
     inflation_rate: DEFAULT_INFLATION_RATE,
+    ...snapshotFinancialData(profile),
+    base: snapshotFinancialData(profile),
   }
 }

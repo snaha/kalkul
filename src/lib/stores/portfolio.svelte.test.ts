@@ -1,9 +1,15 @@
+import { init } from 'svelte-i18n'
+
 import { describe, expect, it } from 'vitest'
 
 import { portfolioSchema } from '$lib/schemas'
-import type { Portfolio } from '$lib/schemas'
+import type { Income, Portfolio } from '$lib/schemas'
 
 import { withPortfolioStore } from './portfolio.svelte'
+
+// `update` validates with portfolioSchema, whose refinements resolve their
+// messages through svelte-i18n.
+init({ fallbackLocale: 'en', initialLocale: 'en' })
 
 // Minimal AppParent stub. The store only calls persist()/deletePortfolio()
 // on user actions, never during construction or serialisation, so no-op
@@ -23,12 +29,58 @@ const fixture: Portfolio = {
   start_date: '2024-01-01',
   end_date: '2054-01-01',
   inflation_rate: 0.03,
-  included_investment_ids: ['inv-1'],
-  included_tangible_asset_ids: ['asset-1'],
-  included_liability_ids: ['liab-1'],
-  included_income_ids: ['income-1'],
-  included_expense_ids: ['expense-1'],
-  included_transfer_ids: ['transfer-1'],
+  cash_amount: 500,
+  investments: [{ id: 'inv-2', name: 'ETF', balance: 1, apy: 1 }],
+  tangible_assets: [{ id: 'asset-2', name: 'Flat', value: 1, status: 'fully_owned' }],
+  liabilities: [
+    {
+      id: 'liab-2',
+      name: 'Loan',
+      outstanding_balance: 1,
+      installment_frequency: 'monthly',
+      annual_rate: 1,
+      installment_amount: 1,
+      remaining_term: 1,
+    },
+  ],
+  incomes: [flow('income-2')],
+  expenses: [flow('expense-2')],
+  transfers: [
+    {
+      id: 'transfer-2',
+      name: 'Move',
+      from_asset_id: 'cash',
+      to_asset_id: 'inv-2',
+      amount: 1,
+      schedule: 'recurring',
+      frequency: 'monthly',
+      start: 'immediately',
+      end: 'never',
+      change_over_time: 'none',
+    },
+  ],
+  base: {
+    cash_amount: 400,
+    investments: [{ id: 'inv-1', name: 'ETF', balance: 1, apy: 1 }],
+    tangible_assets: [],
+    liabilities: [],
+    incomes: [],
+    expenses: [],
+    transfers: [],
+  },
+}
+
+function flow(id: string): Income {
+  return {
+    id,
+    name: id,
+    amount: 1,
+    schedule: 'recurring',
+    frequency: 'monthly',
+    start: 'immediately',
+    end: 'never',
+    change_over_time: 'none',
+  }
 }
 
 describe('withPortfolioStore', () => {
@@ -60,6 +112,20 @@ describe('withPortfolioStore', () => {
     const store = withPortfolioStore(fixture, app)
     expect(store.notes).toBe('Long-term retirement plan')
     expect(store.toJSON().notes).toBe('Long-term retirement plan')
+  })
+
+  it('rejects an update the schema does not accept and leaves the plan as it was', () => {
+    let persisted = 0
+    const store = withPortfolioStore(fixture, { ...app, persist: () => persisted++ })
+    const invalid = [
+      { id: 'inv-3', name: 'No year', balance: 1, apy: 1, start: 'at_specific_date' },
+    ]
+    expect(() => store.update({ investments: invalid as Portfolio['investments'] })).toThrow()
+    expect(store.investments).toEqual(fixture.investments)
+    expect(persisted).toBe(0)
+    store.update({ investments: [] })
+    expect(store.investments).toEqual([])
+    expect(persisted).toBe(1)
   })
 
   it('omits notes from toJSON() when unset', () => {

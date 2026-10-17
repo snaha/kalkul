@@ -1,6 +1,6 @@
 import { addMessages, init } from 'svelte-i18n'
 
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import en from './locales/en.json'
 import {
@@ -366,18 +366,13 @@ describe('repairStoredData: snapshots', () => {
   it('fills them with only the flows a snapshot records', () => {
     // A one-time expense has no frequency, so copying it would write an entry
     // the schema rejects — failing the whole dataset, which then falls back to
-    // the empty profile. A plan's own income is not the user's current data.
-    // Both are left out, exactly as `captureSnapshot` leaves them out.
+    // the empty profile. It is left out, exactly as `captureSnapshot` leaves it out.
     const stored = storedWith({ date: '2026-01-01', cash_amount: 1_000 })
     const repaired = storedDataSchema.parse(
       repairStoredData({
         ...stored,
         profile: {
           ...stored.profile,
-          incomes: [
-            ...stored.profile.incomes,
-            { ...baseIncome, id: 'plan-income', amount: 900, plan_id: 'plan-1' },
-          ],
           expenses: [
             ...stored.profile.expenses,
             {
@@ -1117,12 +1112,22 @@ describe('storedDataSchema golden fixture', () => {
           start_date: '2026-07-01',
           end_date: '2055-06-01',
           inflation_rate: 0.02,
-          included_investment_ids: ['inv-1'],
-          included_tangible_asset_ids: ['asset-1', 'asset-2'],
-          included_liability_ids: ['liab-1'],
-          included_income_ids: ['income-1'],
-          included_expense_ids: ['expense-1'],
-          included_transfer_ids: ['transfer-1', 'transfer-2'],
+          cash_amount: 1000,
+          investments: [{ id: 'inv-1', name: 'ETF', balance: 1, apy: 1 }],
+          tangible_assets: [],
+          liabilities: [],
+          incomes: [],
+          expenses: [],
+          transfers: [],
+          base: {
+            cash_amount: 1000,
+            investments: [{ id: 'inv-1', name: 'ETF', balance: 1, apy: 1 }],
+            tangible_assets: [],
+            liabilities: [],
+            incomes: [],
+            expenses: [],
+            transfers: [],
+          },
         },
       ],
     }
@@ -1199,54 +1204,109 @@ describe('profileSchema tax rules', () => {
   })
 })
 
-describe('transferSchema plan ownership', () => {
-  it('keeps plan_id so a transfer created in a plan stays owned by it', () => {
-    const owned = {
-      id: 't1',
-      name: 'Buy stocks',
-      from_asset_id: 'cash',
-      to_asset_id: 'inv1',
-      amount: 1000,
-      schedule: 'one_time',
-      transaction_year: 2027,
-      transaction_month: 6,
-      plan_id: 'plan-1',
-    }
-    expect(transferSchema.parse(owned)).toEqual(owned)
+describe('repairStoredData: a plan without a base gets its copy of financial data', () => {
+  const shared = { id: 'shared', name: 'ETF', balance: 1, apy: 1 }
+  const other = { id: 'other', name: 'Bonds', balance: 2, apy: 1 }
+  const own = { id: 'own', name: 'Own', balance: 3, apy: 1 }
+  // The repair works in place, so every test gets its own copy.
+  let stored: typeof fixture
+  beforeEach(() => {
+    stored = structuredClone(fixture)
   })
-})
+  const fixture = {
+    lastUpdated: 1,
+    profile: {
+      name: 'Test',
+      email: '',
+      cash_amount: 700,
+      investments: [
+        shared,
+        { ...own, plan_id: 'plan-1' },
+        other,
+        { ...own, id: 'orphan', plan_id: 'gone' },
+      ],
+      incomes: [{ ...baseIncome, id: 'own-income', plan_id: 'plan-1' }],
+    },
+    portfolios: [
+      {
+        id: 'plan-1',
+        name: 'Plan',
+        start_date: '2026-01-01',
+        end_date: '2030-01-01',
+        inflation_rate: 0,
+        included_investment_ids: ['shared', 'own'],
+        investments: [{ ...own, id: 'already' }],
+      },
+      {
+        id: 'plan-2',
+        name: 'All',
+        start_date: '2026-01-01',
+        end_date: '2030-01-01',
+        inflation_rate: 0,
+        cash_amount: 5,
+      },
+    ],
+  }
 
-describe('plan ownership', () => {
-  it('keeps plan_id on every kind of item created in a plan', () => {
-    const owned = { plan_id: 'plan-1' }
-    const flow = {
-      id: 'f',
-      name: 'Side gig',
-      amount: 100,
-      frequency: 'monthly',
-      start: 'immediately',
-      end: 'never',
-      change_over_time: 'none',
-      ...owned,
+  it('copies the items the plan included and its own, without the tag, and drops those of a deleted plan', () => {
+    const repaired = storedDataSchema.parse(repairStoredData(stored))
+    expect(repaired.profile.investments).toEqual([shared, other])
+    expect(repaired.profile.incomes).toEqual([])
+    const [plan, all] = repaired.portfolios
+    expect(plan.investments).toEqual([shared, own, { ...own, id: 'already' }])
+    expect(plan.incomes.map((i) => i.id)).toEqual(['own-income'])
+    expect(plan.tangible_assets).toEqual([])
+    // No include list means every financial-data item.
+    expect(all.investments).toEqual([shared, other])
+    expect('included_investment_ids' in plan).toBe(false)
+  })
+
+  it("opens at the profile's cash unless the plan already had its own, and keeps the financial data of the moment as its base", () => {
+    const repaired = storedDataSchema.parse(repairStoredData(stored))
+    const [plan, all] = repaired.portfolios
+    expect(plan.cash_amount).toBe(700)
+    expect(all.cash_amount).toBe(5)
+    expect(plan.base).toEqual({
+      cash_amount: 700,
+      investments: [shared, other],
+      tangible_assets: [],
+      liabilities: [],
+      incomes: [],
+      expenses: [],
+      transfers: [],
+    })
+  })
+
+  it("keeps the plan's own version of an item it had already edited (interim shape)", () => {
+    const edited = { ...shared, balance: 999 }
+    const interim = {
+      ...stored,
+      portfolios: [{ ...stored.portfolios[0], investments: [edited] }],
     }
-    // The absent schedule parses as the 'recurring' default.
-    expect(incomeSchema.parse(flow)).toEqual({ ...flow, schedule: 'recurring' })
-    expect(expenseSchema.parse(flow)).toEqual({ ...flow, schedule: 'recurring' })
-    const investment = { id: 'v', name: 'ETF', balance: 1, apy: 1, ...owned }
-    expect(profileInvestmentSchema.parse(investment)).toEqual(investment)
-    const asset = { id: 'a', name: 'Flat', value: 1, status: 'fully_owned', ...owned }
-    expect(profileTangibleAssetSchema.parse(asset)).toEqual(asset)
-    const liability = {
-      id: 'l',
-      name: 'Loan',
-      outstanding_balance: 1,
-      installment_frequency: 'monthly',
-      annual_rate: 1,
-      installment_amount: 1,
-      remaining_term: 1,
-      ...owned,
+    const repaired = storedDataSchema.parse(repairStoredData(interim))
+    expect(repaired.portfolios[0].investments).toEqual([edited, own])
+  })
+
+  it("fills in a snapshot from financial data only, never from a plan's own cash flows", () => {
+    const withSnapshot = {
+      ...stored,
+      profile: {
+        ...stored.profile,
+        incomes: [
+          { ...baseIncome, id: 'sal', amount: 10, frequency: 'monthly' },
+          { ...baseIncome, id: 'side', amount: 5, frequency: 'monthly', plan_id: 'plan-1' },
+        ],
+        snapshots: [{ date: '2026-01-01', cash_amount: 1 }],
+      },
     }
-    expect(profileLiabilitySchema.parse(liability)).toEqual(liability)
+    const repaired = storedDataSchema.parse(repairStoredData(withSnapshot))
+    expect(repaired.profile.snapshots?.[0].incomes?.map((i) => i.id)).toEqual(['sal'])
+  })
+
+  it('leaves a plan that has a base alone', () => {
+    const once = repairStoredData(JSON.parse(JSON.stringify(stored)))
+    const twice = repairStoredData(JSON.parse(JSON.stringify(once)))
+    expect(twice).toEqual(once)
   })
 })
 

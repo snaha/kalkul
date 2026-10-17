@@ -3,13 +3,14 @@ import { init } from 'svelte-i18n'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { track } from '$lib/analytics'
+import { createPlan } from '$lib/plan-defaults'
 import { getYearlyPlanProjection } from '$lib/plan-projection'
-import type { Portfolio, Profile } from '$lib/schemas'
+import type { Portfolio, Profile, StoredData } from '$lib/schemas'
 import { buildSnapshotSections, seedSnapshotOn, snapshotFromFields } from '$lib/snapshot-form'
 import storageKeys from '$lib/storage-keys'
 import { toDateOnlyString } from '$lib/utils'
 
-import { appStore } from './app.svelte'
+import { type DataChange, appStore } from './app.svelte'
 
 vi.mock('$lib/analytics', async (importOriginal) => ({
   ...(await importOriginal<typeof import('$lib/analytics')>()),
@@ -79,6 +80,87 @@ describe('appStore.hasData', () => {
       JSON.stringify({ profile: { name: 'Jane Doe', email: '' }, portfolios: [] }),
     )
     expect(appStore.hasData).toBe(true)
+  })
+})
+
+describe('appStore.startSync', () => {
+  // Node has no `window`; an EventTarget delivers the storage events.
+  let tab: EventTarget
+  let stopSync: () => void
+
+  // What the browser delivers to every other tab when one of them writes
+  // `key`. `newValue` is the DOM's `null` when the key was removed.
+  function storageEvent(key: string, newValue: string | null): Event {
+    return Object.assign(new Event('storage'), { key, newValue })
+  }
+
+  beforeEach(() => {
+    stubLocalStorage()
+    tab = new EventTarget()
+    vi.stubGlobal('window', tab)
+    appStore.importBackup(
+      JSON.stringify({
+        profile: { name: 'Jane Doe', email: '', cash_amount: 1_000 },
+        portfolios: [
+          {
+            id: 'plan-1',
+            name: 'Plan',
+            start_date: '2026-01-01',
+            end_date: '2060-01-01',
+            inflation_rate: 2,
+          },
+        ],
+      }),
+    )
+    stopSync = appStore.startSync()
+  })
+
+  afterEach(() => {
+    stopSync()
+    appStore.clear()
+    vi.unstubAllGlobals()
+  })
+
+  it('empties this tab when another tab erases the data', () => {
+    backing.delete(storageKeys.DATA)
+    tab.dispatchEvent(storageEvent(storageKeys.DATA, null))
+
+    expect(appStore.hasData).toBe(false)
+    expect(appStore.profile.toJSON()).toEqual({ name: '', email: '' })
+    expect(appStore.portfolios).toEqual([])
+    expect(appStore.lastUpdated).toBe(0)
+
+    appStore.updateProfile({ name: 'John Doe' })
+    const stored: StoredData = JSON.parse(backing.get(storageKeys.DATA) ?? '{}')
+    expect(stored.profile).toEqual({ name: 'John Doe', email: '' })
+    expect(stored.portfolios).toEqual([])
+  })
+
+  it('adopts the data another tab saved', () => {
+    const saved = {
+      lastUpdated: 42,
+      profile: { name: 'John Doe', email: '' },
+      portfolios: [],
+    }
+    tab.dispatchEvent(storageEvent(storageKeys.DATA, JSON.stringify(saved)))
+
+    expect(appStore.profile.name).toBe('John Doe')
+    expect(appStore.portfolios).toEqual([])
+    expect(appStore.lastUpdated).toBe(42)
+  })
+
+  it('ignores another key being removed', () => {
+    tab.dispatchEvent(storageEvent(storageKeys.THEME, null))
+
+    expect(appStore.profile.name).toBe('Jane Doe')
+    expect(appStore.portfolios.map((p) => p.id)).toEqual(['plan-1'])
+  })
+
+  it('stops listening once stopped', () => {
+    stopSync()
+    tab.dispatchEvent(storageEvent(storageKeys.DATA, null))
+
+    expect(appStore.profile.name).toBe('Jane Doe')
   })
 })
 
@@ -426,13 +508,19 @@ describe('appStore.addPortfolio analytics', () => {
     vi.unstubAllGlobals()
   })
 
-  const plan = { name: 'Plan', start_date: '2026-01-01', end_date: '2060-01-01', inflation_rate: 2 }
+  const plan = () =>
+    createPlan(appStore.profile, {
+      name: 'Plan',
+      start_date: '2026-01-01',
+      end_date: '2060-01-01',
+      inflation_rate: 2,
+    })
 
   it('reports the first plan separately from later ones', () => {
-    appStore.addPortfolio(plan)
+    appStore.addPortfolio(plan())
     expect(vi.mocked(track).mock.calls).toEqual([['plan-created'], ['first-plan-created']])
 
-    appStore.addPortfolio(plan)
+    appStore.addPortfolio(plan())
     expect(vi.mocked(track).mock.calls.slice(2)).toEqual([['plan-created']])
   })
 })
@@ -445,7 +533,7 @@ describe('appStore.deletePortfolio', () => {
     vi.unstubAllGlobals()
   })
 
-  it('removes the transfers the plan owns and keeps the profile ones', () => {
+  it("takes the plan's own items with it and leaves financial data alone", () => {
     const transfer = {
       name: 'Buy',
       from_asset_id: 'cash',
@@ -461,10 +549,7 @@ describe('appStore.deletePortfolio', () => {
           name: 'Jane',
           email: '',
           investments: [{ id: 'inv1', name: 'ETF', balance: 0, apy: 0 }],
-          transfers: [
-            { ...transfer, id: 'shared' },
-            { ...transfer, id: 'owned', plan_id: 'plan-1' },
-          ],
+          transfers: [{ ...transfer, id: 'shared' }],
         },
         portfolios: [
           {
@@ -473,6 +558,7 @@ describe('appStore.deletePortfolio', () => {
             start_date: '2026-01-01',
             end_date: '2060-01-01',
             inflation_rate: 2,
+            transfers: [{ ...transfer, id: 'owned' }],
           },
         ],
       }),
@@ -480,98 +566,6 @@ describe('appStore.deletePortfolio', () => {
     appStore.portfolios[0].delete()
     expect(appStore.portfolios).toEqual([])
     expect(appStore.profile.transfers?.map((t) => t.id)).toEqual(['shared'])
-  })
-})
-
-describe('appStore.deletePortfolio plan-owned items', () => {
-  it('removes every kind of item the plan owns and keeps the shared ones', () => {
-    const owned = { plan_id: 'plan-1' }
-    const flow = {
-      name: 'Flow',
-      amount: 100,
-      schedule: 'recurring',
-      frequency: 'monthly',
-      start: 'immediately',
-      end: 'never',
-      change_over_time: 'none',
-    }
-    const loan = {
-      name: 'Loan',
-      outstanding_balance: 100,
-      installment_frequency: 'monthly',
-      annual_rate: 1,
-      installment_amount: 1,
-      remaining_term: 10,
-    }
-    appStore.importBackup(
-      JSON.stringify({
-        profile: {
-          name: 'Jane',
-          email: '',
-          investments: [
-            { id: 'shared', name: 'ETF', balance: 0, apy: 0 },
-            { id: 'owned', name: 'ETF', balance: 0, apy: 0, ...owned },
-          ],
-          tangible_assets: [
-            { id: 'shared', name: 'Flat', value: 1, status: 'fully_owned' },
-            { id: 'owned', name: 'Flat', value: 1, status: 'fully_owned', ...owned },
-          ],
-          liabilities: [
-            { ...loan, id: 'shared' },
-            { ...loan, id: 'owned', ...owned },
-          ],
-          incomes: [
-            { ...flow, id: 'shared' },
-            { ...flow, id: 'owned', ...owned },
-          ],
-          expenses: [
-            { ...flow, id: 'shared' },
-            { ...flow, id: 'owned', ...owned },
-          ],
-        },
-        portfolios: [
-          {
-            id: 'plan-1',
-            name: 'Plan',
-            start_date: '2026-01-01',
-            end_date: '2060-01-01',
-            inflation_rate: 2,
-          },
-        ],
-      }),
-    )
-    appStore.portfolios[0].delete()
-    const ids = (items: { id: string }[] | undefined) => items?.map((i) => i.id)
-    expect(ids(appStore.profile.investments)).toEqual(['shared'])
-    expect(ids(appStore.profile.tangible_assets)).toEqual(['shared'])
-    expect(ids(appStore.profile.liabilities)).toEqual(['shared'])
-    expect(ids(appStore.profile.incomes)).toEqual(['shared'])
-    expect(ids(appStore.profile.expenses)).toEqual(['shared'])
-  })
-
-  it('leaves the profile untouched when the plan owns nothing', () => {
-    appStore.importBackup(
-      JSON.stringify({
-        profile: {
-          name: 'Jane',
-          email: '',
-          investments: [{ id: 'shared', name: 'ETF', balance: 0, apy: 0 }],
-        },
-        portfolios: [
-          {
-            id: 'plan-1',
-            name: 'Plan',
-            start_date: '2026-01-01',
-            end_date: '2060-01-01',
-            inflation_rate: 2,
-          },
-        ],
-      }),
-    )
-    const before = appStore.profile
-    appStore.portfolios[0].delete()
-    expect(appStore.portfolios).toEqual([])
-    expect(appStore.profile).toBe(before)
   })
 })
 
@@ -683,8 +677,7 @@ describe('appStore snapshot editing', () => {
   })
 
   it('leaves the history empty when nothing is held today', () => {
-    // A position that only starts in 2030 is data, but not a balance to
-    // project from — recording an all-zero row for today would say otherwise.
+    // A position that only starts in 2030 is not held today.
     appStore.updateProfile({
       cash_amount: 0,
       investments: [
@@ -705,29 +698,14 @@ describe('appStore snapshot editing', () => {
     expect(appStore.profile.snapshots).toEqual([])
   })
 
-  it('re-baselines onto today when the last snapshot is deleted', () => {
-    // A profile holding balances with no baseline has nothing to project from:
-    // no staleness banner, no projection, and the next unrelated edit stamps
-    // today onto months-old figures. Deleting the last snapshot therefore
-    // carries its figures forward to today and records them there — the user
-    // sees exactly that as a row dated today, which they can edit or delete.
+  it('leaves the only snapshot in place while anything is held', () => {
     appStore.deleteSnapshot('2026-01-01')
+    const before = appStore.profile.toJSON()
+
     appStore.deleteSnapshot('2026-06-01')
 
-    expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual([TODAY])
-    expect(appStore.profile.cash_amount).toBe(9_000)
-  })
-
-  it('keeps that baseline across a reload and records nothing on the next edit', () => {
-    appStore.deleteSnapshot('2026-01-01')
-    appStore.deleteSnapshot('2026-06-01')
-    const recorded = appStore.profile.snapshots
-
-    appStore.load()
-    expect(appStore.profile.snapshots).toEqual(recorded)
-
-    appStore.updateProfile({ name: 'Renamed' })
-    expect(appStore.profile.snapshots).toEqual(recorded)
+    expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual(['2026-06-01'])
+    expect(appStore.profile.toJSON()).toEqual(before)
   })
 
   it('leaves an empty history empty for a profile with no balances', () => {
@@ -1037,8 +1015,12 @@ describe('appStore saving a snapshot dated past a planned sale', () => {
       },
     ],
   }
-  const PLAN: Portfolio = {
+  // A plan created from the profile as it stands when the test asks for it.
+  const planNow = (): Portfolio => ({
+    ...createPlan(appStore.profile.toJSON(), PLAN),
     id: 'plan-1',
+  })
+  const PLAN = {
     name: 'Plan',
     start_date: TODAY,
     end_date: '2036-06-15',
@@ -1080,7 +1062,7 @@ describe('appStore saving a snapshot dated past a planned sale', () => {
     addUntouched(TODAY)
     expect(appStore.profile.cash_amount).toBe(15_000)
     expect(etf()?.balance).toBe(0)
-    expect(getYearlyPlanProjection(PLAN, appStore.profile.toJSON())[0].netWorth).toBe(15_000)
+    expect(getYearlyPlanProjection(planNow(), appStore.profile.toJSON())[0].netWorth).toBe(15_000)
   })
 
   it('puts the position back when that snapshot is deleted again', () => {
@@ -1132,58 +1114,84 @@ describe('appStore with a one-time cash flow', () => {
   })
 })
 
-describe('appStore deleting the only snapshot of a growing profile', () => {
-  // 3,000 a month arriving since 2026-01-15, read on 2026-06-15: 151 days.
-  const PROFILE: Profile = {
-    name: 'Alice',
-    email: 'a@example.com',
-    cash_amount: 10_000,
-    incomes: [
-      {
-        id: 'i1',
-        name: 'Salary',
-        amount: 3_000,
-        schedule: 'recurring',
-        frequency: 'monthly',
-        start: 'immediately',
-        end: 'never',
-        change_over_time: 'none',
-      },
-    ],
-    snapshots: [
-      {
-        date: '2026-01-15',
-        cash_amount: 10_000,
-        investments: [],
-        tangible_assets: [],
-        liabilities: [],
-        incomes: [{ id: 'i1', amount: 3_000, frequency: 'monthly' }],
-        expenses: [],
-      },
-    ],
-  }
+describe('appStore.onDataChange', () => {
+  const backup = (name: string) => JSON.stringify({ profile: { name, email: '' }, portfolios: [] })
+  let changes: DataChange[]
+  let unsubscribe: () => void
 
   beforeEach(() => {
     vi.useFakeTimers()
     vi.setSystemTime(NOW)
     stubLocalStorage()
     appStore.clear()
-    appStore.updateProfile(PROFILE)
+    changes = []
+    unsubscribe = appStore.onDataChange((change) => changes.push(change))
   })
 
   afterEach(() => {
+    unsubscribe()
     appStore.clear()
     vi.unstubAllGlobals()
     vi.useRealTimers()
   })
 
-  it("records today's figures rather than the deleted snapshot's", () => {
-    appStore.deleteSnapshot('2026-01-15')
+  it('reports an edit and an import, each with the new lastUpdated', () => {
+    appStore.updateProfile({ name: 'Jane' })
+    vi.setSystemTime(NOW.getTime() + 1000)
+    appStore.importBackup(backup('Eva'))
+    expect(changes).toEqual([
+      { lastUpdated: NOW.getTime(), source: 'edit' },
+      { lastUpdated: NOW.getTime() + 1000, source: 'edit' },
+    ])
+  })
 
-    expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual([TODAY])
-    // Five months of salary arrived while the deleted baseline stood; stamping
-    // January's 10,000 with today's date would give that money back.
-    expect(appStore.profile.cash_amount).toBe(24_883)
-    expect(appStore.profile.snapshots?.[0].cash_amount).toBe(24_883)
+  it('reports nothing for an edit it rejected', () => {
+    expect(() => appStore.updateProfile({ name: 42 } as unknown as Partial<Profile>)).toThrow()
+    expect(changes).toEqual([])
+  })
+
+  it("reports another tab's save", () => {
+    let onStorage: ((event: StorageEvent) => void) | undefined
+    vi.stubGlobal('window', {
+      addEventListener: (_type: string, handler: (event: StorageEvent) => void) => {
+        onStorage = handler
+      },
+      removeEventListener: () => {},
+    })
+    const stop = appStore.startSync()
+    const stored = { lastUpdated: 42, profile: { name: 'Jane', email: '' }, portfolios: [] }
+    onStorage?.({ key: storageKeys.DATA, newValue: JSON.stringify(stored) } as StorageEvent)
+    stop()
+    expect(changes).toEqual([{ lastUpdated: 42, source: 'other-tab' }])
+    expect(appStore.profile.name).toBe('Jane')
+  })
+
+  it('reports another tab erasing the data', () => {
+    let onStorage: ((event: StorageEvent) => void) | undefined
+    vi.stubGlobal('window', {
+      addEventListener: (_type: string, handler: (event: StorageEvent) => void) => {
+        onStorage = handler
+      },
+      removeEventListener: () => {},
+    })
+    appStore.updateProfile({ name: 'Jane' })
+    changes = []
+    const stop = appStore.startSync()
+    onStorage?.({ key: storageKeys.DATA, newValue: null } as StorageEvent)
+    stop()
+    expect(changes).toEqual([{ lastUpdated: 0, source: 'other-tab' }])
+    expect(appStore.profile.name).toBe('')
+  })
+
+  it('reports loading and clearing', () => {
+    appStore.clear()
+    appStore.load()
+    expect(changes.map((change) => change.source)).toEqual(['load', 'load'])
+  })
+
+  it('stops reporting once unsubscribed', () => {
+    unsubscribe()
+    appStore.updateProfile({ name: 'Jane' })
+    expect(changes).toEqual([])
   })
 })

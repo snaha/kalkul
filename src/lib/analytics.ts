@@ -32,6 +32,8 @@ export const EVENTS = {
   BALANCES_CONFIRMED: 'balances-confirmed',
   BACKUP_EXPORTED: 'backup-exported',
   BACKUP_IMPORTED: 'backup-imported',
+  /** Settings' Start fresh erased all data in this browser. */
+  DATA_ERASED: 'data-erased',
   LANDING_START_PLANNING: 'landing-start-planning',
   LANDING_TRY_DEMO: 'landing-try-demo',
   LANDING_NEWSLETTER_SUBSCRIBE: 'landing-newsletter-subscribe',

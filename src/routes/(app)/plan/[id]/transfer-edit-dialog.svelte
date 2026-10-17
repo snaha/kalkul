@@ -13,8 +13,9 @@
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
   import * as Tooltip from '$lib/components/ui/tooltip'
-  import { itemsForPlan } from '$lib/plan-owned'
-  import { filterById, summarizeTransfer } from '$lib/plan-projection'
+  import { removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
+  import { summarizeTransfer } from '$lib/plan-projection'
+  import { planRangeOf, planYearOptions, yearWithinPlan } from '$lib/plan-range'
   import { sameYearMonthsInverted, timingComplete } from '$lib/schemas'
   import type { Transfer, TransferSchedule } from '$lib/schemas'
   import { getFrequencyItems } from '$lib/select-options'
@@ -26,61 +27,48 @@
     endMinMonth,
     transferFromFields,
     transferToFields,
+    transferWithinPlan,
   } from '$lib/transfer-form'
-  import { getMonthOptions, getYearOptions, monthToOption, optionToMonth } from '$lib/utils'
+  import { getMonthOptions, monthToOption, optionToMonth } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
-  import {
-    PROFILE_LISTS,
-    duplicateProfileItem,
-    removeProfileItem,
-    toggleIncludedInPlan,
-    upsertProfileItem,
-  } from './profile-lists'
 
   interface Props {
     open: boolean
     onOpenChange: (open: boolean) => void
     initial: Transfer | undefined
     plan: PortfolioStore
-    /** Called with the copy's id after a duplicate, so the caller can open it. */
-    onDuplicated?: (id: string) => void
   }
 
   const uid = $props.id()
 
-  let { open = $bindable(), onOpenChange, initial, plan, onDuplicated }: Props = $props()
+  let { open = $bindable(), onOpenChange, initial, plan }: Props = $props()
 
-  const years = getYearOptions()
+  const range = $derived(planRangeOf(plan, appStore.profile.birthDate))
   let months = $derived(getMonthOptions($locale ?? undefined))
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
   // Transfers can only move between cash and investments. Tangible assets and
   // liabilities are intentionally excluded — selling/buying a house is more
   // naturally modelled as a one-off expense/income.
-  // The list is filtered by plan inclusion via the same filterById the
-  // projection uses, so the dropdowns and the projection see the same assets.
+  // The plan's own investments, the same the projection sees.
   const assetOptions = $derived<{ id: string; name: string }[]>([
     // Cash is always an endpoint: every plan has a cash balance (#331), and
     // a transfer into an empty one is how it gets funded.
     { id: 'cash', name: $_('page.plan.cashItem') },
-    ...filterById(appStore.profile.investments, plan.included_investment_ids).map((inv) => ({
+    ...plan.investments.map((inv) => ({
       id: inv.id,
       name: inv.name,
     })),
   ])
 
-  // A transfer created here belongs to this plan: it is not current data, so
-  // financial data and other plans never list it.
   function blankForm(): TransferFields {
-    const counter = itemsForPlan(appStore.profile.transfers, plan.id).length + 1
-    return {
-      ...blankTransferFields(
-        crypto.randomUUID(),
-        $_('page.plan.defaultTransferName', { values: { index: counter } }),
-      ),
-      plan_id: plan.id,
-    }
+    const counter = plan.transfers.length + 1
+    return blankTransferFields(
+      crypto.randomUUID(),
+      $_('page.plan.defaultTransferName', { values: { index: counter } }),
+      range,
+    )
   }
 
   function seedForm(src: Transfer | undefined): TransferFields {
@@ -104,15 +92,6 @@
 
   const isNew = $derived(initial === undefined)
 
-  // Plan-level inclusion of this transfer. `undefined` (default) means all
-  // transfers are included; once the user toggles exclusion the array
-  // materializes and tracks which transfers stay active.
-  const isIncluded = $derived.by(() => {
-    if (isNew) return true
-    if (plan.included_transfer_ids === undefined) return true
-    return plan.included_transfer_ids.includes(form.id)
-  })
-
   let fromAssetItems = $derived(
     assetOptions.map((opt) => ({
       value: opt.id,
@@ -132,42 +111,22 @@
     { value: 'recurring', label: $_('page.plan.scheduleRecurring') },
   ])
   let frequencyItems = $derived(getFrequencyItems($_))
-  let yearItems = $derived(years.map((y) => ({ value: y, label: y })))
+  let yearItems = $derived(
+    planYearOptions(range, form.transaction_year).map((y) => ({ value: y, label: y })),
+  )
 
   function close() {
     onOpenChange(false)
   }
 
   function save() {
-    upsertProfileItem(PROFILE_LISTS.transfer, transferFromFields(form), plan, initial)
-    close()
-  }
-
-  function duplicate() {
-    // Duplicating copies the SAVED item; edits sitting in the form would be
-    // silently lost, so ask before discarding them (issue #65).
-    const hasChanges = JSON.stringify(form) !== JSON.stringify(seedForm(initial))
-    if (hasChanges && !window.confirm($_('page.plan.duplicateUnsavedConfirm'))) return
-    const copyId = duplicateProfileItem(
-      PROFILE_LISTS.transfer,
-      form.id,
-      (name) => $_('page.setup.common.copySuffix', { values: { name } }),
-      plan,
-    )
-    close()
-    if (copyId !== undefined) onDuplicated?.(copyId)
-  }
-
-  function toggleExclude() {
-    toggleIncludedInPlan(PROFILE_LISTS.transfer, form.id, plan)
+    saveEditedPlanItem('transfers', transferFromFields(form), initial, plan)
     close()
   }
 
   function remove() {
     if (!window.confirm($_('page.plan.deleteTransferConfirm'))) return
-    // Like the other dialogs, the id may linger in the plan's include list;
-    // filterById ignores ids with no item behind them.
-    removeProfileItem(PROFILE_LISTS.transfer, form.id)
+    removePlanItem('transfers', form.id, plan)
     close()
   }
 
@@ -194,6 +153,7 @@
   // decide where. The summary needs the former, saving needs both.
   const amountAndTimingValid = $derived(
     (form.transfer_all || (form.amount ?? 0) > 0) &&
+      transferWithinPlan(form, range) &&
       (form.schedule === 'one_time' ||
         (timingComplete(form.start, form.start_year, form.start_month, form.start_age) &&
           timingComplete(form.end, form.end_year, form.end_month, form.end_age) &&
@@ -232,17 +192,11 @@
   bind:open
   {onOpenChange}
   name={form.name}
-  onNameChange={(v) => (form.name = v)}
   {isNew}
-  {isIncluded}
-  renamable={false}
-  toolbar={false}
   newTitle={$_('page.plan.newTransfer')}
   saveDisabled={!canSave}
-  saveLabel={isNew ? $_('page.plan.createItem') : undefined}
+  footerClass="bg-muted"
   onSave={save}
-  onDuplicate={duplicate}
-  onToggleInclude={toggleExclude}
   onDelete={remove}
 >
   <!-- Label -->
@@ -279,6 +233,7 @@
           <SelectField
             id="{uid}-transactionYear"
             class="max-w-24"
+            placeholder={$_('page.setup.aboutYou.selectYear')}
             aria-label={$_('page.setup.aboutYou.selectYear')}
             value={form.transaction_year !== undefined ? String(form.transaction_year) : ''}
             items={yearItems}
@@ -287,6 +242,7 @@
             }}
           />
           <SelectField
+            placeholder={$_('page.setup.aboutYou.selectMonth')}
             aria-label={$_('page.setup.aboutYou.selectMonth')}
             value={form.transaction_month !== undefined
               ? monthToOption(form.transaction_month)
@@ -297,6 +253,13 @@
             }}
           />
         </div>
+        {#if !yearWithinPlan(range, form.transaction_year)}
+          <p class="text-xs text-destructive">
+            {$_('validation.outside_plan', {
+              values: { start: String(range.startYear), end: String(range.endYear) },
+            })}
+          </p>
+        {/if}
       </div>
     {:else}
       <div class="flex flex-1 flex-col gap-2">
@@ -407,7 +370,7 @@
       year={form.start_year}
       month={form.start_month}
       age={form.start_age}
-      {years}
+      {range}
       {months}
       birthDateSet={appStore.profile.birthDate !== undefined}
       description={$_('page.plan.transferStartDescription')}
@@ -424,7 +387,7 @@
       year={form.end_year}
       month={form.end_month}
       age={form.end_age}
-      {years}
+      {range}
       {months}
       minMonth={endMinMonth(form)}
       birthDateSet={appStore.profile.birthDate !== undefined}

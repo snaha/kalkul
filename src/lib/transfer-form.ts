@@ -1,3 +1,4 @@
+import { type PlanRange, clampYearToPlan, timingWithinPlan, yearWithinPlan } from '$lib/plan-range'
 import type {
   CashFlowEnd,
   CashFlowStart,
@@ -37,12 +38,16 @@ export interface TransferFields {
   end_age: number | undefined
   change_over_time: ChangeOverTime
   change_percentage: number | undefined
-  /** Owning plan when created in a plan dialog; undefined for financial data. */
-  plan_id: string | undefined
 }
 
-export function blankTransferFields(id: string, name: string): TransferFields {
+export function blankTransferFields(
+  id: string,
+  name: string,
+  /** When editing inside a plan, the one-time date is seeded within it. */
+  range?: PlanRange,
+): TransferFields {
   const now = new Date()
+  const year = now.getFullYear()
   return {
     id,
     name,
@@ -54,7 +59,7 @@ export function blankTransferFields(id: string, name: string): TransferFields {
     // their real value over time without the user having to flip it.
     inflation_adjusted: true,
     schedule: 'one_time',
-    transaction_year: now.getFullYear(),
+    transaction_year: range ? clampYearToPlan(range, year) : year,
     transaction_month: now.getMonth() + 1,
     frequency: 'monthly',
     start: 'immediately',
@@ -69,7 +74,6 @@ export function blankTransferFields(id: string, name: string): TransferFields {
     end_age: undefined,
     change_over_time: 'none',
     change_percentage: undefined,
-    plan_id: undefined,
   }
 }
 
@@ -98,7 +102,6 @@ export function transferToFields(src: Transfer): TransferFields {
   f.inflation_adjusted = src.inflation_adjusted === true || legacyInflation
   f.change_over_time = legacyInflation ? 'none' : (src.change_over_time ?? 'none')
   f.change_percentage = src.change_percentage
-  f.plan_id = src.plan_id
   return f
 }
 
@@ -112,7 +115,6 @@ export function transferFromFields(f: TransferFields): Transfer {
     amount: f.transfer_all ? 0 : (f.amount ?? 0),
     ...(f.transfer_all ? { transfer_all: true } : {}),
     inflation_adjusted: f.inflation_adjusted ? true : undefined,
-    ...(f.plan_id !== undefined ? { plan_id: f.plan_id } : {}),
   }
   if (f.schedule === 'one_time') {
     return {
@@ -154,4 +156,12 @@ export function endMinMonth(f: TransferFields): number | undefined {
     f.start_year === f.end_year
     ? f.start_month
     : undefined
+}
+
+/** Whether the schedule can take effect inside the plan; mirrors `cashFlowWithinPlan`. */
+export function transferWithinPlan(f: TransferFields, range: PlanRange): boolean {
+  return f.schedule === 'one_time'
+    ? yearWithinPlan(range, f.transaction_year)
+    : timingWithinPlan(range, 'start', f.start, f.start_year, f.start_age) &&
+        timingWithinPlan(range, 'end', f.end, f.end_year, f.end_age)
 }

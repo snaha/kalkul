@@ -1,4 +1,3 @@
-import { sharedItems } from '$lib/plan-owned'
 import { isHeldOn, isOwnedOn, yearOf } from '$lib/plan-projection'
 import {
   type Expense,
@@ -34,8 +33,8 @@ export const byId = <T extends { id: string }>(items: T[] | undefined) =>
 export function snapshotBalances(profile: Profile): SnapshotBalances {
   return {
     cash_amount: profile.cash_amount ?? 0,
-    investments: sharedItems(profile.investments).map((i) => ({ id: i.id, balance: i.balance })),
-    tangible_assets: sharedItems(profile.tangible_assets).map((a) => ({
+    investments: (profile.investments ?? []).map((i) => ({ id: i.id, balance: i.balance })),
+    tangible_assets: (profile.tangible_assets ?? []).map((a) => ({
       id: a.id,
       value: a.value,
       // Only financed assets carry debt; `status` can flip back to fully owned
@@ -44,7 +43,7 @@ export function snapshotBalances(profile: Profile): SnapshotBalances {
       remaining_term: a.status === 'financed' ? a.remaining_term : undefined,
       remaining_term_unit: a.status === 'financed' ? a.remaining_term_unit : undefined,
     })),
-    liabilities: sharedItems(profile.liabilities).map((l) => ({
+    liabilities: (profile.liabilities ?? []).map((l) => ({
       id: l.id,
       outstanding_balance: l.outstanding_balance,
       // The term is recorded next to the balance because it moves with it:
@@ -92,10 +91,8 @@ export function heldProfile(profile: Profile, asOf: Date): Profile {
   const birthYear = profile.birth_date ? yearOf(profile.birth_date) : undefined
   return {
     ...profile,
-    investments: sharedItems(profile.investments).filter((i) => isHeldOn(i, asOf, birthYear)),
-    tangible_assets: sharedItems(profile.tangible_assets).filter((a) =>
-      isOwnedOn(a, asOf, birthYear),
-    ),
+    investments: (profile.investments ?? []).filter((i) => isHeldOn(i, asOf, birthYear)),
+    tangible_assets: (profile.tangible_assets ?? []).filter((a) => isOwnedOn(a, asOf, birthYear)),
   }
 }
 
@@ -120,7 +117,7 @@ export function captureSnapshot(profile: Profile, date: string): Snapshot {
  * and runway leave both out, and a snapshot records exactly what they count.
  */
 export function countedCashFlows<T extends CashFlow>(flows: T[] | undefined): T[] {
-  return sharedItems(flows).filter((flow) => flow.schedule !== 'one_time')
+  return (flows ?? []).filter((flow) => flow.schedule !== 'one_time')
 }
 
 /** The figures a cash flow contributes to a snapshot; the rest stays on the profile. */
@@ -544,30 +541,17 @@ export function withSavedSnapshot(
  * Deletes the snapshot dated `date`. Deleting the most recent one rewinds the
  * profile's baseline to the one before it — the figures the user last recorded
  * that still stand. Deleting the last one leaves the history empty and the
- * profile as it is; `appStore.deleteSnapshot` then records today's figures in
- * its place while there is anything held to record, so a profile with balances
- * never loses its baseline.
+ * profile as it is.
  */
 export function withDeletedSnapshot(profile: Profile, date: string): Profile {
   return withHistory(profile, removeSnapshot(profile.snapshots, date))
 }
 
-/**
- * Whether deleting the snapshot dated `date` would change anything.
- *
- * Deleting the only one does not while it is today's and anything is held: a
- * profile with balances is never left without a baseline, so
- * `appStore.deleteSnapshot` carries the figures forward to today and records
- * them in its place — and carried forward no time at all, they are the deleted
- * snapshot's own. The row would stay, after the user was told the deletion
- * cannot be undone.
- */
+/** Whether the snapshot dated `date` may be deleted: not the only one while anything is held. */
 export function canDeleteSnapshot(profile: Profile, date: string, today: Date): boolean {
   const snapshots = profile.snapshots ?? []
   const onlyOne = snapshots.length === 1 && snapshots[0].date === date
-  return (
-    !onlyOne || date !== toDateOnlyString(today) || !hasAnyBalance(heldBalances(profile, today))
-  )
+  return !onlyOne || !hasAnyBalance(heldBalances(profile, today))
 }
 
 /**
@@ -618,10 +602,8 @@ export function withLatestTermsRecorded(profile: Profile): Profile {
  * one point.
  *
  * An absent list and an empty one are the same thing — a profile holding
- * balances that nothing says a date for. Nothing else can leave one behind:
- * deleting the last snapshot re-baselines onto today rather than clearing the
- * history, precisely so a profile with balances always has a baseline. A no-op
- * when there are no balances to record.
+ * balances that nothing says a date for. A no-op when there are no balances to
+ * record.
  */
 export function withSeededSnapshot(profile: Profile, asOf: Date): Profile {
   if ((profile.snapshots ?? []).length > 0) return profile

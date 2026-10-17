@@ -5,7 +5,6 @@ import {
   withBalancesCarriedForward,
 } from '$lib/current-values'
 import { hasAnyFinancialData } from '$lib/financial-totals'
-import type { PlanOwned } from '$lib/plan-owned'
 import {
   type Portfolio,
   type Profile,
@@ -16,10 +15,9 @@ import {
 } from '$lib/schemas'
 import type { Snapshot } from '$lib/schemas'
 import {
+  canDeleteSnapshot,
   captureSnapshot,
-  hasAnyBalance,
   hasSameBalances,
-  heldBalances,
   latestSnapshot,
   upsertSnapshot,
   withDeletedSnapshot,
@@ -158,20 +156,38 @@ const DEFAULT_PROFILE: Profile = {
   email: '',
 }
 
+/**
+ * Parses stored data, from this tab's storage or another tab's write. Repairs
+ * before parsing: data stored before stricter validation rules — or before a
+ * snapshot recorded everything it records now — must keep loading, otherwise
+ * the whole dataset falls back to the empty default and gets overwritten on
+ * the next persist. It also keeps a tab still running an older app version
+ * from breaking cross-tab sync with since-invalidated data.
+ */
+function parseStoredData(json: string): StoredData {
+  return storedDataSchema.parse(repairStoredData(JSON.parse(json)))
+}
+
 function loadData(): StoredData {
   try {
     const raw = localStorage.getItem(storageKeys.DATA)
-    if (raw) {
-      // Repair before parsing: data stored before stricter validation rules —
-      // or before a snapshot recorded everything it records now — must keep
-      // loading, otherwise the whole dataset falls back to the empty default
-      // and gets overwritten on the next persist.
-      return storedDataSchema.parse(repairStoredData(JSON.parse(raw)))
-    }
+    if (raw) return parseStoredData(raw)
   } catch (e) {
     console.error('Failed to load data from localStorage', e)
   }
   return { lastUpdated: 0, profile: { ...DEFAULT_PROFILE }, portfolios: [] }
+}
+
+/**
+ * A change to the stored data, as `onDataChange` reports it.
+ *
+ * - `edit`: this tab saved a change (any edit, an import).
+ * - `other-tab`: another tab saved or cleared, and this tab took its data.
+ * - `load`: the data was loaded or cleared wholesale.
+ */
+export interface DataChange {
+  lastUpdated: number
+  source: 'edit' | 'other-tab' | 'load'
 }
 
 function withAppStore() {
@@ -180,6 +196,20 @@ function withAppStore() {
   let portfolios = $state<PortfolioStore[]>([])
   let loading = $state(true)
   let lastUpdated = $state(0)
+  let dataListeners: ((change: DataChange) => void)[] = []
+
+  function emitChange(source: DataChange['source']): void {
+    const change = { lastUpdated, source }
+    for (const listener of dataListeners) listener(change)
+  }
+
+  /** Empties the in-memory state; storage is untouched. */
+  function reset(): void {
+    profile = enrichProfile({ ...DEFAULT_PROFILE })
+    portfolios = []
+    lastUpdated = 0
+    loading = false
+  }
 
   function persist(): void {
     const now = Date.now()
@@ -192,6 +222,7 @@ function withAppStore() {
       localStorage.setItem(storageKeys.DATA, JSON.stringify(stored))
       lastUpdated = now
       storageErrorStore.clear()
+      emitChange('edit')
     } catch (e) {
       console.error('Failed to save data to localStorage', e)
       storageErrorStore.setError()
@@ -281,35 +312,6 @@ function withAppStore() {
   function deletePortfolio(id: string): void {
     const idx = portfolios.findIndex((p) => p.id === id)
     if (idx !== -1) portfolios.splice(idx, 1)
-    // Everything created in the plan goes with it; nothing else can show it.
-    const stored = profile.toJSON()
-    const ownsNothing = !(
-      [
-        stored.investments,
-        stored.tangible_assets,
-        stored.liabilities,
-        stored.incomes,
-        stored.expenses,
-        stored.transfers,
-      ] as (PlanOwned[] | undefined)[]
-    ).some((items) => items?.some((item) => item.plan_id === id))
-    if (ownsNothing) {
-      persist()
-      return
-    }
-    const disown = <T extends PlanOwned>(items: T[] | undefined) =>
-      items?.filter((item) => item.plan_id !== id)
-    profile = enrichProfile(
-      profileSchema.parse({
-        ...stored,
-        investments: disown(stored.investments),
-        tangible_assets: disown(stored.tangible_assets),
-        liabilities: disown(stored.liabilities),
-        incomes: disown(stored.incomes),
-        expenses: disown(stored.expenses),
-        transfers: disown(stored.transfers),
-      }),
-    )
     persist()
   }
 
@@ -343,9 +345,7 @@ function withAppStore() {
       return !loading && !!profile.name
     },
     clear() {
-      profile = enrichProfile({ ...DEFAULT_PROFILE })
-      portfolios = []
-      lastUpdated = 0
+      reset()
       try {
         localStorage.removeItem(storageKeys.DATA)
         storageErrorStore.clear()
@@ -353,7 +353,7 @@ function withAppStore() {
         console.error('Failed to clear data from localStorage', e)
         storageErrorStore.setError()
       }
-      loading = false
+      emitChange('load')
     },
 
     persist,
@@ -435,41 +435,11 @@ function withAppStore() {
       writeProfile(withSavedSnapshot(carried, snapshot, originalDate), 'manage')
     },
 
-    /**
-     * Deletes the snapshot dated `date`.
-     *
-     * Deleting the last one would leave the profile holding balances with no
-     * baseline to project them from: no staleness banner, no projection, and
-     * the next unrelated edit stamping today's date onto months-old figures.
-     * So the deleted snapshot's figures are carried forward to today — the same
-     * model the dashboard shows them with — and recorded there. History is
-     * never empty while there are balances, and the user sees exactly what
-     * happened as a row dated today, theirs to edit or delete in turn.
-     */
+    /** Deletes the snapshot dated `date`, unless `canDeleteSnapshot` refuses. */
     deleteSnapshot(date: string) {
-      const today = new Date()
       const stored = profile.toJSON()
-      const deleted = (stored.snapshots ?? []).find((snapshot) => snapshot.date === date)
-      const next = withDeletedSnapshot(stored, date)
-      // Gated on what is held today, not on whether the profile has any data:
-      // a position that only starts in 2030 is nothing to project from, and
-      // recording an all-zero row for today would say otherwise.
-      if (
-        !deleted ||
-        (next.snapshots ?? []).length > 0 ||
-        !hasAnyBalance(heldBalances(next, today))
-      ) {
-        writeProfile(next, 'manage')
-        return
-      }
-      // The profile already holds the deleted snapshot's figures — it was the
-      // newest, and every write keeps the profile matching that one — so it is
-      // the baseline to project from.
-      const carried = getCurrentProfile({ ...next, snapshots: [deleted] }, today)
-      writeProfile(
-        { ...carried, snapshots: [captureSnapshot(carried, toDateOnlyString(today))] },
-        'manage',
-      )
+      if (!canDeleteSnapshot(stored, date, new Date())) return
+      writeProfile(withDeletedSnapshot(stored, date), 'manage')
     },
 
     // --- Portfolios ---
@@ -500,21 +470,27 @@ function withAppStore() {
       portfolios = enrichAll(data.portfolios)
       lastUpdated = data.lastUpdated
       loading = false
+      emitChange('load')
     },
 
     startSync(): () => void {
       function onStorage(event: StorageEvent): void {
-        if (event.key !== storageKeys.DATA || !event.newValue) return
+        if (event.key !== storageKeys.DATA) return
+        // Another tab removed the data.
+        if (!event.newValue) {
+          reset()
+          emitChange('other-tab')
+          return
+        }
 
         try {
-          // Repaired like loadData so a tab still running an older app
-          // version can't break sync by persisting since-invalidated data.
-          const data = storedDataSchema.parse(repairStoredData(JSON.parse(event.newValue)))
+          const data = parseStoredData(event.newValue)
           if (data.lastUpdated === lastUpdated) return
 
           profile = enrichProfile(data.profile)
           portfolios = enrichAll(data.portfolios)
           lastUpdated = data.lastUpdated
+          emitChange('other-tab')
         } catch {
           // Ignore malformed data from other tabs
         }
@@ -522,6 +498,18 @@ function withAppStore() {
 
       window.addEventListener('storage', onStorage)
       return () => window.removeEventListener('storage', onStorage)
+    },
+
+    /**
+     * Calls `listener` after every change to the stored data, whatever made
+     * it — an edit or import in this tab, another tab's save, a load or a
+     * clear. Returns the unsubscribe.
+     */
+    onDataChange(listener: (change: DataChange) => void): () => void {
+      dataListeners = [...dataListeners, listener]
+      return () => {
+        dataListeners = dataListeners.filter((other) => other !== listener)
+      }
     },
 
     // --- Backup / Restore ---
