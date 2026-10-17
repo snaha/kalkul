@@ -144,8 +144,8 @@
   const CORNER_RADIUS = 2
   const GRID_LINE_COUNT = 5
   const RECORDED_OPACITY = 0.45
-  const RECORDED_LINE_WIDTH = 2
-  const RECORDED_DOT_RADIUS = 3
+  const RECORDED_LINE_WIDTH = 3
+  const RECORDED_DOT_RADIUS = 3.5
 
   /** One line per stack boundary, drawn bottom-up so the top one ends up over the rest. */
   const RECORDED_LINES = [
