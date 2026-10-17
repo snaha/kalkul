@@ -1191,10 +1191,10 @@ describe('appStore.onDataChange', () => {
     expect(appStore.profile.name).toBe('')
   })
 
-  it('reports loading and clearing', () => {
+  it('reports clearing and loading', () => {
     appStore.clear()
     appStore.load()
-    expect(changes.map((change) => change.source)).toEqual(['load', 'load'])
+    expect(changes.map((change) => change.source)).toEqual(['clear', 'load'])
   })
 
   it('stops reporting once unsubscribed', () => {

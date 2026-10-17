@@ -47,6 +47,13 @@ export interface SyncDeps {
      * (e.g. a newer app's).
      */
     import: (json: string) => void
+    /**
+     * Whether local data is changing without the stamp having moved yet: an
+     * editor holds an edit it has not saved, or the data was erased and this
+     * computer is leaving the folder. Counts as a local change, so nothing is
+     * downloaded over it.
+     */
+    changing: () => boolean
   }
   state: {
     load: () => Promise<SyncState | undefined>
@@ -65,6 +72,14 @@ export class UnreadableBackupError extends Error {
     super(`Backup ${version.id} cannot be loaded`, options)
     this.name = 'UnreadableBackupError'
   }
+}
+
+/**
+ * Whether the folder has moved past `hash`, a version this app could not
+ * load: until something builds on it, a round would only try it again.
+ */
+export async function movedPast(files: FileStore, hash: string): Promise<boolean> {
+  return !headsOf(await listVersions(files)).some((head) => head.hash === hash)
 }
 
 export type SyncOutcome =
@@ -110,19 +125,27 @@ function wouldLoseLocal(
 
 /**
  * Replaces local data with `version`, saving the local data aside first when
- * that is the only copy of it. If reading the version or saving aside fails,
- * nothing is replaced. A version this app cannot load replaces nothing either,
- * and its safety copy is taken back, so retrying it does not fill the folder
- * with them.
+ * that is the only copy of it, and returns the stamp the import left. If
+ * reading the version or saving aside fails, nothing is replaced. A version
+ * this app cannot load replaces nothing either, and its safety copy is taken
+ * back, so retrying it does not fill the folder with them.
+ *
+ * Local data that changes while the version is read or saved aside (seconds,
+ * for a file the sync client has yet to download) is newer than the decision
+ * to replace it: nothing is replaced, any safety copy is taken back, and it
+ * returns undefined.
  */
 async function replaceLocal(
   deps: SyncDeps,
   version: Version,
   synced: SyncState | undefined,
   versions: Version[],
-): Promise<void> {
+): Promise<number | undefined> {
   deps.transferring()
+  const decided = deps.local.stamp()
+  const unchanged = () => deps.local.stamp() === decided && !deps.local.changing()
   const json = await deps.files.read(version.id)
+  if (!unchanged()) return undefined
   const safetyCopy = wouldLoseLocal(deps, synced, versions)
     ? await saveSafetyCopy(deps.files, {
         device: deps.device,
@@ -130,13 +153,20 @@ async function replaceLocal(
         contents: deps.local.export(),
       })
     : undefined
+  if (!unchanged()) {
+    if (safetyCopy) await deps.files.remove(safetyCopy.id)
+    return undefined
+  }
   try {
     deps.local.import(json)
   } catch (error) {
     if (safetyCopy) await deps.files.remove(safetyCopy.id)
     throw new UnreadableBackupError(version, { cause: error })
   }
+  // Taken before pruning: an edit landing meanwhile is not in `version`.
+  const stamp = deps.local.stamp()
   if (safetyCopy) await pruneSafetyCopies(deps.files)
+  return stamp
 }
 
 async function pull(
@@ -145,12 +175,10 @@ async function pull(
   synced: SyncState | undefined,
   versions: Version[],
 ): Promise<SyncOutcome> {
-  await replaceLocal(deps, version, synced, versions)
-  await deps.state.save({
-    head: version.hash,
-    localStamp: deps.local.stamp(),
-    syncedAt: deps.now(),
-  })
+  const stamp = await replaceLocal(deps, version, synced, versions)
+  // Local data changed during the download: decide again, with that change.
+  if (stamp === undefined) return syncOnce(deps)
+  await deps.state.save({ head: version.hash, localStamp: stamp, syncedAt: deps.now() })
   return { kind: 'pulled', hash: version.hash, device: version.device }
 }
 
@@ -199,36 +227,52 @@ async function conflictUnlessSame(
   return { kind: 'conflict', remote }
 }
 
+/**
+ * A device that never synced, with data of its own: in sync with whichever
+ * head holds the same data, and asked about the rest.
+ */
+async function connectWithLocal(deps: SyncDeps, heads: Version[]): Promise<SyncOutcome> {
+  for (const head of heads) {
+    if (!(await adoptIfSame(deps, head))) continue
+    const other = heads.find((h) => h.hash !== head.hash)
+    return other ? { kind: 'conflict', remote: other } : { kind: 'up-to-date' }
+  }
+  return { kind: 'conflict', remote: heads[0] }
+}
+
 export async function syncOnce(deps: SyncDeps): Promise<SyncOutcome> {
   const synced = await deps.state.load()
   const versions = await listVersions(deps.files)
   const heads = headsOf(versions)
-  const hasLocal = deps.local.stamp() > 0
+  // Edits not saved yet are uploaded once they are.
+  const hasSaved = deps.local.stamp() > 0
 
   if (!synced) {
-    if (!heads.length) return hasLocal ? push(deps, []) : { kind: 'up-to-date' }
-    if (!hasLocal) {
+    if (!heads.length) return hasSaved ? push(deps, []) : { kind: 'up-to-date' }
+    if (!hasSaved && !deps.local.changing()) {
       return heads.length > 1 ? { kind: 'fork', heads } : pull(deps, heads[0], synced, versions)
     }
-    return conflictUnlessSame(deps, heads[0], heads)
+    return connectWithLocal(deps, heads)
   }
 
   // Strictly newer: a tab whose copy of the data lags behind the one that
   // last synced must not upload its older copy as an edit.
-  const localChanged = deps.local.stamp() > synced.localStamp
+  const savedChange = deps.local.stamp() > synced.localStamp
 
   // An emptied folder is nobody's data: start the history again.
-  if (!heads.length) return hasLocal ? push(deps, []) : { kind: 'up-to-date' }
+  if (!heads.length) return hasSaved ? push(deps, []) : { kind: 'up-to-date' }
 
   if (heads.length === 1 && heads[0].hash === synced.head) {
-    if (!localChanged) return { kind: 'up-to-date' }
+    if (!savedChange) return { kind: 'up-to-date' }
     // A change that left the data as it was (a value retyped as it stood)
     // is not worth a new version: every computer would download it for nothing.
     if (await adoptIfSame(deps, heads[0])) return { kind: 'up-to-date' }
     return push(deps, [synced.head])
   }
   // One line of history moved on and this device changed nothing: take it.
-  if (heads.length === 1 && !localChanged) return pull(deps, heads[0], synced, versions)
+  if (heads.length === 1 && !savedChange && !deps.local.changing()) {
+    return pull(deps, heads[0], synced, versions)
+  }
 
   const other = heads.find((h) => h.hash !== synced.head) ?? heads[0]
   return conflictUnlessSame(deps, other, heads)
@@ -251,7 +295,7 @@ export async function resolveConflict(
   const chosen = heads.find((h) => h.hash !== synced?.head) ?? heads[0]
   if (heads.length === 1) return pull(deps, chosen, synced, versions)
 
-  await replaceLocal(deps, chosen, synced, versions)
+  if ((await replaceLocal(deps, chosen, synced, versions)) === undefined) return syncOnce(deps)
   return push(deps, parents)
 }
 
@@ -266,7 +310,7 @@ export async function chooseVersion(deps: SyncDeps, hash: string): Promise<SyncO
   const heads = headsOf(versions)
   const chosen = heads.find((h) => h.hash === hash)
   if (!chosen || heads.length < 2) return syncOnce(deps)
-  await replaceLocal(deps, chosen, synced, versions)
+  if ((await replaceLocal(deps, chosen, synced, versions)) === undefined) return syncOnce(deps)
   return push(
     deps,
     heads.map((h) => h.hash),

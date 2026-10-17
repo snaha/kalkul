@@ -14,6 +14,7 @@ import {
   type SyncState,
   UnreadableBackupError,
   chooseVersion,
+  movedPast,
   resolveConflict,
   syncOnce,
 } from './sync-engine'
@@ -49,6 +50,7 @@ function device(files: FileStore, name: string, initial = '') {
   let stamp = initial ? 1 : 0
   let saved: SyncState | undefined
   let transfers = 0
+  let changing = false
   const deps: SyncDeps = {
     files,
     device: name,
@@ -61,6 +63,7 @@ function device(files: FileStore, name: string, initial = '') {
         data = json
         stamp = clock += 1000
       },
+      changing: () => changing,
     },
     state: {
       load: async () => saved,
@@ -87,6 +90,42 @@ function device(files: FileStore, name: string, initial = '') {
     edit(next: string) {
       data = next
       stamp = clock += 1000
+    },
+    /** An editor holds an edit it has not saved yet (or stops holding one). */
+    set changing(on: boolean) {
+      changing = on
+    },
+  }
+}
+
+/** The folder, with `during` run once just before `operation` returns. */
+function interrupted(
+  files: FileStore,
+  operation: 'read' | 'create' | 'list',
+  during: () => void,
+  when: (arg: string) => boolean = () => true,
+): FileStore {
+  let done = false
+  const once = <T>(result: T, arg: string): T => {
+    if (!done && when(arg)) {
+      done = true
+      during()
+    }
+    return result
+  }
+  return {
+    ...files,
+    read: async (id) => {
+      const json = await files.read(id)
+      return operation === 'read' ? once(json, id) : json
+    },
+    create: async (name, contents) => {
+      const file = await files.create(name, contents)
+      return operation === 'create' ? once(file, name) : file
+    },
+    list: async () => {
+      const list = await files.list()
+      return operation === 'list' ? once(list, '') : list
     },
   }
 }
@@ -421,6 +460,19 @@ describe('a version this app cannot load', () => {
     await expect(syncOnce(b.deps)).rejects.toBeInstanceOf(UnreadableBackupError)
     expect(b.data).toBe('v1')
   })
+
+  it('is worth retrying only once the folder has moved past it', async () => {
+    const files = memoryStore()
+    const a = device(files, 'a', 'v1')
+    await syncOnce(a.deps)
+    a.edit('unloadable')
+    await syncOnce(a.deps)
+    const unreadable = a.state!.head
+    expect(await movedPast(files, unreadable)).toBe(false)
+    a.edit('saved after it')
+    await syncOnce(a.deps)
+    expect(await movedPast(files, unreadable)).toBe(true)
+  })
 })
 
 describe('a new computer connecting to a branched folder', () => {
@@ -497,5 +549,125 @@ describe('telling the caller when a round transfers data', () => {
     expect(a.transfers).toBe(1)
     expect((await syncOnce(b.deps)).kind).toBe('pulled')
     expect(b.transfers).toBe(1)
+  })
+})
+
+describe('local data changing while a round downloads', () => {
+  /** "b" is one version behind the folder and has changed nothing. */
+  async function behind() {
+    const files = memoryStore()
+    const a = device(files, 'a', 'v1')
+    const b = device(files, 'b')
+    await syncOnce(a.deps)
+    await syncOnce(b.deps)
+    a.edit('from a')
+    await syncOnce(a.deps)
+    return { files, a, b }
+  }
+
+  it('keeps an edit made while the download was being read, and asks', async () => {
+    const { files, b } = await behind()
+    const slow = { ...b.deps, files: interrupted(files, 'read', () => b.edit('typed meanwhile')) }
+    expect((await syncOnce(slow)).kind).toBe('conflict')
+    expect(b.data).toBe('typed meanwhile')
+    expect(safetyCopies(files.files)).toEqual([])
+  })
+
+  it('keeps an edit made while its safety copy was being written, and takes the copy back', async () => {
+    const files = memoryStore()
+    await syncOnce(device(files, 'b', 'theirs').deps)
+    const a = device(files, 'a', 'mine')
+    expect((await syncOnce(a.deps)).kind).toBe('conflict')
+    const slow = {
+      ...a.deps,
+      files: interrupted(
+        files,
+        'create',
+        () => a.edit('typed meanwhile'),
+        (name) => name.includes('_before-replace_'),
+      ),
+    }
+    expect((await resolveConflict(slow, 'remote')).kind).toBe('conflict')
+    expect(a.data).toBe('typed meanwhile')
+    expect(safetyCopies(files.files)).toEqual([])
+  })
+
+  it('uploads an edit that lands just after the download was applied', async () => {
+    const files = memoryStore()
+    const a = device(files, 'a', 'only on a')
+    const b = device(files, 'b')
+    await syncOnce(a.deps)
+    await syncOnce(b.deps)
+    for (let i = 0; i < KEPT_RECENT + 1; i++) {
+      b.edit(`b${i}`)
+      await syncOnce(b.deps)
+    }
+    // The download saves a safety copy, and pruning old copies lists the folder.
+    let imported = false
+    const deps: SyncDeps = {
+      ...a.deps,
+      local: {
+        ...a.deps.local,
+        import: (json) => {
+          a.deps.local.import(json)
+          imported = true
+        },
+      },
+      files: interrupted(
+        files,
+        'list',
+        () => a.edit('typed right after'),
+        () => imported,
+      ),
+    }
+    expect((await syncOnce(deps)).kind).toBe('pulled')
+    expect(a.data).toBe('typed right after')
+    expect((await syncOnce(a.deps)).kind).toBe('pushed')
+    expect(await headContents(files)).toEqual(['typed right after'])
+  })
+
+  it('downloads nothing over an edit an editor has not saved yet', async () => {
+    const { b } = await behind()
+    b.changing = true
+    expect((await syncOnce(b.deps)).kind).toBe('conflict')
+    expect(b.data).toBe('v1')
+  })
+
+  it('downloads nothing once an editor starts holding an edit during the download', async () => {
+    const { files, b } = await behind()
+    const slow = { ...b.deps, files: interrupted(files, 'read', () => (b.changing = true)) }
+    expect((await syncOnce(slow)).kind).toBe('conflict')
+    expect(b.data).toBe('v1')
+  })
+
+  it('uploads an unsaved edit only once it is saved', async () => {
+    const files = memoryStore()
+    const a = device(files, 'a', 'v1')
+    await syncOnce(a.deps)
+    a.changing = true
+    expect(await syncOnce(a.deps)).toEqual({ kind: 'up-to-date' })
+    expect(files.files.size).toBe(1)
+  })
+})
+
+describe('a computer with data of its own connecting to a branched folder', () => {
+  it('is in sync with the branch holding the same data, and asked only about the other', async () => {
+    const files = memoryStore()
+    const a = device(files, 'a', 'v1')
+    await syncOnce(a.deps)
+    const base = a.state!.head
+    a.edit('from a')
+    await syncOnce(a.deps)
+    const fromB = await appendVersion(files, {
+      parents: [base],
+      device: 'b',
+      time: (clock += 1000),
+      contents: 'from b',
+    })
+    const c = device(files, 'c', 'from b')
+    const outcome = await syncOnce(c.deps)
+    expect(outcome.kind).toBe('conflict')
+    if (outcome.kind === 'conflict') expect(outcome.remote.device).toBe('a')
+    expect(c.state?.head).toBe(fromB.hash)
   })
 })

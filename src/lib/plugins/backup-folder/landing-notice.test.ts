@@ -21,7 +21,7 @@ describe('landingNotice', () => {
     expect(landingNotice({ kind: 'fork', versions: [] })).toBe('attention')
     expect(landingNotice({ kind: 'needs-permission' })).toBe('attention')
     expect(landingNotice({ kind: 'error' })).toBe('attention')
-    expect(landingNotice({ kind: 'unreadable', remoteTime: 0, remoteDevice: 'b' })).toBe(
+    expect(landingNotice({ kind: 'unreadable', hash: 'b', remoteTime: 0, remoteDevice: 'b' })).toBe(
       'attention',
     )
   })

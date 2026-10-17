@@ -189,12 +189,13 @@ function parseSyncedData(json: string) {
  *
  * - `edit`: this tab saved a change (any edit, an import).
  * - `replace`: this tab replaced the data with `replaceData`.
+ * - `clear`: this tab erased the data.
  * - `other-tab`: another tab saved or cleared, and this tab took its data.
- * - `load`: the data was loaded or cleared wholesale.
+ * - `load`: the data was loaded wholesale.
  */
 export interface DataChange {
   lastUpdated: number
-  source: 'edit' | 'replace' | 'other-tab' | 'load'
+  source: 'edit' | 'replace' | 'clear' | 'other-tab' | 'load'
 }
 
 function withAppStore() {
@@ -360,7 +361,7 @@ function withAppStore() {
         console.error('Failed to clear data from localStorage', e)
         storageErrorStore.setError()
       }
-      emitChange('load')
+      emitChange('clear')
     },
 
     persist,

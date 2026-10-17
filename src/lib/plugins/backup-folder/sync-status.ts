@@ -16,7 +16,7 @@ export type BackupFolderStatus =
   /** The folder's history is branched and this computer has nothing of its own yet. */
   | { kind: 'fork'; versions: { hash: string; time: number; device: string }[] }
   /** Another computer saved data this version of the app cannot load. */
-  | { kind: 'unreadable'; remoteTime: number; remoteDevice: string }
+  | { kind: 'unreadable'; hash: string; remoteTime: number; remoteDevice: string }
   | { kind: 'error' }
 
 export function statusForOutcome(outcome: SyncOutcome): BackupFolderStatus {
@@ -45,6 +45,7 @@ export function statusForError(error: unknown): BackupFolderStatus {
   if (error instanceof UnreadableBackupError) {
     return {
       kind: 'unreadable',
+      hash: error.version.hash,
       remoteTime: error.version.time,
       remoteDevice: error.version.device,
     }
@@ -55,13 +56,15 @@ export function statusForError(error: unknown): BackupFolderStatus {
 /**
  * Whether a background trigger (an edit, the tab regaining focus, the timer)
  * should start a round. States that only the user can clear are left alone
- * until they act.
+ * until they act. A version this app cannot load is one of them (reloading
+ * the page clears it), though the timer still looks for a newer version.
  */
 export function shouldAutoSync(status: BackupFolderStatus): boolean {
   return (
     status.kind !== 'disconnected' &&
     status.kind !== 'needs-permission' &&
-    status.kind !== 'folder-missing'
+    status.kind !== 'folder-missing' &&
+    status.kind !== 'unreadable'
   )
 }
 

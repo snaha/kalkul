@@ -8,7 +8,7 @@ import { flushSync } from 'svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
-import { type ListEditor, createListEditor } from './list-editor.svelte'
+import { type ListEditor, createListEditor, hasUnsavedListEdits } from './list-editor.svelte'
 
 interface StoredThing {
   id: string
@@ -505,5 +505,35 @@ describe('createListEditor with changes made elsewhere', () => {
     cleanup()
     changeElsewhere([two])
     expect(editor.items.map((i) => i.id)).toEqual(['a'])
+  })
+})
+
+describe('hasUnsavedListEdits', () => {
+  it('is true from an edit until it is saved', () => {
+    const { editor, cleanup } = setup({ initial: [one] })
+    expect(hasUnsavedListEdits()).toBe(false)
+    editor.items[0].value = 42
+    flushSync()
+    expect(hasUnsavedListEdits()).toBe(true)
+    vi.advanceTimersByTime(300)
+    expect(hasUnsavedListEdits()).toBe(false)
+    cleanup()
+  })
+
+  it('stays true while the save is rejected, until the editor is destroyed', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { editor, cleanup } = setup({
+      initial: [one],
+      persist: () => {
+        throw new Error('quota exceeded')
+      },
+    })
+    editor.items[0].value = 42
+    flushSync()
+    vi.advanceTimersByTime(300)
+    expect(hasUnsavedListEdits()).toBe(true)
+    cleanup()
+    expect(hasUnsavedListEdits()).toBe(false)
+    consoleError.mockRestore()
   })
 })

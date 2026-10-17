@@ -57,6 +57,7 @@ describe('statusForError', () => {
     const version = { hash: 'bbbbbbbbbbbb', parents: [], device: 'b-1', time, id: 'f' }
     expect(statusForError(new UnreadableBackupError(version))).toEqual({
       kind: 'unreadable',
+      hash: 'bbbbbbbbbbbb',
       remoteTime: time,
       remoteDevice: 'b-1',
     })
@@ -73,14 +74,16 @@ describe('shouldAutoSync', () => {
     expect(shouldAutoSync({ kind: 'error' })).toBe(true)
     expect(shouldAutoSync({ kind: 'conflict', remoteTime: 0, remoteDevice: 'b' })).toBe(true)
     expect(shouldAutoSync({ kind: 'fork', versions: [] })).toBe(true)
-    // A newer app version's file: nothing local is touched, so retrying is safe.
-    expect(shouldAutoSync({ kind: 'unreadable', remoteTime: 0, remoteDevice: 'b' })).toBe(true)
   })
 
   it('waits for the user when only they can fix it', () => {
     expect(shouldAutoSync({ kind: 'disconnected' })).toBe(false)
     expect(shouldAutoSync({ kind: 'needs-permission' })).toBe(false)
     expect(shouldAutoSync({ kind: 'folder-missing' })).toBe(false)
+    // A newer app version's file fails the same way until the page is reloaded.
+    expect(
+      shouldAutoSync({ kind: 'unreadable', hash: 'b', remoteTime: 0, remoteDevice: 'b' }),
+    ).toBe(false)
   })
 })
 
