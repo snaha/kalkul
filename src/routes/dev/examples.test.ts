@@ -33,6 +33,14 @@ const DELIBERATELY_TIGHT: Record<string, { firstUnfundedYear: number; maxUnfunde
     'plan-2': { firstUnfundedYear: 2030, maxUnfundedYears: 1 },
   }
 
+/**
+ * A current projection that is *meant* to run out, with the first year it
+ * does. Tereza is a student on a flat café wage whose rent rises 5% a year:
+ * "if nothing changes" is exactly the problem her "After graduation" plan
+ * is there to solve. Pinning the year keeps the data honest about it.
+ */
+const CURRENT_PROJECTION_RUNS_DRY: Record<string, number> = { tereza: 2032 }
+
 function parse(json: unknown) {
   return storedDataSchema.pick({ profile: true, portfolios: true }).parse(json)
 }
@@ -47,12 +55,17 @@ const unfundedYears = (years: YearlyProjection[]): number[] =>
     )
     .map((year) => year.year)
 
-describe.each(Object.entries(SAMPLES))('example profile: %s', (_name, json) => {
-  test('the current projection pays for every year', () => {
+describe.each(Object.entries(SAMPLES))('example profile: %s', (name, json) => {
+  test('the current projection pays for every year, unless it is meant to run out', () => {
     const { profile } = parse(json)
     const years = getYearlyPlanProjection(buildCurrentProjectionPlan(profile, TODAY), profile)
 
     expect(years.length).toBeGreaterThan(0)
+    const runsDry = CURRENT_PROJECTION_RUNS_DRY[name]
+    if (runsDry !== undefined) {
+      expect(unfundedYears(years)[0]).toBe(runsDry)
+      return
+    }
     expect(unfundedYears(years)).toEqual([])
     expect(years.filter((year) => year.cash <= 0).map((year) => year.year)).toEqual([])
   })

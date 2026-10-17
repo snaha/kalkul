@@ -67,29 +67,6 @@ describe('getCurrentProfile', () => {
     expect(getCurrentProfile(PROFILE, TODAY).cash_amount).toBe(25_763)
   })
 
-  test('does not accrue income that has not started yet', () => {
-    const profile: Profile = {
-      ...PROFILE,
-      cash_amount: 50_000,
-      incomes: [
-        { ...PROFILE.incomes![0], start: 'at_specific_date', start_year: 2027, start_month: 1 },
-      ],
-    }
-    // Only outflows are running: 50,000 − (36,000 + 2,400) × 0.4982888.
-    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(30_866)
-  })
-
-  test('stops accruing an expense whose window has already closed', () => {
-    const profile: Profile = {
-      ...PROFILE,
-      expenses: [
-        { ...PROFILE.expenses![0], end: 'at_specific_date', end_year: 2026, end_month: 5 },
-      ],
-    }
-    // 15,000 + (60,000 − 2,400) × 0.4982888.
-    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(43_701)
-  })
-
   // One-time items are events rather than rates — the accrual is a rate, so a
   // one-time expense or income must not move today's cash either way
   // (mirrors one-time transfers).
@@ -120,27 +97,6 @@ describe('getCurrentProfile', () => {
       ],
     }
     expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(25_763)
-  })
-
-  test('counts a flow whose start month has arrived', () => {
-    const profile: Profile = {
-      ...PROFILE,
-      incomes: [
-        { ...PROFILE.incomes![0], start: 'at_specific_date', start_year: 2026, start_month: 7 },
-      ],
-    }
-    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(25_763)
-  })
-
-  test('resolves age-based windows against the birth date', () => {
-    const profile: Profile = {
-      ...PROFILE,
-      cash_amount: 50_000,
-      // Turns 40 in 2030, so the income has not started.
-      birth_date: '1990-06-15',
-      incomes: [{ ...PROFILE.incomes![0], start: 'when_age_is', start_age: 40 }],
-    }
-    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(30_866)
   })
 
   test('rounds projected balances to whole units', () => {
@@ -348,16 +304,6 @@ describe('getCurrentProfile with transfers', () => {
     expect(current.investments?.[0].balance).toBe(105_432)
   })
 
-  test('ignores a transfer whose window has already closed', () => {
-    const profile: Profile = {
-      ...PROFILE,
-      transfers: [{ ...CONTRIBUTION, end: 'at_specific_date', end_year: 2025, end_month: 12 }],
-    }
-    const current = getCurrentProfile(profile, TODAY)
-    expect(current.cash_amount).toBe(25_763)
-    expect(current.investments?.[0].balance).toBe(104_864)
-  })
-
   test('ignores a one-time transfer, which is an event rather than a rate', () => {
     const profile: Profile = {
       ...PROFILE,
@@ -502,203 +448,6 @@ describe('getCurrentProfile with transfers', () => {
     expect(current.cash_amount).toBe(1_000)
     expect(current.investments?.[0].balance).toBe(0)
     expect(netWorth(current)).toBe(1_000)
-  })
-
-  test('ignores a transfer into an investment not bought yet', () => {
-    const profile: Profile = {
-      ...PROFILE,
-      investments: [
-        { ...PROFILE.investments![0], start: 'at_specific_date', start_year: 2035 },
-        PROFILE.investments![1],
-      ],
-      transfers: [CONTRIBUTION],
-    }
-    const current = getCurrentProfile(profile, TODAY)
-    expect(current.cash_amount).toBe(25_763)
-    // And it is not compounding either — see the holding-window tests below.
-    expect(current.investments?.[0].balance).toBe(100_000)
-  })
-
-  test('ignores a transfer out of an investment already sold', () => {
-    const profile: Profile = {
-      ...PROFILE,
-      investments: [
-        { ...PROFILE.investments![0], exit: 'at_specific_date', exit_year: 2025 },
-        PROFILE.investments![1],
-      ],
-      transfers: [{ ...CONTRIBUTION, from_asset_id: 'inv1', to_asset_id: 'cash' }],
-    }
-    const current = getCurrentProfile(profile, TODAY)
-    expect(current.cash_amount).toBe(25_763)
-    expect(current.investments?.[0].balance).toBe(100_000)
-  })
-})
-
-describe('getCurrentProfile and the holding window', () => {
-  test('does not compound a position the user has not bought yet', () => {
-    // A future start means the balance is bought out of cash that year: it is
-    // the amount the plan will put in, not money in the market earning a
-    // return today.
-    const profile: Profile = {
-      ...PROFILE,
-      investments: [
-        { ...PROFILE.investments![0], start: 'at_specific_date', start_year: 2035 },
-        PROFILE.investments![1],
-      ],
-    }
-    expect(getCurrentProfile(profile, TODAY).investments?.[0].balance).toBe(100_000)
-  })
-
-  test('does not compound a position that has already been sold', () => {
-    const profile: Profile = {
-      ...PROFILE,
-      investments: [
-        { ...PROFILE.investments![0], exit: 'at_specific_date', exit_year: 2025 },
-        PROFILE.investments![1],
-      ],
-    }
-    expect(getCurrentProfile(profile, TODAY).investments?.[0].balance).toBe(100_000)
-  })
-
-  test('moves a position whose planned exit passed since the snapshot into cash', () => {
-    // Issue #247: snapshot 2026-01, exit 2026-03, today 2026-07. The sale has
-    // happened and nothing recorded it yet, so the proceeds belong in cash and
-    // the position is gone.
-    const profile: Profile = {
-      ...PROFILE,
-      investments: [
-        { ...PROFILE.investments![0], exit: 'at_specific_date', exit_year: 2026, exit_month: 3 },
-        PROFILE.investments![1],
-      ],
-    }
-    const baseline = getCurrentProfile(PROFILE, TODAY).cash_amount ?? 0
-    const current = getCurrentProfile(profile, TODAY)
-    expect(current.cash_amount).toBeCloseTo(baseline + 100_000, 2)
-    expect(current.investments?.[0].balance).toBe(0)
-  })
-
-  test('charges the exit fee on the way into cash', () => {
-    const profile: Profile = {
-      ...PROFILE,
-      investments: [
-        {
-          ...PROFILE.investments![0],
-          exit: 'at_specific_date',
-          exit_year: 2026,
-          exit_month: 3,
-          exit_fee: 10,
-        },
-        PROFILE.investments![1],
-      ],
-    }
-    const baseline = getCurrentProfile(PROFILE, TODAY).cash_amount ?? 0
-    expect(getCurrentProfile(profile, TODAY).cash_amount).toBeCloseTo(baseline + 90_000, 2)
-  })
-
-  test('leaves an exit that passed before the snapshot alone', () => {
-    // The snapshot already reflects that sale: crediting it again would
-    // invent money.
-    const profile: Profile = {
-      ...PROFILE,
-      investments: [
-        { ...PROFILE.investments![0], exit: 'at_specific_date', exit_year: 2025 },
-        PROFILE.investments![1],
-      ],
-    }
-    const baseline = getCurrentProfile(PROFILE, TODAY).cash_amount ?? 0
-    expect(getCurrentProfile(profile, TODAY).cash_amount).toBeCloseTo(baseline, 2)
-  })
-
-  test('pays for a position whose planned start passed since the snapshot out of cash', () => {
-    const profile: Profile = {
-      ...PROFILE,
-      investments: [
-        {
-          ...PROFILE.investments![0],
-          balance: 5_000,
-          apy: 0,
-          start: 'at_specific_date',
-          start_year: 2026,
-          start_month: 3,
-        },
-        PROFILE.investments![1],
-      ],
-    }
-    const baseline = getCurrentProfile(PROFILE, TODAY).cash_amount ?? 0
-    const current = getCurrentProfile(profile, TODAY)
-    expect(current.cash_amount).toBeCloseTo(baseline - 5_000, 2)
-    expect(current.investments?.[0].balance).toBe(5_000)
-  })
-
-  test('grows a position bought since the snapshot only from its start', () => {
-    // Bought 2026-03-01, today 2026-07-02: 123 days held, not the 182 since
-    // the snapshot: 5000 * 1.1^(123/365.25), rounded to whole units.
-    const profile: Profile = {
-      ...PROFILE,
-      investments: [
-        {
-          ...PROFILE.investments![0],
-          balance: 5_000,
-          start: 'at_specific_date',
-          start_year: 2026,
-          start_month: 3,
-        },
-        PROFILE.investments![1],
-      ],
-    }
-    expect(getCurrentProfile(profile, TODAY).investments?.[0].balance).toBe(5163)
-  })
-
-  test('sells a position bought and sold since the snapshot', () => {
-    // Both edges crossed: the buy debits cash, the sale credits it back, and
-    // the position ends empty.
-    const profile: Profile = {
-      ...PROFILE,
-      investments: [
-        {
-          ...PROFILE.investments![0],
-          balance: 5_000,
-          apy: 0,
-          start: 'at_specific_date',
-          start_year: 2026,
-          start_month: 2,
-          exit: 'at_specific_date',
-          exit_year: 2026,
-          exit_month: 4,
-        },
-        PROFILE.investments![1],
-      ],
-    }
-    const baseline = getCurrentProfile(PROFILE, TODAY).cash_amount ?? 0
-    const current = getCurrentProfile(profile, TODAY)
-    expect(current.cash_amount).toBeCloseTo(baseline, 2)
-    expect(current.investments?.[0].balance).toBe(0)
-  })
-
-  test('does not amortize the financing of a property not bought yet', () => {
-    // Nobody is paying installments on a purchase that has not happened, and
-    // the cash side does not charge them either.
-    const profile: Profile = {
-      ...PROFILE,
-      tangible_assets: [
-        {
-          id: 't1',
-          name: 'Future flat',
-          value: 300_000,
-          status: 'financed',
-          outstanding_balance: 200_000,
-          installment_frequency: 'monthly',
-          annual_rate: 3,
-          installment_amount: 1_000,
-          remaining_term: 25,
-          purchase: 'at_specific_date',
-          purchase_year: 2035,
-        },
-      ],
-    }
-    const current = getCurrentProfile(profile, TODAY)
-    expect(current.tangible_assets?.[0].outstanding_balance).toBe(200_000)
-    expect(current.tangible_assets?.[0].remaining_term).toBe(25)
   })
 })
 

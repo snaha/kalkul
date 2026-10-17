@@ -7,28 +7,12 @@ import {
   annualizedAmount,
   applyEntryFee,
   applyExitFee,
-  cashFlowToTemporal,
   effectiveInvestmentApy,
   financingToLiability,
   installmentPeriodRate,
-  investmentToTemporal,
-  isActiveOn,
-  isHeldOn,
-  isOwnedOn,
-  monthIndex,
-  plannedEndsAt,
-  plannedStartsAt,
   remainingInstallmentPeriods,
-  yearOf,
 } from '$lib/plan-projection'
-import type {
-  Expense,
-  Income,
-  Profile,
-  ProfileInvestment,
-  ProfileLiability,
-  RemainingTermUnit,
-} from '$lib/schemas'
+import type { Expense, Income, Profile, ProfileLiability, RemainingTermUnit } from '$lib/schemas'
 import { latestSnapshot } from '$lib/snapshots'
 import { toDateOnlyString } from '$lib/utils'
 
@@ -61,27 +45,16 @@ interface AnnualFlows {
 }
 
 /**
- * Net yearly cash flow from everything actually running on `asOf`: take-home
- * income, less living expenses, less debt service on loans that still carry a
- * balance.
- *
- * Deliberately not the profile-level totals in `financial-totals.ts`, which
- * ignore start/end windows: those answer "at today's flow levels" for the
- * savings rate, FI % and runway. Accrual is a different question — a salary
- * that starts next year must not top up today's cash, and an expense that
- * ended last spring must not keep draining it.
+ * Net yearly cash flow from everything the profile runs: take-home income,
+ * less living expenses, less debt service on loans that still carry a balance.
+ * Financial data carries no planned timing (AGENTS.md), so every flow on it is
+ * running today.
  */
-function netAnnualCashFlowOn(profile: Profile, asOf: Date, birthYear: number | undefined): Decimal {
-  // Recurring items only. A one-time item is an event rather than a rate, and this
-  // accrual only knows rates (mirrors one-time transfers); an absent schedule
-  // means recurring, matching the schema's default for data stored before
-  // schedules existed. The window check runs on the temporal shape the
-  // projection resolves, with the same defaults for unset edges.
+function netAnnualCashFlow(profile: Profile): Decimal {
+  // Recurring items only: a one-time item is an event rather than a rate, and
+  // this accrual only knows rates (mirrors one-time transfers).
   const running = (flows: (Income | Expense)[] | undefined): (Income | Expense)[] =>
-    (flows ?? []).filter(
-      (flow) =>
-        flow.schedule !== 'one_time' && isActiveOn(cashFlowToTemporal(flow), asOf, birthYear),
-    )
+    (flows ?? []).filter((flow) => flow.schedule !== 'one_time')
 
   const income = running(profile.incomes).reduce<Decimal>(
     (sum, i) => sum.plus(annualizedAmount(new Decimal(i.amount), i.frequency ?? 'monthly')),
@@ -91,15 +64,10 @@ function netAnnualCashFlowOn(profile: Profile, asOf: Date, birthYear: number | u
     (sum, e) => sum.plus(annualizedAmount(new Decimal(e.amount), e.frequency ?? 'monthly')),
     DECIMAL_0,
   )
-  // Standalone loans carry no start/end window of their own — one is serviced
-  // for as long as it still has a balance to pay off. A property's financing
-  // does have one: nobody pays installments on a purchase that has not
-  // happened, or on a mortgage settled by a sale that already has.
+  // A loan is serviced for as long as it still has a balance to pay off.
   const debtService = [
     ...(profile.liabilities ?? []),
-    ...(profile.tangible_assets ?? []).filter(
-      (a) => a.status === 'financed' && isOwnedOn(a, asOf, birthYear),
-    ),
+    ...(profile.tangible_assets ?? []).filter((a) => a.status === 'financed'),
   ].reduce<Decimal>(
     (sum, loan) =>
       (loan.outstanding_balance ?? 0) > 0
@@ -117,8 +85,8 @@ function netAnnualCashFlowOn(profile: Profile, asOf: Date, birthYear: number | u
 }
 
 /**
- * The yearly rate at which every balance is moving on `asOf`: the cash flow
- * above, plus the recurring transfers running that day.
+ * The yearly rate at which every balance is moving: the cash flow above, plus
+ * the recurring transfers.
  *
  * A regular contribution is the whole reason investments grow faster than
  * their APY, so leaving transfers out would put the drift straight into the
@@ -148,41 +116,15 @@ function netAnnualCashFlowOn(profile: Profile, asOf: Date, birthYear: number | u
  * Growth within the window is ignored for the same reason it is on incomes and
  * expenses: the amount running today is the rate for the whole of it.
  */
-function annualFlowsOn(profile: Profile, asOf: Date): AnnualFlows {
-  const birthYear = profile.birth_date ? yearOf(profile.birth_date) : undefined
-  const flows: AnnualFlows = {
-    cash: netAnnualCashFlowOn(profile, asOf, birthYear),
-    transfers: [],
-  }
+function annualFlows(profile: Profile): AnnualFlows {
+  const flows: AnnualFlows = { cash: netAnnualCashFlow(profile), transfers: [] }
 
   const investmentsById = new Map((profile.investments ?? []).map((i) => [i.id, i]))
-  const isEndpointActive = (id: string): boolean => {
-    if (id === CASH_ENDPOINT) return true
-    const investment = investmentsById.get(id)
-    return investment !== undefined && isHeldOn(investment, asOf, birthYear)
-  }
+  const hasEndpoint = (id: string): boolean => id === CASH_ENDPOINT || investmentsById.has(id)
 
   for (const transfer of profile.transfers ?? []) {
     if (transfer.schedule !== 'recurring' || transfer.transfer_all) continue
-    if (!isEndpointActive(transfer.from_asset_id) || !isEndpointActive(transfer.to_asset_id))
-      continue
-    // Recurring transfers carry the same start/end shape as incomes and
-    // expenses, with the projection's own defaults for the optional fields.
-    const running = isActiveOn(
-      {
-        start: transfer.start ?? 'immediately',
-        start_year: transfer.start_year,
-        start_month: transfer.start_month,
-        start_age: transfer.start_age,
-        end: transfer.end ?? 'never',
-        end_year: transfer.end_year,
-        end_month: transfer.end_month,
-        end_age: transfer.end_age,
-      },
-      asOf,
-      birthYear,
-    )
-    if (!running) continue
+    if (!hasEndpoint(transfer.from_asset_id) || !hasEndpoint(transfer.to_asset_id)) continue
 
     const gross = annualizedAmount(new Decimal(transfer.amount), transfer.frequency ?? 'monthly')
     if (gross.isZero()) continue
@@ -383,83 +325,22 @@ export function getCurrentProfile(profile: Profile, today: Date): Profile {
 
   const yearFraction = new Decimal(daysBetween(snapshot.date, todayDate)).div(DAYS_PER_YEAR)
 
-  // Which flows are running is evaluated once, as of today: a flow that
-  // started or ended partway through the elapsed window counts for all of it or
-  // none of it. Integrating piecewise over every window edge would buy little
-  // for a figure the user sees and re-confirms in Quick update.
-  const flows = annualFlowsOn(profile, today)
-  const birthYear = profile.birth_date ? yearOf(profile.birth_date) : undefined
+  // The flows count for the whole elapsed window at today's rates: financial
+  // data carries no planned timing, so nothing on it started or ended partway.
+  const flows = annualFlows(profile)
 
   // Every balance after its own movement and before the transfers: cash after
   // the flows running on it, each investment after its growth. Growth first,
   // then the transfers over it — the order the projection's year loop uses, so
   // a contribution does not compound in the same window it arrives in.
-  //
-  // A position the profile does not hold on the date is left exactly as
-  // stored. Its balance is a statement about a different year — what the plan
-  // will buy out of cash, or what a past exit already liquidated — so it is
-  // earning nothing today, and the transfers pointing at it are skipped for
-  // the same reason. It stays in the list at that figure rather than being
-  // dropped or zeroed: the projections beside it need the planned amount, and
-  // Quick update must never be able to confirm it away.
-  //
-  // A window edge crossed since the snapshot is the exception (#247): the
-  // snapshot was taken on one side of it and today is on the other, so nothing
-  // has recorded the money changing hands yet. The balance moves through cash
-  // the way the projection's planned buy/sell does — a start debits cash and
-  // the position receives the amount after the upfront entry fee, an exit
-  // credits cash with the balance after the exit fee and leaves the position
-  // empty, so the projection beside it does not sell it a second time. Both
-  // edges in the window do both, netting to the fees. An edge before the
-  // snapshot is already in its balances and stays out.
-  const snapshotAt = monthIndex(yearOf(snapshot.date), Number(snapshot.date.slice(5, 7)))
-  const todayAt = monthIndex(today.getFullYear(), today.getMonth() + 1)
-  const crossedSince = (edge: number | undefined) =>
-    edge !== undefined && snapshotAt < edge && edge <= todayAt
-  const boughtInWindow = (investment: ProfileInvestment) =>
-    crossedSince(plannedStartsAt(investmentToTemporal(investment), birthYear))
-  // The exit month is the last one held, so the sale falls in the month after.
-  const soldInWindow = (investment: ProfileInvestment) => {
-    const endsAt = plannedEndsAt(investmentToTemporal(investment), birthYear)
-    return endsAt !== undefined && crossedSince(endsAt + 1)
-  }
-  // A position bought in the window has only been held since its start, so it
-  // compounds from that edge rather than from the snapshot.
-  const heldFraction = (investment: ProfileInvestment) => {
-    const startsAt = plannedStartsAt(investmentToTemporal(investment), birthYear)
-    if (startsAt === undefined || !crossedSince(startsAt)) return yearFraction
-    const year = Math.floor((startsAt - 1) / 12)
-    const from = toDateOnlyString(new Date(year, startsAt - year * 12 - 1, 1))
-    return new Decimal(daysBetween(from, todayDate)).div(DAYS_PER_YEAR)
-  }
-  // What the position holds before growth: the balance, less the entry fee
-  // when the buy fell in the window.
-  const paidIn = (investment: ProfileInvestment) => {
-    const balance = new Decimal(investment.balance)
-    return boughtInWindow(investment) ? applyEntryFee(investment, balance) : balance
-  }
-  let cashBefore = new Decimal(profile.cash_amount ?? 0).plus(flows.cash.mul(yearFraction))
-  for (const investment of profile.investments ?? []) {
-    if (boughtInWindow(investment)) cashBefore = cashBefore.minus(investment.balance)
-    if (soldInWindow(investment)) {
-      cashBefore = cashBefore.plus(applyExitFee(investment, paidIn(investment)))
-    }
-  }
-
   const before = new Map<string, Decimal>([
-    [CASH_ENDPOINT, cashBefore],
-    ...(profile.investments ?? []).map((investment): [string, Decimal] => {
-      if (soldInWindow(investment)) return [investment.id, DECIMAL_0]
-      const held = paidIn(investment)
-      return [
-        investment.id,
-        isHeldOn(investment, today, birthYear)
-          ? held.mul(
-              effectiveInvestmentApy(investment).div(100).plus(1).pow(heldFraction(investment)),
-            )
-          : held,
-      ]
-    }),
+    [CASH_ENDPOINT, new Decimal(profile.cash_amount ?? 0).plus(flows.cash.mul(yearFraction))],
+    ...(profile.investments ?? []).map((investment): [string, Decimal] => [
+      investment.id,
+      new Decimal(investment.balance).mul(
+        effectiveInvestmentApy(investment).div(100).plus(1).pow(yearFraction),
+      ),
+    ]),
   ])
   const after = settleTransfers(before, flows.transfers, yearFraction)
   // Cash outrun by expenses stops at zero rather than going into overdraft —
@@ -482,10 +363,6 @@ export function getCurrentProfile(profile: Profile, today: Date): Profile {
       ...amortizeLoan(liability, yearFraction),
     })),
     tangible_assets: profile.tangible_assets?.map((asset) => {
-      // A property not owned on the date is left alone for the same reason a
-      // position not held is: its mortgage is not being paid yet, or was
-      // settled by the sale.
-      if (!isOwnedOn(asset, today, birthYear)) return asset
       // Undefined for a fully owned asset, or one whose financing terms are
       // incomplete — nothing to amortize either way.
       const financing = financingToLiability(asset)
