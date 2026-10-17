@@ -3,6 +3,7 @@ import { init } from 'svelte-i18n'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { track } from '$lib/analytics'
+import { createPlan } from '$lib/plan-defaults'
 import { getYearlyPlanProjection } from '$lib/plan-projection'
 import type { Portfolio, Profile, StoredData } from '$lib/schemas'
 import { buildSnapshotSections, seedSnapshotOn, snapshotFromFields } from '$lib/snapshot-form'
@@ -507,13 +508,19 @@ describe('appStore.addPortfolio analytics', () => {
     vi.unstubAllGlobals()
   })
 
-  const plan = { name: 'Plan', start_date: '2026-01-01', end_date: '2060-01-01', inflation_rate: 2 }
+  const plan = () =>
+    createPlan(appStore.profile, {
+      name: 'Plan',
+      start_date: '2026-01-01',
+      end_date: '2060-01-01',
+      inflation_rate: 2,
+    })
 
   it('reports the first plan separately from later ones', () => {
-    appStore.addPortfolio(plan)
+    appStore.addPortfolio(plan())
     expect(vi.mocked(track).mock.calls).toEqual([['plan-created'], ['first-plan-created']])
 
-    appStore.addPortfolio(plan)
+    appStore.addPortfolio(plan())
     expect(vi.mocked(track).mock.calls.slice(2)).toEqual([['plan-created']])
   })
 })
@@ -526,7 +533,7 @@ describe('appStore.deletePortfolio', () => {
     vi.unstubAllGlobals()
   })
 
-  it('removes the transfers the plan owns and keeps the profile ones', () => {
+  it("takes the plan's own items with it and leaves financial data alone", () => {
     const transfer = {
       name: 'Buy',
       from_asset_id: 'cash',
@@ -542,10 +549,7 @@ describe('appStore.deletePortfolio', () => {
           name: 'Jane',
           email: '',
           investments: [{ id: 'inv1', name: 'ETF', balance: 0, apy: 0 }],
-          transfers: [
-            { ...transfer, id: 'shared' },
-            { ...transfer, id: 'owned', plan_id: 'plan-1' },
-          ],
+          transfers: [{ ...transfer, id: 'shared' }],
         },
         portfolios: [
           {
@@ -554,6 +558,7 @@ describe('appStore.deletePortfolio', () => {
             start_date: '2026-01-01',
             end_date: '2060-01-01',
             inflation_rate: 2,
+            transfers: [{ ...transfer, id: 'owned' }],
           },
         ],
       }),
@@ -561,98 +566,6 @@ describe('appStore.deletePortfolio', () => {
     appStore.portfolios[0].delete()
     expect(appStore.portfolios).toEqual([])
     expect(appStore.profile.transfers?.map((t) => t.id)).toEqual(['shared'])
-  })
-})
-
-describe('appStore.deletePortfolio plan-owned items', () => {
-  it('removes every kind of item the plan owns and keeps the shared ones', () => {
-    const owned = { plan_id: 'plan-1' }
-    const flow = {
-      name: 'Flow',
-      amount: 100,
-      schedule: 'recurring',
-      frequency: 'monthly',
-      start: 'immediately',
-      end: 'never',
-      change_over_time: 'none',
-    }
-    const loan = {
-      name: 'Loan',
-      outstanding_balance: 100,
-      installment_frequency: 'monthly',
-      annual_rate: 1,
-      installment_amount: 1,
-      remaining_term: 10,
-    }
-    appStore.importBackup(
-      JSON.stringify({
-        profile: {
-          name: 'Jane',
-          email: '',
-          investments: [
-            { id: 'shared', name: 'ETF', balance: 0, apy: 0 },
-            { id: 'owned', name: 'ETF', balance: 0, apy: 0, ...owned },
-          ],
-          tangible_assets: [
-            { id: 'shared', name: 'Flat', value: 1, status: 'fully_owned' },
-            { id: 'owned', name: 'Flat', value: 1, status: 'fully_owned', ...owned },
-          ],
-          liabilities: [
-            { ...loan, id: 'shared' },
-            { ...loan, id: 'owned', ...owned },
-          ],
-          incomes: [
-            { ...flow, id: 'shared' },
-            { ...flow, id: 'owned', ...owned },
-          ],
-          expenses: [
-            { ...flow, id: 'shared' },
-            { ...flow, id: 'owned', ...owned },
-          ],
-        },
-        portfolios: [
-          {
-            id: 'plan-1',
-            name: 'Plan',
-            start_date: '2026-01-01',
-            end_date: '2060-01-01',
-            inflation_rate: 2,
-          },
-        ],
-      }),
-    )
-    appStore.portfolios[0].delete()
-    const ids = (items: { id: string }[] | undefined) => items?.map((i) => i.id)
-    expect(ids(appStore.profile.investments)).toEqual(['shared'])
-    expect(ids(appStore.profile.tangible_assets)).toEqual(['shared'])
-    expect(ids(appStore.profile.liabilities)).toEqual(['shared'])
-    expect(ids(appStore.profile.incomes)).toEqual(['shared'])
-    expect(ids(appStore.profile.expenses)).toEqual(['shared'])
-  })
-
-  it('leaves the profile untouched when the plan owns nothing', () => {
-    appStore.importBackup(
-      JSON.stringify({
-        profile: {
-          name: 'Jane',
-          email: '',
-          investments: [{ id: 'shared', name: 'ETF', balance: 0, apy: 0 }],
-        },
-        portfolios: [
-          {
-            id: 'plan-1',
-            name: 'Plan',
-            start_date: '2026-01-01',
-            end_date: '2060-01-01',
-            inflation_rate: 2,
-          },
-        ],
-      }),
-    )
-    const before = appStore.profile
-    appStore.portfolios[0].delete()
-    expect(appStore.portfolios).toEqual([])
-    expect(appStore.profile).toBe(before)
   })
 })
 
@@ -1102,8 +1015,12 @@ describe('appStore saving a snapshot dated past a planned sale', () => {
       },
     ],
   }
-  const PLAN: Portfolio = {
+  // A plan created from the profile as it stands when the test asks for it.
+  const planNow = (): Portfolio => ({
+    ...createPlan(appStore.profile.toJSON(), PLAN),
     id: 'plan-1',
+  })
+  const PLAN = {
     name: 'Plan',
     start_date: TODAY,
     end_date: '2036-06-15',
@@ -1145,7 +1062,7 @@ describe('appStore saving a snapshot dated past a planned sale', () => {
     addUntouched(TODAY)
     expect(appStore.profile.cash_amount).toBe(15_000)
     expect(etf()?.balance).toBe(0)
-    expect(getYearlyPlanProjection(PLAN, appStore.profile.toJSON())[0].netWorth).toBe(15_000)
+    expect(getYearlyPlanProjection(planNow(), appStore.profile.toJSON())[0].netWorth).toBe(15_000)
   })
 
   it('puts the position back when that snapshot is deleted again', () => {

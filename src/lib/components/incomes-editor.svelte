@@ -8,7 +8,6 @@
   import EditorItemErrors from '$lib/components/editor-item-errors.svelte'
   import { Button } from '$lib/components/ui/button'
   import { createListEditor } from '$lib/list-editor.svelte'
-  import { planOwnedItems, sharedItems } from '$lib/plan-owned'
   import type { Income as IncomeData } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
 
@@ -18,9 +17,7 @@
   }
 
   const editor = createListEditor<IncomeData, IncomeUI>({
-    // Financial data holds the shared items only. Those created in a plan
-    // carry its id, stay hidden here and are carried through every save.
-    load: () => sharedItems(appStore.profile.incomes),
+    load: () => appStore.profile.incomes ?? [],
     toUI: (inc) => ({
       ...inc,
       amount: inc.amount > 0 ? inc.amount : undefined,
@@ -53,8 +50,7 @@
     // the timing and change fields on save, so everything else passes through.
     toStored: ({ editing: _editing, ...i }) => ({ ...i, amount: i.amount ?? 0 }),
     onChange: (listener) => appStore.onDataChange(listener),
-    persist: (data) =>
-      appStore.updateProfile({ incomes: [...data, ...planOwnedItems(appStore.profile.incomes)] }),
+    persist: (data) => appStore.updateProfile({ incomes: data }),
   })
   onDestroy(editor.flushSave)
 

@@ -10,6 +10,7 @@
   import Rows2 from '@lucide/svelte/icons/rows-2'
   import Search from '@lucide/svelte/icons/search'
   import Settings2 from '@lucide/svelte/icons/settings-2'
+  import TriangleAlert from '@lucide/svelte/icons/triangle-alert'
 
   import { resolve } from '$app/paths'
   import { page } from '$app/state'
@@ -34,12 +35,13 @@
   import { Slider } from '$lib/components/ui/slider'
   import { CURRENT_PROJECTION_ID, buildCurrentProjectionPlan } from '$lib/current-projection'
   import { getCurrentProfile } from '$lib/current-values'
-  import { itemsForPlan } from '$lib/plan-owned'
+  import { isPlanOutdated } from '$lib/plan-base'
   import { getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
   import routes from '$lib/routes'
   import type {
     Expense,
     Income,
+    PlanListKey,
     Portfolio,
     Profile,
     ProfileLiability,
@@ -75,8 +77,16 @@
     readOnly ? getCurrentProfile(appStore.profile.toJSON(), clock.today) : appStore.profile,
   )
   const plan = $derived<Portfolio | undefined>(
-    readOnly ? (appStore.loading ? undefined : buildCurrentProjectionPlan(clock.today)) : savedPlan,
+    readOnly
+      ? appStore.loading
+        ? undefined
+        : buildCurrentProjectionPlan(profile, clock.today)
+      : savedPlan,
   )
+  // A saved plan is a copy of the financial data of its creation. Once that
+  // data moves on, the plan no longer starts from what the user has today;
+  // bringing it up to date is a planned feature, so for now the page says so.
+  const outdated = $derived(!readOnly && plan !== undefined && isPlanOutdated(plan, profile))
   // Nothing on the Current projection can be edited: every "add" opens the
   // Model changes dialog, which starts a plan to make the change in.
   let modelChangesOpen = $state(false)
@@ -213,9 +223,12 @@
     if (selectedYear > endYear) selectedYear = endYear
   })
 
-  // Category counts from profile data
-  // Shared profile items plus this plan's own; other plans' stay out.
-  const planTransfers = $derived(itemsForPlan(profile.transfers, planId))
+  // The plan's own items, the same the engine sees. Nothing until the plan
+  // has resolved.
+  function listOf<K extends PlanListKey>(key: K): Portfolio[K] {
+    return plan ? plan[key] : []
+  }
+  const planTransfers = $derived(listOf('transfers'))
   const transfersCount = $derived(planTransfers.length)
 
   function transferValueSuffix(t: Transfer): string {
@@ -229,12 +242,13 @@
     if (f.schedule === 'one_time') return `(${$_('page.plan.scheduleOneTime').toLowerCase()})`
     return `/ ${getFrequencyShortLabel($_, f.frequency ?? 'monthly')}`
   }
-  const incomesCount = $derived(itemsForPlan(profile.incomes, planId).length)
-  const expensesCount = $derived(itemsForPlan(profile.expenses, planId).length)
-  const cashCount = $derived(profile.cash_amount ? 1 : 0)
-  const investmentsCount = $derived(itemsForPlan(profile.investments, planId).length)
-  const tangibleAssetsCount = $derived(itemsForPlan(profile.tangible_assets, planId).length)
-  const liabilitiesCount = $derived(itemsForPlan(profile.liabilities, planId).length)
+  const incomesCount = $derived(listOf('incomes').length)
+  const expensesCount = $derived(listOf('expenses').length)
+  // Cash always exists (#331): the plan opens at its own balance.
+  const openingCash = $derived(plan?.cash_amount ?? 0)
+  const investmentsCount = $derived(listOf('investments').length)
+  const tangibleAssetsCount = $derived(listOf('tangible_assets').length)
+  const liabilitiesCount = $derived(listOf('liabilities').length)
 
   // Yearly projection (real / inflation-adjusted values)
   const projection = $derived(plan ? getYearlyPlanProjection(plan, profile) : [])
@@ -310,7 +324,7 @@
       id: 'incomes',
       label: $_('page.plan.incomes'),
       count: incomesCount,
-      items: itemsForPlan(profile.incomes, planId)
+      items: listOf('incomes')
         .filter((i) => matchesSearch(i.name, searchQuery))
         .map((i) => ({
           id: i.id,
@@ -325,7 +339,7 @@
       id: 'expenses',
       label: $_('page.plan.expenses'),
       count: expensesCount,
-      items: itemsForPlan(profile.expenses, planId)
+      items: listOf('expenses')
         .filter((e) => matchesSearch(e.name, searchQuery))
         .map((e) => ({
           id: e.id,
@@ -342,24 +356,23 @@
     {
       id: 'cash',
       label: $_('page.plan.cash'),
-      count: cashCount,
-      items:
-        profile.cash_amount && matchesSearch($_('page.plan.cashItem'), searchQuery)
-          ? [
-              {
-                id: 'cash',
-                name: $_('page.plan.cashItem'),
-                value: appStore.formatCurrencyCode(profile.cash_amount),
-                onClick: () => (cashDialogOpen = true),
-              },
-            ]
-          : [],
+      count: 1,
+      items: matchesSearch($_('page.plan.cashItem'), searchQuery)
+        ? [
+            {
+              id: 'cash',
+              name: $_('page.plan.cashItem'),
+              value: appStore.formatCurrencyCode(openingCash),
+              onClick: () => (cashDialogOpen = true),
+            },
+          ]
+        : [],
     },
     {
       id: 'investments',
       label: $_('page.plan.investments'),
       count: investmentsCount,
-      items: itemsForPlan(profile.investments, planId)
+      items: listOf('investments')
         .filter((inv) => matchesSearch(inv.name, searchQuery))
         .map((inv) => ({
           id: inv.id,
@@ -373,7 +386,7 @@
       id: 'tangibleAssets',
       label: $_('page.plan.tangibleAssets'),
       count: tangibleAssetsCount,
-      items: itemsForPlan(profile.tangible_assets, planId)
+      items: listOf('tangible_assets')
         .filter((a) => matchesSearch(a.name, searchQuery))
         .map((a) => ({
           id: a.id,
@@ -387,7 +400,7 @@
       id: 'liabilities',
       label: $_('page.plan.liabilities'),
       count: liabilitiesCount,
-      items: itemsForPlan(profile.liabilities, planId)
+      items: listOf('liabilities')
         .filter((l) => matchesSearch(l.name, searchQuery))
         .map((l) => ({
           id: l.id,
@@ -708,6 +721,15 @@
         {/if}
       </div>
 
+      {#if outdated}
+        <div
+          class="flex items-center gap-2 border-b bg-muted px-4 py-2 text-sm text-muted-foreground"
+        >
+          <TriangleAlert class="size-4 shrink-0" />
+          {$_('page.plan.outdated')}
+        </div>
+      {/if}
+
       <!-- Chart -->
       <div
         bind:this={chartContainerRef}
@@ -1000,7 +1022,11 @@
       />
 
       <!-- Cash edit dialog -->
-      <CashEditDialog bind:open={cashDialogOpen} onOpenChange={(v) => (cashDialogOpen = v)} />
+      <CashEditDialog
+        bind:open={cashDialogOpen}
+        onOpenChange={(v) => (cashDialogOpen = v)}
+        plan={savedPlan}
+      />
     {/if}
 
     <!-- Hover tooltip - at page level to allow overlaying sidebars -->

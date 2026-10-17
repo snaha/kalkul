@@ -1,7 +1,6 @@
 import Decimal from 'decimal.js'
 
 import { DECIMAL_0, DECIMAL_1, daysBetween } from '$lib/@snaha/kalkul-maths'
-import { sharedItems } from '$lib/plan-owned'
 import {
   CASH_ENDPOINT,
   INSTALLMENT_PERIODS_PER_YEAR,
@@ -73,14 +72,13 @@ interface AnnualFlows {
  * ended last spring must not keep draining it.
  */
 function netAnnualCashFlowOn(profile: Profile, asOf: Date, birthYear: number | undefined): Decimal {
-  // Shared, recurring items only. A plan-owned item is a scenario, not
-  // today's cash. A one-time item is an event rather than a rate, and this
+  // Recurring items only. A one-time item is an event rather than a rate, and this
   // accrual only knows rates (mirrors one-time transfers); an absent schedule
   // means recurring, matching the schema's default for data stored before
   // schedules existed. The window check runs on the temporal shape the
   // projection resolves, with the same defaults for unset edges.
   const running = (flows: (Income | Expense)[] | undefined): (Income | Expense)[] =>
-    sharedItems(flows).filter(
+    (flows ?? []).filter(
       (flow) =>
         flow.schedule !== 'one_time' && isActiveOn(cashFlowToTemporal(flow), asOf, birthYear),
     )
@@ -98,8 +96,8 @@ function netAnnualCashFlowOn(profile: Profile, asOf: Date, birthYear: number | u
   // does have one: nobody pays installments on a purchase that has not
   // happened, or on a mortgage settled by a sale that already has.
   const debtService = [
-    ...sharedItems(profile.liabilities),
-    ...sharedItems(profile.tangible_assets).filter(
+    ...(profile.liabilities ?? []),
+    ...(profile.tangible_assets ?? []).filter(
       (a) => a.status === 'financed' && isOwnedOn(a, asOf, birthYear),
     ),
   ].reduce<Decimal>(
@@ -164,7 +162,7 @@ function annualFlowsOn(profile: Profile, asOf: Date): AnnualFlows {
     return investment !== undefined && isHeldOn(investment, asOf, birthYear)
   }
 
-  for (const transfer of sharedItems(profile.transfers)) {
+  for (const transfer of profile.transfers ?? []) {
     if (transfer.schedule !== 'recurring' || transfer.transfer_all) continue
     if (!isEndpointActive(transfer.from_asset_id) || !isEndpointActive(transfer.to_asset_id))
       continue

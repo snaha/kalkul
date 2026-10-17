@@ -25,7 +25,7 @@ publicly — and this note with it.
 
 1. **Financial Calculations** (`src/lib/plan-projection.ts`, `src/lib/financial-totals.ts`, `src/lib/@snaha/kalkul-maths/`)
    - The plan projection engine is `src/lib/plan-projection.ts`; profile-level totals live in `src/lib/financial-totals.ts`; shared low-level helpers (Decimal constants, date formatting) live in `src/lib/@snaha/kalkul-maths/`
-   - **Cash always exists.** Every plan has a cash balance and every flow (income, borrowed principal, transfers, expenses, installments) runs through it, with the insufficient-funds check always applied. It opens at the profile's cash amount, 0 when none is set. A plan cannot exclude cash; never add a switch that gates a flow on it.
+   - **Cash always exists.** Every plan has a cash balance and every flow (income, borrowed principal, transfers, expenses, installments) runs through it, with the insufficient-funds check always applied. It opens at the plan's own `cash_amount`, copied from the profile when the plan is created (0 when the profile has none). A plan cannot exclude cash; never add a switch that gates a flow on it.
    - Always use Decimal.js for monetary calculations
    - Never use native JavaScript numbers for financial data
    - Test extensively when modifying calculation logic
@@ -100,12 +100,14 @@ publicly — and this note with it.
    - Never bypass `updateProfile()` to write profile data — it's the validation gate
    - TypeScript types are derived from schemas (`z.infer<typeof schema>`) — never define types separately from schemas
 
-3. **Plan Ownership**
-   - Whatever is changed while working on a plan applies to that plan only. Financial data (the profile's investments, tangible assets, liabilities, incomes, expenses, transfers) is current data shared by every plan; a plan is a scenario on top of it.
-   - An item without `plan_id` is shared. An item created inside a plan carries that plan's `plan_id` and never appears in Financial data or in other plans (`src/lib/plan-owned.ts`: `sharedItems`, `planOwnedItems`, `itemsForPlan`).
-   - Engine logic that needs to know whether an item belongs to the plan keys off `plan_id`. Do not invent other signals (dates, names) for "belongs to the plan". A plan-owned liability is a loan the plan takes on: its principal pays into cash in the year it starts (`src/lib/plan-projection.ts`).
-   - Editing a shared item inside a plan forks it: the edit lands in a new plan-owned copy right after the original, and the plan swaps the original for the copy (`src/routes/(app)/plan/[id]/profile-lists.ts`). Financial data and other plans keep the original.
-   - The MCP tools follow the same rule. A client may work on several plans at once, but every item it adds while working on a plan must carry the id of that plan. The `update_profile` tool description states this; keep it in sync when the rule changes.
+3. **Financial data is never written from a projection**
+   - Kalkul has two kinds of data. **Financial data** is what the user has today: the profile's cash, investments, tangible assets, liabilities, incomes, expenses and transfers. A **projection** (a "plan", `Portfolio` in code) is a scenario computed from it. The dependency is one-way: projections read financial data, they never write it.
+   - Financial data is edited in exactly two places: the Financial data pages (`src/routes/(app)/financial-data/`, plus the onboarding editors that share their components) and Quick update (`confirmBalances`). Nothing under `src/routes/(app)/plan/` and no projection-side MCP tool may call `updateProfile`, `confirmBalances` or `saveSnapshot`.
+   - A projection is built on a **copy** of financial data taken when it is created (or on nothing, when the user chooses not to start from their current finances). The `Portfolio` holds that copy: `cash_amount` and its own `investments`, `tangible_assets`, `liabilities`, `incomes`, `expenses`, `transfers`. Whatever the user changes while working on a projection lands on that copy only, including cash, edits, duplicates and deletes. "Delete" inside a projection means "this projection no longer has it"; the item stays in financial data and in every other projection.
+   - The reverse holds too: a projection's items stay out of financial data and out of every other projection. Current-data readers (totals, the dashboard, snapshots, Quick update, onboarding) must never see a projection's items.
+   - A projection does not follow financial data after creation. The `Portfolio.base` is the financial data it was created from, kept untouched: `isPlanOutdated` (`src/lib/plan-base.ts`) compares it with current financial data so the plan page can say the projection is outdated. Bringing a projection up to date with current financial data is a planned feature, not built yet; when it comes, `base` is the common ancestor of the three-way merge. **Never write `base`** after creation: only `createPlan` and `buildCurrentProjectionPlan` set it, no dialog, store method or MCP tool may change it, and an update that touched it would make the outdated check and the future merge lie.
+   - When a feature seems to need a projection to write financial data, the answer is a projection-level setting, never a profile write. Raise it rather than papering over it.
+   - Mechanics: `createPlan` (`src/lib/plan-defaults.ts`) and `buildCurrentProjectionPlan` (`src/lib/current-projection.ts`) take the copy with `snapshotFinancialData`. Write a plan's items through `upsertPlanItem` / `removePlanItem` in `src/lib/plan-items.ts`; read them off the `Portfolio`. An ESLint rule (`eslint.config.mjs`) rejects profile writes under `src/routes/(app)/plan/`. The engine (`src/lib/plan-projection.ts`) tells a loan the plan takes on from debt the user already carries by whether the id is in `base.liabilities`, never by dates or names. The MCP tools expose the same helpers; keep their descriptions in sync.
 
 ### Naming Conventions
 

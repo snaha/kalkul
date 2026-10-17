@@ -1,6 +1,6 @@
 import { formatDate } from '$lib/@snaha/kalkul-maths'
-import { sharedItems } from '$lib/plan-owned'
 
+import { emptyPlanData, snapshotFinancialData } from './plan-base'
 import type { PlanEndType, PlanStartType, Portfolio, Profile } from './schemas'
 import { parseDateOnly } from './utils'
 
@@ -10,7 +10,7 @@ export const DEFAULT_INFLATION_RATE = 0.02
 const DEFAULT_END_AGE = 85
 
 type PlanDates = Pick<Portfolio, 'start_date' | 'end_date' | 'inflation_rate'>
-type PlanInclusions = Required<Omit<Portfolio, 'id' | 'name' | 'notes' | keyof PlanDates>>
+type PlanFields = Pick<Portfolio, 'name' | 'notes'> & PlanDates
 
 /**
  * Timeline defaults for a plan created from the Add projection dialog, which
@@ -65,25 +65,21 @@ export function toInflationPercent(rate: number): number {
 }
 
 /**
- * Turn the "Start from your current finances" switch into the plan's
- * `included_*` lists: everything the profile holds, or nothing at all. Cash is
- * not a list item: every plan opens at the profile's cash amount.
+ * A new plan: a copy of current financial data, or only the cash when the
+ * user does not start from their current finances (the switch's help text
+ * promises the cash balance stays either way). Either way the plan keeps the
+ * financial data of the moment as its base.
  */
-export function buildPlanInclusions(
+export function createPlan(
   profile: Profile,
-  startFromCurrentFinances: boolean,
-): PlanInclusions {
-  const ids = (items: { id: string }[] | undefined) =>
-    startFromCurrentFinances ? (items ?? []).map((i) => i.id) : []
-
+  fields: PlanFields,
+  startFromCurrentFinances = true,
+): Omit<Portfolio, 'id'> {
+  const data = snapshotFinancialData(profile)
   return {
-    // A plan's own items belong to it alone; only shared ones seed a new plan.
-    included_investment_ids: ids(sharedItems(profile.investments)),
-    included_tangible_asset_ids: ids(sharedItems(profile.tangible_assets)),
-    included_liability_ids: ids(sharedItems(profile.liabilities)),
-    included_income_ids: ids(sharedItems(profile.incomes)),
-    included_expense_ids: ids(sharedItems(profile.expenses)),
-    included_transfer_ids: ids(sharedItems(profile.transfers)),
+    ...fields,
+    ...(startFromCurrentFinances ? data : { ...emptyPlanData(), cash_amount: data.cash_amount }),
+    base: snapshotFinancialData(profile),
   }
 }
 

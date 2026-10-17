@@ -6,7 +6,6 @@
   import { resolve } from '$app/paths'
 
   import ExpensesEditor from '$lib/components/expenses-editor.svelte'
-  import { sharedItems } from '$lib/plan-owned'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
 
@@ -15,7 +14,7 @@
   // Loan installments are recurring outflows too, but they live on the
   // financed assets / liabilities that own them — listed read-only here.
   const installments = $derived([
-    ...sharedItems(appStore.profile.tangible_assets)
+    ...(appStore.profile.tangible_assets ?? [])
       .filter((a) => a.status === 'financed' && (a.installment_amount ?? 0) > 0)
       .map((a) => ({
         id: a.id,
@@ -23,7 +22,7 @@
         amount: a.installment_amount ?? 0,
         href: routes.FINANCIAL_DATA_TANGIBLE_ASSETS,
       })),
-    ...sharedItems(appStore.profile.liabilities)
+    ...(appStore.profile.liabilities ?? [])
       .filter((l) => l.installment_amount > 0)
       .map((l) => ({
         id: l.id,

@@ -13,8 +13,8 @@
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
   import * as Tooltip from '$lib/components/ui/tooltip'
-  import { itemsForPlan } from '$lib/plan-owned'
-  import { filterById, summarizeTransfer } from '$lib/plan-projection'
+  import { removePlanItem, upsertPlanItem } from '$lib/plan-items'
+  import { summarizeTransfer } from '$lib/plan-projection'
   import { planRangeOf, planYearOptions, yearWithinPlan } from '$lib/plan-range'
   import { sameYearMonthsInverted, timingComplete } from '$lib/schemas'
   import type { Transfer, TransferSchedule } from '$lib/schemas'
@@ -32,7 +32,6 @@
   import { getMonthOptions, monthToOption, optionToMonth } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
-  import { PROFILE_LISTS, removeProfileItem, upsertProfileItem } from './profile-lists'
 
   interface Props {
     open: boolean
@@ -52,30 +51,24 @@
   // Transfers can only move between cash and investments. Tangible assets and
   // liabilities are intentionally excluded — selling/buying a house is more
   // naturally modelled as a one-off expense/income.
-  // The list is filtered by plan inclusion via the same filterById the
-  // projection uses, so the dropdowns and the projection see the same assets.
+  // The plan's own investments, the same the projection sees.
   const assetOptions = $derived<{ id: string; name: string }[]>([
     // Cash is always an endpoint: every plan has a cash balance (#331), and
     // a transfer into an empty one is how it gets funded.
     { id: 'cash', name: $_('page.plan.cashItem') },
-    ...filterById(appStore.profile.investments, plan.included_investment_ids).map((inv) => ({
+    ...plan.investments.map((inv) => ({
       id: inv.id,
       name: inv.name,
     })),
   ])
 
-  // A transfer created here belongs to this plan: it is not current data, so
-  // financial data and other plans never list it.
   function blankForm(): TransferFields {
-    const counter = itemsForPlan(appStore.profile.transfers, plan.id).length + 1
-    return {
-      ...blankTransferFields(
-        crypto.randomUUID(),
-        $_('page.plan.defaultTransferName', { values: { index: counter } }),
-        range,
-      ),
-      plan_id: plan.id,
-    }
+    const counter = plan.transfers.length + 1
+    return blankTransferFields(
+      crypto.randomUUID(),
+      $_('page.plan.defaultTransferName', { values: { index: counter } }),
+      range,
+    )
   }
 
   function seedForm(src: Transfer | undefined): TransferFields {
@@ -127,15 +120,13 @@
   }
 
   function save() {
-    upsertProfileItem(PROFILE_LISTS.transfer, transferFromFields(form), plan)
+    upsertPlanItem('transfers', transferFromFields(form), plan)
     close()
   }
 
   function remove() {
     if (!window.confirm($_('page.plan.deleteTransferConfirm'))) return
-    // Like the other dialogs, the id may linger in the plan's include list;
-    // filterById ignores ids with no item behind them.
-    removeProfileItem(PROFILE_LISTS.transfer, form.id)
+    removePlanItem('transfers', form.id, plan)
     close()
   }
 

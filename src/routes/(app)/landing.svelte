@@ -5,7 +5,6 @@
   import { Separator } from '$lib/components/ui/separator'
   import { buildCurrentProjectionPlan } from '$lib/current-projection'
   import { getDefaultPlanDates } from '$lib/plan-defaults'
-  import { sharedItems } from '$lib/plan-owned'
   import { type YearlyProjection, getYearlyPlanProjection } from '$lib/plan-projection'
   import { appStore } from '$lib/stores/app.svelte'
 
@@ -47,7 +46,7 @@
   // years: the comparison reads net worth at 65 off it.
   const currentYears = $derived(
     getYearlyPlanProjection(
-      buildCurrentProjectionPlan(today, getDefaultPlanDates(profile, today).end_date),
+      buildCurrentProjectionPlan(profile, today, getDefaultPlanDates(profile, today).end_date),
       profile,
     ),
   )
@@ -85,8 +84,8 @@
   // The first sketch is a miniature of the sample's own balance sheet: cash,
   // its first investment and its first property, straight from the file.
   const ledger = $derived.by<LedgerRow[]>(() => {
-    const investment = sharedItems(profile.investments)[0]
-    const asset = sharedItems(profile.tangible_assets)[0]
+    const investment = (profile.investments ?? [])[0]
+    const asset = (profile.tangible_assets ?? [])[0]
     return [
       {
         id: 'cash',

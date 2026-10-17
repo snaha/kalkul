@@ -9,13 +9,27 @@ import { createKalkulMcpServer } from './server'
 
 type ToolResult = { content: { type: string; text?: string }[]; isError?: boolean }
 
+const EMPTY = {
+  cash_amount: 0,
+  investments: [],
+  tangible_assets: [],
+  liabilities: [],
+  incomes: [],
+  expenses: [],
+  transfers: [],
+}
+
 const PORTFOLIO = {
   id: 'p1',
   name: 'Retire early',
   start_date: '2026-01-01',
   end_date: '2028-12-31',
   inflation_rate: 2,
+  ...EMPTY,
+  base: EMPTY,
 }
+
+const etf = { id: 'etf', name: 'ETF', balance: 100, apy: 5 }
 
 describe('createKalkulMcpServer', () => {
   let backing: Map<string, string>
@@ -56,15 +70,17 @@ describe('createKalkulMcpServer', () => {
     vi.unstubAllGlobals()
   })
 
-  it('lists the six tools', async () => {
+  it('lists the eight tools', async () => {
     const { tools } = await client.listTools()
     expect(tools.map((t) => t.name).sort()).toEqual([
       'add_portfolio',
       'delete_portfolio',
       'get_data',
       'get_projection',
+      'remove_plan_item',
       'update_portfolio',
       'update_profile',
+      'upsert_plan_item',
     ])
   })
 
@@ -88,14 +104,19 @@ describe('createKalkulMcpServer', () => {
     expect(appStore.profile.name).toBe('Jane')
   })
 
-  it('add_portfolio returns an id that is in the store', async () => {
+  it('add_portfolio returns an id that is in the store, and the plan starts as a copy of the profile', async () => {
+    await call('update_profile', { cash_amount: 50, investments: [etf] })
     const { id } = json(
       await call('add_portfolio', { ...PORTFOLIO, id: undefined, name: 'New' }),
     ) as {
       id: string
     }
     expect(appStore.portfolios.map((p) => p.id)).toContain(id)
-    expect(appStore.portfolios.find((p) => p.id === id)?.name).toBe('New')
+    const plan = appStore.portfolios.find((p) => p.id === id)
+    expect(plan?.name).toBe('New')
+    expect(plan?.cash_amount).toBe(50)
+    expect(plan?.investments).toEqual([etf])
+    expect(plan?.base.investments).toEqual([etf])
   })
 
   it('update_portfolio updates by id and errors on unknown id', async () => {
@@ -110,6 +131,58 @@ describe('createKalkulMcpServer', () => {
     expect((await call('delete_portfolio', { id: 'nope' })).isError).toBe(true)
     await call('delete_portfolio', { id: 'p1' })
     expect(appStore.portfolios).toEqual([])
+  })
+
+  it('upsert_plan_item puts the item on the plan and leaves financial data alone', async () => {
+    await call('update_profile', { investments: [etf] })
+    const result = await call('upsert_plan_item', {
+      portfolio_id: 'p1',
+      list: 'investments',
+      item: { ...etf, balance: 900 },
+    })
+    expect(result.isError).toBeUndefined()
+    expect(appStore.portfolios[0]?.investments).toEqual([{ ...etf, balance: 900 }])
+    expect(appStore.profile.investments).toEqual([etf])
+  })
+
+  it('upsert_plan_item takes a transfer, whose shape another list would also accept', async () => {
+    const transfer = {
+      id: 't1',
+      name: 'Monthly ETF',
+      from_asset_id: 'cash',
+      to_asset_id: 'etf',
+      amount: 500,
+      schedule: 'recurring',
+      frequency: 'monthly',
+      start: 'immediately',
+      end: 'never',
+      change_over_time: 'none',
+    }
+    const result = await call('upsert_plan_item', {
+      portfolio_id: 'p1',
+      list: 'transfers',
+      item: transfer,
+    })
+    expect(result.isError).toBeUndefined()
+    expect(appStore.portfolios[0]?.transfers).toEqual([transfer])
+  })
+
+  it('upsert_plan_item validates the item against the list it is for', async () => {
+    const result = await call('upsert_plan_item', {
+      portfolio_id: 'p1',
+      list: 'liabilities',
+      item: etf,
+    })
+    expect(result.isError).toBe(true)
+    expect(appStore.portfolios[0]?.liabilities).toEqual([])
+  })
+
+  it('remove_plan_item drops the item from the plan without touching financial data', async () => {
+    await call('update_profile', { investments: [etf] })
+    await call('upsert_plan_item', { portfolio_id: 'p1', list: 'investments', item: etf })
+    await call('remove_plan_item', { portfolio_id: 'p1', list: 'investments', id: 'etf' })
+    expect(appStore.portfolios[0]?.investments).toEqual([])
+    expect(appStore.profile.investments).toEqual([etf])
   })
 
   it('get_projection returns yearly rows', async () => {
