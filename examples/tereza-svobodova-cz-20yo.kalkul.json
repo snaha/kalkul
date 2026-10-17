@@ -6,6 +6,16 @@
     "location": "CZ",
     "currency": "CZK",
     "cash_amount": 48000,
+    "has_investments": true,
+    "investments": [
+      {
+        "id": "inv-1",
+        "name": "Index fund (ETF)",
+        "balance": 5000,
+        "apy": 7,
+        "ter": 0.2
+      }
+    ],
     "incomes": [
       {
         "id": "inc-1",
@@ -64,6 +74,21 @@
         "end": "never",
         "change_over_time": "none"
       }
+    ],
+    "transfers": [
+      {
+        "id": "tr-1",
+        "name": "Monthly ETF savings",
+        "from_asset_id": "cash",
+        "to_asset_id": "inv-1",
+        "amount": 500,
+        "inflation_adjusted": true,
+        "schedule": "recurring",
+        "frequency": "monthly",
+        "start": "immediately",
+        "end": "never",
+        "change_over_time": "none"
+      }
     ]
   },
   "portfolios": [
@@ -75,7 +100,15 @@
       "end_date": "2071-02-01",
       "inflation_rate": 0.02,
       "cash_amount": 48000,
-      "investments": [],
+      "investments": [
+        {
+          "id": "inv-1",
+          "name": "Index fund (ETF)",
+          "balance": 5000,
+          "apy": 7,
+          "ter": 0.2
+        }
+      ],
       "tangible_assets": [],
       "liabilities": [],
       "incomes": [
@@ -153,10 +186,32 @@
           "change_over_time": "none"
         }
       ],
-      "transfers": [],
+      "transfers": [
+        {
+          "id": "tr-1",
+          "name": "Monthly ETF savings",
+          "from_asset_id": "cash",
+          "to_asset_id": "inv-1",
+          "amount": 500,
+          "inflation_adjusted": true,
+          "schedule": "recurring",
+          "frequency": "monthly",
+          "start": "immediately",
+          "end": "never",
+          "change_over_time": "none"
+        }
+      ],
       "base": {
         "cash_amount": 48000,
-        "investments": [],
+        "investments": [
+          {
+            "id": "inv-1",
+            "name": "Index fund (ETF)",
+            "balance": 5000,
+            "apy": 7,
+            "ter": 0.2
+          }
+        ],
         "tangible_assets": [],
         "liabilities": [],
         "incomes": [
@@ -218,7 +273,21 @@
             "change_over_time": "none"
           }
         ],
-        "transfers": []
+        "transfers": [
+          {
+            "id": "tr-1",
+            "name": "Monthly ETF savings",
+            "from_asset_id": "cash",
+            "to_asset_id": "inv-1",
+            "amount": 500,
+            "inflation_adjusted": true,
+            "schedule": "recurring",
+            "frequency": "monthly",
+            "start": "immediately",
+            "end": "never",
+            "change_over_time": "none"
+          }
+        ]
       }
     }
   ]
