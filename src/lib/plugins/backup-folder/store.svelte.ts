@@ -8,6 +8,7 @@ import {
   type SyncDeps,
   type SyncOutcome,
   chooseVersion,
+  movedPast,
   resolveConflict,
   syncOnce,
 } from './sync-engine'
@@ -65,6 +66,8 @@ function withBackupFolderStore() {
   let lastUpdated = 0
   /** Background triggers are wired (between `start` and its cleanup). */
   let started = false
+  /** From erasing the data until the folder is disconnected. */
+  let erasing = false
   // Between choosing a folder and naming this computer for a new connection.
   let pendingDirectory: FileSystemDirectoryHandle | undefined
   /** The dialog naming this computer is open. */
@@ -85,6 +88,7 @@ function withBackupFolderStore() {
         stamp: () => lastUpdated,
         export: () => app().exportData(),
         import: (json) => app().replaceData(json),
+        changing: () => erasing || app().unsavedEdits(),
       },
       state: {
         load: () => persistence.load('sync'),
@@ -112,6 +116,7 @@ function withBackupFolderStore() {
         const directory = await persistence.load('directory')
         if (!connection || !directory) {
           status = { kind: 'disconnected' }
+          lastSyncedAt = undefined
           return
         }
         if ((await directory.queryPermission(READWRITE)) !== 'granted') {
@@ -148,6 +153,21 @@ function withBackupFolderStore() {
     return run(syncOnce)
   }
 
+  /**
+   * Retries a version this app could not load only once the folder has moved
+   * past it: until then every round would fail the same way, showing
+   * "Saving…" for nothing.
+   */
+  async function syncIfMovedPast(unreadable: string): Promise<void> {
+    try {
+      const directory = await persistence.load('directory')
+      if (directory && !(await movedPast(folderFiles(directory), unreadable))) return
+    } catch {
+      // A round finds out what went wrong and shows it.
+    }
+    await syncNow()
+  }
+
   const saves = createSaveScheduler(() => void syncNow(), {
     idleMs: SAVE_IDLE_MS,
     maxWaitMs: SAVE_MAX_WAIT_MS,
@@ -160,23 +180,34 @@ function withBackupFolderStore() {
    */
   function dataChanged(change: DataChange): void {
     lastUpdated = change.lastUpdated
+    if (change.source === 'clear') {
+      void disconnectAfterErase()
+      return
+    }
     if (!started || change.source === 'replace' || !shouldAutoSync(status)) return
     pending = true
     saves.changed()
   }
 
-  function announce(): void {
-    channel?.postMessage('changed')
+  /**
+   * Erasing the data (Start fresh) is for this browser only: it stops using
+   * the folder, which keeps its data, so the erase is neither uploaded nor
+   * undone by the next download.
+   */
+  async function disconnectAfterErase(): Promise<void> {
+    if (!supported) return
+    erasing = true
+    try {
+      await store.disconnect()
+    } catch (error) {
+      console.error('Could not disconnect the backup folder', error)
+    } finally {
+      erasing = false
+    }
   }
 
-  async function refresh(): Promise<void> {
-    connection = await persistence.load('connection')
-    if (!connection) {
-      status = { kind: 'disconnected' }
-      lastSyncedAt = undefined
-      return
-    }
-    await syncNow()
+  function announce(): void {
+    channel?.postMessage('changed')
   }
 
   const store = {
@@ -226,12 +257,14 @@ function withBackupFolderStore() {
       if (!supported) return () => {}
 
       channel = new BroadcastChannel(CHANNEL)
-      channel.onmessage = () => void refresh()
+      channel.onmessage = () => void syncNow()
 
       started = true
 
       const onVisible = () => {
-        if (document.visibilityState === 'visible' && shouldAutoSync(status)) void syncNow()
+        if (document.visibilityState !== 'visible') return
+        if (shouldAutoSync(status)) void syncNow()
+        else if (status.kind === 'unreadable') void syncIfMovedPast(status.hash)
       }
       // Leaving the tab (or closing it) writes waiting edits straight away.
       const onHidden = () => {
@@ -243,7 +276,7 @@ function withBackupFolderStore() {
       window.addEventListener('pagehide', onPageHide)
       const poll = setInterval(onVisible, POLL_MS)
 
-      void refresh()
+      void syncNow()
 
       return () => {
         started = false

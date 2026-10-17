@@ -48,6 +48,11 @@ export interface PluginHost {
   exportData: () => string
   /** Replaces all data with `json`, exactly as given. Throws without changing anything when it cannot load it. */
   replaceData: (json: string) => void
+  /**
+   * Whether an editor holds edits that are not in the data yet. Data replaced
+   * meanwhile would have the editor write its old copy back over it.
+   */
+  unsavedEdits: () => boolean
   /** Calls `listener` with the data as it stands, then after every change. Returns the unsubscribe. */
   onDataChange: (listener: (change: DataChange) => void) => () => void
 }

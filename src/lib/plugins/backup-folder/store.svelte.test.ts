@@ -20,6 +20,10 @@ const env = vi.hoisted(() => {
     /** While set, listing (or creating) folder files waits for it. */
     listGate: undefined as Promise<void> | undefined,
     createGate: undefined as Promise<void> | undefined,
+    /** How many folder files were read. */
+    reads: 0,
+    /** An editor holds an edit it has not saved yet. */
+    unsaved: false,
     local: { data: '', stamp: 0 },
     directory: undefined as unknown as FileSystemDirectoryHandle,
   }
@@ -72,6 +76,7 @@ vi.mock('./folder-files', async (importOriginal) => {
       return { id: name, name }
     },
     async read(id) {
+      env.reads += 1
       return env.folder.get(id)!
     },
     async remove(id) {
@@ -90,6 +95,7 @@ function dataChanged(source: DataChange['source']): void {
 
 const host: PluginHost = {
   exportData: () => env.local.data,
+  unsavedEdits: () => env.unsaved,
   replaceData: (json) => {
     if (json.startsWith('unloadable')) throw new Error('unknown field')
     env.local.data = json
@@ -145,6 +151,12 @@ function edit(data: string): void {
   dataChanged('edit')
 }
 
+/** Start fresh: the data is erased in this tab. */
+function erase(): void {
+  env.local = { data: '', stamp: 0 }
+  dataChanged('clear')
+}
+
 async function connect(): Promise<void> {
   expect(await backupFolderStore.beginConnect()).toBe(true)
   await backupFolderStore.finishConnect('mac')
@@ -170,6 +182,12 @@ async function saveFromOtherComputer(contents: string): Promise<void> {
   })
 }
 
+/** The tab comes back into view, as the poll also pretends every 30 seconds. */
+async function tabShown(): Promise<void> {
+  document.dispatchEvent(new Event('visibilitychange'))
+  await settle()
+}
+
 function safetyCopies(): string[] {
   return [...env.folder.keys()].filter((name) => name.includes('_before-replace_'))
 }
@@ -181,6 +199,8 @@ describe('backupFolderStore', () => {
     env.folderGone = false
     env.listGate = undefined
     env.createGate = undefined
+    env.reads = 0
+    env.unsaved = false
     await backupFolderStore.disconnect()
     env.records.clear()
     env.folder.clear()
@@ -202,6 +222,19 @@ describe('backupFolderStore', () => {
     env.failLoad = true
     await expect(backupFolderStore.syncNow()).resolves.toBe(undefined)
     expect(backupFolderStore.status).toEqual({ kind: 'error' })
+  })
+
+  it('shows an error when it cannot read its own state on start', async () => {
+    edit('v1')
+    await connect()
+    env.failLoad = true
+    const stop = backupFolderStore.start()
+    try {
+      await settle()
+      expect(backupFolderStore.status).toEqual({ kind: 'error' })
+    } finally {
+      stop()
+    }
   })
 
   it('lets a round in flight finish before disconnecting, so it cannot write itself back', async () => {
@@ -273,6 +306,16 @@ describe('backupFolderStore', () => {
     expect(backupFolderStore.lastPull?.device).toBe('windows-9c1e')
   })
 
+  it('asks instead of downloading over an edit an editor has not saved yet', async () => {
+    edit('v1')
+    await connect()
+    await saveFromOtherComputer('from windows')
+    env.unsaved = true
+    await backupFolderStore.syncNow()
+    expect(env.local.data).toBe('v1')
+    expect(backupFolderStore.status.kind).toBe('conflict')
+  })
+
   it('uploads edits made while the folder was missing once it is chosen again', async () => {
     edit('v1')
     await connect()
@@ -304,6 +347,57 @@ describe('backupFolderStore', () => {
     })
     expect(env.local.data).toBe('v1')
     expect(env.folder.size).toBe(files)
+  })
+
+  it('leaves a backup it cannot load alone until the folder moves past it', async () => {
+    edit('v1')
+    await connect()
+    const stop = backupFolderStore.start()
+    try {
+      await settle()
+      await saveFromOtherComputer('unloadable, from a newer Kalkul')
+      await tabShown()
+      expect(backupFolderStore.status.kind).toBe('unreadable')
+      const reads = env.reads
+      await tabShown()
+      expect(env.reads).toBe(reads)
+      expect(backupFolderStore.status.kind).toBe('unreadable')
+
+      await saveFromOtherComputer('saved after it')
+      await tabShown()
+      expect(backupFolderStore.status).toEqual({ kind: 'synced' })
+      expect(env.local.data).toBe('saved after it')
+    } finally {
+      stop()
+    }
+  })
+
+  it('stops syncing when the data is erased, and the folder keeps its data', async () => {
+    edit('v1')
+    await connect()
+    erase()
+    await settle()
+    expect(backupFolderStore.status).toEqual({ kind: 'disconnected' })
+    expect([...env.folder.values()]).toEqual(['v1'])
+    await saveFromOtherComputer('from windows')
+    await backupFolderStore.syncNow()
+    expect(env.local.data).toBe('')
+  })
+
+  it('downloads nothing over an erase made while a round was looking at the folder', async () => {
+    edit('v1')
+    await connect()
+    await saveFromOtherComputer('from windows')
+    const listed = gate()
+    env.listGate = listed.promise
+    const round = backupFolderStore.syncNow()
+    await settle()
+    erase()
+    listed.open()
+    await round
+    await settle()
+    expect(env.local.data).toBe('')
+    expect(backupFolderStore.status).toEqual({ kind: 'disconnected' })
   })
 
   it('asks for a name when a folder is dropped on a computer that never connected', async () => {

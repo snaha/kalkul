@@ -1,3 +1,4 @@
+import { hasUnsavedListEdits } from '$lib/list-editor.svelte'
 import { appStore } from '$lib/stores/app.svelte'
 
 import type { PluginHost } from './types'
@@ -6,6 +7,7 @@ import type { PluginHost } from './types'
 export const pluginHost: PluginHost = {
   exportData: () => appStore.exportBackup(),
   replaceData: (json) => appStore.replaceData(json),
+  unsavedEdits: hasUnsavedListEdits,
   onDataChange: (listener) => {
     const unsubscribe = appStore.onDataChange(listener)
     listener({ lastUpdated: appStore.lastUpdated, source: 'load' })
