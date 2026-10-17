@@ -6,6 +6,7 @@
 
   import { EVENTS, identify, track, trackerLoaded } from '$lib/analytics'
   import BackupFileDrop from '$lib/components/backup-file-drop.svelte'
+  import UnreadableDataAlert from '$lib/components/unreadable-data-alert.svelte'
   import storageKeys from '$lib/storage-keys'
   import { appStore } from '$lib/stores/app.svelte'
   import { syncStore } from '$lib/stores/sync.svelte'
@@ -86,6 +87,7 @@
 
 {@render children()}
 
+<UnreadableDataAlert />
 <BackupFileDrop />
 {#if analyticsEnabled && instagramIos}
   {@render tracker()}
