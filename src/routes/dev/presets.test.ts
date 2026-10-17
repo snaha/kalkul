@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest'
 import { daysBetween } from '$lib/@snaha/kalkul-maths'
 import { getCurrentProfile } from '$lib/current-values'
 import { getNetWorth, hasAnyFinancialData } from '$lib/financial-totals'
+import { getRecordedPlanSamples } from '$lib/recorded-years'
 import { storedDataSchema } from '$lib/schemas'
 import { captureSnapshot, latestSnapshot, snapshotNetWorth } from '$lib/snapshots'
 import { toDateOnlyString } from '$lib/utils'
@@ -150,6 +151,33 @@ describe('dev presets', () => {
       return growing && worths.some((worth, i) => i > 0 && worth < worths[i - 1])
     })
     expect(dips).toBe(true)
+  })
+
+  test('covers a plan held against the history recorded since it started', () => {
+    // The plan chart fades the years behind it and draws the recorded figures
+    // over them, straight across a year nothing was recorded in.
+    const covered = presets.some((preset) =>
+      preset.data.portfolios.some((plan) => {
+        const years = getRecordedPlanSamples(preset.data.profile, plan).map((s) => s.year)
+        const recorded = new Set(years)
+        const skipped = years.some((year, i) => i > 0 && year - years[i - 1] > 1)
+        return recorded.size >= 3 && skipped
+      }),
+    )
+    expect(covered).toBe(true)
+  })
+
+  test('lets investments swing with the market in some history', () => {
+    // A broad index gives up a sixth of its value every few years, monthly
+    // contributions or not; a history whose investments only ever climb reads
+    // as a formula.
+    const swings = presets.some((preset) => {
+      const totals = (preset.data.profile.snapshots ?? []).map((snapshot) =>
+        (snapshot.investments ?? []).reduce((sum, i) => sum + i.balance, 0),
+      )
+      return totals.some((total, i) => i > 0 && total < totals[i - 1] * 0.88)
+    })
+    expect(swings).toBe(true)
   })
 
   test('names are unique so the list keys stay stable', () => {

@@ -30,3 +30,13 @@ export const CATEGORY_COLORS = {
     '#991b1b', // red-800
   ],
 }
+
+// Shades for lines drawn over the chart's bars: darker than the bars on a
+// light background, lighter on a dark one, so a line stands out from the bars
+// of its own category in either theme.
+export const LINE_COLORS = {
+  cash: { light: '#0284c7', dark: CATEGORY_COLORS.cash }, // sky-600, sky-300
+  investments: { light: CATEGORY_COLORS.investments[2], dark: '#2dd4bf' }, // teal-700, teal-400
+  tangibleAssets: { light: CATEGORY_COLORS.tangibleAssets[3], dark: '#a78bfa' }, // violet-900, violet-400
+  liabilities: { light: CATEGORY_COLORS.liabilities[2], dark: CATEGORY_COLORS.liabilities[0] }, // red-600, red-400
+}

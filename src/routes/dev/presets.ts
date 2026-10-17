@@ -19,7 +19,7 @@ import {
   type Snapshot,
   storedDataSchema,
 } from '$lib/schemas'
-import { captureSnapshot } from '$lib/snapshots'
+import { captureSnapshot, latestSnapshot, profileAtSnapshot } from '$lib/snapshots'
 import { toDateOnlyString } from '$lib/utils'
 
 export interface DevPreset {
@@ -57,6 +57,8 @@ interface HistoryStep {
   years: number
   /** Liquid balances at that point as a fraction of the newest point's. */
   factor: number
+  /** Investments at that point as a fraction of the newest point's. */
+  investmentFactor: number
 }
 
 /**
@@ -91,6 +93,20 @@ function unamortized(liability: ProfileLiability, years: number): number {
 }
 
 /**
+ * A loan's remaining term `years` before today's: every installment comes off
+ * the term along with the balance, so winding one back lengthens the other.
+ * Stated in months, which holds the part-years a history steps by exactly.
+ */
+function rewoundTerm(
+  entry: Pick<ProfileLiability, 'remaining_term' | 'remaining_term_unit'>,
+  years: number,
+): Pick<ProfileLiability, 'remaining_term' | 'remaining_term_unit'> {
+  if (years === 0) return entry
+  const months = entry.remaining_term * (entry.remaining_term_unit === 'months' ? 1 : 12)
+  return { remaining_term: Math.round(months + years * 12), remaining_term_unit: 'months' }
+}
+
+/**
  * The balances `years` before today's, wound back the way the projection winds
  * them forward: liquid balances scaled by `liquidFactor`, loans un-amortized,
  * and property values left alone — the projection holds those flat, so moving
@@ -101,6 +117,7 @@ function rewoundSnapshot(
   date: string,
   years: number,
   liquidFactor: number,
+  investmentFactor = liquidFactor,
 ): Snapshot {
   const round = (value: number) => Math.round(value)
   const snapshot = captureSnapshot(profile, date)
@@ -114,24 +131,24 @@ function rewoundSnapshot(
     cash_amount: round((snapshot.cash_amount ?? 0) * liquidFactor),
     investments: snapshot.investments?.map((investment) => ({
       ...investment,
-      balance: round(investment.balance * liquidFactor),
+      balance: round(investment.balance * investmentFactor),
     })),
     tangible_assets: snapshot.tangible_assets?.map((asset) => {
       const financing = financingFor(asset.id)
+      if (!financing) return asset
       return {
         ...asset,
-        outstanding_balance: financing
-          ? round(unamortized(financing, years))
-          : asset.outstanding_balance,
+        ...rewoundTerm(financing, years),
+        outstanding_balance: round(unamortized(financing, years)),
       }
     }),
     liabilities: snapshot.liabilities?.map((entry) => {
       const liability = (profile.liabilities ?? []).find((l) => l.id === entry.id)
+      if (!liability) return entry
       return {
         ...entry,
-        outstanding_balance: liability
-          ? round(unamortized(liability, years))
-          : entry.outstanding_balance,
+        ...rewoundTerm(liability, years),
+        outstanding_balance: round(unamortized(liability, years)),
       }
     }),
   }
@@ -217,6 +234,32 @@ interface HistoryOptions {
   latestMonthsAgo?: number
   /** Relative gap sizes to cycle through. Defaults to `GAP_WEIGHTS`. */
   gaps?: number[]
+  /**
+   * How hard investments swing with the market, as a yearly volatility (0.15
+   * is a broad stock index). Unset, they move with cash.
+   */
+  marketSwing?: number
+}
+
+/**
+ * A market's path across a history, as each point's log deviation from the
+ * trend. A random walk, each step sized to the time since the previous point,
+ * so a drawdown lasts rather than flickering point to point. It is pinned to
+ * zero at the newest and oldest point (a Brownian bridge): the newest has to
+ * match the profile, and the oldest on the trend keeps the history's overall
+ * rate the one the projection continues at.
+ */
+function marketPath(yearsBack: number[], seed: number, swing: number): number[] {
+  const span = yearsBack[yearsBack.length - 1]
+  if (span === 0) return yearsBack.map(() => 0)
+  let walk = 0
+  const walked = yearsBack.map((years, i) => {
+    // `wobbleAt` is uniform on [-1, 1]; √3 scales it to a unit deviation.
+    if (i > 0) walk += Math.sqrt(3) * wobbleAt(seed * 97 + i) * Math.sqrt(years - yearsBack[i - 1])
+    return walk
+  })
+  const end = walked[walked.length - 1]
+  return walked.map((w, i) => swing * (w - (yearsBack[i] / span) * end))
 }
 
 /**
@@ -229,7 +272,7 @@ function withHistory(
   profile: Profile,
   today: Date,
   months: number,
-  { latestMonthsAgo = 0, gaps = GAP_WEIGHTS }: HistoryOptions = {},
+  { latestMonthsAgo = 0, gaps = GAP_WEIGHTS, marketSwing }: HistoryOptions = {},
 ): Profile {
   const growth = impliedLiquidGrowth(profile, today)
   const seed = seedOf(profile, months)
@@ -251,6 +294,12 @@ function withHistory(
     if (monthsAgo > points[points.length - 1]) points.push(monthsAgo)
   }
 
+  const market = marketPath(
+    points.map((monthsAgo) => (monthsAgo - latestMonthsAgo) / 12),
+    seed,
+    marketSwing ?? 0,
+  )
+
   const steps: HistoryStep[] = points.map((monthsAgo, index) => {
     // Exactly 1 and 0 at the newest step, keeping it equal to the profile's
     // balances — the dashboard would otherwise jump the moment it loads.
@@ -261,7 +310,8 @@ function withHistory(
     // exactly the one the projection continues at.
     const interior = index > 0 && index < points.length - 1
     const factor = interior ? trend * (1 + WOBBLE * wobbleAt(seed + index)) : trend
-    return { monthsAgo, years, factor }
+    const investmentFactor = marketSwing === undefined ? factor : trend * Math.exp(market[index])
+    return { monthsAgo, years, factor, investmentFactor }
   })
 
   return {
@@ -269,12 +319,75 @@ function withHistory(
     snapshots: steps
       .sort((a, b) => b.monthsAgo - a.monthsAgo)
       .map((step) =>
-        rewoundSnapshot(profile, historyDate(today, step.monthsAgo), step.years, step.factor),
+        rewoundSnapshot(
+          profile,
+          historyDate(today, step.monthsAgo),
+          step.years,
+          step.factor,
+          step.investmentFactor,
+        ),
       ),
   }
 }
 
-/** A plan created from `profile` today, like the Add projection dialog makes one. */
+/**
+ * The profile with no snapshot closing `year` (1 January closes the year
+ * before), so a plan's chart has a year its recorded lines run across.
+ */
+function withYearSkipped(profile: Profile, year: number): Profile {
+  const closes = (date: string) => Number(date.slice(0, 4)) - (date.endsWith('-01-01') ? 1 : 0)
+  return {
+    ...profile,
+    snapshots: profile.snapshots?.filter((snapshot) => closes(snapshot.date) !== year),
+  }
+}
+
+/**
+ * The first of the month `yearsAgo` years before `today`: when a plan set up
+ * that long ago starts.
+ */
+function planStart(today: Date, yearsAgo = 0): string {
+  return toDateOnlyString(new Date(today.getFullYear() - yearsAgo, today.getMonth(), 1))
+}
+
+/**
+ * The profile as its latest snapshot on or before `date` recorded it: the
+ * financial data a plan starting then was created from.
+ */
+function profileAsOf(profile: Profile, date: string): Profile {
+  const snapshot = latestSnapshot(profile.snapshots?.filter((s) => s.date <= date))
+  return snapshot ? profileAtSnapshot(profile, snapshot) : profile
+}
+
+/**
+ * Pavel with a loan still running on the cottage, so a plan of his has debt to
+ * hold the recorded figures against. Small enough for his salary to carry
+ * alongside his spending without running his cash out.
+ */
+function withCottageLoan(profile: Profile): Profile {
+  return {
+    ...profile,
+    tangible_assets: profile.tangible_assets?.map((asset) =>
+      asset.id === 'ta-2'
+        ? {
+            ...asset,
+            status: 'financed',
+            outstanding_balance: 480_000,
+            installment_frequency: 'monthly',
+            annual_rate: 5.4,
+            installment_amount: 9_146,
+            remaining_term: 5,
+            remaining_term_unit: 'years',
+          }
+        : asset,
+    ),
+  }
+}
+
+/**
+ * A plan created from `profile`, like the Add projection dialog makes one,
+ * `startedYearsAgo` years back. Pass the profile as it stood then.
+ */
 function plan(
   today: Date,
   profile: Profile,
@@ -283,12 +396,13 @@ function plan(
   notes: string,
   endYearsOut: number,
   inflationRate = 0.02,
+  startedYearsAgo = 0,
 ): Portfolio {
   return {
     ...createPlan(profile, {
       name,
       notes,
-      start_date: toDateOnlyString(new Date(today.getFullYear(), today.getMonth(), 1)),
+      start_date: planStart(today, startedYearsAgo),
       end_date: toDateOnlyString(new Date(today.getFullYear() + endYearsOut, 0, 1)),
       inflation_rate: inflationRate,
     }),
@@ -386,6 +500,14 @@ export function getDevPresets(today: Date): DevPreset[] {
   const martinData = sample(martin)
   const claireData = sample(claire)
   const pavelData = sample(pavel)
+  // Pavel five years into a plan: the history it is held against.
+  const pavelSincePlan = withYearSkipped(
+    withHistory(withCottageLoan(pavelData.profile), today, 66, {
+      latestMonthsAgo: 2,
+      marketSwing: 0.15,
+    }),
+    today.getFullYear() - 3,
+  )
 
   return [
     {
@@ -483,6 +605,26 @@ export function getDevPresets(today: Date): DevPreset[] {
             'Same plan at 6% inflation.',
             40,
             0.06,
+          ),
+        ],
+      },
+    },
+    {
+      name: 'Pavel, 50 — five years into a plan',
+      description:
+        'A plan set up five years ago, held against what was recorded since: the years behind it faded, the recorded figures drawn as lines through every snapshot with investments swinging with the market and the cottage loan paying down, and one year without a snapshot that the lines run straight across. The tooltip and inspector compare each category with the plan. Two months stale.',
+      data: {
+        profile: pavelSincePlan,
+        portfolios: [
+          plan(
+            today,
+            profileAsOf(pavelSincePlan, planStart(today, 5)),
+            'plan-since',
+            'Retire at 60',
+            'Set up five years ago, after buying the cottage.',
+            10,
+            0.02,
+            5,
           ),
         ],
       },
