@@ -93,6 +93,20 @@ function unamortized(liability: ProfileLiability, years: number): number {
 }
 
 /**
+ * A loan's remaining term `years` before today's: every installment comes off
+ * the term along with the balance, so winding one back lengthens the other.
+ * Stated in months, which holds the part-years a history steps by exactly.
+ */
+function rewoundTerm(
+  entry: Pick<ProfileLiability, 'remaining_term' | 'remaining_term_unit'>,
+  years: number,
+): Pick<ProfileLiability, 'remaining_term' | 'remaining_term_unit'> {
+  if (years === 0) return entry
+  const months = entry.remaining_term * (entry.remaining_term_unit === 'months' ? 1 : 12)
+  return { remaining_term: Math.round(months + years * 12), remaining_term_unit: 'months' }
+}
+
+/**
  * The balances `years` before today's, wound back the way the projection winds
  * them forward: liquid balances scaled by `liquidFactor`, loans un-amortized,
  * and property values left alone — the projection holds those flat, so moving
@@ -121,20 +135,20 @@ function rewoundSnapshot(
     })),
     tangible_assets: snapshot.tangible_assets?.map((asset) => {
       const financing = financingFor(asset.id)
+      if (!financing) return asset
       return {
         ...asset,
-        outstanding_balance: financing
-          ? round(unamortized(financing, years))
-          : asset.outstanding_balance,
+        ...rewoundTerm(financing, years),
+        outstanding_balance: round(unamortized(financing, years)),
       }
     }),
     liabilities: snapshot.liabilities?.map((entry) => {
       const liability = (profile.liabilities ?? []).find((l) => l.id === entry.id)
+      if (!liability) return entry
       return {
         ...entry,
-        outstanding_balance: liability
-          ? round(unamortized(liability, years))
-          : entry.outstanding_balance,
+        ...rewoundTerm(liability, years),
+        outstanding_balance: round(unamortized(liability, years)),
       }
     }),
   }
