@@ -151,28 +151,28 @@
   const RECORDED_LINES = [
     {
       id: 'liabilities',
-      color: LINE_COLORS.liabilities,
+      colors: LINE_COLORS.liabilities,
       amount: (f: RecordedSample) => f.liabilities,
       below: true,
       reach: (f: RecordedSample) => f.liabilities,
     },
     {
       id: 'tangibleAssets',
-      color: LINE_COLORS.tangibleAssets,
+      colors: LINE_COLORS.tangibleAssets,
       amount: (f: RecordedSample) => f.tangibleAssets,
       below: false,
       reach: (f: RecordedSample) => f.tangibleAssets,
     },
     {
       id: 'investments',
-      color: LINE_COLORS.investments,
+      colors: LINE_COLORS.investments,
       amount: (f: RecordedSample) => f.investments,
       below: false,
       reach: (f: RecordedSample) => f.tangibleAssets + f.investments,
     },
     {
       id: 'cash',
-      color: LINE_COLORS.cash,
+      colors: LINE_COLORS.cash,
       amount: (f: RecordedSample) => f.cash,
       below: false,
       reach: (f: RecordedSample) => f.tangibleAssets + f.investments + f.cash,
@@ -325,7 +325,7 @@
     return RECORDED_LINES.filter((line) => recordedSamples.some((r) => line.amount(r) > 0)).map(
       (line) => ({
         id: line.id,
-        color: line.color,
+        colors: line.colors,
         points: recordedSamples.map((r) => ({
           x: xAt(r.position),
           y: line.below
@@ -530,10 +530,16 @@
   {/each}
 
   <!-- Recorded figures: a halo in the background colour keeps each line
-       legible over the bars, light cash included. -->
+       legible over the bars, light cash included. The line takes its dark
+       shade under the theme's .dark class, which the theme store sets for an
+       explicit choice and for the system one alike. -->
   {#each recordedLines as line (line.id)}
     {@const points = line.points.map((p) => `${p.x},${p.y}`).join(' ')}
-    <g class="pointer-events-none">
+    <g
+      class="pointer-events-none"
+      style:--line={line.colors.light}
+      style:--line-dark={line.colors.dark}
+    >
       <polyline
         {points}
         fill="none"
@@ -545,9 +551,9 @@
       <polyline
         {points}
         fill="none"
-        stroke={line.color}
         stroke-width={RECORDED_LINE_WIDTH}
         stroke-linejoin="round"
+        class="stroke-(--line) [.dark_&]:stroke-(--line-dark)"
       />
       {#each line.points as point, i (i)}
         <circle
@@ -556,10 +562,9 @@
           r={i === selectedSample || i === hoveredSample
             ? RECORDED_DOT_RADIUS + 1.5
             : RECORDED_DOT_RADIUS}
-          fill={line.color}
           stroke="currentColor"
           stroke-width="1.5"
-          class="text-background"
+          class="fill-(--line) text-background [.dark_&]:fill-(--line-dark)"
         />
       {/each}
     </g>
