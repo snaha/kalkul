@@ -12,7 +12,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
   import { Switch } from '$lib/components/ui/switch'
-  import { removePlanItem, upsertPlanItem } from '$lib/plan-items'
+  import { removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
   import { installmentAmountForLoan, termYearsForLoan } from '$lib/plan-projection'
   import { planRangeOf, planYearOptions, timingWithinPlan } from '$lib/plan-range'
   import type {
@@ -255,7 +255,7 @@
   }
 
   function save(): void {
-    upsertPlanItem(listKey, projectLiability(form), plan)
+    saveEditedPlanItem(listKey, projectLiability(form), initial, plan)
     close()
   }
 
