@@ -6,7 +6,7 @@
   import { Label } from '$lib/components/ui/label'
   import { type PlanRange, planYearOptions, timingWithinPlan } from '$lib/plan-range'
   import type { CashFlowEnd, CashFlowStart } from '$lib/schemas'
-  import { monthToOption, optionToMonth } from '$lib/utils'
+  import { monthToOption, optionToMonth, yearItemsIncluding } from '$lib/utils'
 
   interface Props {
     mode: 'start' | 'end'
@@ -126,10 +126,9 @@
     range !== undefined &&
       !timingWithinPlan(range, mode, value as CashFlowStart | CashFlowEnd, year, age),
   )
-  // A stored year outside the plan stays listed so the user can see it.
-  let yearItems = $derived(
-    (range ? planYearOptions(range, year) : years).map((y) => ({ value: y, label: y })),
-  )
+  // A stored year outside the offered years (the plan's, or from this year on)
+  // stays listed so the user can see it.
+  let yearItems = $derived(yearItemsIncluding(range ? planYearOptions(range) : years, year))
   let monthItems = $derived(
     minMonth === undefined
       ? months

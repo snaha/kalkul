@@ -25,7 +25,7 @@
   import routes from '$lib/routes'
   import type { PlanEndType, PlanStartType } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
-  import { getMonthOptions, getYearOptions } from '$lib/utils'
+  import { getMonthOptions, getYearOptions, yearItemsIncluding } from '$lib/utils'
 
   const uid = $props.id()
 
@@ -73,17 +73,7 @@
     }
   })
 
-  // getYearOptions() spans this year to +49, which cannot represent every
-  // stored year: an old plan's start can be in the past, and a plan created
-  // without a birth date ends 85 years out. Union in whatever the form
-  // actually holds so the trigger never renders blank and the stored year
-  // stays re-pickable.
-  const yearItems = $derived(
-    Array.from(new Set([...getYearOptions(), form.startYear, form.endYear]))
-      .filter((y) => y !== '')
-      .sort((a, b) => Number(a) - Number(b))
-      .map((y) => ({ value: y, label: y })),
-  )
+  const yearItems = $derived(yearItemsIncluding(getYearOptions(), form.startYear, form.endYear))
   const months = $derived(getMonthOptions($locale ?? undefined))
 
   const startTypeItems: SelectFieldItem<PlanStartType>[] = $derived([
