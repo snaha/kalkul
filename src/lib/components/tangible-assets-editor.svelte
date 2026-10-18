@@ -14,6 +14,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
   import { createListEditor } from '$lib/list-editor.svelte'
+  import { rederiveLoanPair } from '$lib/loan-pair'
   import type { ProfileTangibleAsset } from '$lib/schemas'
   import {
     getFrequencyItems,
@@ -26,32 +27,41 @@
 
   const editor = createListEditor<ProfileTangibleAsset, TangibleAssetUI>({
     load: () => appStore.profile.tangible_assets ?? [],
-    toUI: (a) => ({
-      id: a.id,
-      name: a.name,
-      value: a.value > 0 ? a.value : undefined,
-      status: a.status,
-      outstanding_balance:
-        a.outstanding_balance !== undefined && a.outstanding_balance > 0
-          ? a.outstanding_balance
-          : undefined,
-      installment_frequency: a.installment_frequency ?? 'monthly',
-      annual_rate: a.annual_rate !== undefined && a.annual_rate > 0 ? a.annual_rate : undefined,
-      installment_amount:
-        a.installment_amount !== undefined && a.installment_amount > 0
-          ? a.installment_amount
-          : undefined,
-      remaining_term:
-        a.remaining_term !== undefined && a.remaining_term > 0 ? a.remaining_term : undefined,
-      remaining_term_unit: a.remaining_term_unit ?? 'years',
-      value_over_time: a.value_over_time ?? 'appreciate',
-      value_rate: a.value_rate,
-      property_tax_rate: a.property_tax_rate,
-      // Reveal the options when the asset already has them set, so values are
-      // not hidden here.
-      showAdvanced: a.value_rate !== undefined || a.property_tax_rate !== undefined,
-      editing: false,
-    }),
+    toUI: (a) => {
+      const ui: TangibleAssetUI = {
+        id: a.id,
+        name: a.name,
+        value: a.value > 0 ? a.value : undefined,
+        status: a.status,
+        outstanding_balance:
+          a.outstanding_balance !== undefined && a.outstanding_balance > 0
+            ? a.outstanding_balance
+            : undefined,
+        installment_frequency: a.installment_frequency ?? 'monthly',
+        annual_rate: a.annual_rate !== undefined && a.annual_rate > 0 ? a.annual_rate : undefined,
+        installment_amount:
+          a.installment_amount !== undefined && a.installment_amount > 0
+            ? a.installment_amount
+            : undefined,
+        remaining_term:
+          a.remaining_term !== undefined && a.remaining_term > 0 ? a.remaining_term : undefined,
+        remaining_term_unit: a.remaining_term_unit ?? 'years',
+        interest_type: a.interest_type,
+        compounding_frequency: a.compounding_frequency,
+        value_over_time: a.value_over_time ?? 'appreciate',
+        value_rate: a.value_rate,
+        property_tax_rate: a.property_tax_rate,
+        // Reveal the options when the asset already has them set, so values are
+        // not hidden here.
+        showAdvanced: a.value_rate !== undefined || a.property_tax_rate !== undefined,
+        editing: false,
+        derivedFrom: 'term',
+      }
+      // An asset saved with a term but no installment would otherwise be paid
+      // as one lump in its last period; give it the installment on open.
+      if (!ui.installment_amount) rederiveLoanPair(ui, 'term')
+      return ui
+    },
     makeBlank: (index) => ({
       id: crypto.randomUUID(),
       name: $_('page.setup.tangibleAssets.defaultName', { values: { index } }),
@@ -68,6 +78,7 @@
       property_tax_rate: undefined,
       showAdvanced: false,
       editing: true,
+      derivedFrom: 'term',
     }),
     copyName: (name) => $_('page.setup.common.copySuffix', { values: { name } }),
     hasValue: (a) => (a.value ?? 0) > 0,
@@ -157,6 +168,7 @@
                 formatNumber={appStore.formatNumber}
                 onValueChange={(v) => {
                   asset.outstanding_balance = v
+                  rederiveLoanPair(asset, asset.derivedFrom)
                 }}
               />
             </div>
@@ -171,6 +183,7 @@
                   items={frequencyItems}
                   onValueChange={(v) => {
                     asset.installment_frequency = v
+                    rederiveLoanPair(asset, asset.derivedFrom)
                   }}
                 />
               </div>
@@ -185,6 +198,7 @@
                   formatNumber={appStore.formatNumber}
                   onValueChange={(v) => {
                     asset.annual_rate = v
+                    rederiveLoanPair(asset, asset.derivedFrom)
                   }}
                 />
               </div>
@@ -201,6 +215,8 @@
                   formatNumber={appStore.formatNumber}
                   onValueChange={(v) => {
                     asset.installment_amount = v
+                    asset.derivedFrom = 'amount'
+                    rederiveLoanPair(asset, asset.derivedFrom)
                   }}
                 />
               </div>
@@ -219,6 +235,8 @@
                     class="w-24"
                     onValueChange={(v) => {
                       asset.remaining_term = v
+                      asset.derivedFrom = 'term'
+                      rederiveLoanPair(asset, asset.derivedFrom)
                     }}
                   />
                   <SelectField
@@ -227,6 +245,7 @@
                     items={remainingTermUnitItems}
                     onValueChange={(v) => {
                       if (v) asset.remaining_term_unit = v
+                      rederiveLoanPair(asset, asset.derivedFrom)
                     }}
                   />
                 </div>
