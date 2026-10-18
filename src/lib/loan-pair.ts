@@ -1,3 +1,5 @@
+import Decimal from 'decimal.js'
+
 import { installmentAmountForLoan, termYearsForLoan } from '$lib/plan-projection'
 import type { CompoundingFrequency, Frequency, InterestType, RemainingTermUnit } from '$lib/schemas'
 
@@ -18,11 +20,11 @@ export interface LoanPairFields {
 export type LoanPairAnchor = 'amount' | 'term'
 
 function round2(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100
+  return new Decimal(value).toDecimalPlaces(2).toNumber()
 }
 
 /**
- * Installment amount ⇄ Term (#258, #319). The side the user last edited is the
+ * Installment amount ⇄ Term. The side the user last edited is the
  * anchor; the other follows from the principal, rate and frequency, so changing
  * any of those re-derives the counterpart instead of leaving it stale. Writes
  * in place, the term in the loan's own unit. Nothing changes while the anchor

@@ -1,5 +1,7 @@
 import type {
+  CompoundingFrequency,
   Frequency,
+  InterestType,
   ProfileTangibleAsset,
   RemainingTermUnit,
   TangibleAssetStatus,
@@ -18,6 +20,10 @@ export interface TangibleAssetUI {
   installment_amount: number | undefined
   remaining_term: number | undefined
   remaining_term_unit: RemainingTermUnit
+  // Read-only here (set in the plan dialog), carried so the Installment
+  // amount ⇄ Term derivation compounds the way the engine will.
+  interest_type?: InterestType
+  compounding_frequency?: CompoundingFrequency
   // Value over time and property tax are attributes of the asset itself, not
   // of the financing, so they show for any status. Planned purchase/sale and
   // the loan's interest type stay in the plan dialog and round-trip via prev.
@@ -29,7 +35,7 @@ export interface TangibleAssetUI {
   showAdvanced: boolean
   editing: boolean
   // UI-only: which of Installment amount / Term the user last edited, so the
-  // financed amount, rate and frequency re-derive its counterpart (#319).
+  // financed amount, rate and frequency re-derive its counterpart.
   derivedFrom: 'amount' | 'term'
 }
 

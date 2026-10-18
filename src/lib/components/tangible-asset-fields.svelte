@@ -107,7 +107,7 @@
     rederiveLoanPair(item, anchor)
   }
 
-  // Installment amount ⇄ Term (#319): the side last edited anchors the pair,
+  // Installment amount ⇄ Term: the side last edited anchors the pair,
   // and the financed amount, rate and frequency re-derive the other.
   let anchor = $state<LoanPairAnchor>('term')
 </script>

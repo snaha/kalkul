@@ -9,6 +9,7 @@
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
+  import { rederiveLoanPair } from '$lib/loan-pair'
   import { removePlanItem, upsertPlanItem } from '$lib/plan-items'
   import { planRangeOf, timingWithinPlan } from '$lib/plan-range'
   import type {
@@ -216,6 +217,9 @@
       f.value_over_time = a.value_over_time ?? 'appreciate'
       f.value_rate = a.value_rate
       f.property_tax_rate = a.property_tax_rate
+      // An asset saved with a term but no installment would otherwise be paid
+      // as one lump in its last period; give it the installment on open.
+      if (!f.installment_amount) rederiveLoanPair(f, 'term')
     }
     return f
   }

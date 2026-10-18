@@ -181,7 +181,7 @@
     planYearOptions(range, form.pay_off_year).map((y) => ({ value: y, label: y })),
   )
 
-  // Installment amount ⇄ Term (#258): the field the user last edited is the
+  // Installment amount ⇄ Term: the field the user last edited is the
   // anchor; rederiveLoanPair derives the other from the principal, rate and
   // frequency whenever any of them changes.
   let derivedFrom = $state<LoanPairAnchor>('term')

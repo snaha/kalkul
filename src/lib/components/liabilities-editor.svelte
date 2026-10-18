@@ -136,7 +136,7 @@
     return appStore.formatCurrencyCode(val)
   }
 
-  // Installment amount ⇄ Term (#258): the field the user last edited anchors
+  // Installment amount ⇄ Term: the field the user last edited anchors
   // the pair; rederiveLoanPair derives the other from the principal, rate,
   // frequency and unit whenever any of them changes.
   function rederive(liability: LiabilityUI): void {

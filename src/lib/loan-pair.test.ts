@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import { type LoanPairFields, rederiveLoanPair } from '$lib/loan-pair'
 
-// The financed remainder from #319: 345 000 bought with 70 000 down, at 4.5 %
-// over 20 years of monthly installments.
+// A financed remainder: 345 000 bought with 70 000 down, at 4.5 % over 20
+// years of monthly installments.
 const loan: LoanPairFields = {
   outstanding_balance: 275_000,
   installment_frequency: 'monthly',
@@ -34,6 +34,16 @@ describe('rederiveLoanPair', () => {
     const l: LoanPairFields = { ...loan, remaining_term: undefined, installment_amount: 1739.79 }
     rederiveLoanPair(l, 'amount')
     expect(l.remaining_term).toBe(20)
+  })
+
+  it('compounds the way the loan says it does', () => {
+    const yearly: LoanPairFields = {
+      ...loan,
+      interest_type: 'compound',
+      compounding_frequency: 'yearly',
+    }
+    rederiveLoanPair(yearly, 'term')
+    expect(yearly.installment_amount).toBe(1726.42)
   })
 
   it('leaves both sides alone while the anchor cannot describe a loan', () => {
