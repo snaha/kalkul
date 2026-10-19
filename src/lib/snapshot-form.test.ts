@@ -7,6 +7,7 @@ import { parseDateOnly } from '$lib/utils'
 
 import {
   buildSnapshotSections,
+  editSourceOf,
   openingDate,
   seedSnapshotOn,
   snapshotFromFields,
@@ -400,6 +401,26 @@ describe('seedSnapshotOn', () => {
     expect(seed).toEqual(
       captureSnapshot(getCurrentProfile(raised, parseDateOnly('2026-09-01')), '2026-09-01'),
     )
+  })
+})
+
+describe('editSourceOf', () => {
+  const OLDER = captureSnapshot(PROFILE, '2026-01-01')
+  const raised: Profile = {
+    ...PROFILE,
+    incomes: [{ ...PROFILE.incomes![0], amount: 5_000 }],
+    snapshots: [OLDER, SOURCE],
+  }
+
+  test('opens the latest snapshot with the cash flows running now', () => {
+    expect(editSourceOf(raised, SOURCE)).toEqual({
+      ...SOURCE,
+      incomes: [{ id: 'i1', amount: 5_000, frequency: 'monthly' }],
+    })
+  })
+
+  test('opens an older snapshot at its own figures', () => {
+    expect(editSourceOf(raised, OLDER)).toBe(OLDER)
   })
 })
 
