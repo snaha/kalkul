@@ -10,7 +10,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
   import { rederiveLoanPair } from '$lib/loan-pair'
-  import { removePlanItem, upsertPlanItem } from '$lib/plan-items'
+  import { removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
   import { planRangeOf, timingWithinPlan } from '$lib/plan-range'
   import type {
     CashFlowEnd,
@@ -337,9 +337,19 @@
 
   function save() {
     if (kind === 'investment') {
-      upsertPlanItem('investments', projectInvestment(form), plan)
+      saveEditedPlanItem(
+        'investments',
+        projectInvestment(form),
+        target.kind === 'investment' ? target.initial : undefined,
+        plan,
+      )
     } else {
-      upsertPlanItem('tangible_assets', projectTangibleAsset(form), plan)
+      saveEditedPlanItem(
+        'tangible_assets',
+        projectTangibleAsset(form),
+        target.kind === 'tangibleAsset' ? target.initial : undefined,
+        plan,
+      )
     }
     close()
   }

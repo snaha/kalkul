@@ -18,7 +18,7 @@
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
-  import { removePlanItem, upsertPlanItem } from '$lib/plan-items'
+  import { removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
   import { summarizeCashFlow } from '$lib/plan-projection'
   import { planRangeOf, planYearOptions, yearWithinPlan } from '$lib/plan-range'
   import { sameYearMonthsInverted, timingComplete } from '$lib/schemas'
@@ -124,7 +124,7 @@
   }
 
   function save() {
-    upsertPlanItem(listKey, cashFlowFromFields(form), plan)
+    saveEditedPlanItem(listKey, cashFlowFromFields(form), initial, plan)
     close()
   }
 

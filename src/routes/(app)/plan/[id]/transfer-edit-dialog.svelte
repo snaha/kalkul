@@ -13,7 +13,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
   import * as Tooltip from '$lib/components/ui/tooltip'
-  import { removePlanItem, upsertPlanItem } from '$lib/plan-items'
+  import { removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
   import { summarizeTransfer } from '$lib/plan-projection'
   import { planRangeOf, planYearOptions, yearWithinPlan } from '$lib/plan-range'
   import { sameYearMonthsInverted, timingComplete } from '$lib/schemas'
@@ -120,7 +120,7 @@
   }
 
   function save() {
-    upsertPlanItem('transfers', transferFromFields(form), plan)
+    saveEditedPlanItem('transfers', transferFromFields(form), initial, plan)
     close()
   }
 
