@@ -79,10 +79,11 @@ describe('saveEditedPlanItem', () => {
       remaining_term: 24,
       remaining_term_unit: 'months',
     }
-    const plan = makePlan({ liabilities: [opened] })
+    // While the dialog was open, another tab renamed the loan.
+    const plan = makePlan({ liabilities: [{ ...opened, name: 'Mortgage' }] })
     const edited: ProfileLiability = { ...opened, remaining_term: 3, remaining_term_unit: 'years' }
     saveEditedPlanItem('liabilities', edited, opened, plan)
-    expect(plan.liabilities).toEqual([edited])
+    expect(plan.liabilities).toEqual([{ ...edited, name: 'Mortgage' }])
   })
 
   it('saves the item as edited when the plan no longer has it', () => {
