@@ -40,7 +40,9 @@ export function removePlanItem(key: PlanListKey, id: string, plan: PortfolioStor
  * meanwhile elsewhere (another tab, an MCP tool) to a field the dialog left
  * alone is kept. A field the dialog merely normalises (a legacy term in
  * months shown in years) differs too, so it is written together with the
- * fields that belong to it.
+ * fields that belong to it. Fields merge one by one, so when both sides
+ * changed fields that depend on each other (a loan's balance, rate, term and
+ * installment; a timing and its year, month and age), the result mixes them.
  */
 export function saveEditedPlanItem<K extends PlanListKey>(
   key: K,
