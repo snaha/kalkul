@@ -12,7 +12,7 @@
   import { buildHistorySeries, hasHistoryToShow } from '$lib/history-series'
   import routes from '$lib/routes'
   import type { Snapshot } from '$lib/schemas'
-  import { seedSnapshotOn } from '$lib/snapshot-form'
+  import { editSourceOf, seedSnapshotOn } from '$lib/snapshot-form'
   import { buildSnapshotRows } from '$lib/snapshot-rows'
   import { staleSince as staleSinceOf } from '$lib/snapshots'
   import { appStore } from '$lib/stores/app.svelte'
@@ -69,7 +69,7 @@
     const snapshot = snapshotOn(date)
     if (!snapshot) return
     snapshotMode = 'edit'
-    snapshotSource = snapshot
+    snapshotSource = editSourceOf(storedProfile, snapshot)
     snapshotSeedOn = undefined
     snapshotOriginalDate = date
     snapshotOpen = true
