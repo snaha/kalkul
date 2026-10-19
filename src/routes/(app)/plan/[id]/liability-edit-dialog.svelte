@@ -13,7 +13,7 @@
   import { Separator } from '$lib/components/ui/separator'
   import { Switch } from '$lib/components/ui/switch'
   import { type LoanPairAnchor, rederiveLoanPair } from '$lib/loan-pair'
-  import { removePlanItem, upsertPlanItem } from '$lib/plan-items'
+  import { removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
   import { planRangeOf, planYearOptions, timingWithinPlan } from '$lib/plan-range'
   import type {
     CashFlowStart,
@@ -224,7 +224,7 @@
   }
 
   function save(): void {
-    upsertPlanItem(listKey, projectLiability(form), plan)
+    saveEditedPlanItem(listKey, projectLiability(form), initial, plan)
     close()
   }
 
