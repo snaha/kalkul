@@ -418,7 +418,6 @@
       idPrefix={uid}
       amountLabel={$_('page.plan.initialAmount')}
       {showAdvanced}
-      showTiming
       {currencyLabel}
       {range}
       {months}
@@ -439,7 +438,6 @@
       bind:item={form}
       idPrefix={uid}
       {showAdvanced}
-      showTiming
       {currencyLabel}
       {range}
       {months}

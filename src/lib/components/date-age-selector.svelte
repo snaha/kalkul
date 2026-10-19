@@ -17,8 +17,6 @@
     year: number | undefined
     month: number | undefined
     age: number | undefined
-    /** Year options when the field has no plan; ignored when `range` is set. */
-    years?: string[]
     months: { value: string; label: string }[]
     /**
      * Whether the profile has a birth date. Age-based timing ('when_age_is')
@@ -43,11 +41,10 @@
      */
     minMonth?: number
     /**
-     * The plan's years, when the field belongs to a plan. A start after the
-     * plan or an end before it can never fire: the field shows an error and
-     * the caller keeps Save disabled. The year list is then the plan's years.
+     * The plan's years, offered in the year list. A start after them or an
+     * end before them shows an error.
      */
-    range?: PlanRange
+    range: PlanRange
     onValueChange: (v: T) => void
     onYearChange: (v: number | undefined) => void
     onMonthChange: (v: number | undefined) => void
@@ -63,7 +60,6 @@
     year,
     month,
     age,
-    years = [],
     months,
     birthDateSet = true,
     label: labelOverride,
@@ -123,12 +119,10 @@
   )
   // `value` is a CashFlowStart/CashFlowEnd member for the mode (see modeItems).
   let outsidePlan = $derived(
-    range !== undefined &&
-      !timingWithinPlan(range, mode, value as CashFlowStart | CashFlowEnd, year, age),
+    !timingWithinPlan(range, mode, value as CashFlowStart | CashFlowEnd, year, age),
   )
-  // A stored year outside the offered years (the plan's, or from this year on)
-  // stays listed so the user can see it.
-  let yearItems = $derived(yearItemsIncluding(range ? planYearOptions(range) : years, year))
+  // The plan's years plus the stored one.
+  let yearItems = $derived(yearItemsIncluding(planYearOptions(range), year))
   let monthItems = $derived(
     minMonth === undefined
       ? months
@@ -186,7 +180,7 @@
     </p>
   {/if}
 </div>
-{#if outsidePlan && range}
+{#if outsidePlan}
   <p class="text-xs text-destructive">
     {mode === 'start'
       ? $_('validation.start_after_plan', { values: { end: String(range.endYear) } })

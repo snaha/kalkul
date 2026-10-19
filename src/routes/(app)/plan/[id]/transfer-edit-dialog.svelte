@@ -29,7 +29,7 @@
     transferToFields,
     transferWithinPlan,
   } from '$lib/transfer-form'
-  import { getMonthOptions, monthToOption, optionToMonth } from '$lib/utils'
+  import { getMonthOptions, monthToOption, optionToMonth, yearItemsIncluding } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
 
@@ -111,9 +111,7 @@
     { value: 'recurring', label: $_('page.plan.scheduleRecurring') },
   ])
   let frequencyItems = $derived(getFrequencyItems($_))
-  let yearItems = $derived(
-    planYearOptions(range, form.transaction_year).map((y) => ({ value: y, label: y })),
-  )
+  let yearItems = $derived(yearItemsIncluding(planYearOptions(range), form.transaction_year))
 
   function close() {
     onOpenChange(false)
