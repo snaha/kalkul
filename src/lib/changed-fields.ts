@@ -1,7 +1,14 @@
-/** A value with object keys in a fixed order, so equal content serialises alike. */
+/**
+ * A value with plain-object keys in a fixed order, so equal content serialises
+ * alike. Other objects (a Date, a Decimal) serialise through their toJSON.
+ */
 function canonical(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonical)
-  if (value !== null && typeof value === 'object') {
+  if (
+    value !== null &&
+    typeof value === 'object' &&
+    Object.getPrototypeOf(value) === Object.prototype
+  ) {
     return Object.fromEntries(
       Object.keys(value)
         .sort()

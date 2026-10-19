@@ -1,3 +1,4 @@
+import Decimal from 'decimal.js'
 import { describe, expect, it } from 'vitest'
 
 import { changedFields } from './changed-fields'
@@ -36,5 +37,16 @@ describe('changedFields', () => {
 
   it('ignores the key order of nested values', () => {
     expect(changedFields({ range: { from: 1, to: 2 } }, { range: { to: 2, from: 1 } })).toEqual({})
+  })
+
+  it('compares dates and decimals by value', () => {
+    const seed = { on: new Date(2020, 0, 1), amount: new Decimal('1.5') }
+    expect(changedFields(seed, { on: new Date(2020, 0, 1), amount: new Decimal('1.5') })).toEqual(
+      {},
+    )
+    expect(changedFields(seed, { on: new Date(2025, 0, 1), amount: new Decimal('2') })).toEqual({
+      on: new Date(2025, 0, 1),
+      amount: new Decimal('2'),
+    })
   })
 })
