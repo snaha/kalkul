@@ -227,9 +227,8 @@ function withAppStore() {
     loading = false
   }
 
-  // Demo mode holds a sample persona in memory only: nothing it does reaches
-  // localStorage, so a reload starts the persona afresh and "Get started" has
-  // nothing to wipe. Nothing it does counts as usage either.
+  // Demo mode: a sample persona held in memory. Nothing is persisted or
+  // counted as usage while it is on.
   let demo = $state(false)
 
   function trackUsage(...args: Parameters<typeof track>): void {
@@ -562,12 +561,7 @@ function withAppStore() {
       loading = false
     },
 
-    /**
-     * Leaves demo mode and takes whatever storage holds now. Storage events
-     * are ignored during the demo, so another tab may have finished
-     * onboarding meanwhile; starting from an empty profile instead would
-     * persist over that data on the first edit.
-     */
+    /** Leaves demo mode and reloads whatever storage holds now. */
     exitDemo(): void {
       demo = false
       loadFromStorage()

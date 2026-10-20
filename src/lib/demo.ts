@@ -17,27 +17,24 @@ export interface DemoPersona {
   data: { profile: Profile; portfolios: Portfolio[] }
 }
 
-/**
- * Parsed rather than cast, like the dev presets: TypeScript widens JSON
- * literals to `string`, and a schema change a sample missed should fail here.
- */
+/** Validates a sample's JSON against the stored-data schema. */
 function sample(json: unknown): DemoPersona['data'] {
   return storedDataSchema.pick({ profile: true, portfolios: true }).parse(json)
 }
 
 /**
- * The personas the landing page offers. Each is a whole profile — a plan
- * shares its profile's birth date, cash and currency, so four people of
- * different ages and countries cannot be four plans of one profile. A future
- * compare feature that wants to set personas side by side reads them from
- * here.
+ * The personas the landing page offers, each a whole profile with its plans.
+ * Parsed on first use, so only a demo visitor pays for it.
  */
-export const DEMO_PERSONAS: DemoPersona[] = [
-  { id: 'tereza', data: sample(tereza) },
-  { id: 'peter', data: sample(peter) },
-  { id: 'claire', data: sample(claire) },
-  { id: 'jan', data: sample(jan) },
-]
+export function demoPersonas(): DemoPersona[] {
+  return (personas ??= [
+    { id: 'tereza', data: sample(tereza) },
+    { id: 'peter', data: sample(peter) },
+    { id: 'claire', data: sample(claire) },
+    { id: 'jan', data: sample(jan) },
+  ])
+}
+let personas: DemoPersona[] | undefined
 
 /**
  * Id of the plan the demo opens on: the persona's whole situation as an
@@ -106,11 +103,21 @@ export function exitDemo(): (typeof routes)['HOME' | 'PROFILE'] {
  * set up their own profile in another tab is no longer a demo visitor.
  */
 export function restoreDemo(today: Date): void {
-  const persona = DEMO_PERSONAS.find((p) => p.id === localStorage.getItem(storageKeys.DEMO))
-  if (!persona) return
-  if (appStore.profile.name) {
-    localStorage.removeItem(storageKeys.DEMO)
+  let remembered: string | undefined
+  try {
+    remembered = localStorage.getItem(storageKeys.DEMO) ?? undefined
+  } catch {
     return
   }
-  startDemo(persona, today)
+  if (!remembered) return
+  if (appStore.profile.name) {
+    try {
+      localStorage.removeItem(storageKeys.DEMO)
+    } catch (e) {
+      console.warn('Could not forget the demo persona', e)
+    }
+    return
+  }
+  const persona = demoPersonas().find((p) => p.id === remembered)
+  if (persona) startDemo(persona, today)
 }

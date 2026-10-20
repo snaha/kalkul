@@ -10,9 +10,9 @@
   import * as RadioGroup from '$lib/components/ui/radio-group'
   import { Separator } from '$lib/components/ui/separator'
   import {
-    DEMO_PERSONAS,
     DEMO_PLAN_ID,
     type DemoPersonaId,
+    demoPersonas,
     exitDemo,
     personaLabel,
     startDemo,
@@ -43,7 +43,7 @@
   })
 
   async function start(): Promise<void> {
-    const persona = DEMO_PERSONAS.find((p) => p.id === selected)
+    const persona = demoPersonas().find((p) => p.id === selected)
     if (!persona) return
     track(EVENTS.LANDING_TRY_DEMO, { persona: persona.id })
     startDemo(persona, today)
@@ -69,7 +69,7 @@
         {$_('page.demo.description')}
       </Dialog.Description>
       <RadioGroup.Root bind:value={selected} class="grid gap-4 sm:grid-cols-2">
-        {#each DEMO_PERSONAS as persona (persona.id)}
+        {#each demoPersonas() as persona (persona.id)}
           <label
             class="flex cursor-pointer items-start gap-2 rounded-lg border p-2.5 has-[[data-state=checked]]:border-foreground/30 has-[[data-state=checked]]:bg-primary/5"
           >

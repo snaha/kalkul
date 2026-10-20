@@ -5,9 +5,9 @@ import storageKeys from '$lib/storage-keys'
 import { appStore } from '$lib/stores/app.svelte'
 
 import {
-  DEMO_PERSONAS,
   DEMO_PLAN_ID,
   buildDemoData,
+  demoPersonas,
   exitDemo,
   personaLabel,
   restoreDemo,
@@ -17,14 +17,14 @@ import {
 const TODAY = new Date(2026, 8, 17) // 2026-09-17
 
 const persona = (id: string) => {
-  const found = DEMO_PERSONAS.find((p) => p.id === id)
+  const found = demoPersonas().find((p) => p.id === id)
   if (!found) throw new Error(`no persona ${id}`)
   return found
 }
 
 describe('personaLabel', () => {
   test('first name and age on the given day, as the chooser shows them', () => {
-    expect(DEMO_PERSONAS.map((p) => personaLabel(p, TODAY))).toEqual([
+    expect(demoPersonas().map((p) => personaLabel(p, TODAY))).toEqual([
       'Tereza, 20',
       'Peter, 29',
       'Claire, 41',
@@ -106,6 +106,16 @@ describe('demo lifecycle', () => {
 
   test('restoreDemo does nothing without a key', () => {
     restoreDemo(TODAY)
+    expect(appStore.demo).toBe(false)
+  })
+
+  test('restoreDemo does nothing when storage is blocked', () => {
+    vi.stubGlobal('localStorage', {
+      getItem: () => {
+        throw new Error('blocked')
+      },
+    })
+    expect(() => restoreDemo(TODAY)).not.toThrow()
     expect(appStore.demo).toBe(false)
   })
 

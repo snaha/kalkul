@@ -31,8 +31,7 @@
     <img src={logo} alt="Kalkul" class="size-9" />
   </a>
   {#if appStore.demo}
-    <!-- Demo banner in place of the app controls: nothing here is saved, so
-         Help and Settings would only lead to dead ends. -->
+    <!-- Demo banner in place of Help and Settings. -->
     <div class="flex items-center gap-4">
       <p class="text-sm font-medium text-neutral-50">{$_('navbar.demo.notice')}</p>
       <Button
