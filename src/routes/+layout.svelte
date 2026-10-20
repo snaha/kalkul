@@ -59,7 +59,9 @@
     // One browser counts once across days, and "opened with data" is the
     // active-user signal as opposed to a landing-page visit.
     identify()
-    if (appStore.profile.name) track(EVENTS.APP_OPEN, { plans: appStore.portfolios.length })
+    if (appStore.profile.name && !appStore.demo) {
+      track(EVENTS.APP_OPEN, { plans: appStore.portfolios.length })
+    }
   })
 
   onDestroy(() => {
