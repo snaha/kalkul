@@ -244,8 +244,7 @@ function repairSnapshot(snapshot: unknown, profile: Record<string, unknown>): vo
 export function repairStoredData(data: unknown): unknown {
   if (!isRecord(data)) return data
   const profile = data.profile
-  // Timing lives on the plans' lists; the profile's are repaired too, so that
-  // data stored before planned timing moved onto the plans still loads.
+  // The month repairs run over the profile's lists and every plan's.
   const owners = [profile, ...(Array.isArray(data.portfolios) ? data.portfolios : [])]
   for (const owner of owners) {
     if (!isRecord(owner)) continue
@@ -275,26 +274,30 @@ export function repairStoredData(data: unknown): unknown {
     if (Array.isArray(profile.snapshots))
       for (const snapshot of profile.snapshots) repairSnapshot(snapshot, profile)
     stripPlannedTiming(profile)
+    // A plan's base is financial data too: left with timing, `isPlanOutdated`
+    // would read the strip as a change the user made.
+    if (Array.isArray(data.portfolios))
+      for (const plan of data.portfolios)
+        if (isRecord(plan) && isRecord(plan.base)) stripPlannedTiming(plan.base, false)
   }
   return data
 }
 
 /**
- * Planned timing used to be written onto profile items by the plan dialogs.
- * A dated, age-bound or ending item is set back to "already running", and a
- * one-time one is dropped, so the stored data passes `profileSchema`. Runs
- * after `materializePlans`, so every plan already holds its copy of the item
- * with the timing intact and projects as before. Transitional, see AGENTS.md.
+ * Sets every dated, age-bound or ending item of `owner` (a profile, or a
+ * plan's `base`) back to running and drops its one-time items, so it passes
+ * `profileSchema`. Runs after `materializePlans`, so the plans keep their
+ * copies with the timing. Transitional, see AGENTS.md.
  */
-function stripPlannedTiming(profile: Record<string, unknown>): void {
+function stripPlannedTiming(owner: Record<string, unknown>, warn = true): void {
   for (const key of PLAN_LIST_KEYS) {
-    const items = profile[key]
+    const items = owner[key]
     if (!Array.isArray(items)) continue
-    profile[key] = items.filter((item) => {
+    owner[key] = items.filter((item) => {
       if (!isRecord(item) || plannedTimingField(key, item) === undefined) return true
       const name = String(item.name ?? item.id ?? 'unknown')
       if (item.schedule === 'one_time') {
-        console.warn(`${key}: "${name}" was one-time; dropped it from financial data`)
+        if (warn) console.warn(`${key}: "${name}" was one-time; dropped it from financial data`)
         return false
       }
       const { start, end, openEnd } = PLANNED_TIMING[key]
@@ -311,7 +314,10 @@ function stripPlannedTiming(profile: Record<string, unknown>): void {
         for (const suffix of DATED_SUFFIXES) delete item[edge + suffix]
       delete item.transaction_year
       delete item.transaction_month
-      console.warn(`${key}: "${name}" carried planned timing; financial data now has it as running`)
+      if (warn)
+        console.warn(
+          `${key}: "${name}" carried planned timing; financial data now has it as running`,
+        )
       return true
     })
   }
@@ -975,12 +981,10 @@ export const PLAN_LIST_KEYS = [
 export type PlanListKey = (typeof PLAN_LIST_KEYS)[number]
 
 /**
- * Financial data is what the user has today. When something starts, ends, is
- * bought, sold or paid off is a modelled change and belongs to a projection
- * (AGENTS.md): it lives on the plan's copy of the item, never on the profile.
- * A profile item may only say it is already running (start 'immediately' or
- * 'now', end 'never', pay-off at term) and never be one-time. Checked at the
- * store boundary; `repairStoredData` strips it from stored data first.
+ * Per list, the fields that carry planned timing and the end value that means
+ * no end. A profile item may only be running: start 'immediately' or 'now',
+ * end at `openEnd`, no dated fields, never one-time (AGENTS.md).
+ * `profileSchema` checks it; `repairStoredData` strips it from stored data.
  */
 const PLANNED_TIMING = {
   incomes: { start: 'start', end: 'end', openEnd: 'never' },

@@ -325,8 +325,7 @@ export function getCurrentProfile(profile: Profile, today: Date): Profile {
 
   const yearFraction = new Decimal(daysBetween(snapshot.date, todayDate)).div(DAYS_PER_YEAR)
 
-  // The flows count for the whole elapsed window at today's rates: financial
-  // data carries no planned timing, so nothing on it started or ended partway.
+  // Every flow runs for the whole elapsed window at today's rates.
   const flows = annualFlows(profile)
 
   // Every balance after its own movement and before the transfers: cash after

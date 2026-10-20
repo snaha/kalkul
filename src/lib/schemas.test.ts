@@ -3,6 +3,7 @@ import { addMessages, init } from 'svelte-i18n'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import en from './locales/en.json'
+import { isPlanOutdated } from './plan-base'
 import {
   expenseSchema,
   incomeSchema,
@@ -1310,7 +1311,7 @@ describe('profileSchema: financial data has no planned timing', () => {
       },
       'pay_off',
     ],
-  ])('rejects planned timing on %s (#318)', (list, item, field) => {
+  ])('rejects planned timing on %s', (list, item, field) => {
     const result = profileSchema.safeParse({ ...base, [list]: [item] })
     expect(result.success).toBe(false)
     expect(result.error?.issues.map((i) => i.path)).toEqual([[list, 0, field]])
@@ -1392,6 +1393,66 @@ describe('repairStoredData: planned timing on financial data', () => {
     expect(plan.investments[0]).toMatchObject({ start: 'at_specific_date', exit_age: 65 })
     expect(plan.liabilities[0]).toMatchObject({ pay_off: 'at_specific_date' })
     expect(warn).toHaveBeenCalledTimes(4)
+    warn.mockRestore()
+  })
+
+  // A factory: the repair edits the stored object in place.
+  const datedProfile = () => ({
+    name: 'Test',
+    email: '',
+    cash_amount: 10,
+    incomes: [{ ...baseIncome, end: 'when_age_is', end_age: 55 }],
+    expenses: [
+      {
+        ...baseExpense,
+        id: 'trip',
+        schedule: 'one_time',
+        transaction_year: 2030,
+        transaction_month: 1,
+      },
+    ],
+  })
+  const plan = {
+    id: 'plan-1',
+    name: 'Plan',
+    start_date: '2026-01-01',
+    end_date: '2060-01-01',
+    inflation_rate: 0,
+  }
+
+  it('leaves a plan that took its base during the repair not outdated', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const repaired = storedDataSchema.parse(
+      repairStoredData({ lastUpdated: 1, profile: datedProfile(), portfolios: [plan] }),
+    )
+    warn.mockRestore()
+    expect(isPlanOutdated(repaired.portfolios[0], repaired.profile)).toBe(false)
+  })
+
+  it('strips the timing from a base taken while the profile still carried it', () => {
+    const { incomes, expenses } = datedProfile()
+    const base = {
+      cash_amount: 10,
+      investments: [],
+      tangible_assets: [],
+      liabilities: [],
+      incomes,
+      expenses,
+      transfers: [],
+    }
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const repaired = storedDataSchema.parse(
+      repairStoredData({
+        lastUpdated: 1,
+        profile: datedProfile(),
+        portfolios: [{ ...plan, ...base, base }],
+      }),
+    )
+    expect(repaired.portfolios[0].base.incomes).toEqual([baseIncome])
+    expect(repaired.portfolios[0].base.expenses).toEqual([])
+    expect(isPlanOutdated(repaired.portfolios[0], repaired.profile)).toBe(false)
+    // The profile's items are reported once; the base is stripped silently.
+    expect(warn).toHaveBeenCalledTimes(2)
     warn.mockRestore()
   })
 })

@@ -34,10 +34,8 @@ const DELIBERATELY_TIGHT: Record<string, { firstUnfundedYear: number; maxUnfunde
   }
 
 /**
- * A current projection that is *meant* to run out, with the first year it
- * does. Tereza is a student on a flat café wage whose rent rises 5% a year:
- * "if nothing changes" is exactly the problem her "After graduation" plan
- * is there to solve. Pinning the year keeps the data honest about it.
+ * Examples whose current projection runs out by design, with the first year it
+ * does. Tereza: a flat café wage against rent rising 5% a year.
  */
 const CURRENT_PROJECTION_RUNS_DRY: Record<string, number> = { tereza: 2032 }
 

@@ -28,8 +28,8 @@
     // Financial data only; a plan's transfers live on the plan.
     load: () => appStore.profile.transfers ?? [],
     // The card renders From/To, Amount/Frequency and the inflation toggle
-    // only; Start/End/Change belong to the plan dialog. Timing fields are still
-    // carried on the UI item so a save here round-trips them untouched.
+    // only; Start/End/Change belong to the plan dialog and financial data has
+    // none, so the UI item's timing fields stay at their defaults.
     toUI: (t) => ({ ...transferToFields(t), editing: false }),
     makeBlank: (index) => ({
       ...blankTransferFields(
