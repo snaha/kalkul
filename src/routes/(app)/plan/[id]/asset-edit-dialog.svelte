@@ -191,10 +191,7 @@
       const a = src.initial
       f.value = a.value > 0 ? a.value : undefined
       f.status = a.status
-      f.outstanding_balance =
-        a.outstanding_balance !== undefined && a.outstanding_balance > 0
-          ? a.outstanding_balance
-          : undefined
+      f.outstanding_balance = a.outstanding_balance
       f.installment_frequency = a.installment_frequency ?? 'monthly'
       f.annual_rate = a.annual_rate !== undefined && a.annual_rate > 0 ? a.annual_rate : undefined
       f.installment_amount =

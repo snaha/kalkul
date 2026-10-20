@@ -26,6 +26,7 @@
     getPaymentMethodItems,
     getValueOverTimeItems,
   } from '$lib/select-options'
+  import { impliedDownPayment, outstandingBalance } from '$lib/tangible-asset-form'
 
   /** The editable shape; the caller owns the surrounding state. */
   export interface TangibleAssetFieldsItem {
@@ -94,17 +95,37 @@
 
   let valueOverTimeItems = $derived(getValueOverTimeItems($_))
 
-  // The dialog asks for the down payment; the profile stores what is still
-  // owed. One is the other's complement against the purchase price.
+  // The dialog asks for the down payment; the asset stores what is still owed.
+  // The typed down payment is held for the item being edited; until one is
+  // typed it is what the stored balance implies.
+  let typedDownPayment = $state<number | undefined>()
   let downPayment = $derived(
-    item.value === undefined
-      ? undefined
-      : Math.max(item.value - (item.outstanding_balance ?? 0), 0),
+    typedDownPayment ?? impliedDownPayment(item.value, item.outstanding_balance),
   )
 
+  // The down payment stays put while the price is typed; the balance moves.
+  function setPurchasePrice(value: number | undefined): void {
+    typedDownPayment = downPayment ?? 0
+    item.value = value
+    if (item.status === 'financed') {
+      item.outstanding_balance = outstandingBalance(value, typedDownPayment)
+      rederiveLoanPair(item, anchor)
+    }
+  }
+
   function setDownPayment(paid: number | undefined): void {
-    item.outstanding_balance = Math.max((item.value ?? 0) - (paid ?? 0), 0)
+    typedDownPayment = paid ?? 0
+    item.outstanding_balance = outstandingBalance(item.value, paid)
     rederiveLoanPair(item, anchor)
+  }
+
+  function setStatus(status: TangibleAssetStatus): void {
+    item.status = status
+    // The price may have changed while the asset was not financed.
+    if (status === 'financed') {
+      item.outstanding_balance = outstandingBalance(item.value, downPayment)
+      rederiveLoanPair(item, anchor)
+    }
   }
 
   // Installment amount ⇄ Term: the side last edited anchors the pair,
@@ -149,9 +170,7 @@
       value={item.value}
       suffix={currencyLabel}
       {formatNumber}
-      onValueChange={(v) => {
-        item.value = v
-      }}
+      onValueChange={setPurchasePrice}
     />
   </div>
   <div class="flex flex-1 flex-col gap-2">
@@ -161,7 +180,7 @@
       value={item.status}
       items={paymentMethodItems}
       onValueChange={(v) => {
-        if (v) item.status = v
+        if (v) setStatus(v)
       }}
     />
   </div>
