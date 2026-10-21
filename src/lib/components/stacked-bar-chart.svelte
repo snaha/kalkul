@@ -7,6 +7,18 @@
     liabilities: number // Positive number, rendered as negative
   }
 
+  // Figures recorded on a date during the projection. Liabilities are positive,
+  // like a bar's.
+  export type RecordedSample = {
+    // Where the date falls on a continuous year axis, 2025 being 1 January 2025.
+    // A bar stands for the end of its year, so the 2024 bar sits at 2025.
+    position: number
+    cash: number
+    investments: number
+    tangibleAssets: number
+    liabilities: number
+  }
+
   export type HoverPosition = {
     x: number
     y: number
@@ -66,7 +78,7 @@
 <script lang="ts">
   import TriangleAlert from '@lucide/svelte/icons/triangle-alert'
 
-  import { CATEGORY_COLORS } from '$lib/chart-colors'
+  import { CATEGORY_COLORS, LINE_COLORS } from '$lib/chart-colors'
   import * as Tooltip from '$lib/components/ui/tooltip'
 
   type Props = {
@@ -82,8 +94,22 @@
     // corresponding bar so the user can spot when things start going wrong.
     firstErrorYear?: number
     firstErrorTooltip?: string
+    // Recorded figures, drawn as one line per stack boundary, each point where
+    // its date falls. Over a plan's bars they show how far off the plan the
+    // user is, and the bars the recordings have passed are drawn faded. Before
+    // the first bar they are the history leading up to the projection, with
+    // the axis reaching back to the first of them.
+    recordedSamples?: RecordedSample[]
+    // A recording before the first bar, picked out like a selected year, by
+    // index into `recordedSamples`.
+    selectedSample?: number
+    hoveredSample?: number
+    sampleAriaLabel?: (index: number) => string
     onYearClick?: (year: number) => void
     onYearHover?: (year: number | undefined, position?: HoverPosition) => void
+    // Given, the recordings before the first bar can be hovered and picked.
+    onSampleClick?: (index: number) => void
+    onSampleHover?: (index: number | undefined, position?: HoverPosition) => void
   }
 
   const {
@@ -96,8 +122,14 @@
     showSelectedIndicator = true,
     firstErrorYear,
     firstErrorTooltip,
+    recordedSamples = [],
+    selectedSample,
+    hoveredSample,
+    sampleAriaLabel,
     onYearClick,
     onYearHover,
+    onSampleClick,
+    onSampleHover,
   }: Props = $props()
 
   let svgElement: SVGSVGElement | undefined = $state()
@@ -111,6 +143,41 @@
   const PADDING_BOTTOM = 20
   const CORNER_RADIUS = 2
   const GRID_LINE_COUNT = 5
+  const RECORDED_OPACITY = 0.45
+  const RECORDED_LINE_WIDTH = 3
+  const RECORDED_DOT_RADIUS = 3.5
+
+  /** One line per stack boundary, drawn bottom-up so the top one ends up over the rest. */
+  const RECORDED_LINES = [
+    {
+      id: 'liabilities',
+      colors: LINE_COLORS.liabilities,
+      amount: (f: RecordedSample) => f.liabilities,
+      below: true,
+      reach: (f: RecordedSample) => f.liabilities,
+    },
+    {
+      id: 'tangibleAssets',
+      colors: LINE_COLORS.tangibleAssets,
+      amount: (f: RecordedSample) => f.tangibleAssets,
+      below: false,
+      reach: (f: RecordedSample) => f.tangibleAssets,
+    },
+    {
+      id: 'investments',
+      colors: LINE_COLORS.investments,
+      amount: (f: RecordedSample) => f.investments,
+      below: false,
+      reach: (f: RecordedSample) => f.tangibleAssets + f.investments,
+    },
+    {
+      id: 'cash',
+      colors: LINE_COLORS.cash,
+      amount: (f: RecordedSample) => f.cash,
+      below: false,
+      reach: (f: RecordedSample) => f.tangibleAssets + f.investments + f.cash,
+    },
+  ]
 
   // Calculate the baseline position (where positive/negative values meet)
   // Baseline is positioned so roughly 25% of chart is for liabilities (below baseline)
@@ -122,20 +189,35 @@
   const negativeHeight = $derived(chartHeight * (1 - BASELINE_RATIO))
   const baselineY = $derived(PADDING_TOP + positiveHeight)
 
+  // One slot per year, from the first recording or the first bar, whichever
+  // comes first, to the last bar. A slot's centre is the end of its year, so a
+  // recording half a slot before the first centre still lands on the axis.
+  const firstYear = $derived(
+    Math.min(
+      data[0]?.year ?? Infinity,
+      ...recordedSamples.map((r) => Math.floor(r.position - 0.5)),
+    ),
+  )
+  const slotCount = $derived(data.length === 0 ? 0 : data[data.length - 1].year - firstYear + 1)
+
   // Use provided width or calculate minimum based on data
   const minChartWidth = $derived(
-    PADDING_LEFT + data.length * (MIN_BAR_WIDTH + BAR_GAP) - BAR_GAP + PADDING_RIGHT,
+    PADDING_LEFT + slotCount * (MIN_BAR_WIDTH + BAR_GAP) - BAR_GAP + PADDING_RIGHT,
   )
   const chartWidth = $derived(width ? Math.max(width, minChartWidth) : minChartWidth)
 
   // Calculate dynamic bar width to fill available space
   const barWidth = $derived.by(() => {
-    if (data.length === 0) return MIN_BAR_WIDTH
+    if (slotCount === 0) return MIN_BAR_WIDTH
     const availableWidth = chartWidth - PADDING_LEFT - PADDING_RIGHT
-    const totalGapWidth = (data.length - 1) * BAR_GAP
-    const calculatedWidth = (availableWidth - totalGapWidth) / data.length
+    const totalGapWidth = (slotCount - 1) * BAR_GAP
+    const calculatedWidth = (availableWidth - totalGapWidth) / slotCount
     return Math.max(calculatedWidth, MIN_BAR_WIDTH)
   })
+  const step = $derived(barWidth + BAR_GAP)
+  // Where a point on the continuous year axis falls: the end of a year sits on
+  // the centre of that year's slot.
+  const xAt = (position: number) => PADDING_LEFT + barWidth / 2 + (position - 1 - firstYear) * step
 
   // Scale corner radius with bar width
   const cornerRadius = $derived(Math.min(CORNER_RADIUS, barWidth / 4))
@@ -145,6 +227,7 @@
     if (data.length === 0) return 1
     const max = Math.max(
       ...data.map((d) => d.cash + d.investments + d.tangibleAssets),
+      ...recordedSamples.map((r) => r.cash + r.investments + r.tangibleAssets),
       1, // Ensure at least 1 to avoid division by zero
     )
     return max
@@ -152,7 +235,11 @@
 
   const maxNegative = $derived.by(() => {
     if (data.length === 0) return 1
-    const max = Math.max(...data.map((d) => d.liabilities), 1)
+    const max = Math.max(
+      ...data.map((d) => d.liabilities),
+      ...recordedSamples.map((r) => r.liabilities),
+      1,
+    )
     return max
   })
 
@@ -160,10 +247,15 @@
   const scalePositive = $derived((value: number) => (value / maxPositive) * positiveHeight)
   const scaleNegative = $derived((value: number) => (value / maxNegative) * negativeHeight)
 
+  // The bars the recordings have passed: a bar stands for the end of its year.
+  const lastRecordedPosition = $derived(recordedSamples.at(-1)?.position)
+  const isPast = (year: number) =>
+    lastRecordedPosition !== undefined && year + 1 <= lastRecordedPosition
+
   // Generate bar segments for each data point
   const bars = $derived.by(() => {
-    return data.map((d, i) => {
-      const x = PADDING_LEFT + i * (barWidth + BAR_GAP)
+    return data.map((d) => {
+      const x = PADDING_LEFT + (d.year - firstYear) * step
 
       // Calculate heights for each segment
       const cashHeight = scalePositive(d.cash)
@@ -181,6 +273,7 @@
       return {
         year: d.year,
         x,
+        faded: isPast(d.year),
         segments: [
           // Cash (top of positive stack)
           {
@@ -222,6 +315,70 @@
       }
     })
   })
+
+  // Recorded figures as lines, one per stack boundary, through each sample
+  // where its date falls and straight across any year without one. A
+  // category never recorded above zero is left out: its line would only
+  // retrace the one below.
+  const recordedLines = $derived.by(() => {
+    if (slotCount === 0) return []
+    return RECORDED_LINES.filter((line) => recordedSamples.some((r) => line.amount(r) > 0)).map(
+      (line) => ({
+        id: line.id,
+        colors: line.colors,
+        points: recordedSamples.map((r) => ({
+          x: xAt(r.position),
+          y: line.below
+            ? baselineY + scaleNegative(line.reach(r))
+            : baselineY - scalePositive(line.reach(r)),
+        })),
+      }),
+    )
+  })
+
+  // The recordings before the first bar, each with the stretch of the axis
+  // that picks it: halfway to its neighbours, and no further than half a slot
+  // out or into the first bar.
+  const sampleTargets = $derived.by(() => {
+    if (!onSampleClick && !onSampleHover) return []
+    const firstBarLeft = bars.length > 0 ? bars[0].x - BAR_GAP / 2 : chartWidth
+    const xs = recordedSamples.map((r) => xAt(r.position))
+    return xs.flatMap((x, i) => {
+      if (x - RECORDED_DOT_RADIUS > firstBarLeft) return []
+      const left = i === 0 ? x - step / 2 : (xs[i - 1] + x) / 2
+      const right =
+        i === xs.length - 1 || xs[i + 1] > firstBarLeft
+          ? Math.max(x + RECORDED_DOT_RADIUS + 2, Math.min(x + step / 2, firstBarLeft))
+          : (x + xs[i + 1]) / 2
+      const top = Math.min(
+        baselineY,
+        ...recordedLines.map((line) => line.points[i].y).filter((y) => y < baselineY),
+      )
+      return [{ index: i, x, left: Math.max(left, PADDING_LEFT - 4), right, top }]
+    })
+  })
+  const selectedTarget = $derived(sampleTargets.find((t) => t.index === selectedSample))
+  const hoveredTarget = $derived(sampleTargets.find((t) => t.index === hoveredSample))
+
+  function handleSampleEnter(target: (typeof sampleTargets)[number]) {
+    if (!svgElement || !onSampleHover) return
+    const svgRect = svgElement.getBoundingClientRect()
+    const viewBox = svgElement.viewBox.baseVal
+    const scaleX = svgRect.width / viewBox.width
+    const scaleY = svgRect.height / viewBox.height
+    onSampleHover(target.index, {
+      x: svgRect.left + target.x * scaleX,
+      y: svgRect.top + target.top * scaleY,
+      barCenterX: target.x,
+    })
+  }
+
+  function handleSampleKeyDown(event: KeyboardEvent, index: number) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      onSampleClick?.(index)
+    }
+  }
 
   // Grid lines positions
   const gridLines = $derived.by(() => {
@@ -342,33 +499,124 @@
         height={chartHeight}
         fill="transparent"
       />
-      {#each bar.segments as segment (segment.id)}
-        {#if segment.roundTop || segment.roundBottom}
-          <!-- Use path for rounded corners -->
-          <path
-            d={createRoundedRectPath(
-              bar.x,
-              segment.y,
-              barWidth,
-              segment.height,
-              segment.roundTop ? cornerRadius : 0,
-              segment.roundBottom ? cornerRadius : 0,
-            )}
-            fill={segment.color}
-          />
-        {:else}
-          <!-- Use rect for non-rounded segments -->
-          <rect
-            x={bar.x}
-            y={segment.y}
-            width={barWidth}
-            height={segment.height}
-            fill={segment.color}
-          />
-        {/if}
+      <g opacity={bar.faded ? RECORDED_OPACITY : undefined}>
+        {#each bar.segments as segment (segment.id)}
+          {#if segment.roundTop || segment.roundBottom}
+            <!-- Use path for rounded corners -->
+            <path
+              d={createRoundedRectPath(
+                bar.x,
+                segment.y,
+                barWidth,
+                segment.height,
+                segment.roundTop ? cornerRadius : 0,
+                segment.roundBottom ? cornerRadius : 0,
+              )}
+              fill={segment.color}
+            />
+          {:else}
+            <!-- Use rect for non-rounded segments -->
+            <rect
+              x={bar.x}
+              y={segment.y}
+              width={barWidth}
+              height={segment.height}
+              fill={segment.color}
+            />
+          {/if}
+        {/each}
+      </g>
+    </g>
+  {/each}
+
+  <!-- Recorded figures: a halo in the background colour keeps each line
+       legible over the bars, light cash included. The line takes its dark
+       shade under the theme's .dark class, which the theme store sets for an
+       explicit choice and for the system one alike. -->
+  {#each recordedLines as line (line.id)}
+    {@const points = line.points.map((p) => `${p.x},${p.y}`).join(' ')}
+    <g
+      class="pointer-events-none"
+      style:--line={line.colors.light}
+      style:--line-dark={line.colors.dark}
+    >
+      <polyline
+        {points}
+        fill="none"
+        stroke="currentColor"
+        stroke-width={RECORDED_LINE_WIDTH + 2}
+        stroke-linejoin="round"
+        class="text-background"
+      />
+      <polyline
+        {points}
+        fill="none"
+        stroke-width={RECORDED_LINE_WIDTH}
+        stroke-linejoin="round"
+        class="stroke-(--line) [.dark_&]:stroke-(--line-dark)"
+      />
+      {#each line.points as point, i (i)}
+        <circle
+          cx={point.x}
+          cy={point.y}
+          r={i === selectedSample || i === hoveredSample
+            ? RECORDED_DOT_RADIUS + 1.5
+            : RECORDED_DOT_RADIUS}
+          stroke="currentColor"
+          stroke-width="1.5"
+          class="fill-(--line) text-background [.dark_&]:fill-(--line-dark)"
+        />
       {/each}
     </g>
   {/each}
+
+  <!-- Hit areas for the recordings before the first bar, over the lines -->
+  {#each sampleTargets as target (target.index)}
+    <rect
+      x={target.left}
+      y={PADDING_TOP}
+      width={target.right - target.left}
+      height={chartHeight}
+      fill="transparent"
+      class="cursor-pointer focus:outline-none"
+      role="button"
+      tabindex="0"
+      aria-label={sampleAriaLabel?.(target.index)}
+      onclick={() => onSampleClick?.(target.index)}
+      onkeydown={(e) => handleSampleKeyDown(e, target.index)}
+      onmouseenter={() => handleSampleEnter(target)}
+      onmouseleave={() => onSampleHover?.(undefined)}
+      onfocus={() => handleSampleEnter(target)}
+      onblur={() => onSampleHover?.(undefined)}
+    />
+  {/each}
+
+  <!-- Vertical dashed indicator line for the hovered recording -->
+  {#if hoveredTarget}
+    <line
+      x1={hoveredTarget.x}
+      y1={height - 2}
+      x2={hoveredTarget.x}
+      y2={2}
+      stroke="currentColor"
+      stroke-dasharray="2 2"
+      class="text-muted-foreground pointer-events-none"
+      stroke-width="1"
+    />
+  {/if}
+
+  <!-- Vertical solid indicator line for the selected recording -->
+  {#if selectedTarget && showSelectedIndicator}
+    <line
+      x1={selectedTarget.x}
+      y1={height - 2}
+      x2={selectedTarget.x}
+      y2={2}
+      stroke="currentColor"
+      class="text-muted-foreground pointer-events-none"
+      stroke-width="1"
+    />
+  {/if}
 
   <!-- Vertical dashed indicator line for hovered bar -->
   {#if hoveredBar}
