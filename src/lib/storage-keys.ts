@@ -13,6 +13,8 @@
 export default {
   /** localStorage — persisted app data (profile, portfolios, plans). */
   DATA: 'kalkul-data',
+  /** localStorage — prefix for copies of unreadable `DATA`, suffixed with an ISO timestamp. */
+  UNREADABLE_DATA_PREFIX: 'kalkul-data-unreadable-',
   /** localStorage — selected color theme ('light' | 'dark' | 'system'). */
   THEME: 'theme',
   /** localStorage — selected UI language override. */
