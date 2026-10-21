@@ -1135,18 +1135,26 @@ describe('appStore.onDataChange', () => {
     vi.useRealTimers()
   })
 
-  it('reports an edit and an import, each with the new lastUpdated', () => {
+  it('reports an edit, an import and a replacement, each with the new lastUpdated', () => {
     appStore.updateProfile({ name: 'Jane' })
     vi.setSystemTime(NOW.getTime() + 1000)
     appStore.importBackup(backup('Eva'))
+    vi.setSystemTime(NOW.getTime() + 2000)
+    appStore.replaceData(backup('Ana'))
     expect(changes).toEqual([
       { lastUpdated: NOW.getTime(), source: 'edit' },
       { lastUpdated: NOW.getTime() + 1000, source: 'edit' },
+      { lastUpdated: NOW.getTime() + 2000, source: 'replace' },
     ])
   })
 
   it('reports nothing for an edit it rejected', () => {
     expect(() => appStore.updateProfile({ name: 42 } as unknown as Partial<Profile>)).toThrow()
+    expect(changes).toEqual([])
+  })
+
+  it('reports nothing for a replacement it rejected', () => {
+    expect(() => appStore.replaceData(JSON.stringify({ profile: { name: 42 } }))).toThrow()
     expect(changes).toEqual([])
   })
 
@@ -1183,15 +1191,53 @@ describe('appStore.onDataChange', () => {
     expect(appStore.profile.name).toBe('')
   })
 
-  it('reports loading and clearing', () => {
+  it('reports clearing and loading', () => {
     appStore.clear()
     appStore.load()
-    expect(changes.map((change) => change.source)).toEqual(['load', 'load'])
+    expect(changes.map((change) => change.source)).toEqual(['clear', 'load'])
   })
 
   it('stops reporting once unsubscribed', () => {
     unsubscribe()
     appStore.updateProfile({ name: 'Jane' })
     expect(changes).toEqual([])
+  })
+})
+
+describe('appStore.replaceData (backup-folder sync)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
+    stubLocalStorage()
+    appStore.clear()
+  })
+
+  afterEach(() => {
+    appStore.clear()
+    vi.unstubAllGlobals()
+    vi.useRealTimers()
+  })
+
+  it('stores the downloaded data exactly, without seeding a snapshot the other computer never made', () => {
+    const data = JSON.stringify({
+      profile: { name: 'Jane', email: '', cash_amount: 1000 },
+      portfolios: [],
+    })
+    appStore.replaceData(data)
+    expect(appStore.profile.cash_amount).toBe(1000)
+    expect(appStore.profile.snapshots).toBeUndefined()
+    expect(JSON.parse(appStore.exportBackup())).toEqual(JSON.parse(data))
+  })
+
+  it('persists and moves lastUpdated like any other change', () => {
+    appStore.replaceData(JSON.stringify({ profile: { name: 'Jane', email: '' }, portfolios: [] }))
+    expect(appStore.lastUpdated).toBe(NOW.getTime())
+    expect(JSON.parse(backing.get(storageKeys.DATA) ?? '{}').profile.name).toBe('Jane')
+  })
+
+  it('rejects data that fails validation and keeps what was there', () => {
+    appStore.replaceData(JSON.stringify({ profile: { name: 'Jane', email: '' }, portfolios: [] }))
+    expect(() => appStore.replaceData(JSON.stringify({ profile: { name: 42 } }))).toThrow()
+    expect(appStore.profile.name).toBe('Jane')
   })
 })
