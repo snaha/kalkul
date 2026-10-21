@@ -42,14 +42,8 @@
     amountLabel: string
     /** Whether the fee fields are revealed. */
     showAdvanced: boolean
-    /**
-     * Start/Exit selectors. Only the plan dialog plans an investment in time;
-     * the setup card edits holdings the user already has.
-     */
-    showTiming?: boolean
     currencyLabel: string
-    /** Year options when there is no plan; with `range` the plan's years are used. */
-    years?: string[]
+    /** The plan's years; the Start and Exit selectors show only with it. */
     range?: PlanRange
     months?: { value: string; label: string }[]
     birthDateSet?: boolean
@@ -61,9 +55,7 @@
     idPrefix,
     amountLabel,
     showAdvanced,
-    showTiming = false,
     currencyLabel,
-    years = [],
     range,
     months = [],
     birthDateSet = true,
@@ -75,7 +67,7 @@
   let exitFeeTypeItems = $derived(getExitFeeTypeItems($_))
 </script>
 
-{#if showTiming}
+{#if range}
   <DateAgeSelector
     mode="start"
     label={$_('page.plan.investmentStart')}
@@ -84,7 +76,6 @@
     year={item.start_year}
     month={item.start_month}
     age={item.start_age}
-    {years}
     {range}
     {months}
     {birthDateSet}
@@ -131,7 +122,7 @@
   </div>
 </div>
 
-{#if showTiming}
+{#if range}
   <DateAgeSelector
     mode="end"
     label={$_('page.plan.investmentExit')}
@@ -141,7 +132,6 @@
     year={item.exit_year}
     month={item.exit_month}
     age={item.exit_age}
-    {years}
     {range}
     {months}
     {birthDateSet}
