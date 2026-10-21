@@ -444,7 +444,9 @@ export function profileAtSnapshot(profile: Profile, snapshot: Snapshot): Profile
  * ran on its date; the profile's are what runs now, and the two part ways the
  * moment a raise is entered — which records no snapshot, because no balance
  * moved. Writing the snapshot's flows back onto the profile would silently
- * undo that raise on every save the History page makes.
+ * undo that raise on every save the History page makes, and on every rewind.
+ * Only a flow the user corrects in the latest snapshot reaches the profile
+ * (`withSavedSnapshot`).
  */
 function withSnapshotValues(profile: Profile, snapshot: Snapshot): Profile {
   const overlay = <P extends { id: string }, S extends { id: string }>(
@@ -522,8 +524,37 @@ function withHistory(profile: Profile, snapshots: Snapshot[]): Profile {
 }
 
 /**
+ * The profile wearing every cash flow `saved` records differently from
+ * `previous`. A flow the two record alike is left as the profile has it, so a
+ * raise entered after `previous` survives a save that never touched the salary.
+ */
+function withCorrectedFlows(
+  profile: Profile,
+  saved: Snapshot,
+  previous: Snapshot | undefined,
+): Profile {
+  const correct = (section: 'incomes' | 'expenses'): CashFlow[] | undefined => {
+    const before = byId(previous?.[section])
+    const changed = byId(
+      (saved[section] ?? []).filter((entry) => {
+        const old = before.get(entry.id)
+        return !old || old.amount !== entry.amount || old.frequency !== entry.frequency
+      }),
+    )
+    return profile[section]?.map((item) => {
+      const entry = changed.get(item.id)
+      return entry ? withRecordedAmount(item, entry) : item
+    })
+  }
+  return { ...profile, incomes: correct('incomes'), expenses: correct('expenses') }
+}
+
+/**
  * Records an edited or newly added snapshot. Pass `originalDate` when editing
  * one whose date the user changed, so the entry does not survive at both dates.
+ *
+ * A snapshot saved as the latest also states the cash flows running now, so a
+ * flow corrected in it is written onto the profile.
  */
 export function withSavedSnapshot(
   profile: Profile,
@@ -534,7 +565,12 @@ export function withSavedSnapshot(
     originalDate && originalDate !== snapshot.date
       ? removeSnapshot(profile.snapshots, originalDate)
       : profile.snapshots
-  return withHistory(profile, upsertSnapshot(kept, snapshot))
+  const snapshots = upsertSnapshot(kept, snapshot)
+  const isLatest = latestSnapshot(snapshots)?.date === snapshot.date
+  const corrected = isLatest
+    ? withCorrectedFlows(profile, snapshot, latestSnapshot(profile.snapshots))
+    : profile
+  return withHistory(corrected, snapshots)
 }
 
 /**
