@@ -1,3 +1,5 @@
+import Decimal from 'decimal.js'
+
 import type {
   CompoundingFrequency,
   Frequency,
@@ -7,6 +9,21 @@ import type {
   TangibleAssetStatus,
   ValueOverTime,
 } from '$lib/schemas'
+
+/** What is still owed on `price` after `paid` down, never below 0. */
+export function outstandingBalance(price: number | undefined, paid: number | undefined): number {
+  return Decimal.max(new Decimal(price ?? 0).minus(paid ?? 0), 0).toNumber()
+}
+
+/** The down payment a stored balance implies; no balance yet means nothing paid. */
+export function impliedDownPayment(
+  price: number | undefined,
+  balance: number | undefined,
+): number | undefined {
+  if (price === undefined) return undefined
+  if (balance === undefined) return 0
+  return Decimal.max(new Decimal(price).minus(balance), 0).toNumber()
+}
 
 /** Editable shape of a tangible asset on the financial-data card. */
 export interface TangibleAssetUI {
