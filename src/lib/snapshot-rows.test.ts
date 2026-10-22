@@ -4,8 +4,6 @@ import type { Profile } from './schemas'
 import { buildSnapshotRows } from './snapshot-rows'
 import { captureSnapshot } from './snapshots'
 
-const TODAY = new Date(2026, 5, 15, 12, 0, 0)
-
 const PROFILE: Profile = {
   name: 'Alice',
   email: 'a@example.com',
@@ -59,7 +57,7 @@ describe('buildSnapshotRows', () => {
         captureSnapshot(PROFILE, '2026-03-01'),
       ],
     }
-    expect(buildSnapshotRows(profile, TODAY).map((r) => r.date)).toEqual([
+    expect(buildSnapshotRows(profile).map((r) => r.date)).toEqual([
       '2026-06-01',
       '2026-03-01',
       '2026-01-01',
@@ -68,7 +66,7 @@ describe('buildSnapshotRows', () => {
 
   test('totals the assets, debt and net worth recorded on the date', () => {
     const profile: Profile = { ...PROFILE, snapshots: [captureSnapshot(PROFILE, '2026-06-01')] }
-    expect(buildSnapshotRows(profile, TODAY)[0]).toMatchObject({
+    expect(buildSnapshotRows(profile)[0]).toMatchObject({
       // 20,000 cash + 80,000 investments + 200,000 house
       totalAssets: 300_000,
       // 5,000 card + 100,000 mortgage
@@ -83,7 +81,7 @@ describe('buildSnapshotRows', () => {
       ...PROFILE,
       snapshots: [captureSnapshot(past, '2026-01-01'), captureSnapshot(PROFILE, '2026-06-01')],
     }
-    const [newest, oldest] = buildSnapshotRows(profile, TODAY)
+    const [newest, oldest] = buildSnapshotRows(profile)
     expect(newest.totalAssets).toBe(300_000)
     expect(oldest.totalAssets).toBe(281_000)
   })
@@ -93,7 +91,7 @@ describe('buildSnapshotRows', () => {
     // Investable net worth 20,000 + 80,000 − 5,000 = 95,000, against yearly
     // outflows of 12,000 living + 12,000 mortgage + 3,000 card = 27,000.
     // 95,000 / (27,000 × 25) = 14.074…%
-    expect(buildSnapshotRows(profile, TODAY)[0].fiPercent).toBeCloseTo(14.0741, 4)
+    expect(buildSnapshotRows(profile)[0].fiPercent).toBeCloseTo(14.0741, 4)
   })
 
   test('leaves financial independence undefined when nothing flows out', () => {
@@ -106,7 +104,7 @@ describe('buildSnapshotRows', () => {
       ...noOutflows,
       snapshots: [captureSnapshot(noOutflows, '2026-06-01')],
     }
-    expect(buildSnapshotRows(profile, TODAY)[0].fiPercent).toBeUndefined()
+    expect(buildSnapshotRows(profile)[0].fiPercent).toBeUndefined()
   })
 
   test('nets a row off its own totals, whatever the profile holds today', () => {
@@ -140,21 +138,21 @@ describe('buildSnapshotRows', () => {
         },
       ],
     }
-    const [row] = buildSnapshotRows(sold, TODAY)
+    const [row] = buildSnapshotRows(sold)
     expect(row).toMatchObject({ totalAssets: 60_000, liabilities: 0, netWorth: 60_000 })
     expect(row.netWorth).toBe(row.totalAssets - row.liabilities)
   })
 
   test('is empty for a profile with no history', () => {
-    expect(buildSnapshotRows(PROFILE, TODAY)).toEqual([])
+    expect(buildSnapshotRows(PROFILE)).toEqual([])
   })
 
   test('offers no delete for the only snapshot while anything is held', () => {
     const datedToday: Profile = { ...PROFILE, snapshots: [captureSnapshot(PROFILE, '2026-06-15')] }
-    expect(buildSnapshotRows(datedToday, TODAY)[0].deletable).toBe(false)
+    expect(buildSnapshotRows(datedToday)[0].deletable).toBe(false)
 
     const older: Profile = { ...PROFILE, snapshots: [captureSnapshot(PROFILE, '2026-01-01')] }
-    expect(buildSnapshotRows(older, TODAY)[0].deletable).toBe(false)
+    expect(buildSnapshotRows(older)[0].deletable).toBe(false)
   })
 
   test('offers delete when another snapshot remains or nothing is held', () => {
@@ -163,13 +161,13 @@ describe('buildSnapshotRows', () => {
       ...PROFILE,
       snapshots: [captureSnapshot(PROFILE, '2026-01-01'), captureSnapshot(PROFILE, '2026-06-15')],
     }
-    expect(buildSnapshotRows(two, TODAY).map((r) => r.deletable)).toEqual([true, true])
+    expect(buildSnapshotRows(two).map((r) => r.deletable)).toEqual([true, true])
 
     // Nothing held.
     const bare: Profile = { name: '', email: '', cash_amount: 0 }
     const emptied: Profile = { ...bare, snapshots: [captureSnapshot(bare, '2026-06-15')] }
-    expect(buildSnapshotRows(emptied, TODAY)[0].deletable).toBe(true)
+    expect(buildSnapshotRows(emptied)[0].deletable).toBe(true)
     const emptiedOlder: Profile = { ...bare, snapshots: [captureSnapshot(bare, '2026-01-01')] }
-    expect(buildSnapshotRows(emptiedOlder, TODAY)[0].deletable).toBe(true)
+    expect(buildSnapshotRows(emptiedOlder)[0].deletable).toBe(true)
   })
 })

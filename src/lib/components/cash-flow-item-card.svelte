@@ -10,12 +10,10 @@
   import { getFrequencyItems, getFrequencyShortLabel } from '$lib/select-options'
 
   // Financial data records the current state: amount, frequency and whether it
-  // keeps pace with inflation. Start/End/Change over time are planned modelling
-  // and live in the plan dialog, not here (matches the Figma financial-data
-  // cards). The item still carries those fields so an edit here round-trips
-  // whatever a plan set. The frequency is optional only because the stored
-  // shape allows a one-time schedule — financial data never creates one, so
-  // it reads back as monthly.
+  // keeps pace with inflation. Start/End/Change over time belong to the plan
+  // dialog (matches the Figma financial-data cards). The frequency is optional
+  // only because the shared stored shape allows a one-time schedule, which
+  // financial data never holds, so it reads back as monthly.
   interface CashFlowItem {
     id: string
     name: string
