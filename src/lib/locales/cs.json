@@ -317,6 +317,21 @@
           "help": "Odhadovaný pokrok k životu z vašich investic",
           "settings": "Nastavení finanční nezávislosti"
         },
+        "fiSettings": {
+          "title": "Nastavení výpočtu finanční nezávislosti",
+          "description": "Finanční nezávislost znamená mít dost investic na pokrytí výdajů bez práce.",
+          "annualExpenses": "Roční výdaje",
+          "portfolioValue": "Současná hodnota portfolia*",
+          "withdrawalRate": "Míra čerpání",
+          "fiNumber": "Vaše číslo finanční nezávislosti",
+          "withdrawalRateHelp": "Míra čerpání je procento portfolia, které každý rok vyberete na živobytí, a přímo určuje vaše číslo finanční nezávislosti.",
+          "tradeoff": "Nižší míra čerpání je bezpečnější, ale vyžaduje mnohem větší portfolio. Vyšší míra čerpání umožní skončit dříve s menším majetkem, ale zvyšuje riziko, že peníze dojdou.",
+          "portfolioFootnote": "*Hodnota portfolia je celková hodnota vašich investic plus hotovost minus závazky.",
+          "preview": "Finanční nezávislost:",
+          "reset": "Obnovit",
+          "apply": "Použít změny",
+          "close": "Zavřít"
+        },
         "history": {
           "title": "Historie",
           "viewDetails": "Zobrazit detaily",

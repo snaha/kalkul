@@ -317,6 +317,21 @@
           "help": "Estimated progress toward living off your investments",
           "settings": "Financial independence settings"
         },
+        "fiSettings": {
+          "title": "Financial independence calculation settings",
+          "description": "Financial independence is having enough investments to cover your expenses without working.",
+          "annualExpenses": "Annual expenses",
+          "portfolioValue": "Current portfolio value*",
+          "withdrawalRate": "Withdrawal rate",
+          "fiNumber": "Your Financial Independence number",
+          "withdrawalRateHelp": "Your withdrawal rate is the percentage of your portfolio you take out each year to live on, and it directly dictates your Financial Independence number.",
+          "tradeoff": "Choosing a lower withdrawal rate makes your retirement safer but requires a much larger portfolio. Conversely, a higher withdrawal rate lets you retire sooner with less money, but increases the risk of running out of funds.",
+          "portfolioFootnote": "*Your portfolio value is the total value of your investments, plus cash balance, minus liabilities.",
+          "preview": "Financial independence:",
+          "reset": "Reset",
+          "apply": "Apply changes",
+          "close": "Close"
+        },
         "history": {
           "title": "History",
           "viewDetails": "View details",
