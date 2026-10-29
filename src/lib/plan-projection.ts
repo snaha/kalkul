@@ -1,6 +1,7 @@
 import Decimal from 'decimal.js'
 
 import { DECIMAL_0, DECIMAL_1 } from '$lib/@snaha/kalkul-maths'
+import { DEFAULT_FI_WITHDRAWAL_RATE } from '$lib/schemas'
 import type {
   CashFlowEnd,
   CashFlowSchedule,
@@ -1101,6 +1102,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   // however the plan has edited it since. A start before the plan pays in at
   // plan start. A planned pay-off before that start means the schedule above
   // never goes live, so nothing is borrowed either.
+  const fiWithdrawalRate = profile.fi_withdrawal_rate ?? DEFAULT_FI_WITHDRAWAL_RATE
   const currentDebtIds = new Set(plan.base.liabilities.map((l) => l.id))
   const borrowedByYear = new Map<number, Decimal>()
   for (const l of liabilities) {
@@ -1534,7 +1536,11 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     let fiPercent: number | undefined
     let runwayYears: number | undefined
     if (outflowsNominal.greaterThan(0)) {
-      fiPercent = Math.max(0, investableNominal.div(outflowsNominal.mul(25)).mul(100).toNumber())
+      // Investable over the FI number (outflows × 100 / rate), as a percentage.
+      fiPercent = Math.max(
+        0,
+        investableNominal.mul(fiWithdrawalRate).div(outflowsNominal).toNumber(),
+      )
       runwayYears = Math.max(0, investableNominal.div(outflowsNominal).toNumber())
     }
 

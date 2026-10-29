@@ -967,6 +967,9 @@ export const taxRuleSchema = z.object({
   holding_years: z.number().min(0).optional(),
 })
 
+/** The 4% rule: the withdrawal rate the FI number assumes until the user sets one. */
+export const DEFAULT_FI_WITHDRAWAL_RATE = 4
+
 export const profileFieldsSchema = z.object({
   name: z.string(),
   email: z.string(),
@@ -991,6 +994,9 @@ export const profileFieldsSchema = z.object({
   transfers: z.array(transferSchema).optional(),
   investment_tax_rules: z.array(taxRuleSchema).optional(),
   tangible_asset_tax_rules: z.array(taxRuleSchema).optional(),
+  // Percent of the portfolio withdrawn a year behind the Financial independence
+  // number (`getFiNumber`); absent means `DEFAULT_FI_WITHDRAWAL_RATE`.
+  fi_withdrawal_rate: z.number().positive().optional(),
   // Normalized on the way in, so every entry point — a fresh load, a restored
   // backup, cross-tab sync, a store write — hands the rest of the app a sorted,
   // one-per-date list. `.overwrite` rather than `.transform`: it does not change

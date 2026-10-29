@@ -3,7 +3,7 @@ import Decimal from 'decimal.js'
 import { DECIMAL_0 } from '$lib/@snaha/kalkul-maths'
 import { CATEGORY_COLORS } from '$lib/chart-colors'
 import { annualizedAmount } from '$lib/plan-projection'
-import type { Frequency, Profile } from '$lib/schemas'
+import { DEFAULT_FI_WITHDRAWAL_RATE, type Frequency, type Profile } from '$lib/schemas'
 import { countedCashFlows, hasAnyBalance, snapshotBalances, snapshotNetWorth } from '$lib/snapshots'
 
 export type CategoryLabel = 'cash' | 'investments' | 'tangible-assets' | 'liabilities'
@@ -180,10 +180,32 @@ export function getInvestableNetWorth(profile: Profile): number {
   )
 }
 
-export function getFiPercent(profile: Profile): number | undefined {
-  const annualOutflows = getAnnualExpensesTotal(profile) + getAnnualDebtServiceTotal(profile)
-  if (annualOutflows <= 0) return undefined
-  return Math.max(0, (getInvestableNetWorth(profile) / (annualOutflows * 25)) * 100)
+/** Everything the household must pay in a year: expenses plus loan installments. */
+export function getAnnualOutflowsTotal(profile: Profile): number {
+  return getAnnualExpensesTotal(profile) + getAnnualDebtServiceTotal(profile)
+}
+
+/**
+ * The Financial independence number: what the portfolio must be worth for a
+ * `withdrawalRate` % draw a year to cover the outflows. At the default 4% that
+ * is 25 times the outflows.
+ */
+export function getFiNumber(
+  profile: Profile,
+  withdrawalRate = profile.fi_withdrawal_rate ?? DEFAULT_FI_WITHDRAWAL_RATE,
+): number | undefined {
+  const annualOutflows = getAnnualOutflowsTotal(profile)
+  if (annualOutflows <= 0 || withdrawalRate <= 0) return undefined
+  return (annualOutflows * 100) / withdrawalRate
+}
+
+export function getFiPercent(
+  profile: Profile,
+  withdrawalRate = profile.fi_withdrawal_rate ?? DEFAULT_FI_WITHDRAWAL_RATE,
+): number | undefined {
+  const fiNumber = getFiNumber(profile, withdrawalRate)
+  if (fiNumber === undefined) return undefined
+  return Math.max(0, (getInvestableNetWorth(profile) / fiNumber) * 100)
 }
 
 export function getRunwayYears(profile: Profile): number | undefined {
