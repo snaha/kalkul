@@ -105,10 +105,20 @@
       : '',
   )
 
+  /** Horizontal position of the middle of `date`'s month, as a fraction. */
+  function midMonthFraction(date: string): number {
+    const [year, month] = date.split('-').map(Number)
+    const nextFirst =
+      month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, '0')}-01`
+    return (xFraction(date) + xFraction(nextFirst)) / 2
+  }
+
+  // A month label sits in the middle of its month, so a year divider at
+  // 1 January falls between December and January rather than through one.
   const monthLabels = $derived.by(() => {
     const ticks = monthTicks(firstDate, lastDate).map((date) => ({
       date,
-      x: xFraction(date) * plotWidth,
+      x: midMonthFraction(date) * plotWidth,
     }))
     // Two years of history would otherwise print 24 overlapping labels; keep
     // every Nth so whatever survives is legible at the current width.
@@ -123,8 +133,8 @@
   })
 
   // The year row: every year the chart crosses into gets a divider at its
-  // 1 January and its number beside it. The starting year sits at the left
-  // edge when there is room for it before the first divider.
+  // 1 January with its number centred under it. The starting year sits at the
+  // left edge when there is room for it before the first divider.
   const yearLabels = $derived.by(() => {
     if (!firstDate) return []
     const crossed = yearBoundaries(firstDate, lastDate).map((date) => ({
@@ -132,9 +142,9 @@
       x: xFraction(date) * plotWidth,
       divider: true,
     }))
-    const roomForFirst = (crossed[0]?.x ?? plotWidth) > YEAR_LABEL_WIDTH
+    const roomForFirst = (crossed[0]?.x ?? plotWidth) > YEAR_LABEL_WIDTH * 1.5
     const first = roomForFirst ? [{ year: firstDate.slice(0, 4), x: 0, divider: false }] : []
-    return [...first, ...crossed].filter((label) => plotWidth - label.x > YEAR_LABEL_WIDTH)
+    return [...first, ...crossed].filter((label) => plotWidth - label.x > YEAR_LABEL_WIDTH / 2)
   })
 </script>
 
@@ -230,19 +240,18 @@
     </div>
   </div>
 
-  <!-- Year row. A divider marks where each new year starts and the year is set
-       just right of it. The month ticks above sit on the first of the month,
-       so a January label shares the divider's x; the divider stays in this
-       row rather than cutting through it. -->
-  <div class="mt-0.5 flex h-4 gap-2 text-xs leading-none text-muted-foreground">
+  <!-- Year row. A divider rises between the month labels where each new year
+       starts, with the year centred under it. -->
+  <div class="mt-1 flex h-4 gap-2 text-xs leading-none text-muted-foreground">
     <div class="w-12 shrink-0"></div>
     <div class="relative min-w-0 flex-1">
       {#each yearLabels as label (label.year)}
         {#if label.divider}
-          <span class="absolute top-0 h-4 w-px bg-border" style:left="{label.x}px"></span>
+          <span class="absolute -top-5 h-5 w-px bg-border" style:left="{label.x}px"></span>
         {/if}
-        <span class="absolute whitespace-nowrap" style:left="{label.x + (label.divider ? 6 : 0)}px"
-          >{label.year}</span
+        <span
+          class={['absolute whitespace-nowrap', label.divider && '-translate-x-1/2']}
+          style:left="{label.x}px">{label.year}</span
         >
       {/each}
     </div>
