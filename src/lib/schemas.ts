@@ -967,6 +967,19 @@ export const taxRuleSchema = z.object({
   holding_years: z.number().min(0).optional(),
 })
 
+// What the Runway card may draw on after cash (`src/lib/runway.ts`). Stored on
+// the profile so the choice survives reloads and backups; absent means the
+// defaults in `DEFAULT_RUNWAY_SETTINGS`.
+export const runwaySettingsSchema = z.object({
+  include_income: z.boolean(),
+  withdraw_investments: z.boolean(),
+  investment_growth: z.boolean(),
+  investment_tax_rate: z.number(),
+  sell_tangible_assets: z.boolean(),
+  tangible_asset_growth: z.boolean(),
+  tangible_asset_tax_rate: z.number(),
+})
+
 export const profileFieldsSchema = z.object({
   name: z.string(),
   email: z.string(),
@@ -991,6 +1004,7 @@ export const profileFieldsSchema = z.object({
   transfers: z.array(transferSchema).optional(),
   investment_tax_rules: z.array(taxRuleSchema).optional(),
   tangible_asset_tax_rules: z.array(taxRuleSchema).optional(),
+  runway_settings: runwaySettingsSchema.optional(),
   // Normalized on the way in, so every entry point — a fresh load, a restored
   // backup, cross-tab sync, a store write — hands the rest of the app a sorted,
   // one-per-date list. `.overwrite` rather than `.transform`: it does not change
@@ -1125,3 +1139,4 @@ export type PlanStartType = z.infer<typeof planStartTypeSchema>
 export type PlanEndType = z.infer<typeof planEndTypeSchema>
 export type HoldingPeriod = z.infer<typeof holdingPeriodSchema>
 export type TaxRule = z.infer<typeof taxRuleSchema>
+export type RunwaySettings = z.infer<typeof runwaySettingsSchema>

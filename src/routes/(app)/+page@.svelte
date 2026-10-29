@@ -11,9 +11,10 @@
   import { Progress } from '$lib/components/ui/progress'
   import { Separator } from '$lib/components/ui/separator'
   import { getCurrentProfile } from '$lib/current-values'
-  import { getFiPercent, getRunwayYears, hasAnyFinancialData } from '$lib/financial-totals'
+  import { getFiPercent, hasAnyFinancialData } from '$lib/financial-totals'
   import { buildHistorySeries } from '$lib/history-series'
   import routes from '$lib/routes'
+  import { RUNWAY_CAP_YEARS, getRunwayYears } from '$lib/runway'
   import { staleSince as staleSinceOf } from '$lib/snapshots'
   import { appStore } from '$lib/stores/app.svelte'
   import { trackToday } from '$lib/today.svelte'
@@ -25,6 +26,7 @@
   import NetWorthCard from './net-worth-card.svelte'
   import ProjectionsPanel from './projections-panel.svelte'
   import QuickUpdateDialog from './quick-update-dialog.svelte'
+  import RunwaySettingsDialog from './runway-settings-dialog.svelte'
   import SavingsRateCard from './savings-rate-card.svelte'
   import StaleDataAlert from './stale-data-alert.svelte'
 
@@ -52,6 +54,7 @@
   const historyPoints = $derived(buildHistorySeries(storedProfile, today))
 
   let quickUpdateOpen = $state(false)
+  let runwaySettingsOpen = $state(false)
 </script>
 
 <!-- This route escapes the (app) layout (the `@` in the filename) so the
@@ -96,9 +99,15 @@
                     title={$_('page.dashboard.finances.runwayCard.title')}
                     help={$_('page.dashboard.finances.runwayCard.help')}
                     settingsLabel={$_('page.dashboard.finances.runwayCard.settings')}
-                    onSettings={notImplemented}
+                    onSettings={() => (runwaySettingsOpen = true)}
                   >
-                    {#if runwayYears !== undefined}
+                    {#if runwayYears === Infinity}
+                      <p class="text-xl font-extrabold">
+                        {$_('page.dashboard.finances.runwayCard.capped', {
+                          values: { years: appStore.formatNumber(RUNWAY_CAP_YEARS) },
+                        })}
+                      </p>
+                    {:else if runwayYears !== undefined}
                       <p class="text-xl font-extrabold">
                         {$_('page.dashboard.finances.runwayCard.value', {
                           values: {
@@ -168,6 +177,9 @@
       <ProjectionsPanel profile={currentProfile} {today} {hasFinancialData} />
     </div>
 
+    {#if runwaySettingsOpen}
+      <RunwaySettingsDialog bind:open={runwaySettingsOpen} profile={currentProfile} />
+    {/if}
     {#if staleSince}
       <QuickUpdateDialog
         bind:open={quickUpdateOpen}

@@ -310,7 +310,30 @@
           "title": "Rezerva",
           "help": "Odhadovaná doba, po kterou byste vyžili ze svých současných úspor",
           "settings": "Nastavení rezervy",
-          "value": "{years} let"
+          "value": "{years} let",
+          "capped": "{years}+ let"
+        },
+        "runwaySettings": {
+          "title": "Nastavení výpočtu rezervy",
+          "description": "Jak dlouho vám vystačí peníze podle vašeho současného majetku a peněžních toků. Zvolte, co se započítá.",
+          "includeIncome": "Započítat pravidelné příjmy",
+          "includeIncomeHelp": "Vypněte, abyste viděli, jak dlouho peníze vystačí bez dalších příjmů.",
+          "withdrawInvestments": "Povolit čerpání z investic",
+          "withdrawInvestmentsHelp": "Použijí se, až dojde hotovost, v hrubém odhadu hodnoty po zdanění.",
+          "investmentGrowth": "Započítat růst investic",
+          "investmentGrowthHelp": "Investice rostou podle ročního výnosu, který jste nastavili.",
+          "investmentTaxRate": "Daň ze zisku z investic",
+          "investmentTaxRateHelp": "Uplatní se na hrubý odhad zisku podle ročního výnosu investic.",
+          "sellTangibleAssets": "Povolit prodej hmotného majetku",
+          "sellTangibleAssetsHelp": "Prodá se, až dojdou investice, v hrubém odhadu hodnoty po zdanění.",
+          "tangibleAssetGrowth": "Započítat růst hodnoty",
+          "tangibleAssetGrowthHelp": "Hodnota majetku roste podle sazby nastavené u každé položky.",
+          "tangibleAssetTaxRate": "Daň ze zisku z hmotného majetku",
+          "tangibleAssetTaxRateHelp": "Uplatní se na hrubý odhad zisku podle vývoje hodnoty každé položky.",
+          "preview": "Rezerva:",
+          "reset": "Obnovit",
+          "apply": "Použít změny",
+          "close": "Zavřít"
         },
         "fiCard": {
           "title": "Finanční nezávislost",
