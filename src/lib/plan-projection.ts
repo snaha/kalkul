@@ -1518,7 +1518,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     }))
 
     // 9. Per-year FI % and runway, mirroring the dashboard's snapshot
-    //    formulas (getFiPercent/getRunwayYears in financial-totals.ts):
+    //    formula (getFiPercent in financial-totals.ts):
     //    investable wealth excludes tangibles and subtracts only standalone
     //    liabilities (a mortgage is secured by its asset), while outflows
     //    include every installment actually paid this year. Numerator and denominator are both nominal,

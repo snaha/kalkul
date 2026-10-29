@@ -186,12 +186,6 @@ export function getFiPercent(profile: Profile): number | undefined {
   return Math.max(0, (getInvestableNetWorth(profile) / (annualOutflows * 25)) * 100)
 }
 
-export function getRunwayYears(profile: Profile): number | undefined {
-  const annualOutflows = getAnnualExpensesTotal(profile) + getAnnualDebtServiceTotal(profile)
-  if (annualOutflows <= 0) return undefined
-  return Math.max(0, getInvestableNetWorth(profile) / annualOutflows)
-}
-
 export function hasAnyFinancialData(profile: Profile): boolean {
   return hasAnyBalance(snapshotBalances(profile))
 }

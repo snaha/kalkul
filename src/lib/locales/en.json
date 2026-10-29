@@ -310,7 +310,30 @@
           "title": "Runway",
           "help": "Estimated time you could live off your current savings",
           "settings": "Runway settings",
-          "value": "{years} years"
+          "value": "{years} years",
+          "capped": "{years}+ years"
+        },
+        "runwaySettings": {
+          "title": "Runway calculation settings",
+          "description": "How long your money lasts, based on your current assets and cash flows. Choose what’s included.",
+          "includeIncome": "Include scheduled income",
+          "includeIncomeHelp": "Turn off to see how long your money lasts without further income.",
+          "withdrawInvestments": "Allow withdrawing from investments",
+          "withdrawInvestmentsHelp": "Used after cash runs out, at a rough estimate of their after-tax value.",
+          "investmentGrowth": "Include investment growth",
+          "investmentGrowthHelp": "Investments grow according to the annual return you set.",
+          "investmentTaxRate": "Tax rate on investment gains",
+          "investmentTaxRateHelp": "Applied to a rough estimate of the gain, based on the investments’ annual return.",
+          "sellTangibleAssets": "Allow selling tangible assets",
+          "sellTangibleAssetsHelp": "Sold after investments run out, at a rough estimate of their after-tax value.",
+          "tangibleAssetGrowth": "Include value growth",
+          "tangibleAssetGrowthHelp": "Asset values grow according to the rate you set for each asset.",
+          "tangibleAssetTaxRate": "Tax rate on tangible asset gains",
+          "tangibleAssetTaxRateHelp": "Applied to a rough estimate of the gain, based on each asset’s value over time.",
+          "preview": "Runway:",
+          "reset": "Reset",
+          "apply": "Apply changes",
+          "close": "Close"
         },
         "fiCard": {
           "title": "Financial independence",
