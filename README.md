@@ -128,7 +128,7 @@ expenses, transfers) lives flat on the profile. Portfolios ("plans", projections
 built on a copy of it: a plan is created from the financial data of the moment (`createPlan` in
 `src/lib/plan-defaults.ts`), holds its own cash and items from then on (`src/lib/plan-items.ts`),
 and keeps what it was created from as its `base`, which tells the plan page when financial data has
-moved on. A plan never writes the profile (see AGENTS.md). Data is persisted to localStorage.
+moved on. A plan never writes the profile (see `docs/product/projections.md`). Data is persisted to localStorage.
 
 ### Data Hierarchy
 

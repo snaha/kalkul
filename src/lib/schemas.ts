@@ -314,7 +314,7 @@ function edgeMonth(
  * one-time item, one that starts later or one that ended, was sold or was
  * paid off earlier is dropped: it is not something the user has today. Runs
  * after `materializePlans`, so the plans keep their copies with the timing.
- * Transitional, see AGENTS.md.
+ * Transitional, see docs/product/projections.md.
  */
 function stripPlannedTiming(
   owner: Record<string, unknown>,
@@ -380,7 +380,7 @@ const INCLUDED_IDS: Record<PlanListKey, string> = {
  * holds a copy of everything it projects. A plan without a `base` gets the
  * items it included plus its own, its opening cash, and the financial data of
  * the moment as its base. Items of a deleted plan are dropped, so none of them
- * turns into financial data. Transitional, see AGENTS.md.
+ * turns into financial data. Transitional, see docs/product/projections.md.
  */
 function materializePlans(profile: Record<string, unknown>, portfolios: unknown): void {
   const plans = Array.isArray(portfolios) ? portfolios.filter(isRecord) : []
@@ -1025,7 +1025,7 @@ export type PlanListKey = (typeof PLAN_LIST_KEYS)[number]
 /**
  * Per list, the fields that carry planned timing and the end value that means
  * no end. A profile item may only be running: start 'immediately' or 'now',
- * end at `openEnd`, no dated fields, never one-time (AGENTS.md).
+ * end at `openEnd`, no dated fields, never one-time (docs/product/projections.md).
  * `profileSchema` checks it; `repairStoredData` strips it from stored data.
  */
 const PLANNED_TIMING = {

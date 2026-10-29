@@ -17,6 +17,16 @@ be removed once it lands. This holds on kalkul.app too, since the data never lea
 browser. That changes once Kalkul has users to keep — concretely, when kalkul.app is announced
 publicly — and this note with it.
 
+## Product design docs
+
+`docs/product/` holds the normative description of how Kalkul behaves, one file per concept (`projections.md`, `loans.md`, ...). The code is expected to match these docs, not the other way round, and a Figma frame is read together with the doc for its concept: the frame shows the surface, the doc says what each field means, what each edit does and what the engine does with it.
+
+- Each doc is present tense and normative. It has a vocabulary table (UI label, field, meaning), the rules, worked examples with concrete numbers, a list of open questions the team has not decided, and pointers to where the rule lives in the code.
+- Before implementing or changing a feature, read the doc for its concept, and the open questions in it. If the task needs a decision that is not in the doc, say so and ask rather than picking a default.
+- A PR that changes product behaviour, or makes a decision the doc leaves open, updates the doc in the same PR. The worked examples are the first place to add the new case, and they are meant to become unit tests.
+- A behaviour found in the code that no doc states is a candidate for the doc's open questions, not a rule to preserve.
+- This file keeps the coding conventions only; product rules that used to live here have moved to `docs/product/`.
+
 ## AI-Specific Guidelines
 
 ### Understanding the Codebase
@@ -101,14 +111,7 @@ publicly — and this note with it.
    - TypeScript types are derived from schemas (`z.infer<typeof schema>`) — never define types separately from schemas
 
 3. **Financial data is never written from a projection**
-   - Kalkul has two kinds of data. **Financial data** is what the user has today: the profile's cash, investments, tangible assets, liabilities, incomes, expenses and transfers. A **projection** (a "plan", `Portfolio` in code) is a scenario computed from it. The dependency is one-way: projections read financial data, they never write it.
-   - Financial data is edited in exactly two places: the Financial data pages (`src/routes/(app)/financial-data/`, plus the onboarding editors that share their components) and Quick update (`confirmBalances`). Nothing under `src/routes/(app)/plan/` and no projection-side MCP tool may call `updateProfile`, `confirmBalances` or `saveSnapshot`.
-   - A projection is built on a **copy** of financial data taken when it is created (or on nothing, when the user chooses not to start from their current finances). The `Portfolio` holds that copy: `cash_amount` and its own `investments`, `tangible_assets`, `liabilities`, `incomes`, `expenses`, `transfers`. Whatever the user changes while working on a projection lands on that copy only, including cash, edits, duplicates and deletes. "Delete" inside a projection means "this projection no longer has it"; the item stays in financial data and in every other projection.
-   - The reverse holds too: a projection's items stay out of financial data and out of every other projection. Current-data readers (totals, the dashboard, snapshots, Quick update, onboarding) must never see a projection's items.
-   - A projection does not follow financial data after creation. The `Portfolio.base` is the financial data it was created from, kept untouched: `isPlanOutdated` (`src/lib/plan-base.ts`) compares it with current financial data so the plan page can say the projection is outdated. Bringing a projection up to date with current financial data is a planned feature, not built yet; when it comes, `base` is the common ancestor of the three-way merge. **Never write `base`** after creation: only `createPlan` and `buildCurrentProjectionPlan` set it, no dialog, store method or MCP tool may change it, and an update that touched it would make the outdated check and the future merge lie. The one exception is `repairStoredData`, which brings a stored `base` up to the current schema exactly as it does the profile: a repair changes the shape of what was recorded, not what the user had, and leaving `base` behind would make the outdated check report the repair as a change.
-   - Financial data carries no planned timing. When something starts, ends, is bought, sold or paid off is a modelled change: it lives on the projection's copy of the item, never on the profile. A profile item is always already running: start `immediately` or `now`, end `never`, pay-off at term, no exit or sale date, and never one-time. `profileSchema` rejects anything else (`src/lib/schemas.ts`), so a new projection always starts every financial-data item at the plan's start with no end.
-   - When a feature seems to need a projection to write financial data, the answer is a projection-level setting, never a profile write. Raise it rather than papering over it.
-   - Mechanics: `createPlan` (`src/lib/plan-defaults.ts`) and `buildCurrentProjectionPlan` (`src/lib/current-projection.ts`) take the copy with `snapshotFinancialData`. Write a plan's items through `src/lib/plan-items.ts`: a dialog saves an item with `saveEditedPlanItem`, which applies only the fields it changed onto the item as stored now; `upsertPlanItem` writes a whole item (the MCP tool) and `removePlanItem` drops one. Read them off the `Portfolio`. An ESLint rule (`eslint.config.mjs`) rejects profile writes under `src/routes/(app)/plan/`. The engine (`src/lib/plan-projection.ts`) tells a loan the plan takes on from debt the user already carries by whether the id is in `base.liabilities`, never by dates or names. The MCP tools expose the same helpers; keep their descriptions in sync.
+   - The full rule, its vocabulary and worked examples are in `docs/product/projections.md`. Read it before touching anything under `src/routes/(app)/plan/`, `src/lib/plan-*.ts`, `src/lib/plan-projection.ts` or the MCP tools. In one line: a projection (`Portfolio`) is a copy of financial data taken at creation; it never writes the profile, never follows it afterwards, and its `base` is never written after creation (an ESLint rule rejects profile writes under the plan routes).
 
 ### Naming Conventions
 
