@@ -98,11 +98,11 @@
   let valueOverTimeItems = $derived(getValueOverTimeItems($_))
 
   // The dialog asks for the down payment; the asset stores what is still owed.
-  // A new asset: the down payment is what was typed (0 until then) and the
-  // balance follows the price. An existing asset: the stored balance comes
+  // A new asset: the down payment is what was typed (nothing until then, so
+  // the field starts empty) and the balance follows the price. An existing asset: the stored balance comes
   // from a statement, so it is the truth and the down payment is what it
   // implies; a price edit leaves it alone.
-  let typedDownPayment = $state(0)
+  let typedDownPayment = $state<number | undefined>()
   let downPayment = $derived(
     isNew ? typedDownPayment : impliedDownPayment(item.value, item.outstanding_balance),
   )
@@ -118,7 +118,7 @@
   }
 
   function setDownPayment(paid: number | undefined): void {
-    typedDownPayment = paid ?? 0
+    typedDownPayment = paid
     syncBalance()
   }
 
