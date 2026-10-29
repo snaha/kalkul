@@ -445,6 +445,7 @@
       bind:item={form}
       idPrefix={uid}
       {showAdvanced}
+      {isNew}
       {currencyLabel}
       {range}
       {months}

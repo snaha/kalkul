@@ -62,6 +62,12 @@
     idPrefix: string
     /** Whether the value/tax fields are revealed. */
     showAdvanced: boolean
+    /**
+     * A new asset has no loan yet: the down payment is what the user types
+     * and the balance owed follows the price. An existing one keeps its
+     * stored balance through a price edit.
+     */
+    isNew?: boolean
     currencyLabel: string
     /** The plan's years; the Purchase and Sale selectors show only with it. */
     range?: PlanRange
@@ -76,6 +82,7 @@
     item = $bindable(),
     idPrefix,
     showAdvanced,
+    isNew = false,
     currencyLabel,
     range,
     months = [],
@@ -91,36 +98,35 @@
   let valueOverTimeItems = $derived(getValueOverTimeItems($_))
 
   // The dialog asks for the down payment; the asset stores what is still owed.
-  // The typed down payment is held for the item being edited; until one is
-  // typed it is what the stored balance implies.
-  let typedDownPayment = $state<number | undefined>()
+  // A new asset: the down payment is what was typed (0 until then) and the
+  // balance follows the price. An existing asset: the stored balance comes
+  // from a statement, so it is the truth and the down payment is what it
+  // implies; a price edit leaves it alone.
+  let typedDownPayment = $state(0)
   let downPayment = $derived(
-    typedDownPayment ?? impliedDownPayment(item.value, item.outstanding_balance),
+    isNew ? typedDownPayment : impliedDownPayment(item.value, item.outstanding_balance),
   )
 
-  // The down payment stays put while the price is typed; the balance moves.
+  function syncBalance(): void {
+    item.outstanding_balance = outstandingBalance(item.value, downPayment)
+    rederiveLoanPair(item, anchor)
+  }
+
   function setPurchasePrice(value: number | undefined): void {
-    typedDownPayment = downPayment ?? 0
     item.value = value
-    if (item.status === 'financed') {
-      item.outstanding_balance = outstandingBalance(value, typedDownPayment)
-      rederiveLoanPair(item, anchor)
-    }
+    if (isNew && item.status === 'financed') syncBalance()
   }
 
   function setDownPayment(paid: number | undefined): void {
     typedDownPayment = paid ?? 0
-    item.outstanding_balance = outstandingBalance(item.value, paid)
-    rederiveLoanPair(item, anchor)
+    syncBalance()
   }
 
   function setStatus(status: TangibleAssetStatus): void {
     item.status = status
-    // The price may have changed while the asset was not financed.
-    if (status === 'financed') {
-      item.outstanding_balance = outstandingBalance(item.value, downPayment)
-      rederiveLoanPair(item, anchor)
-    }
+    // Financed with no loan yet (a new asset, or one that was paid upfront):
+    // the price may have changed meanwhile, and nothing of it is paid down.
+    if (status === 'financed' && (isNew || item.outstanding_balance === undefined)) syncBalance()
   }
 
   // Installment amount ⇄ Term: the side last edited anchors the pair,
