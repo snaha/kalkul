@@ -13,7 +13,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
   import * as Tooltip from '$lib/components/ui/tooltip'
-  import { removePlanItem, upsertPlanItem } from '$lib/plan-items'
+  import { removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
   import { summarizeTransfer } from '$lib/plan-projection'
   import { planRangeOf, planYearOptions, yearWithinPlan } from '$lib/plan-range'
   import { sameYearMonthsInverted, timingComplete } from '$lib/schemas'
@@ -29,7 +29,7 @@
     transferToFields,
     transferWithinPlan,
   } from '$lib/transfer-form'
-  import { getMonthOptions, monthToOption, optionToMonth } from '$lib/utils'
+  import { getMonthOptions, monthToOption, optionToMonth, yearItemsIncluding } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
 
@@ -111,16 +111,14 @@
     { value: 'recurring', label: $_('page.plan.scheduleRecurring') },
   ])
   let frequencyItems = $derived(getFrequencyItems($_))
-  let yearItems = $derived(
-    planYearOptions(range, form.transaction_year).map((y) => ({ value: y, label: y })),
-  )
+  let yearItems = $derived(yearItemsIncluding(planYearOptions(range), form.transaction_year))
 
   function close() {
     onOpenChange(false)
   }
 
   function save() {
-    upsertPlanItem('transfers', transferFromFields(form), plan)
+    saveEditedPlanItem('transfers', transferFromFields(form), initial, plan)
     close()
   }
 

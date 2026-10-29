@@ -23,12 +23,15 @@
   // never written from here. Seeded synchronously at mount; the parent
   // re-mounts this form per opening.
   // svelte-ignore state_referenced_locally
-  let amount = $state<number | undefined>(plan.cash_amount)
+  const opened = plan.cash_amount
+  let amount = $state<number | undefined>(opened)
 
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
   function save() {
-    plan.update({ cash_amount: amount ?? 0 })
+    // Only when edited: saving the value from when the dialog opened would
+    // undo a change made meanwhile elsewhere (another tab, an MCP tool).
+    if ((amount ?? 0) !== (opened ?? 0)) plan.update({ cash_amount: amount ?? 0 })
     onClose()
   }
 </script>

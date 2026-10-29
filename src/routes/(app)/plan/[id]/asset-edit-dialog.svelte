@@ -9,7 +9,8 @@
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
-  import { removePlanItem, upsertPlanItem } from '$lib/plan-items'
+  import { rederiveLoanPair } from '$lib/loan-pair'
+  import { removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
   import { planRangeOf, timingWithinPlan } from '$lib/plan-range'
   import type {
     CashFlowEnd,
@@ -216,6 +217,9 @@
       f.value_over_time = a.value_over_time ?? 'appreciate'
       f.value_rate = a.value_rate
       f.property_tax_rate = a.property_tax_rate
+      // An asset saved with a term but no installment would otherwise be paid
+      // as one lump in its last period; give it the installment on open.
+      if (!f.installment_amount) rederiveLoanPair(f, 'term')
     }
     return f
   }
@@ -333,9 +337,19 @@
 
   function save() {
     if (kind === 'investment') {
-      upsertPlanItem('investments', projectInvestment(form), plan)
+      saveEditedPlanItem(
+        'investments',
+        projectInvestment(form),
+        target.kind === 'investment' ? target.initial : undefined,
+        plan,
+      )
     } else {
-      upsertPlanItem('tangible_assets', projectTangibleAsset(form), plan)
+      saveEditedPlanItem(
+        'tangible_assets',
+        projectTangibleAsset(form),
+        target.kind === 'tangibleAsset' ? target.initial : undefined,
+        plan,
+      )
     }
     close()
   }
@@ -414,7 +428,6 @@
       idPrefix={uid}
       amountLabel={$_('page.plan.initialAmount')}
       {showAdvanced}
-      showTiming
       {currencyLabel}
       {range}
       {months}
@@ -435,7 +448,6 @@
       bind:item={form}
       idPrefix={uid}
       {showAdvanced}
-      showTiming
       {currencyLabel}
       {range}
       {months}
