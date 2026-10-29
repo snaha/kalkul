@@ -83,7 +83,7 @@ export function createListEditor<TStored extends { id: string }, TUI extends Lis
       ? stored.map(config.toUI)
       : [config.makeBlank(1)]
   // Stored shape by id, so toStored can carry through the fields no card
-  // renders (a transfer's schedule, a tangible asset's planned purchase).
+  // renders (a transfer's schedule, a financed asset's interest type).
   // A plain record rather than a Map: nothing reads it reactively.
   const originals: Record<string, TStored> = Object.fromEntries(
     stored.map((item) => [item.id, item]),

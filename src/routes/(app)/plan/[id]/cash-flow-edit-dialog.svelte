@@ -26,7 +26,7 @@
   import { getFrequencyItems } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
-  import { getMonthOptions, monthToOption, optionToMonth } from '$lib/utils'
+  import { getMonthOptions, monthToOption, optionToMonth, yearItemsIncluding } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
 
@@ -70,9 +70,7 @@
   }
 
   let form = $state<CashFlowFields>(blankForm())
-  let yearItems = $derived(
-    planYearOptions(range, form.transaction_year).map((y) => ({ value: y, label: y })),
-  )
+  let yearItems = $derived(yearItemsIncluding(planYearOptions(range), form.transaction_year))
 
   // Re-seed form whenever the dialog opens, so reopening discards prior edits.
   let wasOpen = false

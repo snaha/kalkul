@@ -8,9 +8,9 @@ import {
   expenseSchema,
   incomeSchema,
   portfolioSchema,
+  profileFieldsSchema,
   profileInvestmentSchema,
   profileLiabilitySchema,
-  profileSchema,
   profileTangibleAssetSchema,
   transferSchema,
 } from '$lib/schemas'
@@ -101,8 +101,8 @@ export function kalkulTools(app: App = appStore): KalkulTool[] {
     },
     tool(
       'update_profile',
-      "Merge the given fields into the profile, which is the user's financial data: what they have today. Array fields (investments, tangible_assets, liabilities, incomes, expenses, transfers) replace the whole list, so fetch, edit and write back the full array. Never use this while working on a plan: a plan holds its own copy of the data, so use upsert_plan_item and remove_plan_item, which change that plan only. Incomes and expenses carry a schedule: one_time items need transaction_year and transaction_month, recurring items need frequency, start, end and change_over_time.",
-      profileSchema.partial(),
+      "Merge the given fields into the profile, which is the user's financial data: what they have today. Array fields (investments, tangible_assets, liabilities, incomes, expenses, transfers) replace the whole list, so fetch, edit and write back the full array. Never use this while working on a plan: a plan holds its own copy of the data, so use upsert_plan_item and remove_plan_item, which change that plan only. Financial data has no planned timing: every item is already running (start immediately or now, end never, pay-off at term, no exit or sale date, no one-time items); when something starts, ends, is bought or sold belongs to a plan's copy of the item, via upsert_plan_item. Incomes and expenses are recurring and carry frequency, start, end and change_over_time.",
+      profileFieldsSchema.partial(),
       WRITE,
       (args) => {
         app.updateProfile(args)

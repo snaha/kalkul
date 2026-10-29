@@ -241,25 +241,23 @@ function repairSnapshot(snapshot: unknown, profile: Record<string, unknown>): vo
  * its copy of financial data (`materializePlans`). And snapshots are filled in
  * as `repairSnapshot` describes.
  */
-export function repairStoredData(data: unknown): unknown {
+export function repairStoredData(data: unknown, today = new Date()): unknown {
   if (!isRecord(data)) return data
   const profile = data.profile
-  if (isRecord(profile)) {
+  // The month repairs run over the profile's lists and every plan's.
+  const owners = [profile, ...(Array.isArray(data.portfolios) ? data.portfolios : [])]
+  for (const owner of owners) {
+    if (!isRecord(owner)) continue
     for (const key of ['incomes', 'expenses', 'transfers']) {
-      const flows = profile[key]
+      const flows = owner[key]
       if (Array.isArray(flows)) for (const flow of flows) repairCashFlowMonths(flow)
     }
-    for (const key of [
-      'incomes',
-      'expenses',
-      'transfers',
-      'investments',
-      'tangible_assets',
-      'liabilities',
-    ]) {
-      const items = profile[key]
+    for (const key of PLAN_LIST_KEYS) {
+      const items = owner[key]
       if (Array.isArray(items)) for (const item of items) repairZeroMonths(item)
     }
+  }
+  if (isRecord(profile)) {
     // Transfers stored before endpoint ids were required (#305): an unfinished
     // card carries an empty endpoint and would otherwise fail the whole load.
     if (Array.isArray(profile.transfers))
@@ -275,8 +273,96 @@ export function repairStoredData(data: unknown): unknown {
     materializePlans(profile, data.portfolios)
     if (Array.isArray(profile.snapshots))
       for (const snapshot of profile.snapshots) repairSnapshot(snapshot, profile)
+    const thisMonth = today.getFullYear() * 12 + today.getMonth() + 1
+    const birthYear =
+      typeof profile.birth_date === 'string' ? Number(profile.birth_date.slice(0, 4)) : undefined
+    stripPlannedTiming(profile, thisMonth, birthYear)
+    // A plan's base is financial data too: left with timing, `isPlanOutdated`
+    // would read the strip as a change the user made.
+    if (Array.isArray(data.portfolios))
+      for (const plan of data.portfolios)
+        if (isRecord(plan) && isRecord(plan.base))
+          stripPlannedTiming(plan.base, thisMonth, birthYear, false)
   }
   return data
+}
+
+/**
+ * The month (`year * 12 + month`) a dated or age-bound edge of `item` falls
+ * in, or undefined when the edge is open or cannot be placed. A year without
+ * a month means its first month for a start and its last for an end.
+ */
+function edgeMonth(
+  item: Record<string, unknown>,
+  edge: string,
+  birthYear: number | undefined,
+  isEnd: boolean,
+): number | undefined {
+  const storedMonth = item[`${edge}_month`]
+  const month = typeof storedMonth === 'number' ? storedMonth : isEnd ? 12 : 1
+  const year = item[`${edge}_year`]
+  const age = item[`${edge}_age`]
+  if (item[edge] === 'at_specific_date' && typeof year === 'number') return year * 12 + month
+  if (item[edge] === 'when_age_is' && birthYear !== undefined && typeof age === 'number')
+    return (birthYear + age) * 12 + (isEnd ? 12 : 1)
+  return undefined
+}
+
+/**
+ * Leaves `owner` (a profile, or a plan's `base`) with only the items running
+ * in `thisMonth`, each set to running, so it passes `profileSchema`. A
+ * one-time item, one that starts later or one that ended, was sold or was
+ * paid off earlier is dropped: it is not something the user has today. Runs
+ * after `materializePlans`, so the plans keep their copies with the timing.
+ * Transitional, see AGENTS.md.
+ */
+function stripPlannedTiming(
+  owner: Record<string, unknown>,
+  thisMonth: number,
+  birthYear: number | undefined,
+  warn = true,
+): void {
+  for (const key of PLAN_LIST_KEYS) {
+    const items = owner[key]
+    if (!Array.isArray(items)) continue
+    owner[key] = items.filter((item) => {
+      if (!isRecord(item) || plannedTimingField(key, item) === undefined) return true
+      const name = String(item.name ?? item.id ?? 'unknown')
+      const { start, end, openEnd } = PLANNED_TIMING[key]
+      const startsAt = edgeMonth(item, start, birthYear, false)
+      const endsAt = edgeMonth(item, end, birthYear, true)
+      const gone =
+        item.schedule === 'one_time'
+          ? 'was one-time'
+          : startsAt !== undefined && startsAt > thisMonth
+            ? 'has not started yet'
+            : endsAt !== undefined && endsAt < thisMonth
+              ? 'has already ended'
+              : undefined
+      if (gone !== undefined) {
+        if (warn) console.warn(`${key}: "${name}" ${gone}; dropped it from financial data`)
+        return false
+      }
+      const flow = key === 'incomes' || key === 'expenses' || key === 'transfers'
+      if (item[start] !== undefined && item[start] !== 'now') {
+        if (flow) item[start] = 'immediately'
+        else delete item[start]
+      }
+      if (item[end] !== undefined) {
+        if (flow) item[end] = openEnd
+        else delete item[end]
+      }
+      for (const edge of [start, end])
+        for (const suffix of DATED_SUFFIXES) delete item[edge + suffix]
+      delete item.transaction_year
+      delete item.transaction_month
+      if (warn)
+        console.warn(
+          `${key}: "${name}" carried planned timing; financial data now has it as running`,
+        )
+      return true
+    })
+  }
 }
 
 const INCLUDED_IDS: Record<PlanListKey, string> = {
@@ -881,7 +967,7 @@ export const taxRuleSchema = z.object({
   holding_years: z.number().min(0).optional(),
 })
 
-export const profileSchema = z.object({
+export const profileFieldsSchema = z.object({
   name: z.string(),
   email: z.string(),
   birth_date: z.string().optional(),
@@ -935,6 +1021,53 @@ export const PLAN_LIST_KEYS = [
   'transfers',
 ] as const
 export type PlanListKey = (typeof PLAN_LIST_KEYS)[number]
+
+/**
+ * Per list, the fields that carry planned timing and the end value that means
+ * no end. A profile item may only be running: start 'immediately' or 'now',
+ * end at `openEnd`, no dated fields, never one-time (AGENTS.md).
+ * `profileSchema` checks it; `repairStoredData` strips it from stored data.
+ */
+const PLANNED_TIMING = {
+  incomes: { start: 'start', end: 'end', openEnd: 'never' },
+  expenses: { start: 'start', end: 'end', openEnd: 'never' },
+  transfers: { start: 'start', end: 'end', openEnd: 'never' },
+  investments: { start: 'start', end: 'exit', openEnd: 'never' },
+  tangible_assets: { start: 'purchase', end: 'sale', openEnd: 'never' },
+  liabilities: { start: 'start', end: 'pay_off', openEnd: 'at_term' },
+} as const
+
+const DATED_SUFFIXES = ['_year', '_month', '_age'] as const
+
+/** The field that makes the item planned rather than current, if any. */
+function plannedTimingField(
+  key: keyof typeof PLANNED_TIMING,
+  item: Record<string, unknown>,
+): string | undefined {
+  const { start, end, openEnd } = PLANNED_TIMING[key]
+  if (item.schedule === 'one_time') return 'schedule'
+  if (item[start] === 'at_specific_date' || item[start] === 'when_age_is') return start
+  if (item[end] !== undefined && item[end] !== openEnd) return end
+  for (const edge of [start, end])
+    for (const suffix of DATED_SUFFIXES) if (item[edge + suffix] !== undefined) return edge + suffix
+  for (const field of ['transaction_year', 'transaction_month'])
+    if (item[field] !== undefined) return field
+  return undefined
+}
+
+export const profileSchema = profileFieldsSchema.superRefine((profile, ctx) => {
+  for (const key of PLAN_LIST_KEYS) {
+    ;(profile[key] ?? []).forEach((item, index) => {
+      const field = plannedTimingField(key, item)
+      if (field !== undefined)
+        ctx.addIssue({
+          code: 'custom',
+          path: [key, index, field],
+          message: get(_)('validation.no_planned_timing_in_financial_data'),
+        })
+    })
+  }
+})
 
 export const portfolioSchema = z.object({
   id: z.string(),

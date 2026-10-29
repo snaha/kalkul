@@ -122,9 +122,7 @@
         "amount": 520,
         "frequency": "monthly",
         "start": "immediately",
-        "end": "at_specific_date",
-        "end_year": 2036,
-        "end_month": 6,
+        "end": "never",
         "change_over_time": "match_inflation"
       },
       {
@@ -165,8 +163,7 @@
         "schedule": "recurring",
         "frequency": "monthly",
         "start": "immediately",
-        "end": "when_age_is",
-        "end_age": 65,
+        "end": "never",
         "change_over_time": "match_inflation"
       }
     ]
@@ -472,9 +469,7 @@
             "amount": 520,
             "frequency": "monthly",
             "start": "immediately",
-            "end": "at_specific_date",
-            "end_year": 2036,
-            "end_month": 6,
+            "end": "never",
             "change_over_time": "match_inflation"
           },
           {
@@ -515,8 +510,7 @@
             "schedule": "recurring",
             "frequency": "monthly",
             "start": "immediately",
-            "end": "when_age_is",
-            "end_age": 65,
+            "end": "never",
             "change_over_time": "match_inflation"
           }
         ]
@@ -800,9 +794,7 @@
             "amount": 520,
             "frequency": "monthly",
             "start": "immediately",
-            "end": "at_specific_date",
-            "end_year": 2036,
-            "end_month": 6,
+            "end": "never",
             "change_over_time": "match_inflation"
           },
           {
@@ -843,8 +835,7 @@
             "schedule": "recurring",
             "frequency": "monthly",
             "start": "immediately",
-            "end": "when_age_is",
-            "end_age": 65,
+            "end": "never",
             "change_over_time": "match_inflation"
           }
         ]

@@ -62,11 +62,8 @@
     idPrefix: string
     /** Whether the value/tax fields are revealed. */
     showAdvanced: boolean
-    /** Purchase/Sale selectors — the plan dialog plans an asset in time. */
-    showTiming?: boolean
     currencyLabel: string
-    /** Year options when there is no plan; with `range` the plan's years are used. */
-    years?: string[]
+    /** The plan's years; the Purchase and Sale selectors show only with it. */
     range?: PlanRange
     months?: { value: string; label: string }[]
     birthDateSet?: boolean
@@ -79,9 +76,7 @@
     item = $bindable(),
     idPrefix,
     showAdvanced,
-    showTiming = false,
     currencyLabel,
-    years = [],
     range,
     months = [],
     birthDateSet = true,
@@ -133,7 +128,7 @@
   let anchor = $state<LoanPairAnchor>('term')
 </script>
 
-{#if showTiming}
+{#if range}
   <DateAgeSelector
     mode="start"
     label={$_('page.plan.purchase')}
@@ -142,7 +137,6 @@
     year={item.purchase_year}
     month={item.purchase_month}
     age={item.purchase_age}
-    {years}
     {range}
     {months}
     {birthDateSet}
@@ -276,7 +270,7 @@
   </div>
 {/if}
 
-{#if showTiming}
+{#if range}
   <DateAgeSelector
     mode="end"
     label={$_('page.plan.sale')}
@@ -286,7 +280,6 @@
     year={item.sale_year}
     month={item.sale_month}
     age={item.sale_age}
-    {years}
     {range}
     {months}
     {birthDateSet}

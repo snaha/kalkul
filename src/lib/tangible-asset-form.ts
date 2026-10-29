@@ -42,8 +42,8 @@ export interface TangibleAssetUI {
   interest_type?: InterestType
   compounding_frequency?: CompoundingFrequency
   // Value over time and property tax are attributes of the asset itself, not
-  // of the financing, so they show for any status. Planned purchase/sale and
-  // the loan's interest type stay in the plan dialog and round-trip via prev.
+  // of the financing, so they show for any status. Planned purchase/sale
+  // belong to the plan dialog; the loan's interest type round-trips via prev.
   value_over_time: ValueOverTime
   value_rate: number | undefined
   property_tax_rate: number | undefined

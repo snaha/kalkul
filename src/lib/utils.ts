@@ -71,6 +71,18 @@ export function getYearOptions(count = 50): string[] {
   return Array.from({ length: count }, (_, i) => String(currentYear + i))
 }
 
+/** Year select items: `options` plus any stored years missing from them, ascending. */
+export function yearItemsIncluding(
+  options: string[],
+  ...stored: Array<number | string | undefined>
+): { value: string; label: string }[] {
+  const years = new Set(options)
+  for (const year of stored) {
+    if (year !== undefined && year !== '') years.add(String(year))
+  }
+  return [...years].sort((a, b) => Number(a) - Number(b)).map((y) => ({ value: y, label: y }))
+}
+
 export function getBirthYearOptions(earliestYear = 1930): string[] {
   const currentYear = new Date().getFullYear()
   return Array.from({ length: currentYear - earliestYear + 1 }, (_, i) => String(currentYear - i))
