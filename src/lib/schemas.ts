@@ -241,7 +241,7 @@ function repairSnapshot(snapshot: unknown, profile: Record<string, unknown>): vo
  * its copy of financial data (`materializePlans`). And snapshots are filled in
  * as `repairSnapshot` describes.
  */
-export function repairStoredData(data: unknown): unknown {
+export function repairStoredData(data: unknown, today = new Date()): unknown {
   if (!isRecord(data)) return data
   const profile = data.profile
   // The month repairs run over the profile's lists and every plan's.
@@ -273,34 +273,76 @@ export function repairStoredData(data: unknown): unknown {
     materializePlans(profile, data.portfolios)
     if (Array.isArray(profile.snapshots))
       for (const snapshot of profile.snapshots) repairSnapshot(snapshot, profile)
-    stripPlannedTiming(profile)
+    const thisMonth = today.getFullYear() * 12 + today.getMonth() + 1
+    const birthYear =
+      typeof profile.birth_date === 'string' ? Number(profile.birth_date.slice(0, 4)) : undefined
+    stripPlannedTiming(profile, thisMonth, birthYear)
     // A plan's base is financial data too: left with timing, `isPlanOutdated`
     // would read the strip as a change the user made.
     if (Array.isArray(data.portfolios))
       for (const plan of data.portfolios)
-        if (isRecord(plan) && isRecord(plan.base)) stripPlannedTiming(plan.base, false)
+        if (isRecord(plan) && isRecord(plan.base))
+          stripPlannedTiming(plan.base, thisMonth, birthYear, false)
   }
   return data
 }
 
 /**
- * Sets every dated, age-bound or ending item of `owner` (a profile, or a
- * plan's `base`) back to running and drops its one-time items, so it passes
- * `profileSchema`. Runs after `materializePlans`, so the plans keep their
- * copies with the timing. Transitional, see AGENTS.md.
+ * The month (`year * 12 + month`) a dated or age-bound edge of `item` falls
+ * in, or undefined when the edge is open or cannot be placed. A year without
+ * a month means its first month for a start and its last for an end.
  */
-function stripPlannedTiming(owner: Record<string, unknown>, warn = true): void {
+function edgeMonth(
+  item: Record<string, unknown>,
+  edge: string,
+  birthYear: number | undefined,
+  isEnd: boolean,
+): number | undefined {
+  const storedMonth = item[`${edge}_month`]
+  const month = typeof storedMonth === 'number' ? storedMonth : isEnd ? 12 : 1
+  const year = item[`${edge}_year`]
+  const age = item[`${edge}_age`]
+  if (item[edge] === 'at_specific_date' && typeof year === 'number') return year * 12 + month
+  if (item[edge] === 'when_age_is' && birthYear !== undefined && typeof age === 'number')
+    return (birthYear + age) * 12 + (isEnd ? 12 : 1)
+  return undefined
+}
+
+/**
+ * Leaves `owner` (a profile, or a plan's `base`) with only the items running
+ * in `thisMonth`, each set to running, so it passes `profileSchema`. A
+ * one-time item, one that starts later or one that ended, was sold or was
+ * paid off earlier is dropped: it is not something the user has today. Runs
+ * after `materializePlans`, so the plans keep their copies with the timing.
+ * Transitional, see AGENTS.md.
+ */
+function stripPlannedTiming(
+  owner: Record<string, unknown>,
+  thisMonth: number,
+  birthYear: number | undefined,
+  warn = true,
+): void {
   for (const key of PLAN_LIST_KEYS) {
     const items = owner[key]
     if (!Array.isArray(items)) continue
     owner[key] = items.filter((item) => {
       if (!isRecord(item) || plannedTimingField(key, item) === undefined) return true
       const name = String(item.name ?? item.id ?? 'unknown')
-      if (item.schedule === 'one_time') {
-        if (warn) console.warn(`${key}: "${name}" was one-time; dropped it from financial data`)
+      const { start, end, openEnd } = PLANNED_TIMING[key]
+      const startsAt = edgeMonth(item, start, birthYear, false)
+      const endsAt = edgeMonth(item, end, birthYear, true)
+      const gone =
+        item.schedule === 'one_time'
+          ? 'was one-time'
+          : startsAt !== undefined && startsAt > thisMonth
+            ? 'has not started yet'
+            : endsAt !== undefined && endsAt < thisMonth
+              ? 'has already ended'
+              : undefined
+      if (gone !== undefined) {
+        if (warn) console.warn(`${key}: "${name}" ${gone}; dropped it from financial data`)
         return false
       }
-      const { start, end, openEnd } = PLANNED_TIMING[key]
       const flow = key === 'incomes' || key === 'expenses' || key === 'transfers'
       if (item[start] !== undefined && item[start] !== 'now') {
         if (flow) item[start] = 'immediately'

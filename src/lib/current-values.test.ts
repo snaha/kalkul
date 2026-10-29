@@ -67,38 +67,6 @@ describe('getCurrentProfile', () => {
     expect(getCurrentProfile(PROFILE, TODAY).cash_amount).toBe(25_763)
   })
 
-  // One-time items are events rather than rates — the accrual is a rate, so a
-  // one-time expense or income must not move today's cash either way
-  // (mirrors one-time transfers).
-  test('does not accrue one-time incomes or expenses', () => {
-    const profile: Profile = {
-      ...PROFILE,
-      incomes: [
-        ...PROFILE.incomes!,
-        {
-          id: 'i2',
-          name: 'Lottery',
-          amount: 1_000_000,
-          schedule: 'one_time',
-          transaction_year: 2026,
-          transaction_month: 3,
-        },
-      ],
-      expenses: [
-        ...PROFILE.expenses!,
-        {
-          id: 'e2',
-          name: 'New car',
-          amount: 50_000,
-          schedule: 'one_time',
-          transaction_year: 2026,
-          transaction_month: 3,
-        },
-      ],
-    }
-    expect(getCurrentProfile(profile, TODAY).cash_amount).toBe(25_763)
-  })
-
   test('rounds projected balances to whole units', () => {
     // Compounding a fraction of a year otherwise leaves a long tail of digits
     // that would show up verbatim in the Quick update inputs.

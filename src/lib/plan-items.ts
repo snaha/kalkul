@@ -1,3 +1,4 @@
+import { changedFields } from '$lib/changed-fields'
 import type { PlanListKey, Portfolio } from '$lib/schemas'
 import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
 
@@ -30,4 +31,29 @@ export function upsertPlanItem<K extends PlanListKey>(
 export function removePlanItem(key: PlanListKey, id: string, plan: PortfolioStore): void {
   const next = list(plan, key).filter((it) => it.id !== id)
   plan.update({ [key]: next } as Partial<Omit<Portfolio, 'id'>>)
+}
+
+/**
+ * Save an item a plan dialog edited. `opened` is the item as stored when the
+ * dialog opened (undefined for a new item). Only the fields where `edited`
+ * differs from it are applied onto the item as stored now, so a change made
+ * meanwhile elsewhere (another tab, an MCP tool) to a field the dialog left
+ * alone is kept. A field the dialog merely normalises (a legacy term in
+ * months shown in years) differs too, so it is written together with the
+ * fields that belong to it. Fields merge one by one, so when both sides
+ * changed fields that depend on each other (a loan's balance, rate, term and
+ * installment; a timing and its year, month and age), the result mixes them.
+ */
+export function saveEditedPlanItem<K extends PlanListKey>(
+  key: K,
+  edited: PlanListItem<K>,
+  opened: PlanListItem<K> | undefined,
+  plan: PortfolioStore,
+): void {
+  const stored = list(plan, key).find((it) => it.id === edited.id)
+  const item =
+    stored !== undefined && opened !== undefined
+      ? { ...stored, ...changedFields(opened, edited) }
+      : edited
+  upsertPlanItem(key, item, plan)
 }

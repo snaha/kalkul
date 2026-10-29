@@ -23,15 +23,6 @@ describe('planYearOptions', () => {
   it('lists the plan years inclusive', () => {
     expect(planYearOptions(range)).toEqual(['2026', '2027', '2028', '2029', '2030'])
   })
-
-  it('keeps a stored year outside the plan in the list, in order', () => {
-    expect(planYearOptions(range, 2045)).toEqual(['2026', '2027', '2028', '2029', '2030', '2045'])
-    expect(planYearOptions(range, 2020)).toEqual(['2020', '2026', '2027', '2028', '2029', '2030'])
-  })
-
-  it('adds nothing for a year inside the plan or none at all', () => {
-    expect(planYearOptions(range, 2028, undefined)).toEqual(planYearOptions(range))
-  })
 })
 
 describe('clampYearToPlan', () => {

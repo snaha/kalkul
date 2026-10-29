@@ -1381,10 +1381,11 @@ describe('repairStoredData: planned timing on financial data', () => {
       ],
     }
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const repaired = storedDataSchema.parse(repairStoredData(stored))
+    const repaired = storedDataSchema.parse(repairStoredData(stored, new Date('2026-10-22')))
     expect(repaired.profile.incomes).toEqual([baseIncome])
     expect(repaired.profile.expenses).toEqual([])
-    expect(repaired.profile.investments).toEqual([{ id: 'i', name: 'ETF', balance: 1, apy: 1 }])
+    // Bought in 2030: not something the user has today.
+    expect(repaired.profile.investments).toEqual([])
     expect(repaired.profile.liabilities?.[0]).toMatchObject({ start: 'now' })
     expect(repaired.profile.liabilities?.[0]).not.toHaveProperty('pay_off')
     const [plan] = repaired.portfolios
@@ -1412,18 +1413,18 @@ describe('repairStoredData: planned timing on financial data', () => {
       },
     ],
   })
-  const plan = {
+  const plan = () => ({
     id: 'plan-1',
     name: 'Plan',
     start_date: '2026-01-01',
     end_date: '2060-01-01',
     inflation_rate: 0,
-  }
+  })
 
   it('leaves a plan that took its base during the repair not outdated', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const repaired = storedDataSchema.parse(
-      repairStoredData({ lastUpdated: 1, profile: datedProfile(), portfolios: [plan] }),
+      repairStoredData({ lastUpdated: 1, profile: datedProfile(), portfolios: [plan()] }),
     )
     warn.mockRestore()
     expect(isPlanOutdated(repaired.portfolios[0], repaired.profile)).toBe(false)
@@ -1445,7 +1446,7 @@ describe('repairStoredData: planned timing on financial data', () => {
       repairStoredData({
         lastUpdated: 1,
         profile: datedProfile(),
-        portfolios: [{ ...plan, ...base, base }],
+        portfolios: [{ ...plan(), ...base, base }],
       }),
     )
     expect(repaired.portfolios[0].base.incomes).toEqual([baseIncome])
@@ -1454,6 +1455,132 @@ describe('repairStoredData: planned timing on financial data', () => {
     // The profile's items are reported once; the base is stripped silently.
     expect(warn).toHaveBeenCalledTimes(2)
     warn.mockRestore()
+  })
+
+  it('keeps only the items running today: a future start or a past end leaves financial data', () => {
+    const today = new Date('2026-10-22')
+    const stored = {
+      lastUpdated: 1,
+      profile: {
+        name: 'Test',
+        email: '',
+        birth_date: '1990-06-15',
+        incomes: [
+          {
+            ...baseIncome,
+            id: 'salary',
+            start: 'at_specific_date',
+            start_year: 2020,
+            start_month: 3,
+          },
+          { ...baseIncome, id: 'pension', start: 'when_age_is', start_age: 50 },
+          {
+            ...baseIncome,
+            id: 'this-month',
+            start: 'at_specific_date',
+            start_year: 2026,
+            start_month: 10,
+          },
+          {
+            ...baseIncome,
+            id: 'next-month',
+            start: 'at_specific_date',
+            start_year: 2026,
+            start_month: 11,
+          },
+        ],
+        expenses: [
+          {
+            ...baseExpense,
+            id: 'old-rent',
+            end: 'at_specific_date',
+            end_year: 2024,
+            end_month: 12,
+          },
+          { ...baseExpense, id: 'rent', end: 'at_specific_date', end_year: 2026, end_month: 10 },
+          { ...baseExpense, id: 'until-40', end: 'when_age_is', end_age: 40 },
+          { ...baseExpense, id: 'until-30', end: 'when_age_is', end_age: 30 },
+        ],
+        investments: [
+          {
+            id: 'sold',
+            name: 'ETF',
+            balance: 1,
+            apy: 1,
+            exit: 'at_specific_date',
+            exit_year: 2024,
+            exit_month: 6,
+          },
+          {
+            id: 'held',
+            name: 'Bonds',
+            balance: 1,
+            apy: 1,
+            exit: 'at_specific_date',
+            exit_year: 2040,
+            exit_month: 6,
+          },
+        ],
+        tangible_assets: [
+          {
+            id: 'house',
+            name: 'House',
+            value: 1,
+            status: 'fully_owned',
+            purchase: 'at_specific_date',
+            purchase_year: 2030,
+            purchase_month: 1,
+          },
+        ],
+        liabilities: [
+          {
+            id: 'paid',
+            name: 'Old loan',
+            outstanding_balance: 1,
+            installment_frequency: 'monthly',
+            annual_rate: 1,
+            installment_amount: 1,
+            remaining_term: 1,
+            pay_off: 'at_specific_date',
+            pay_off_year: 2025,
+            pay_off_month: 1,
+          },
+          {
+            id: 'future',
+            name: 'Mortgage',
+            outstanding_balance: 1,
+            installment_frequency: 'monthly',
+            annual_rate: 1,
+            installment_amount: 1,
+            remaining_term: 1,
+            start: 'at_specific_date',
+            start_year: 2030,
+            start_month: 1,
+          },
+        ],
+      },
+      portfolios: [plan()],
+    }
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const repaired = storedDataSchema.parse(repairStoredData(stored, today))
+    warn.mockRestore()
+    const ids = (items: { id: string }[] | undefined) => (items ?? []).map((item) => item.id)
+    expect(ids(repaired.profile.incomes)).toEqual(['salary', 'this-month'])
+    expect(ids(repaired.profile.expenses)).toEqual(['rent', 'until-40'])
+    expect(ids(repaired.profile.investments)).toEqual(['held'])
+    expect(ids(repaired.profile.tangible_assets)).toEqual([])
+    expect(ids(repaired.profile.liabilities)).toEqual([])
+    // The plan took its copy of everything first, timing intact.
+    expect(ids(repaired.portfolios[0].incomes)).toEqual([
+      'salary',
+      'pension',
+      'this-month',
+      'next-month',
+    ])
+    expect(repaired.portfolios[0].tangible_assets[0]).toMatchObject({
+      purchase: 'at_specific_date',
+    })
+    expect(isPlanOutdated(repaired.portfolios[0], repaired.profile)).toBe(false)
   })
 })
 
