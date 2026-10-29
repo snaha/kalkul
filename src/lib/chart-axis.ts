@@ -82,3 +82,16 @@ export function monthTicks(from: string, to: string): string[] {
   }
   return ticks
 }
+
+/**
+ * The first of January of every year that starts inside `(from, to]`, as
+ * date-only ISO strings: where the History chart's year row draws a divider.
+ */
+export function yearBoundaries(from: string, to: string): string[] {
+  if (!from || !to || from > to) return []
+  const boundaries: string[] = []
+  for (let year = Number(from.slice(0, 4)) + 1; year <= Number(to.slice(0, 4)); year++) {
+    boundaries.push(`${year}-01-01`)
+  }
+  return boundaries
+}

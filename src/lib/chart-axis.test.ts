@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import { monthTicks, niceAxisBounds } from './chart-axis'
+import { monthTicks, niceAxisBounds, yearBoundaries } from './chart-axis'
 
 describe('niceAxisBounds', () => {
   test('rounds the top of the axis up to a round step above the data', () => {
@@ -71,5 +71,21 @@ describe('monthTicks', () => {
 
   test('returns nothing when the range is inverted', () => {
     expect(monthTicks('2026-03-01', '2026-01-01')).toEqual([])
+  })
+})
+
+describe('yearBoundaries', () => {
+  test('lists each new year the range crosses', () => {
+    expect(yearBoundaries('2020-09-15', '2022-03-04')).toEqual(['2021-01-01', '2022-01-01'])
+  })
+
+  test('is empty inside one year, on an empty range, or on an inverted one', () => {
+    expect(yearBoundaries('2026-02-01', '2026-11-30')).toEqual([])
+    expect(yearBoundaries('', '')).toEqual([])
+    expect(yearBoundaries('2026-05-01', '2025-05-01')).toEqual([])
+  })
+
+  test('a range ending on 1 January still crosses into that year', () => {
+    expect(yearBoundaries('2025-12-20', '2026-01-01')).toEqual(['2026-01-01'])
   })
 })
