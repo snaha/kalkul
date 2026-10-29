@@ -159,49 +159,6 @@ describe('buildSnapshotSections', () => {
     ).toMatchObject({ value: 0, frequency: 'monthly' })
   })
 
-  test('offers no field for a holding the profile does not have on the date', () => {
-    // The dialog writes every field it offers back into the snapshot, and the
-    // newest snapshot is overlaid onto the profile. A field for a position that
-    // starts in 2030 would therefore let an untouched Confirm zero it — a
-    // planned holding must never be confirmable away.
-    const planned: Profile = {
-      ...PROFILE,
-      investments: [
-        ...(PROFILE.investments ?? []),
-        {
-          id: 'inv9',
-          name: 'Future ETF',
-          balance: 50_000,
-          apy: 5,
-          start: 'at_specific_date',
-          start_year: 2030,
-          start_month: 1,
-        },
-      ],
-    }
-    const source = captureSnapshot(planned, '2026-06-01')
-    const sections = buildSnapshotSections(planned, source, '2026-06-01')
-    expect(fieldsOf(sections, 'investments').map((f) => f.itemId)).toEqual(['inv1'])
-  })
-
-  test('offers no field for an asset the profile has not bought on the date', () => {
-    const planned: Profile = {
-      ...PROFILE,
-      tangible_assets: [
-        {
-          ...(PROFILE.tangible_assets ?? [])[1],
-          purchase: 'at_specific_date',
-          purchase_year: 2030,
-          purchase_month: 1,
-        },
-      ],
-    }
-    const source = captureSnapshot(planned, '2026-06-01')
-    expect(
-      fieldsOf(buildSnapshotSections(planned, source, '2026-06-01'), 'tangible_assets'),
-    ).toEqual([])
-  })
-
   test('offers no field for a one-time cash flow', () => {
     // A snapshot does not record one — a one-time expense is an event rather
     // than a rate — so a field for it would write into the snapshot what

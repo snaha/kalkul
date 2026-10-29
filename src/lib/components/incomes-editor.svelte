@@ -23,10 +23,9 @@
       amount: inc.amount > 0 ? inc.amount : undefined,
       editing: false,
     }),
-    // Financial data records the current income; Start/End/Change over time are
-    // planned modelling and are set in the plan dialog. The required timing
-    // fields are seeded so a new income is schema-valid, but no card renders
-    // them; whatever a plan sets round-trips untouched through toUI/toStored.
+    // Financial data records the current income, already running: the
+    // schema's required start/end are seeded as immediately/never and no card
+    // renders them. Planned timing belongs to a plan's copy of the item.
     makeBlank: (index) => ({
       id: crypto.randomUUID(),
       name: $_('page.setup.income.defaultName', { values: { index } }),
