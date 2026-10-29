@@ -19,6 +19,7 @@
   import { trackToday } from '$lib/today.svelte'
   import { notImplemented, toDateOnlyString } from '$lib/utils'
 
+  import FiSettingsDialog from './fi-settings-dialog.svelte'
   import HistorySection from './history-section.svelte'
   import Landing from './landing.svelte'
   import MetricCard from './metric-card.svelte'
@@ -52,6 +53,7 @@
   const historyPoints = $derived(buildHistorySeries(storedProfile, today))
 
   let quickUpdateOpen = $state(false)
+  let fiSettingsOpen = $state(false)
 </script>
 
 <!-- This route escapes the (app) layout (the `@` in the filename) so the
@@ -118,7 +120,7 @@
                     title={$_('page.dashboard.finances.fiCard.title')}
                     help={$_('page.dashboard.finances.fiCard.help')}
                     settingsLabel={$_('page.dashboard.finances.fiCard.settings')}
-                    onSettings={notImplemented}
+                    onSettings={() => (fiSettingsOpen = true)}
                   >
                     {#if fiPercent !== undefined}
                       <div class="flex items-center gap-2">
@@ -168,6 +170,9 @@
       <ProjectionsPanel profile={currentProfile} {today} {hasFinancialData} />
     </div>
 
+    {#if fiSettingsOpen}
+      <FiSettingsDialog bind:open={fiSettingsOpen} profile={currentProfile} />
+    {/if}
     {#if staleSince}
       <QuickUpdateDialog
         bind:open={quickUpdateOpen}
