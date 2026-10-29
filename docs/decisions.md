@@ -10,6 +10,24 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-10-29 Runway is a drawdown the user configures
+
+**Context.** The Runway card divided investable net worth by annual outflows:
+one number, no way to see what it assumed, and nothing a user could change
+(#219). The Figma dialog offers switches for income, investment withdrawals and
+asset sales, each with growth and a tax rate.
+
+**Decision.** Runway is a month-by-month drawdown of today's balances against
+today's outflows: cash first, then investments, then tangible assets, as far
+as the user allows. The settings live on the profile. By default income and
+asset sales are off, so the default reads like the old ratio. Loan installments
+run for their remaining term; selling a financed asset settles what is owed.
+Tax applies only to growth after today, since the balance now is the only cost
+basis Kalkul has, and the two rates are the runway's own, separate from the
+holding-period rules on the Settings page. Money that outlasts 100 years shows
+as "100+ years". The Financial independence card and the per-year runway in
+projections keep the old ratio until decided otherwise. (#391)
+
 ## 2026-10-29 Repair drops items that are not running today
 
 **Context.** Converting stored data to the no-planned-timing rule had to do

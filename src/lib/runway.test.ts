@@ -13,11 +13,15 @@ function income(amount: number): Income {
   return { id: `i-${amount}`, name: 'Income', amount, schedule: 'recurring', frequency: 'monthly' }
 }
 
-// Growth off and nothing taxed, so the numbers below are exact.
+// Everything allowed, growth off and nothing taxed, so the numbers are exact.
 const FLAT: RunwaySettings = {
-  ...DEFAULT_RUNWAY_SETTINGS,
+  include_income: true,
+  withdraw_investments: true,
   investment_growth: false,
+  investment_tax_rate: 0,
+  sell_tangible_assets: true,
   tangible_asset_growth: false,
+  tangible_asset_tax_rate: 0,
 }
 
 describe('getRunwayYears', () => {
@@ -48,7 +52,7 @@ describe('getRunwayYears', () => {
       incomes: [income(1_000)],
       expenses: [expense(2_000)],
     }
-    expect(getRunwayYears(profile)).toBeCloseTo(1, 6)
+    expect(getRunwayYears(profile, FLAT)).toBeCloseTo(1, 6)
     expect(getRunwayYears(profile, { ...FLAT, include_income: false })).toBeCloseTo(0.5, 6)
   })
 
@@ -59,7 +63,7 @@ describe('getRunwayYears', () => {
       incomes: [income(2_000)],
       expenses: [expense(2_000)],
     }
-    expect(getRunwayYears(profile)).toBe(Infinity)
+    expect(getRunwayYears(profile, FLAT)).toBe(Infinity)
   })
 
   test('draws on investments after cash, when allowed', () => {
@@ -156,14 +160,27 @@ describe('getRunwayYears', () => {
     expect(getRunwayYears(profile)).toBeCloseTo(1.5, 6)
   })
 
+  test('defaults leave income and asset sales out, like the original ratio', () => {
+    const profile: Profile = {
+      ...BASE,
+      cash_amount: 12_000,
+      incomes: [income(1_000)],
+      tangible_assets: [{ id: 't', name: 'Car', value: 12_000, status: 'fully_owned' }],
+      expenses: [expense(2_000)],
+    }
+    expect(DEFAULT_RUNWAY_SETTINGS.include_income).toBe(false)
+    expect(DEFAULT_RUNWAY_SETTINGS.sell_tangible_assets).toBe(false)
+    expect(getRunwayYears(profile)).toBeCloseTo(0.5, 6)
+  })
+
   test('uses the settings stored on the profile by default', () => {
     const profile: Profile = {
       ...BASE,
       cash_amount: 12_000,
       incomes: [income(1_000)],
       expenses: [expense(2_000)],
-      runway_settings: { ...FLAT, include_income: false },
+      runway_settings: FLAT,
     }
-    expect(getRunwayYears(profile)).toBeCloseTo(0.5, 6)
+    expect(getRunwayYears(profile)).toBeCloseTo(1, 6)
   })
 })

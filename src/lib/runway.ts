@@ -10,12 +10,14 @@ import {
 } from '$lib/plan-projection'
 import type { Profile, ProfileLiability, RunwaySettings } from '$lib/schemas'
 
+// Off by default: income and asset sales. With cash and investments only, the
+// default matches what the card showed before the settings existed.
 export const DEFAULT_RUNWAY_SETTINGS: RunwaySettings = {
-  include_income: true,
+  include_income: false,
   withdraw_investments: true,
   investment_growth: true,
   investment_tax_rate: 0,
-  sell_tangible_assets: true,
+  sell_tangible_assets: false,
   tangible_asset_growth: true,
   tangible_asset_tax_rate: 0,
 }
