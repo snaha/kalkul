@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import { monthTicks, niceAxisBounds } from './chart-axis'
+import { labelsWithYear, monthTicks, niceAxisBounds } from './chart-axis'
 
 describe('niceAxisBounds', () => {
   test('rounds the top of the axis up to a round step above the data', () => {
@@ -71,5 +71,26 @@ describe('monthTicks', () => {
 
   test('returns nothing when the range is inverted', () => {
     expect(monthTicks('2026-03-01', '2026-01-01')).toEqual([])
+  })
+})
+
+describe('labelsWithYear', () => {
+  test('a short chart carries the year on the leading label only', () => {
+    expect(labelsWithYear(['2025-12-01', '2026-01-01', '2026-02-01'], false)).toEqual([
+      true,
+      false,
+      false,
+    ])
+  })
+
+  test('a long chart repeats the year on the first label of each new year', () => {
+    // Thinned ticks: the first label of 2022 is March, and it still gets the year.
+    expect(
+      labelsWithYear(['2020-09-01', '2021-02-01', '2021-07-01', '2022-03-01', '2022-08-01'], true),
+    ).toEqual([true, true, false, true, false])
+  })
+
+  test('handles an empty list', () => {
+    expect(labelsWithYear([], true)).toEqual([])
   })
 })
