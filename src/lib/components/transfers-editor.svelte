@@ -85,7 +85,6 @@
   function collapsedValue(transfer: TransferUI): string | undefined {
     if (!transfer.amount) return undefined
     const amount = appStore.formatCurrencyCode(transfer.amount)
-    if (transfer.schedule === 'one_time') return amount
     return `${amount} / ${getFrequencyShortLabel($_, transfer.frequency)}`
   }
 </script>
@@ -139,7 +138,7 @@
             </div>
           </div>
 
-          <!-- Amount and (recurring) Frequency row -->
+          <!-- Amount and Frequency row -->
           <div class="flex items-center gap-2">
             <div class="flex flex-1 flex-col gap-2">
               <Label for="amount-{transfer.id}">{$_('page.setup.transfers.amount')}</Label>
@@ -153,21 +152,17 @@
                 }}
               />
             </div>
-            {#if transfer.schedule === 'recurring'}
-              <div class="flex flex-1 flex-col gap-2">
-                <Label for="frequency-{transfer.id}">{$_('page.setup.transfers.frequency')}</Label>
-                <SelectField
-                  id="frequency-{transfer.id}"
-                  value={transfer.frequency}
-                  items={frequencyItems}
-                  onValueChange={(v) => {
-                    if (v) transfer.frequency = v
-                  }}
-                />
-              </div>
-            {:else}
-              <div class="flex-1"></div>
-            {/if}
+            <div class="flex flex-1 flex-col gap-2">
+              <Label for="frequency-{transfer.id}">{$_('page.setup.transfers.frequency')}</Label>
+              <SelectField
+                id="frequency-{transfer.id}"
+                value={transfer.frequency}
+                items={frequencyItems}
+                onValueChange={(v) => {
+                  if (v) transfer.frequency = v
+                }}
+              />
+            </div>
           </div>
 
           <InflationAdjustToggle

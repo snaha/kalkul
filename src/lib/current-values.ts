@@ -12,7 +12,7 @@ import {
   installmentPeriodRate,
   remainingInstallmentPeriods,
 } from '$lib/plan-projection'
-import type { Expense, Income, Profile, ProfileLiability, RemainingTermUnit } from '$lib/schemas'
+import type { Profile, ProfileLiability, RemainingTermUnit } from '$lib/schemas'
 import { latestSnapshot } from '$lib/snapshots'
 import { toDateOnlyString } from '$lib/utils'
 
@@ -51,16 +51,11 @@ interface AnnualFlows {
  * running today.
  */
 function netAnnualCashFlow(profile: Profile): Decimal {
-  // Recurring items only: a one-time item is an event rather than a rate, and
-  // this accrual only knows rates (mirrors one-time transfers).
-  const running = (flows: (Income | Expense)[] | undefined): (Income | Expense)[] =>
-    (flows ?? []).filter((flow) => flow.schedule !== 'one_time')
-
-  const income = running(profile.incomes).reduce<Decimal>(
+  const income = (profile.incomes ?? []).reduce<Decimal>(
     (sum, i) => sum.plus(annualizedAmount(new Decimal(i.amount), i.frequency ?? 'monthly')),
     DECIMAL_0,
   )
-  const expenses = running(profile.expenses).reduce<Decimal>(
+  const expenses = (profile.expenses ?? []).reduce<Decimal>(
     (sum, e) => sum.plus(annualizedAmount(new Decimal(e.amount), e.frequency ?? 'monthly')),
     DECIMAL_0,
   )
