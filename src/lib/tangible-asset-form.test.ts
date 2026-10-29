@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { type TangibleAssetUI, toStoredTangibleAsset } from '$lib/tangible-asset-form'
+import {
+  type TangibleAssetUI,
+  impliedDownPayment,
+  outstandingBalance,
+  toStoredTangibleAsset,
+} from '$lib/tangible-asset-form'
 
 const base: TangibleAssetUI = {
   id: 't1',
@@ -49,5 +54,39 @@ describe('toStoredTangibleAsset', () => {
     const stored = toStoredTangibleAsset({ ...base, status: 'fully_owned' }, prev)
     expect(stored.interest_type).toBeUndefined()
     expect(stored.compounding_frequency).toBeUndefined()
+  })
+})
+
+describe('outstandingBalance', () => {
+  it('is the price less the down payment, never below 0', () => {
+    expect(outstandingBalance(300_000, 50_000)).toBe(250_000)
+    expect(outstandingBalance(300_000, undefined)).toBe(300_000)
+    expect(outstandingBalance(4, 50_000)).toBe(0)
+    expect(outstandingBalance(undefined, 50_000)).toBe(0)
+  })
+
+  it('keeps a held down payment through a retyped price', () => {
+    const paid = 50_000
+    expect(
+      [4, 40, 400, 4_000, 40_000, 400_000].map((price) => outstandingBalance(price, paid)),
+    ).toEqual([0, 0, 0, 0, 0, 350_000])
+  })
+
+  it('is exact in cents', () => {
+    expect(outstandingBalance(0.3, 0.1)).toBe(0.2)
+  })
+})
+
+describe('impliedDownPayment', () => {
+  it('is nothing paid until a balance exists, so typing a price leaves it at 0', () => {
+    expect(impliedDownPayment(undefined, undefined)).toBeUndefined()
+    expect(impliedDownPayment(300_000, undefined)).toBe(0)
+  })
+
+  it('is the price less the stored balance, never below 0', () => {
+    expect(impliedDownPayment(300_000, 250_000)).toBe(50_000)
+    expect(impliedDownPayment(300_000, 0)).toBe(300_000)
+    // Underwater: more owed than the asset is worth.
+    expect(impliedDownPayment(9_000, 11_500)).toBe(0)
   })
 })

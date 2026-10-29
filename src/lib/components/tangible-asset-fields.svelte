@@ -26,6 +26,7 @@
     getPaymentMethodItems,
     getValueOverTimeItems,
   } from '$lib/select-options'
+  import { impliedDownPayment, outstandingBalance } from '$lib/tangible-asset-form'
 
   /** The editable shape; the caller owns the surrounding state. */
   export interface TangibleAssetFieldsItem {
@@ -61,6 +62,12 @@
     idPrefix: string
     /** Whether the value/tax fields are revealed. */
     showAdvanced: boolean
+    /**
+     * A new asset has no loan yet: the down payment is what the user types
+     * and the balance owed follows the price. An existing one keeps its
+     * stored balance through a price edit.
+     */
+    isNew?: boolean
     currencyLabel: string
     /** The plan's years; the Purchase and Sale selectors show only with it. */
     range?: PlanRange
@@ -75,6 +82,7 @@
     item = $bindable(),
     idPrefix,
     showAdvanced,
+    isNew = false,
     currencyLabel,
     range,
     months = [],
@@ -89,17 +97,36 @@
 
   let valueOverTimeItems = $derived(getValueOverTimeItems($_))
 
-  // The dialog asks for the down payment; the profile stores what is still
-  // owed. One is the other's complement against the purchase price.
+  // The dialog asks for the down payment; the asset stores what is still owed.
+  // A new asset: the down payment is what was typed (nothing until then, so
+  // the field starts empty) and the balance follows the price. An existing asset: the stored balance comes
+  // from a statement, so it is the truth and the down payment is what it
+  // implies; a price edit leaves it alone.
+  let typedDownPayment = $state<number | undefined>()
   let downPayment = $derived(
-    item.value === undefined
-      ? undefined
-      : Math.max(item.value - (item.outstanding_balance ?? 0), 0),
+    isNew ? typedDownPayment : impliedDownPayment(item.value, item.outstanding_balance),
   )
 
-  function setDownPayment(paid: number | undefined): void {
-    item.outstanding_balance = Math.max((item.value ?? 0) - (paid ?? 0), 0)
+  function syncBalance(): void {
+    item.outstanding_balance = outstandingBalance(item.value, downPayment)
     rederiveLoanPair(item, anchor)
+  }
+
+  function setPurchasePrice(value: number | undefined): void {
+    item.value = value
+    if (isNew && item.status === 'financed') syncBalance()
+  }
+
+  function setDownPayment(paid: number | undefined): void {
+    typedDownPayment = paid
+    syncBalance()
+  }
+
+  function setStatus(status: TangibleAssetStatus): void {
+    item.status = status
+    // Financed with no loan yet (a new asset, or one that was paid upfront):
+    // the price may have changed meanwhile, and nothing of it is paid down.
+    if (status === 'financed' && (isNew || item.outstanding_balance === undefined)) syncBalance()
   }
 
   // Installment amount ⇄ Term: the side last edited anchors the pair,
@@ -143,9 +170,7 @@
       value={item.value}
       suffix={currencyLabel}
       {formatNumber}
-      onValueChange={(v) => {
-        item.value = v
-      }}
+      onValueChange={setPurchasePrice}
     />
   </div>
   <div class="flex flex-1 flex-col gap-2">
@@ -155,7 +180,7 @@
       value={item.status}
       items={paymentMethodItems}
       onValueChange={(v) => {
-        if (v) item.status = v
+        if (v) setStatus(v)
       }}
     />
   </div>
