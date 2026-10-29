@@ -24,6 +24,7 @@
   import {
     getFrequencyItems,
     getPaymentMethodItems,
+    getRemainingTermUnitItems,
     getValueOverTimeItems,
   } from '$lib/select-options'
 
@@ -88,6 +89,8 @@
   let frequencyItems = $derived(getFrequencyItems($_))
 
   let valueOverTimeItems = $derived(getValueOverTimeItems($_))
+
+  let remainingTermUnitItems = $derived(getRemainingTermUnitItems($_))
 
   // The dialog asks for the down payment; the profile stores what is still
   // owed. One is the other's complement against the purchase price.
@@ -232,21 +235,28 @@
     </span>
     <div class="flex flex-1 flex-col gap-2">
       <Label for="{idPrefix}-term">{$_('page.plan.term')}</Label>
-      <SuffixedInput
-        id="{idPrefix}-term"
-        value={item.remaining_term}
-        suffix={item.remaining_term_unit === 'months'
-          ? $_('page.setup.common.months')
-          : $_('page.setup.tangibleAssets.years', {
-              values: { count: item.remaining_term ?? 0 },
-            })}
-        {formatNumber}
-        onValueChange={(v) => {
-          item.remaining_term = v
-          anchor = 'term'
-          rederiveLoanPair(item, anchor)
-        }}
-      />
+      <div class="flex items-center gap-2">
+        <SuffixedInput
+          id="{idPrefix}-term"
+          value={item.remaining_term}
+          {formatNumber}
+          class="w-24"
+          onValueChange={(v) => {
+            item.remaining_term = v
+            anchor = 'term'
+            rederiveLoanPair(item, anchor)
+          }}
+        />
+        <SelectField
+          id="{idPrefix}-termUnit"
+          value={item.remaining_term_unit}
+          items={remainingTermUnitItems}
+          onValueChange={(v) => {
+            if (v) item.remaining_term_unit = v
+            rederiveLoanPair(item, anchor)
+          }}
+        />
+      </div>
     </div>
   </div>
 {/if}

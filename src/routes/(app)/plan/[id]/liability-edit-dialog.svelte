@@ -22,6 +22,7 @@
     InterestType,
     LiabilityPayOff,
     ProfileLiability,
+    RemainingTermUnit,
   } from '$lib/schemas'
   import { timingComplete } from '$lib/schemas'
   import {
@@ -29,6 +30,7 @@
     getFrequencyItems,
     getInterestTypeItems,
     getLiabilityPayOffItems,
+    getRemainingTermUnitItems,
   } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
@@ -58,8 +60,8 @@
     installment_frequency: Frequency
     annual_rate: number | undefined
     installment_amount: number | undefined
-    /** Term in years — the Figma dialog is years-only. */
     remaining_term: number | undefined
+    remaining_term_unit: RemainingTermUnit
     start: CashFlowStart
     start_year: number | undefined
     start_month: number | undefined
@@ -81,6 +83,7 @@
       annual_rate: undefined,
       installment_amount: undefined,
       remaining_term: undefined,
+      remaining_term_unit: 'years',
       // New liabilities start "Now" per the Figma; an absent start on stored
       // data keeps meaning "from the plan's first year".
       start: 'now',
@@ -104,13 +107,8 @@
     f.installment_frequency = src.installment_frequency
     f.annual_rate = src.annual_rate > 0 ? src.annual_rate : undefined
     f.installment_amount = src.installment_amount > 0 ? src.installment_amount : undefined
-    // Legacy data may store the term in months; the Figma dialog is years-only.
-    f.remaining_term =
-      src.remaining_term > 0
-        ? src.remaining_term_unit === 'months'
-          ? src.remaining_term / 12
-          : src.remaining_term
-        : undefined
+    f.remaining_term = src.remaining_term > 0 ? src.remaining_term : undefined
+    f.remaining_term_unit = src.remaining_term_unit ?? 'years'
     f.start = src.start ?? 'immediately'
     f.start_year = src.start_year
     f.start_month = src.start_month
@@ -135,7 +133,7 @@
       annual_rate: f.annual_rate ?? 0,
       installment_amount: f.installment_amount ?? 0,
       remaining_term: f.remaining_term ?? 0,
-      remaining_term_unit: 'years',
+      remaining_term_unit: f.remaining_term_unit,
       // 'immediately' is the engine default, so it collapses to undefined.
       ...(f.start !== 'immediately'
         ? {
@@ -177,6 +175,7 @@
   let interestTypeItems = $derived(getInterestTypeItems($_))
   let compoundingFrequencyItems = $derived(getCompoundingFrequencyItems($_))
   let payOffItems = $derived(getLiabilityPayOffItems($_))
+  let remainingTermUnitItems = $derived(getRemainingTermUnitItems($_))
   let yearItems = $derived(yearItemsIncluding(planYearOptions(range), form.pay_off_year))
 
   // Installment amount ⇄ Term: the field the user last edited is the
@@ -357,13 +356,24 @@
     </span>
     <div class="flex flex-1 flex-col gap-2">
       <Label for="{uid}-term">{$_('page.plan.term')}</Label>
-      <SuffixedInput
-        id="{uid}-term"
-        value={form.remaining_term}
-        suffix={$_('page.plan.termYears')}
-        formatNumber={appStore.formatNumber}
-        onValueChange={onTermChange}
-      />
+      <div class="flex items-center gap-2">
+        <SuffixedInput
+          id="{uid}-term"
+          value={form.remaining_term}
+          formatNumber={appStore.formatNumber}
+          class="w-24"
+          onValueChange={onTermChange}
+        />
+        <SelectField
+          id="{uid}-termUnit"
+          value={form.remaining_term_unit}
+          items={remainingTermUnitItems}
+          onValueChange={(v) => {
+            if (v) form.remaining_term_unit = v
+            rederiveFromAnchor()
+          }}
+        />
+      </div>
     </div>
   </div>
 
