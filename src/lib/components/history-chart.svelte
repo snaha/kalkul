@@ -2,7 +2,7 @@
   import { locale } from 'svelte-i18n'
 
   import { daysBetween } from '$lib/@snaha/kalkul-maths'
-  import { monthTicks, niceAxisBounds } from '$lib/chart-axis'
+  import { monthTicks, niceAxisBounds, yearBoundaries } from '$lib/chart-axis'
   import type { HistoryPoint } from '$lib/history-series'
   import { cn, parseDateOnly } from '$lib/utils'
 
@@ -24,15 +24,10 @@
   // every chart labels its axis the same way, and a locale string has no
   // business travelling through props.
   const shortMonth = $derived(new Intl.DateTimeFormat($locale ?? undefined, { month: 'short' }))
-  const monthWithYear = $derived(
-    new Intl.DateTimeFormat($locale ?? undefined, { month: 'short', year: 'numeric' }),
-  )
 
-  // Only the leading tick carries a year, matching the spec. Which tick that is
-  // depends on how far the labels had to be thinned.
-  function formatMonth(date: string, isFirst: boolean): string {
-    const parsed = parseDateOnly(date)
-    return isFirst ? monthWithYear.format(parsed) : shortMonth.format(parsed)
+  // Month ticks never carry a year: the year row under them does (#227).
+  function formatMonth(date: string): string {
+    return shortMonth.format(parseDateOnly(date))
   }
 
   // Geometry is computed in real pixels rather than a stretched viewBox so
@@ -43,9 +38,11 @@
   const DOT_SIZE = 8
   // Room for the "Now" label so a month tick can't collide with it.
   const NOW_LABEL_WIDTH = 40
-  // Minimum gap between month labels. Wide enough for the leading "Mon YYYY"
-  // tick; below it, labels are thinned rather than allowed to overlap.
+  // Minimum gap between month labels; below it, labels are thinned rather
+  // than allowed to overlap.
   const MIN_TICK_SPACING = 56
+  // A year label stays clear of the plot's right edge by this much.
+  const YEAR_LABEL_WIDTH = 32
 
   const bounds = $derived(niceAxisBounds(points.map((p) => p.netWorth)))
 
@@ -108,10 +105,20 @@
       : '',
   )
 
+  /** Horizontal position of the middle of `date`'s month, as a fraction. */
+  function midMonthFraction(date: string): number {
+    const [year, month] = date.split('-').map(Number)
+    const nextFirst =
+      month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, '0')}-01`
+    return (xFraction(date) + xFraction(nextFirst)) / 2
+  }
+
+  // A month label sits in the middle of its month, so a year divider at
+  // 1 January falls between December and January rather than through one.
   const monthLabels = $derived.by(() => {
     const ticks = monthTicks(firstDate, lastDate).map((date) => ({
       date,
-      x: xFraction(date) * plotWidth,
+      x: midMonthFraction(date) * plotWidth,
     }))
     // Two years of history would otherwise print 24 overlapping labels; keep
     // every Nth so whatever survives is legible at the current width.
@@ -123,6 +130,21 @@
         // The trailing "Now" label owns the right edge.
         .filter((tick) => plotWidth - tick.x > NOW_LABEL_WIDTH)
     )
+  })
+
+  // The year row: every year the chart crosses into gets a divider at its
+  // 1 January with its number centred under it. The starting year sits at the
+  // left edge when there is room for it before the first divider.
+  const yearLabels = $derived.by(() => {
+    if (!firstDate) return []
+    const crossed = yearBoundaries(firstDate, lastDate).map((date) => ({
+      year: date.slice(0, 4),
+      x: xFraction(date) * plotWidth,
+      divider: true,
+    }))
+    const roomForFirst = (crossed[0]?.x ?? plotWidth) > YEAR_LABEL_WIDTH * 1.5
+    const first = roomForFirst ? [{ year: firstDate.slice(0, 4), x: 0, divider: false }] : []
+    return [...first, ...crossed].filter((label) => plotWidth - label.x > YEAR_LABEL_WIDTH / 2)
   })
 </script>
 
@@ -208,13 +230,30 @@
   <div class="flex h-4 gap-2 text-xs leading-none">
     <div class="w-12 shrink-0"></div>
     <div class="relative min-w-0 flex-1">
-      {#each monthLabels as tick, i (tick.date)}
+      {#each monthLabels as tick (tick.date)}
         <span
           class="absolute -translate-x-1/2 whitespace-nowrap text-muted-foreground"
-          style:left="{tick.x}px">{formatMonth(tick.date, i === 0)}</span
+          style:left="{tick.x}px">{formatMonth(tick.date)}</span
         >
       {/each}
       <span class="absolute right-0 whitespace-nowrap font-medium text-foreground">{nowLabel}</span>
+    </div>
+  </div>
+
+  <!-- Year row. A divider rises between the month labels where each new year
+       starts, with the year centred under it. -->
+  <div class="mt-1 flex h-4 gap-2 text-xs leading-none text-muted-foreground">
+    <div class="w-12 shrink-0"></div>
+    <div class="relative min-w-0 flex-1">
+      {#each yearLabels as label (label.year)}
+        {#if label.divider}
+          <span class="absolute -top-5 h-5 w-px bg-border" style:left="{label.x}px"></span>
+        {/if}
+        <span
+          class={['absolute whitespace-nowrap', label.divider && '-translate-x-1/2']}
+          style:left="{label.x}px">{label.year}</span
+        >
+      {/each}
     </div>
   </div>
 </div>
