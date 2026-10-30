@@ -448,9 +448,10 @@ function withAppStore() {
     /**
      * Adds or replaces a snapshot from the History page. Pass `originalDate`
      * when editing one whose date the user changed, so the entry does not
-     * survive at both dates.
+     * survive at both dates, and `shown`, the figures the dialog opened at, so
+     * a cash flow the user changed from them reaches the profile.
      */
-    saveSnapshot(snapshot: Snapshot, originalDate?: string) {
+    saveSnapshot(snapshot: Snapshot, originalDate?: string, shown?: Snapshot) {
       // A snapshot dated after the baseline moves the baseline forward, so the
       // profile is carried to that date first — the way the dashboard and
       // Quick update reach it. A planned sale in between otherwise reaches cash
@@ -458,7 +459,7 @@ function withAppStore() {
       // balance, and the plan sells it a second time. Carried to a date that
       // is not later, nothing has elapsed and the profile is unchanged.
       const carried = getCurrentProfile(profile.toJSON(), parseDateOnly(snapshot.date))
-      writeProfile(withSavedSnapshot(carried, snapshot, originalDate), 'manage')
+      writeProfile(withSavedSnapshot(carried, snapshot, originalDate, shown), 'manage')
     },
 
     /** Deletes the snapshot dated `date`, unless `canDeleteSnapshot` refuses. */

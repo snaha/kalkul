@@ -10,6 +10,7 @@ import {
   byId,
   captureSnapshot,
   countedCashFlows,
+  latestSnapshot,
   profileAtSnapshot,
   recordsDebt,
   withMissingEntries,
@@ -300,6 +301,18 @@ export function seedSnapshotOn(profile: Profile, date: string): Snapshot {
   const base = snapshots.findLast((snapshot) => snapshot.date <= date) ?? snapshots[0]
   const asOfBase: Profile = { ...profileAtSnapshot(profile, base), snapshots: [base] }
   return captureSnapshot(getCurrentProfile(asOfBase, parseDateOnly(date)), date)
+}
+
+/**
+ * The figures the dialog opens at for editing `snapshot`. The latest one opens
+ * with the cash flows running now: they may have changed since it was taken
+ * without recording anything, and a flow changed in it is written onto the
+ * profile.
+ */
+export function editSourceOf(profile: Profile, snapshot: Snapshot): Snapshot {
+  if (latestSnapshot(profile.snapshots)?.date !== snapshot.date) return snapshot
+  const { incomes, expenses } = captureSnapshot(profile, snapshot.date)
+  return { ...snapshot, incomes, expenses }
 }
 
 /**

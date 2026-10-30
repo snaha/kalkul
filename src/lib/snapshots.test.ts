@@ -567,6 +567,65 @@ describe('withSavedSnapshot', () => {
     expect(saved.expenses).toEqual(PROFILE.expenses)
   })
 
+  test('writes a cash flow corrected in the latest snapshot back onto the profile', () => {
+    const corrected: Snapshot = {
+      ...JUN,
+      incomes: [{ id: 'i1', amount: 4_500, frequency: 'monthly' }],
+    }
+    const saved = withSavedSnapshot(HISTORY, corrected, undefined, JUN)
+    expect(saved.incomes?.[0]).toEqual({ ...PROFILE.incomes![0], amount: 4_500 })
+    expect(saved.expenses).toEqual(PROFILE.expenses)
+  })
+
+  test('writes a cash flow corrected in a new latest snapshot back onto the profile', () => {
+    const added: Snapshot = {
+      ...JUN,
+      date: '2026-08-01',
+      expenses: [{ id: 'e1', amount: 600, frequency: 'weekly' }],
+    }
+    const saved = withSavedSnapshot(HISTORY, added, undefined, { ...JUN, date: '2026-08-01' })
+    expect(saved.expenses?.[0]).toEqual({
+      ...PROFILE.expenses![0],
+      amount: 600,
+      frequency: 'weekly',
+    })
+  })
+
+  describe('a raise entered after the latest snapshot', () => {
+    const jan = { ...JAN, incomes: [{ id: 'i1', amount: 3_000, frequency: 'monthly' as const }] }
+    const raised: Profile = {
+      ...HISTORY,
+      incomes: [{ ...PROFILE.incomes![0], amount: 5_000 }],
+      snapshots: [jan, JUN],
+    }
+
+    test('survives an older snapshot duplicated as the latest', () => {
+      const copy = { ...jan, date: '2026-08-01' }
+      expect(withSavedSnapshot(raised, copy, undefined, copy).incomes?.[0].amount).toBe(5_000)
+    })
+
+    test('survives an older snapshot re-dated past the latest', () => {
+      const moved = { ...jan, date: '2026-07-01' }
+      const saved = withSavedSnapshot(raised, moved, '2026-01-01', moved)
+      expect(saved.incomes?.[0].amount).toBe(5_000)
+    })
+  })
+
+  test('leaves the profile alone when a cash flow is corrected in an older snapshot', () => {
+    const corrected: Snapshot = {
+      ...JAN,
+      incomes: [{ id: 'i1', amount: 3_000, frequency: 'monthly' }],
+    }
+    expect(withSavedSnapshot(HISTORY, corrected, undefined, JAN).incomes).toEqual(PROFILE.incomes)
+  })
+
+  test("leaves the profile's cash flows alone when the latest snapshot is deleted", () => {
+    // Rewinding onto JAN must not put JAN's salary back over a raise.
+    const jan = { ...JAN, incomes: [{ id: 'i1', amount: 3_000, frequency: 'monthly' as const }] }
+    const deleted = withDeletedSnapshot({ ...HISTORY, snapshots: [jan, JUN] }, '2026-06-01')
+    expect(deleted.incomes).toEqual(PROFILE.incomes)
+  })
+
   test('reads an unrecorded cash amount as zero, like the net worth it records', () => {
     // There is only one cash balance, so "not recorded" cannot mean "left
     // alone" the way it does for an item: `snapshotNetWorth` counts a missing

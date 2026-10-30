@@ -397,7 +397,9 @@ export function profileAtSnapshot(profile: Profile, snapshot: Snapshot): Profile
  * ran on its date; the profile's are what runs now, and the two part ways the
  * moment a raise is entered — which records no snapshot, because no balance
  * moved. Writing the snapshot's flows back onto the profile would silently
- * undo that raise on every save the History page makes.
+ * undo that raise on every save the History page makes, and on every rewind.
+ * Only a flow the user corrects in the latest snapshot reaches the profile
+ * (`withSavedSnapshot`).
  */
 function withSnapshotValues(profile: Profile, snapshot: Snapshot): Profile {
   const overlay = <P extends { id: string }, S extends { id: string }>(
@@ -475,19 +477,50 @@ function withHistory(profile: Profile, snapshots: Snapshot[]): Profile {
 }
 
 /**
+ * The profile wearing every cash flow `saved` records differently from
+ * `shown`, the figures the dialog opened at. A flow saved as shown is left as
+ * the profile has it, so a raise entered since survives a save that never
+ * touched the salary, even one that copies an older snapshot's figures.
+ */
+function withCorrectedFlows(profile: Profile, saved: Snapshot, shown: Snapshot): Profile {
+  const correct = (section: 'incomes' | 'expenses'): CashFlow[] | undefined => {
+    const before = byId(shown[section])
+    const changed = byId(
+      (saved[section] ?? []).filter((entry) => {
+        const old = before.get(entry.id)
+        return !old || old.amount !== entry.amount || old.frequency !== entry.frequency
+      }),
+    )
+    return profile[section]?.map((item) => {
+      const entry = changed.get(item.id)
+      return entry ? withRecordedAmount(item, entry) : item
+    })
+  }
+  return { ...profile, incomes: correct('incomes'), expenses: correct('expenses') }
+}
+
+/**
  * Records an edited or newly added snapshot. Pass `originalDate` when editing
  * one whose date the user changed, so the entry does not survive at both dates.
+ *
+ * A snapshot saved as the latest also states the cash flows running now, so a
+ * flow the user changed from `shown`, the figures the dialog opened at, is
+ * written onto the profile. Without `shown` no flow is.
  */
 export function withSavedSnapshot(
   profile: Profile,
   snapshot: Snapshot,
   originalDate?: string,
+  shown?: Snapshot,
 ): Profile {
   const kept =
     originalDate && originalDate !== snapshot.date
       ? removeSnapshot(profile.snapshots, originalDate)
       : profile.snapshots
-  return withHistory(profile, upsertSnapshot(kept, snapshot))
+  const snapshots = upsertSnapshot(kept, snapshot)
+  const isLatest = latestSnapshot(snapshots)?.date === snapshot.date
+  const corrected = isLatest && shown ? withCorrectedFlows(profile, snapshot, shown) : profile
+  return withHistory(corrected, snapshots)
 }
 
 /**
