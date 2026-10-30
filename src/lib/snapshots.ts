@@ -478,16 +478,13 @@ function withHistory(profile: Profile, snapshots: Snapshot[]): Profile {
 
 /**
  * The profile wearing every cash flow `saved` records differently from
- * `previous`. A flow the two record alike is left as the profile has it, so a
- * raise entered after `previous` survives a save that never touched the salary.
+ * `shown`, the figures the dialog opened at. A flow saved as shown is left as
+ * the profile has it, so a raise entered since survives a save that never
+ * touched the salary, even one that copies an older snapshot's figures.
  */
-function withCorrectedFlows(
-  profile: Profile,
-  saved: Snapshot,
-  previous: Snapshot | undefined,
-): Profile {
+function withCorrectedFlows(profile: Profile, saved: Snapshot, shown: Snapshot): Profile {
   const correct = (section: 'incomes' | 'expenses'): CashFlow[] | undefined => {
-    const before = byId(previous?.[section])
+    const before = byId(shown[section])
     const changed = byId(
       (saved[section] ?? []).filter((entry) => {
         const old = before.get(entry.id)
@@ -507,12 +504,14 @@ function withCorrectedFlows(
  * one whose date the user changed, so the entry does not survive at both dates.
  *
  * A snapshot saved as the latest also states the cash flows running now, so a
- * flow corrected in it is written onto the profile.
+ * flow the user changed from `shown`, the figures the dialog opened at, is
+ * written onto the profile. Without `shown` no flow is.
  */
 export function withSavedSnapshot(
   profile: Profile,
   snapshot: Snapshot,
   originalDate?: string,
+  shown?: Snapshot,
 ): Profile {
   const kept =
     originalDate && originalDate !== snapshot.date
@@ -520,9 +519,7 @@ export function withSavedSnapshot(
       : profile.snapshots
   const snapshots = upsertSnapshot(kept, snapshot)
   const isLatest = latestSnapshot(snapshots)?.date === snapshot.date
-  const corrected = isLatest
-    ? withCorrectedFlows(profile, snapshot, latestSnapshot(profile.snapshots))
-    : profile
+  const corrected = isLatest && shown ? withCorrectedFlows(profile, snapshot, shown) : profile
   return withHistory(corrected, snapshots)
 }
 

@@ -306,7 +306,8 @@ export function seedSnapshotOn(profile: Profile, date: string): Snapshot {
 /**
  * The figures the dialog opens at for editing `snapshot`. The latest one opens
  * with the cash flows running now: they may have changed since it was taken
- * without recording anything, and saving it writes its flows onto the profile.
+ * without recording anything, and a flow changed in it is written onto the
+ * profile.
  */
 export function editSourceOf(profile: Profile, snapshot: Snapshot): Snapshot {
   if (latestSnapshot(profile.snapshots)?.date !== snapshot.date) return snapshot
