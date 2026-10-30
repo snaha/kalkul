@@ -194,5 +194,5 @@
   {takenDates}
   today={todayDate}
   seedOn={snapshotSeedOn}
-  onConfirm={(snapshot, original) => appStore.saveSnapshot(snapshot, original)}
+  onConfirm={(snapshot, original, shown) => appStore.saveSnapshot(snapshot, original, shown)}
 />

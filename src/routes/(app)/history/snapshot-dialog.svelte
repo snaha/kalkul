@@ -34,7 +34,8 @@
      * an edit or a duplicate, whose figures are the point.
      */
     seedOn?: (date: string) => Snapshot
-    onConfirm: (snapshot: Snapshot, originalDate?: string) => void
+    /** `shown` is what the fields opened at, so a save can tell what the user changed. */
+    onConfirm: (snapshot: Snapshot, originalDate?: string, shown?: Snapshot) => void
   }
 
   let {
@@ -153,7 +154,11 @@
 
   function confirm(): void {
     if (dateError || !date) return
-    onConfirm(snapshotFromFields(figures, sections, edits, date), originalDate)
+    onConfirm(
+      snapshotFromFields(figures, sections, edits, date),
+      originalDate,
+      snapshotFromFields(figures, sections, {}, date),
+    )
     open = false
   }
 </script>

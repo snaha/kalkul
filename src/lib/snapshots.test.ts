@@ -572,7 +572,7 @@ describe('withSavedSnapshot', () => {
       ...JUN,
       incomes: [{ id: 'i1', amount: 4_500, frequency: 'monthly' }],
     }
-    const saved = withSavedSnapshot(HISTORY, corrected)
+    const saved = withSavedSnapshot(HISTORY, corrected, undefined, JUN)
     expect(saved.incomes?.[0]).toEqual({ ...PROFILE.incomes![0], amount: 4_500 })
     expect(saved.expenses).toEqual(PROFILE.expenses)
   })
@@ -583,11 +583,31 @@ describe('withSavedSnapshot', () => {
       date: '2026-08-01',
       expenses: [{ id: 'e1', amount: 600, frequency: 'weekly' }],
     }
-    const saved = withSavedSnapshot(HISTORY, added)
+    const saved = withSavedSnapshot(HISTORY, added, undefined, { ...JUN, date: '2026-08-01' })
     expect(saved.expenses?.[0]).toEqual({
       ...PROFILE.expenses![0],
       amount: 600,
       frequency: 'weekly',
+    })
+  })
+
+  describe('a raise entered after the latest snapshot', () => {
+    const jan = { ...JAN, incomes: [{ id: 'i1', amount: 3_000, frequency: 'monthly' as const }] }
+    const raised: Profile = {
+      ...HISTORY,
+      incomes: [{ ...PROFILE.incomes![0], amount: 5_000 }],
+      snapshots: [jan, JUN],
+    }
+
+    test('survives an older snapshot duplicated as the latest', () => {
+      const copy = { ...jan, date: '2026-08-01' }
+      expect(withSavedSnapshot(raised, copy, undefined, copy).incomes?.[0].amount).toBe(5_000)
+    })
+
+    test('survives an older snapshot re-dated past the latest', () => {
+      const moved = { ...jan, date: '2026-07-01' }
+      const saved = withSavedSnapshot(raised, moved, '2026-01-01', moved)
+      expect(saved.incomes?.[0].amount).toBe(5_000)
     })
   })
 
@@ -596,7 +616,7 @@ describe('withSavedSnapshot', () => {
       ...JAN,
       incomes: [{ id: 'i1', amount: 3_000, frequency: 'monthly' }],
     }
-    expect(withSavedSnapshot(HISTORY, corrected).incomes).toEqual(PROFILE.incomes)
+    expect(withSavedSnapshot(HISTORY, corrected, undefined, JAN).incomes).toEqual(PROFILE.incomes)
   })
 
   test("leaves the profile's cash flows alone when the latest snapshot is deleted", () => {
