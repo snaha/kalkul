@@ -4,8 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { track } from '$lib/analytics'
 import { createPlan } from '$lib/plan-defaults'
-import { getYearlyPlanProjection } from '$lib/plan-projection'
-import type { Portfolio, Profile, StoredData } from '$lib/schemas'
+import type { Profile, StoredData } from '$lib/schemas'
 import { buildSnapshotSections, seedSnapshotOn, snapshotFromFields } from '$lib/snapshot-form'
 import storageKeys from '$lib/storage-keys'
 import { toDateOnlyString } from '$lib/utils'
@@ -525,6 +524,73 @@ describe('appStore.addPortfolio analytics', () => {
   })
 })
 
+describe('appStore demo mode', () => {
+  beforeEach(stubLocalStorage)
+
+  afterEach(() => {
+    appStore.clear()
+    vi.unstubAllGlobals()
+  })
+
+  const DEMO = { profile: { name: 'Claire Moreau', email: '', cash_amount: 100 }, portfolios: [] }
+
+  it('holds the persona in memory and never writes to storage', () => {
+    appStore.loadDemo(DEMO, NOW)
+    appStore.updateProfile({ cash_amount: 200 })
+
+    expect(appStore.demo).toBe(true)
+    expect(appStore.profile.cash_amount).toBe(200)
+    expect(backing.has(storageKeys.DATA)).toBe(false)
+  })
+
+  it('exits to empty data and persists again afterwards', () => {
+    appStore.loadDemo(DEMO, NOW)
+    appStore.exitDemo()
+
+    expect(appStore.demo).toBe(false)
+    expect(appStore.profile.name).toBe('')
+    expect(appStore.portfolios).toEqual([])
+
+    appStore.updateProfile({ name: 'Jane' })
+    expect(JSON.parse(backing.get(storageKeys.DATA) ?? '{}').profile.name).toBe('Jane')
+  })
+
+  it('exits to the data another tab stored meanwhile instead of over it', () => {
+    appStore.loadDemo(DEMO, NOW)
+    // Storage events are ignored during the demo, so the tab only sees this on exit.
+    backing.set(
+      storageKeys.DATA,
+      JSON.stringify({ lastUpdated: 1, profile: { name: 'Jane', email: '' }, portfolios: [] }),
+    )
+    appStore.exitDemo()
+
+    expect(appStore.profile.name).toBe('Jane')
+    appStore.updateProfile({ cash_amount: 5 })
+    expect(JSON.parse(backing.get(storageKeys.DATA) ?? '{}').profile.name).toBe('Jane')
+  })
+
+  it('counts nothing a demo visitor does as usage', () => {
+    vi.mocked(track).mockClear()
+    appStore.loadDemo(DEMO, NOW)
+    appStore.updateProfile({ investments: [{ id: 'i', name: 'ETF', balance: 1, apy: 1 }] })
+    appStore.addPortfolio(
+      createPlan(DEMO.profile, {
+        name: 'Plan',
+        start_date: '2026-01-01',
+        end_date: '2060-01-01',
+        inflation_rate: 2,
+      }),
+    )
+    expect(vi.mocked(track)).not.toHaveBeenCalled()
+  })
+
+  it('clear() leaves demo mode too', () => {
+    appStore.loadDemo(DEMO, NOW)
+    appStore.clear()
+    expect(appStore.demo).toBe(false)
+  })
+})
+
 describe('appStore.deletePortfolio', () => {
   beforeEach(stubLocalStorage)
 
@@ -539,9 +605,11 @@ describe('appStore.deletePortfolio', () => {
       from_asset_id: 'cash',
       to_asset_id: 'inv1',
       amount: 100,
-      schedule: 'one_time',
-      transaction_year: 2027,
-      transaction_month: 1,
+      schedule: 'recurring',
+      frequency: 'monthly',
+      start: 'immediately',
+      end: 'never',
+      change_over_time: 'none',
     }
     appStore.importBackup(
       JSON.stringify({
@@ -674,28 +742,6 @@ describe('appStore snapshot editing', () => {
       status: 'financed',
       outstanding_balance: 120_000,
     })
-  })
-
-  it('leaves the history empty when nothing is held today', () => {
-    // A position that only starts in 2030 is not held today.
-    appStore.updateProfile({
-      cash_amount: 0,
-      investments: [
-        {
-          id: 'inv9',
-          name: 'Planned',
-          balance: 50_000,
-          apy: 5,
-          start: 'at_specific_date',
-          start_year: 2030,
-          start_month: 1,
-        },
-      ],
-    })
-    appStore.deleteSnapshot('2026-01-01')
-    appStore.deleteSnapshot('2026-06-01')
-    appStore.deleteSnapshot(TODAY)
-    expect(appStore.profile.snapshots).toEqual([])
   })
 
   it('leaves the only snapshot in place while anything is held', () => {
@@ -856,23 +902,11 @@ describe('appStore saving a snapshot the History dialog produced', () => {
     )
   }
 
-  const PLANNED: Profile = {
+  const HELD: Profile = {
     name: 'Alice',
     email: 'a@example.com',
     cash_amount: 10_000,
-    investments: [
-      { id: 'inv1', name: 'ETF', balance: 20_000, apy: 0 },
-      // Bought in 2030: not held today, so nothing about it is today's to state.
-      {
-        id: 'inv9',
-        name: 'Future ETF',
-        balance: 50_000,
-        apy: 5,
-        start: 'at_specific_date',
-        start_year: 2030,
-        start_month: 1,
-      },
-    ],
+    investments: [{ id: 'inv1', name: 'ETF', balance: 20_000, apy: 0 }],
   }
 
   beforeEach(() => {
@@ -880,18 +914,13 @@ describe('appStore saving a snapshot the History dialog produced', () => {
     vi.setSystemTime(NOW)
     stubLocalStorage()
     appStore.clear()
-    appStore.updateProfile(PLANNED)
+    appStore.updateProfile(HELD)
   })
 
   afterEach(() => {
     appStore.clear()
     vi.unstubAllGlobals()
     vi.useRealTimers()
-  })
-
-  it('leaves a planned holding at its planned amount', () => {
-    confirmUntouched(TODAY)
-    expect(appStore.profile.investments?.find((i) => i.id === 'inv9')?.balance).toBe(50_000)
   })
 
   it('records a snapshot the next edit has nothing to add to', () => {
@@ -981,136 +1010,6 @@ describe('appStore re-baselining a loan', () => {
     appStore.deleteSnapshot(TODAY)
     expect(loan()?.outstanding_balance).toBe(12_000)
     expect(loan()?.remaining_term).toBe(12)
-  })
-})
-
-describe('appStore saving a snapshot dated past a planned sale', () => {
-  // The ETF is held through March 2026 and sold in April: after January's
-  // snapshot, before today. Nothing grows or accrues, so the sale is the only
-  // thing that moves.
-  const PROFILE: Profile = {
-    name: 'Alice',
-    email: 'a@example.com',
-    cash_amount: 10_000,
-    investments: [
-      {
-        id: 'etf',
-        name: 'ETF',
-        balance: 5_000,
-        apy: 0,
-        exit: 'at_specific_date',
-        exit_year: 2026,
-        exit_month: 3,
-      },
-    ],
-    snapshots: [
-      {
-        date: '2026-01-01',
-        cash_amount: 10_000,
-        investments: [{ id: 'etf', balance: 5_000 }],
-        tangible_assets: [],
-        liabilities: [],
-        incomes: [],
-        expenses: [],
-      },
-    ],
-  }
-  // A plan created from the profile as it stands when the test asks for it.
-  const planNow = (): Portfolio => ({
-    ...createPlan(appStore.profile.toJSON(), PLAN),
-    id: 'plan-1',
-  })
-  const PLAN = {
-    name: 'Plan',
-    start_date: TODAY,
-    end_date: '2036-06-15',
-    inflation_rate: 0,
-  }
-
-  /** What the History dialog confirms for a fresh snapshot nobody typed into. */
-  function addUntouched(date: string): void {
-    const stored = appStore.profile.toJSON()
-    const seed = seedSnapshotOn(stored, date)
-    appStore.saveSnapshot(
-      snapshotFromFields(seed, buildSnapshotSections(stored, seed, date), {}, date),
-    )
-  }
-
-  const etf = () => appStore.profile.investments?.[0]
-
-  beforeEach(() => {
-    vi.useFakeTimers()
-    vi.setSystemTime(NOW)
-    stubLocalStorage()
-    appStore.clear()
-    // Restored as given: saving it through updateProfile would record today's
-    // snapshot before the test gets to.
-    appStore.importBackup(JSON.stringify({ profile: PROFILE, portfolios: [] }))
-  })
-
-  afterEach(() => {
-    appStore.clear()
-    vi.unstubAllGlobals()
-    vi.useRealTimers()
-  })
-
-  it('empties the sold position, so the plan does not sell it a second time', () => {
-    // The seeded cash already holds the sale's proceeds. Left at 5,000, the ETF
-    // would be sold again in the plan's first year and the same money counted
-    // twice — Quick update's Confirm empties it, and saving the same figures
-    // from the History page has to as well.
-    addUntouched(TODAY)
-    expect(appStore.profile.cash_amount).toBe(15_000)
-    expect(etf()?.balance).toBe(0)
-    expect(getYearlyPlanProjection(planNow(), appStore.profile.toJSON())[0].netWorth).toBe(15_000)
-  })
-
-  it('puts the position back when that snapshot is deleted again', () => {
-    // Rewinding onto January restores what January recorded, sale undone.
-    addUntouched(TODAY)
-    appStore.deleteSnapshot(TODAY)
-    expect(appStore.profile.cash_amount).toBe(10_000)
-    expect(etf()?.balance).toBe(5_000)
-  })
-})
-
-describe('appStore with a one-time cash flow', () => {
-  beforeEach(() => {
-    vi.useFakeTimers()
-    vi.setSystemTime(NOW)
-    stubLocalStorage()
-    appStore.clear()
-  })
-
-  afterEach(() => {
-    appStore.clear()
-    vi.unstubAllGlobals()
-    vi.useRealTimers()
-  })
-
-  it('keeps the dataset loadable after recording a snapshot', () => {
-    // Recording today's snapshot must not write an entry the schema rejects:
-    // loading would then fail validation and fall back to the empty profile,
-    // which the next save persists over the user's data.
-    appStore.updateProfile({
-      name: 'Alice',
-      cash_amount: 1_000,
-      expenses: [
-        {
-          id: 'trip',
-          name: 'Trip',
-          amount: 3_000,
-          schedule: 'one_time',
-          transaction_year: 2026,
-          transaction_month: 8,
-        },
-      ],
-    })
-    expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual([TODAY])
-
-    appStore.load()
-    expect(appStore.profile.name).toBe('Alice')
-    expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual([TODAY])
   })
 })
 

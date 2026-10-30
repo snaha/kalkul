@@ -28,8 +28,8 @@
     entry_fee_type: EntryFeeType
     exit_fee: number | undefined
     exit_fee_type: ExitFeeType
-    // Not editable here (the setup card has no timing controls, per its
-    // Figma) but carried so editing a card cannot wipe a plan's timing.
+    // Required by InvestmentFields. The setup card has no timing controls and
+    // financial data carries no timing, so they stay at their defaults.
     start: CashFlowStart
     start_year: number | undefined
     start_month: number | undefined
@@ -61,14 +61,14 @@
       entry_fee_type: inv.entry_fee_type ?? 'ongoing',
       exit_fee: positive(inv.exit_fee),
       exit_fee_type: inv.exit_fee_type ?? 'percentage',
-      start: inv.start ?? 'immediately',
-      start_year: inv.start_year,
-      start_month: inv.start_month,
-      start_age: inv.start_age,
-      exit: inv.exit ?? 'never',
-      exit_year: inv.exit_year,
-      exit_month: inv.exit_month,
-      exit_age: inv.exit_age,
+      start: 'immediately',
+      start_year: undefined,
+      start_month: undefined,
+      start_age: undefined,
+      exit: 'never',
+      exit_year: undefined,
+      exit_month: undefined,
+      exit_age: undefined,
       // Reveal the fees when the investment already has some, so values set in
       // the plan dialog are not hidden here.
       showAdvanced:
@@ -120,16 +120,6 @@
         positive(i.exit_fee) !== undefined && i.exit_fee_type !== 'percentage'
           ? i.exit_fee_type
           : undefined,
-      // Defaults collapse to undefined so an untouched investment stays as it
-      // was stored.
-      start: i.start !== 'immediately' ? i.start : undefined,
-      start_year: i.start_year,
-      start_month: i.start_month,
-      start_age: i.start_age,
-      exit: i.exit !== 'never' ? i.exit : undefined,
-      exit_year: i.exit_year,
-      exit_month: i.exit_month,
-      exit_age: i.exit_age,
     }),
     // has_investments belongs to the Get started checkbox, not to this list:
     // re-deriving it here unchecked the box (and dropped the step from the

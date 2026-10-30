@@ -22,15 +22,11 @@ export function planRangeOf(
   }
 }
 
-/**
- * Year dropdown options: the plan's years, plus any given year outside them
- * so a stored value stays visible instead of rendering as a blank trigger.
- */
-export function planYearOptions(range: PlanRange, ...include: (number | undefined)[]): string[] {
-  const years = new Set<number>()
-  for (let year = range.startYear; year <= range.endYear; year++) years.add(year)
-  for (const year of include) if (year !== undefined) years.add(year)
-  return [...years].sort((a, b) => a - b).map(String)
+/** The plan's years, as year dropdown options. */
+export function planYearOptions(range: PlanRange): string[] {
+  const years: string[] = []
+  for (let year = range.startYear; year <= range.endYear; year++) years.push(String(year))
+  return years
 }
 
 /** The nearest plan year, to seed a new one-time date when today is outside the plan. */

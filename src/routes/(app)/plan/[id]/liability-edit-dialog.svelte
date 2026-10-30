@@ -13,7 +13,7 @@
   import { Separator } from '$lib/components/ui/separator'
   import { Switch } from '$lib/components/ui/switch'
   import { type LoanPairAnchor, rederiveLoanPair } from '$lib/loan-pair'
-  import { removePlanItem, upsertPlanItem } from '$lib/plan-items'
+  import { removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
   import { planRangeOf, planYearOptions, timingWithinPlan } from '$lib/plan-range'
   import type {
     CashFlowStart,
@@ -32,7 +32,7 @@
   } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
-  import { getMonthOptions, monthToOption, optionToMonth } from '$lib/utils'
+  import { getMonthOptions, monthToOption, optionToMonth, yearItemsIncluding } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
 
@@ -177,9 +177,7 @@
   let interestTypeItems = $derived(getInterestTypeItems($_))
   let compoundingFrequencyItems = $derived(getCompoundingFrequencyItems($_))
   let payOffItems = $derived(getLiabilityPayOffItems($_))
-  let yearItems = $derived(
-    planYearOptions(range, form.pay_off_year).map((y) => ({ value: y, label: y })),
-  )
+  let yearItems = $derived(yearItemsIncluding(planYearOptions(range), form.pay_off_year))
 
   // Installment amount ⇄ Term: the field the user last edited is the
   // anchor; rederiveLoanPair derives the other from the principal, rate and
@@ -224,7 +222,7 @@
   }
 
   function save(): void {
-    upsertPlanItem(listKey, projectLiability(form), plan)
+    saveEditedPlanItem(listKey, projectLiability(form), initial, plan)
     close()
   }
 

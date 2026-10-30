@@ -2,7 +2,7 @@
   "profile": {
     "name": "Claire Moreau",
     "email": "claire.moreau@example.com",
-    "birth_date": "1986-05-27",
+    "birth_date": "1985-05-27",
     "location": "FR",
     "currency": "EUR",
     "cash_amount": 28000,
@@ -122,9 +122,7 @@
         "amount": 520,
         "frequency": "monthly",
         "start": "immediately",
-        "end": "at_specific_date",
-        "end_year": 2036,
-        "end_month": 6,
+        "end": "never",
         "change_over_time": "match_inflation"
       },
       {
@@ -165,8 +163,7 @@
         "schedule": "recurring",
         "frequency": "monthly",
         "start": "immediately",
-        "end": "when_age_is",
-        "end_age": 65,
+        "end": "never",
         "change_over_time": "match_inflation"
       }
     ]
@@ -177,7 +174,7 @@
       "name": "Buy a holiday home in 2030",
       "notes": "Plan: €200k chalet in the Vercors, a third down, 20-year loan at 3.4%.",
       "start_date": "2026-07-01",
-      "end_date": "2051-05-01",
+      "end_date": "2050-05-01",
       "inflation_rate": 0.02,
       "cash_amount": 28000,
       "investments": [
@@ -472,9 +469,7 @@
             "amount": 520,
             "frequency": "monthly",
             "start": "immediately",
-            "end": "at_specific_date",
-            "end_year": 2036,
-            "end_month": 6,
+            "end": "never",
             "change_over_time": "match_inflation"
           },
           {
@@ -515,8 +510,7 @@
             "schedule": "recurring",
             "frequency": "monthly",
             "start": "immediately",
-            "end": "when_age_is",
-            "end_age": 65,
+            "end": "never",
             "change_over_time": "match_inflation"
           }
         ]
@@ -527,7 +521,7 @@
       "name": "Family plan to 65",
       "notes": "Keep investing monthly into the ETF until retirement; rental apartment carries itself.",
       "start_date": "2026-07-01",
-      "end_date": "2051-05-01",
+      "end_date": "2050-05-01",
       "inflation_rate": 0.02,
       "cash_amount": 28000,
       "investments": [
@@ -800,9 +794,7 @@
             "amount": 520,
             "frequency": "monthly",
             "start": "immediately",
-            "end": "at_specific_date",
-            "end_year": 2036,
-            "end_month": 6,
+            "end": "never",
             "change_over_time": "match_inflation"
           },
           {
@@ -843,8 +835,7 @@
             "schedule": "recurring",
             "frequency": "monthly",
             "start": "immediately",
-            "end": "when_age_is",
-            "end_age": 65,
+            "end": "never",
             "change_over_time": "match_inflation"
           }
         ]
