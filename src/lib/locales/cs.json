@@ -152,7 +152,6 @@
       "payOffDescription": "Kdy plánujete tento závazek splatit.",
       "payOffAtTerm": "Automaticky — na konci období",
       "payOffAtSpecificDate": "Ke konkrétnímu datu",
-      "termYears": "let",
       "initialAmount": "Počáteční částka",
       "investmentStart": "Začátek",
       "investmentStartDescription": "Kdy plánujete tuto investici uskutečnit.",
@@ -553,7 +552,6 @@
         "annualRate": "Roční úroková sazba",
         "installmentAmount": "Výše splátky",
         "remainingTerm": "Zbývající doba",
-        "years": "{count, plural, one {rok} few {roky} many {roku} other {let}}",
         "defaultName": "Hmotný majetek {index}"
       },
       "liabilities": {

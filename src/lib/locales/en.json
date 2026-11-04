@@ -152,7 +152,6 @@
       "payOffDescription": "When you plan to pay off this liability.",
       "payOffAtTerm": "Auto — at term",
       "payOffAtSpecificDate": "On specific date",
-      "termYears": "years",
       "initialAmount": "Initial amount",
       "investmentStart": "Start",
       "investmentStartDescription": "When you plan to make this investment.",
@@ -553,7 +552,6 @@
         "annualRate": "Annual percentage rate",
         "installmentAmount": "Installment amount",
         "remainingTerm": "Remaining term",
-        "years": "{count, plural, one {year} other {years}}",
         "defaultName": "Tangible asset {index}"
       },
       "liabilities": {
