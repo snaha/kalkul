@@ -2,7 +2,12 @@
   import type { HTMLInputAttributes } from 'svelte/elements'
 
   import { Input } from '$lib/components/ui/input'
-  import { decimalSeparatorOf, formatNumberInput, parseNumberInput } from '$lib/parse-number-input'
+  import {
+    decimalSeparatorOf,
+    formatNumberInput,
+    numberDraft,
+    parseNumberInput,
+  } from '$lib/parse-number-input'
   import { cn } from '$lib/utils'
 
   interface Props {
@@ -53,7 +58,7 @@
   function handleFocus() {
     focused = true
     // Start editing from the raw number so the user sees exactly what they can edit.
-    draft = value === undefined ? '' : String(value)
+    draft = value === undefined ? '' : numberDraft(value, decimalSep)
   }
 
   function handleBlur() {

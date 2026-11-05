@@ -80,21 +80,21 @@ export interface SnapshotSection {
  * estimate is that snapshot itself, so an item it never recorded still opens
  * at zero — it did not exist yet as far as the history knows.
  *
- * Cash flows make one exception, on the newest snapshot's own date. They are
- * history rather than baseline — the profile's may have moved on since without
- * recording anything — so there the estimate, which runs on the profile's
- * flows, would put today's onto that day. A flow opens at what the history
- * recorded for the date whenever it has a snapshot for it.
+ * Cash flows make one exception. A snapshot saved as the newest states the
+ * flows running now and writes them onto the profile, so on a date that makes
+ * it the newest each flow opens at the profile's figure. `originalDate` is the
+ * date of the row being edited, which vacates that date when it moves.
  */
 export function buildSnapshotSections(
   profile: Profile,
   source: Snapshot,
   date: string,
+  originalDate?: string,
 ): SnapshotSection[] {
   const estimate = seedSnapshotOn(profile, date)
-  // Where a cash flow `source` never recorded is read from: see the exception above.
-  const flowFallback =
-    (profile.snapshots ?? []).find((snapshot) => snapshot.date === date) ?? estimate
+  const savedAsNewest = (profile.snapshots ?? []).every(
+    (snapshot) => snapshot.date === originalDate || snapshot.date < date,
+  )
 
   /** An item's entry in `source`, or in the estimate when `source` has none. */
   const lookup = <T extends { id: string }>(
@@ -112,11 +112,11 @@ export function buildSnapshotSections(
   // Incomes and expenses are the same shape and the same rules; one section
   // builder covers both.
   const cashFlowSection = (id: 'incomes' | 'expenses'): SnapshotSection => {
-    const entryOf = lookup(source[id], flowFallback[id])
+    const entryOf = lookup(source[id], estimate[id])
     return {
       id,
       fields: countedCashFlows(profile[id]).map((flow) => {
-        const entry = entryOf(flow.id)
+        const entry = savedAsNewest ? flow : entryOf(flow.id)
         return {
           key: `${id}:${flow.id}`,
           itemId: flow.id,

@@ -63,7 +63,9 @@
   const heldOn = $derived(date || figures.date || today)
   // The stored profile decides which items the dialog offers a field for; the
   // figures supply the values.
-  const sections = $derived(buildSnapshotSections(appStore.profile.toJSON(), figures, heldOn))
+  const sections = $derived(
+    buildSnapshotSections(appStore.profile.toJSON(), figures, heldOn, originalDate),
+  )
 
   function reset(): void {
     date = openingDate(source.date, takenDates, originalDate)

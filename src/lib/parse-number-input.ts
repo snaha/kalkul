@@ -83,6 +83,11 @@ export function parseNumberInput(raw: string, decimalSep: string): number | unde
   return Number.isFinite(parsed) ? parsed : undefined
 }
 
+/** The raw number as an editable draft, which `parseNumberInput` reads back unchanged. */
+export function numberDraft(value: number, decimalSep: string): string {
+  return String(value).replace('.', decimalSep)
+}
+
 /** Format a value for the unfocused input; empty string when unset. */
 export function formatNumberInput(
   value: number | undefined,

@@ -396,8 +396,8 @@ export function profileAtSnapshot(profile: Profile, snapshot: Snapshot): Profile
  * Cash flows are not re-baselined at all. A snapshot's recorded flows are what
  * ran on its date; the profile's are what runs now, and the two part ways the
  * moment a raise is entered — which records no snapshot, because no balance
- * moved. Writing the snapshot's flows back onto the profile would silently
- * undo that raise on every save the History page makes.
+ * moved. Only a save of the latest snapshot writes flows onto the profile
+ * (`withSavedSnapshot`), and the dialog opens those at the profile's figures.
  */
 function withSnapshotValues(profile: Profile, snapshot: Snapshot): Profile {
   const overlay = <P extends { id: string }, S extends { id: string }>(
@@ -474,9 +474,23 @@ function withHistory(profile: Profile, snapshots: Snapshot[]): Profile {
   }
 }
 
+/** The profile's cash flows wearing the figures `snapshot` records for them. */
+function withRecordedFlows(profile: Profile, snapshot: Snapshot): Profile {
+  const overlay = (section: 'incomes' | 'expenses') => {
+    const entries = byId(snapshot[section])
+    return profile[section]?.map((item) => {
+      const entry = entries.get(item.id)
+      return entry ? withRecordedAmount(item, entry) : item
+    })
+  }
+  return { ...profile, incomes: overlay('incomes'), expenses: overlay('expenses') }
+}
+
 /**
  * Records an edited or newly added snapshot. Pass `originalDate` when editing
  * one whose date the user changed, so the entry does not survive at both dates.
+ * A snapshot saved as the latest states the cash flows running now, so the
+ * profile takes its figures for them.
  */
 export function withSavedSnapshot(
   profile: Profile,
@@ -487,7 +501,9 @@ export function withSavedSnapshot(
     originalDate && originalDate !== snapshot.date
       ? removeSnapshot(profile.snapshots, originalDate)
       : profile.snapshots
-  return withHistory(profile, upsertSnapshot(kept, snapshot))
+  const snapshots = upsertSnapshot(kept, snapshot)
+  const isLatest = latestSnapshot(snapshots)?.date === snapshot.date
+  return withHistory(isLatest ? withRecordedFlows(profile, snapshot) : profile, snapshots)
 }
 
 /**
