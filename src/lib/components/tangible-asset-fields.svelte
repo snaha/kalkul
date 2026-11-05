@@ -96,8 +96,7 @@
 
   // The projection's loan is the price less the down payment. The balance owed
   // follows the two as they are typed, and the installment ⇄ term pair with
-  // it. Nothing writes the down payment: a new asset's stays empty, so an
-  // untouched one is financed in full (#263).
+  // it. Nothing writes the down payment: a new asset's stays empty.
   function syncFinanced(): void {
     if (item.status !== 'financed') return
     item.outstanding_balance = financedAmount(item.value, item.down_payment)

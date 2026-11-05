@@ -119,7 +119,10 @@ When a projection is created from financial data the down payment is not
 known, so the dialog opens such an asset at the price less the balance owed,
 which keeps the projection's loan equal to the dashboard's until the user
 types another figure. An asset owing more than it is worth opens at 0 and
-keeps its balance until its price or down payment is edited.
+keeps its balance until its price, down payment or payment method is edited.
+Financial data does not store a down payment: `profileSchema` rejects it, and
+the MCP `update_profile` and `upsert_plan_item` descriptions say which copy
+carries which field.
 
 ### When a feature seems to need a projection to write financial data
 
@@ -157,7 +160,7 @@ rather than papering over it.
    430,000 makes the plan's loan 245,000, while Financial data still says
    235,000 owed.
 
-6. **Every loan is in the breakdown.** A plan holds a standalone loan of
+7. **Every loan is in the breakdown.** A plan holds a standalone loan of
    1,000 paid off at 250 a year, and a house financed with 3,000,000
    outstanding paid off at 300,000 a year, both at 0% interest. Its first year
    lists "Loan" at 750 and "House" at 2,700,000, the house's row marked as tied

@@ -1336,6 +1336,28 @@ describe('profileSchema: financial data has no planned timing', () => {
     const result = profileSchema.safeParse({ ...base, incomes: [{ ...baseIncome, end_age: 55 }] })
     expect(result.error?.issues.map((i) => i.path)).toEqual([['incomes', 0, 'end_age']])
   })
+
+  it('rejects a down payment on a tangible asset', () => {
+    const asset = {
+      id: 't',
+      name: 'House',
+      value: 420000,
+      status: 'financed',
+      outstanding_balance: 235000,
+      installment_frequency: 'monthly',
+      annual_rate: 5,
+      installment_amount: 1500,
+      remaining_term: 20,
+    }
+    expect(profileSchema.safeParse({ ...base, tangible_assets: [asset] }).success).toBe(true)
+    const result = profileSchema.safeParse({
+      ...base,
+      tangible_assets: [{ ...asset, down_payment: 185000 }],
+    })
+    expect(result.error?.issues.map((i) => i.path)).toEqual([
+      ['tangible_assets', 0, 'down_payment'],
+    ])
+  })
 })
 
 describe('repairStoredData: planned timing on financial data', () => {
