@@ -26,7 +26,7 @@ publicly — and this note with it.
 - A PR that changes product behaviour, or makes a decision the doc leaves open, updates the doc in the same PR. The worked examples are the first place to add the new case, and they are meant to become unit tests.
 - A behaviour found in the code that no doc states is a candidate for the doc's open questions, not a rule to preserve.
 - `docs/decisions.md` is the decision log: why a rule is what it is, newest first, append only. A PR that makes or changes a product decision adds an entry there as well; a rule in `docs/product/` says what, the log says why and since when.
-- This file keeps the coding conventions only; product rules that used to live here have moved to `docs/product/`.
+- Product rules are moving out of this file into `docs/product/`, one concept at a time; `projections.md` is the first. A rule still stated here holds until its doc lands.
 
 ## AI-Specific Guidelines
 

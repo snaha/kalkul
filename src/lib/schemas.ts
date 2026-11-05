@@ -1025,8 +1025,9 @@ export type PlanListKey = (typeof PLAN_LIST_KEYS)[number]
 /**
  * Per list, the fields that carry planned timing and the end value that means
  * no end. A profile item may only be running: start 'immediately' or 'now',
- * end at `openEnd`, no dated fields, never one-time (docs/product/projections.md).
- * `profileSchema` checks it; `repairStoredData` strips it from stored data.
+ * end at `openEnd`, no dated fields, never one-time
+ * (docs/product/projections.md). `profileSchema` checks it; `repairStoredData`
+ * strips it from stored data.
  */
 const PLANNED_TIMING = {
   incomes: { start: 'start', end: 'end', openEnd: 'never' },

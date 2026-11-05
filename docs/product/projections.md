@@ -89,8 +89,7 @@ copies.
 The engine tells a loan the plan takes on from debt the user already carries by
 one fact: whether the liability's id is in `base.liabilities`. Never by dates
 or names. A new loan pays its balance into cash in the year it starts; existing
-debt pays nothing in, however the plan has edited it since. See
-[loans.md](loans.md).
+debt pays nothing in, however the plan has edited it since.
 
 ### When a feature seems to need a projection to write financial data
 
@@ -107,13 +106,14 @@ rather than papering over it.
    the contribution to 1,000 in Financial data. Both plans keep what they had
    (1,200 and 950). The plan page marks both as outdated, because their `base`
    says 950 and financial data now says 1,000.
-3. **Delete inside a projection.** Claire deletes the car from "Buy a holiday
-   home in 2030". The car is still in Financial data and in "Family plan to
-   65". The dashboard's tangible assets total still includes it.
-4. **Timing lives on the plan.** Pavel's pension starts at 65. It is not
-   something he has today, so it does not exist in his financial data at all;
-   it exists only on his retirement plan, with its start age. A new plan
-   created from his financial data does not have it.
+3. **Delete inside a projection.** Claire deletes the rental apartment from
+   "Buy a holiday home in 2030". The apartment is still in Financial data and
+   in "Family plan to 65". The dashboard's tangible assets total still
+   includes it.
+4. **Timing lives on the plan.** Jan's pension starts at 65. It is not
+   something Jan has today, so it does not exist in the financial data at all;
+   it exists only on the retirement plan, with its start age. A new plan
+   created from the financial data does not have it.
 5. **A plan takes on a loan.** Claire adds a 20,000 loan to a plan. In the
    plan's first year cash goes up by 20,000 less that year's installments. If
    she instead edits her existing renovation loan's balance from 14,500 to

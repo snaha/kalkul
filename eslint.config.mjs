@@ -76,8 +76,9 @@ export default typescriptEslint.config(
     },
   },
   {
-    // A projection never writes financial data (docs/product/projections.md): the plan route
-    // writes to its plan only, through src/lib/plan-items.ts or plan.update.
+    // A projection never writes financial data (docs/product/projections.md):
+    // the plan route writes to its plan only, through src/lib/plan-items.ts or
+    // plan.update.
     files: ['src/routes/(app)/plan/**'],
     rules: {
       'no-restricted-syntax': [

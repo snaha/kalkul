@@ -31,19 +31,8 @@ onto the profile item, so an edit in one projection showed up in the next.
 pay-off at term, no exit or sale date, never one-time. The schema rejects
 anything else. Timing is a modelled change and lives on the projection's copy
 only. A new projection starts every item at the plan's start with no end.
-Example personas moved their future-dated items (Pavel's pension) onto their
+Example personas moved their future-dated items (Jan's pension) onto their
 plans. (#366, closes #318)
-
-## 2026-10-29 Existing loans keep their balance through a price edit
-
-**Context.** The asset dialog shows a down payment but stores the balance owed.
-Deriving the down payment from the balance on every keystroke filled it with
-the purchase price as it was typed (#263). Holding the typed down payment for
-every asset moved an existing mortgage when its house price was corrected.
-
-**Decision.** A new asset holds the typed down payment and its balance follows
-the price. An existing asset's balance owed is the truth, it comes from a
-statement, and a price edit leaves it alone. (#381)
 
 ## 2026-10-19 A dialog saves only the fields it changed
 
@@ -75,8 +64,7 @@ borrowing looked like losing money.
 
 **Decision.** A liability the plan takes on pays its balance into cash in the
 year it starts. Debt the plan was created with pays nothing in, because that
-money is already in today's balances. The engine tells the two apart by
-whether the id is in the plan's base. (#323, closes #322)
+money is already in today's balances. (#323, closes #322)
 
 ## 2026-09-25 Cash always exists
 
@@ -84,8 +72,8 @@ whether the id is in the plan's base. (#323, closes #322)
 a special case.
 
 **Decision.** Every plan has a cash balance and every flow runs through it,
-with the insufficient-funds check always applied. Excluding cash only zeroes
-the opening balance. (#332)
+with the insufficient-funds check always applied. A plan cannot exclude cash.
+(#332)
 
 ## 2026-09-08 Pre-production: no backwards compatibility
 
