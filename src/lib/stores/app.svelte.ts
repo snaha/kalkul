@@ -68,6 +68,13 @@ function enrichProfile({
   expenses,
   transfers,
   fi_withdrawal_rate,
+  runway_withdraw_investments,
+  runway_investment_growth,
+  runway_investment_tax_rate,
+  runway_include_income,
+  runway_sell_tangible_assets,
+  runway_tangible_asset_growth,
+  runway_tangible_asset_tax_rate,
   snapshots,
 }: Profile): ProfileStore {
   return {
@@ -89,6 +96,13 @@ function enrichProfile({
     expenses,
     transfers,
     fi_withdrawal_rate,
+    runway_withdraw_investments,
+    runway_investment_growth,
+    runway_investment_tax_rate,
+    runway_include_income,
+    runway_sell_tangible_assets,
+    runway_tangible_asset_growth,
+    runway_tangible_asset_tax_rate,
     snapshots,
     get birthDate() {
       return birth_date ? parseDateOnly(birth_date) : undefined
@@ -116,6 +130,13 @@ function enrichProfile({
         expenses,
         transfers,
         fi_withdrawal_rate,
+        runway_withdraw_investments,
+        runway_investment_growth,
+        runway_investment_tax_rate,
+        runway_include_income,
+        runway_sell_tangible_assets,
+        runway_tangible_asset_growth,
+        runway_tangible_asset_tax_rate,
         snapshots,
       }
     },

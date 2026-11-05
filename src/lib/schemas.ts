@@ -988,6 +988,15 @@ export const profileFieldsSchema = z.object({
   // Percent of the portfolio withdrawn a year behind the Financial independence
   // number (`getFiNumber`); absent means `DEFAULT_FI_WITHDRAWAL_RATE`.
   fi_withdrawal_rate: z.number().positive().max(100).optional(),
+  // The Runway card's drawdown switches (`src/lib/runway.ts`), one flat field
+  // each like `fi_withdrawal_rate`; absent means that switch's default.
+  runway_withdraw_investments: z.boolean().optional(),
+  runway_investment_growth: z.boolean().optional(),
+  runway_investment_tax_rate: z.number().min(0).max(100).optional(),
+  runway_include_income: z.boolean().optional(),
+  runway_sell_tangible_assets: z.boolean().optional(),
+  runway_tangible_asset_growth: z.boolean().optional(),
+  runway_tangible_asset_tax_rate: z.number().min(0).max(100).optional(),
   // Normalized on the way in, so every entry point — a fresh load, a restored
   // backup, cross-tab sync, a store write — hands the rest of the app a sorted,
   // one-per-date list. `.overwrite` rather than `.transform`: it does not change
