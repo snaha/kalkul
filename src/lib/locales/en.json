@@ -321,7 +321,7 @@
           "title": "Financial independence calculation settings",
           "description": "Financial independence is having enough investments to cover your expenses without working.",
           "livingCost": "Living cost (annually)",
-          "livingCostHelp": "Your yearly expenses plus loan and other liability instalments.",
+          "livingCostHelp": "Your yearly expenses plus loan and other liability installments.",
           "portfolioValue": "Current portfolio value",
           "portfolioValueHelp": "Your cash and investments today, minus what you owe.",
           "withdrawalRate": "Withdrawal rate",

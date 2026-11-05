@@ -46,15 +46,15 @@
 
 <!-- A figure the dialog reads out: its label, with a tooltip when the frame
      draws an info icon beside it, over the amount. -->
-{#snippet figure(label: string, value: string, help?: string, valueClass = 'font-bold')}
+{#snippet figure(label: string, value: string, opts: { help?: string; valueClass?: string } = {})}
   <div class="flex flex-1 flex-col">
     <div class="flex items-center gap-2">
       <p class="text-sm font-medium">{label}</p>
-      {#if help}
-        <HelpTooltip text={help} icon={Info} iconClass="size-3" />
+      {#if opts.help}
+        <HelpTooltip text={opts.help} icon={Info} iconClass="size-3" />
       {/if}
     </div>
-    <p class={['text-lg', valueClass]}>{value}</p>
+    <p class={['text-lg', opts.valueClass ?? 'font-bold']}>{value}</p>
   </div>
 {/snippet}
 
@@ -84,12 +84,12 @@
         {@render figure(
           $_('page.dashboard.finances.fiSettings.livingCost'),
           appStore.formatCurrencyCode(getAnnualOutflowsTotal(profile)),
-          $_('page.dashboard.finances.fiSettings.livingCostHelp'),
+          { help: $_('page.dashboard.finances.fiSettings.livingCostHelp') },
         )}
         {@render figure(
           $_('page.dashboard.finances.fiSettings.portfolioValue'),
           appStore.formatCurrencyCode(getInvestableNetWorth(profile)),
-          $_('page.dashboard.finances.fiSettings.portfolioValueHelp'),
+          { help: $_('page.dashboard.finances.fiSettings.portfolioValueHelp') },
         )}
       </div>
 
@@ -126,8 +126,7 @@
         {@render figure(
           $_('page.dashboard.finances.fiSettings.fiNumber'),
           fiNumber === undefined ? '—' : appStore.formatCurrencyCode(fiNumber),
-          undefined,
-          'font-semibold',
+          { valueClass: 'font-semibold' },
         )}
         <p class="flex-1 text-xs">
           {$_('page.dashboard.finances.fiSettings.fiNumberDescription')}

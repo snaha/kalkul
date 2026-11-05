@@ -47,14 +47,18 @@ dialog, the FI column in History and the per-year FI% of a projection.
 
 ## Open questions
 
-- The dialog uses the designer's tooltips verbatim (#220, 2026-11-05). The
-  living-cost one, "expenses plus loan and other liability instalments", says
+- The dialog uses the designer's tooltips verbatim (#220, 2026-11-05), with
+  "instalments" spelled "installments" as the app does elsewhere. The
+  living-cost one, "expenses plus loan and other liability installments", says
   what the code does. The portfolio one says "minus what you owe", while the
   code subtracts only loans not secured by an asset, so a mortgage stays out
   with the house that secures it. Whether a mortgage should count is not
   confirmed with the designer.
 - Whether the runway settings (#391) and this rate should share one storage
   shape on the profile.
+- The #220 thread also raised counting tangible assets in the portfolio value
+  and letting the user try a lower living cost. The revised frame has neither,
+  so the dialog does not; either needs its own issue if wanted.
 
 ## In the code
 
