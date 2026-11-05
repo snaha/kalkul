@@ -9,6 +9,7 @@
   import downloadBackup from '$lib/download-backup'
   import { BACKUP_FILE_EXTENSION } from '$lib/dropped-backup'
   import restoreBackup, { showRestoredBackup } from '$lib/restore-backup'
+  import { NewerBackupError } from '$lib/stored-data-version'
   import { appStore } from '$lib/stores/app.svelte'
   import { importDialogStore } from '$lib/stores/import-dialog.svelte'
 
@@ -45,7 +46,11 @@
       await restoreBackup(file)
     } catch (e) {
       console.error('Failed to import backup', e)
-      alert($_('navbar.import.error'))
+      alert(
+        e instanceof NewerBackupError
+          ? $_('navbar.import.newerVersion')
+          : $_('navbar.import.error'),
+      )
       // Offer the file picker instead of retrying the same broken file.
       importDialogStore.forgetDroppedFile()
       return

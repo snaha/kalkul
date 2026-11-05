@@ -6,6 +6,7 @@
 
   import { EVENTS, identify, track, trackerLoaded } from '$lib/analytics'
   import BackupFileDrop from '$lib/components/backup-file-drop.svelte'
+  import NewerDataAlert from '$lib/components/newer-data-alert.svelte'
   import UnreadableDataAlert from '$lib/components/unreadable-data-alert.svelte'
   import storageKeys from '$lib/storage-keys'
   import { appStore } from '$lib/stores/app.svelte'
@@ -89,7 +90,11 @@
 
 {@render children()}
 
-<UnreadableDataAlert />
+{#if appStore.newerDataStored}
+  <NewerDataAlert />
+{:else}
+  <UnreadableDataAlert />
+{/if}
 <BackupFileDrop />
 {#if analyticsEnabled && instagramIos}
   {@render tracker()}
