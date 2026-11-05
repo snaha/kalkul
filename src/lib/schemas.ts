@@ -629,6 +629,10 @@ export const profileTangibleAssetSchema = z
     value: z.number(),
     status: tangibleAssetStatusSchema,
     outstanding_balance: z.number().optional(),
+    // Cash paid at purchase, carried only inside a projection: the plan dialog
+    // asks for it and keeps the balance owed at the price less this. Financial
+    // data knows only the balance owed, so it never sets it.
+    down_payment: z.number().optional(),
     installment_frequency: frequencySchema.optional(),
     annual_rate: z.number().optional(),
     installment_amount: z.number().optional(),

@@ -27,12 +27,14 @@
     getRemainingTermUnitItems,
     getValueOverTimeItems,
   } from '$lib/select-options'
+  import { financedAmount } from '$lib/tangible-asset-form'
 
   /** The editable shape; the caller owns the surrounding state. */
   export interface TangibleAssetFieldsItem {
     value: number | undefined
     status: TangibleAssetStatus
     outstanding_balance: number | undefined
+    down_payment: number | undefined
     installment_frequency: Frequency
     annual_rate: number | undefined
     installment_amount: number | undefined
@@ -92,16 +94,13 @@
 
   let remainingTermUnitItems = $derived(getRemainingTermUnitItems($_))
 
-  // The dialog asks for the down payment; the profile stores what is still
-  // owed. One is the other's complement against the purchase price.
-  let downPayment = $derived(
-    item.value === undefined
-      ? undefined
-      : Math.max(item.value - (item.outstanding_balance ?? 0), 0),
-  )
-
-  function setDownPayment(paid: number | undefined): void {
-    item.outstanding_balance = Math.max((item.value ?? 0) - (paid ?? 0), 0)
+  // The projection's loan is the price less the down payment. The balance owed
+  // follows the two as they are typed, and the installment ⇄ term pair with
+  // it. Nothing writes the down payment: a new asset's stays empty, so an
+  // untouched one is financed in full (#263).
+  function syncFinanced(): void {
+    if (item.status !== 'financed') return
+    item.outstanding_balance = financedAmount(item.value, item.down_payment)
     rederiveLoanPair(item, anchor)
   }
 
@@ -148,6 +147,7 @@
       {formatNumber}
       onValueChange={(v) => {
         item.value = v
+        syncFinanced()
       }}
     />
   </div>
@@ -159,6 +159,7 @@
       items={paymentMethodItems}
       onValueChange={(v) => {
         if (v) item.status = v
+        syncFinanced()
       }}
     />
   </div>
@@ -170,10 +171,13 @@
       <Label for="{idPrefix}-downPayment">{$_('page.plan.downPayment')}</Label>
       <SuffixedInput
         id="{idPrefix}-downPayment"
-        value={downPayment}
+        value={item.down_payment}
         suffix={currencyLabel}
         {formatNumber}
-        onValueChange={setDownPayment}
+        onValueChange={(v) => {
+          item.down_payment = v
+          syncFinanced()
+        }}
       />
     </div>
     <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">

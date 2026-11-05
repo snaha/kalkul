@@ -21,6 +21,7 @@ The dependency is one-way: projections read financial data, they never write it.
 | Base               | not shown                    | `Portfolio.base`, the financial data the plan was created from |
 | Outdated           | "Financial data has changed" | `isPlanOutdated`                                               |
 | Current projection | Current projection           | `buildCurrentProjectionPlan`, built fresh on every read        |
+| Down payment       | Down payment                 | `down_payment` on a projection's tangible asset                |
 
 ## Rules
 
@@ -102,6 +103,24 @@ asset. A loan stays listed at 0 while it is not owed: before a planned
 purchase, after it is paid off or settled by a sale, and when the plan could
 not afford the purchase.
 
+### A financed asset's loan in a projection is its price less the down payment
+
+Financial data knows only what is owed on a financed asset today. A projection
+also carries the asset's down payment, the cash paid at purchase, which the
+plan dialog asks for whenever the payment method is Financed. The balance owed
+in the projection is the purchase price less the down payment, recomputed when
+either is edited, and the installment or term follows from it. Nothing fills
+the down payment in from the price: a new asset opens with it empty, so an
+untouched one is financed in full. The user may change it whether the purchase
+is in the past or the future; the projection reruns from its first year either
+way.
+
+When a projection is created from financial data the down payment is not
+known, so the dialog opens such an asset at the price less the balance owed,
+which keeps the projection's loan equal to the dashboard's until the user
+types another figure. An asset owing more than it is worth opens at 0 and
+keeps its balance until its price or down payment is edited.
+
 ### When a feature seems to need a projection to write financial data
 
 The answer is a projection-level setting, never a profile write. Raise it
@@ -130,6 +149,13 @@ rather than papering over it.
    she instead edits her existing renovation loan's balance from 14,500 to
    30,000 inside the plan, cash does not move; only the debt and its schedule
    change.
+6. **A down payment lives on the projection.** Claire adds a financed car to a
+   plan and types a price of 30,000. The down payment stays empty, so the car
+   is financed in full. She types 5,000 down: the loan is 25,000 and the
+   installment re-derives. Her house (420,000, 235,000 owed) opens in the
+   same dialog with a 185,000 down payment; changing its price there to
+   430,000 makes the plan's loan 245,000, while Financial data still says
+   235,000 owed.
 
 6. **Every loan is in the breakdown.** A plan holds a standalone loan of
    1,000 paid off at 250 a year, and a house financed with 3,000,000
@@ -149,6 +175,8 @@ rather than papering over it.
   tool) and `removePlanItem` drops one. They are read off the `Portfolio`.
 - `profileSchema` and `repairStoredData` in `src/lib/schemas.ts` enforce and
   repair the no-planned-timing rule.
+- `financedAmount` and `seededDownPayment` in `src/lib/tangible-asset-form.ts`
+  hold the down-payment rule; the plan asset dialog is their only caller.
 - The engine is `src/lib/plan-projection.ts`; the MCP tools in
   `src/lib/mcp/tools.ts` expose the same helpers, and their descriptions state
   the same rules. Keep them in sync with this doc.

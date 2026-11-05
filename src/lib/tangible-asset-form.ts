@@ -1,3 +1,5 @@
+import Decimal from 'decimal.js'
+
 import type {
   CompoundingFrequency,
   Frequency,
@@ -7,6 +9,29 @@ import type {
   TangibleAssetStatus,
   ValueOverTime,
 } from '$lib/schemas'
+
+const atLeastZero = (a: number, b: number): number =>
+  Decimal.max(new Decimal(a).minus(b), 0).toNumber()
+
+/** The loan a projection takes on for `price` after `downPayment` in cash, never below 0. */
+export function financedAmount(price: number | undefined, downPayment: number | undefined): number {
+  return atLeastZero(price ?? 0, downPayment ?? 0)
+}
+
+/**
+ * The down payment the plan dialog opens an asset at. One the dialog has saved
+ * carries its own. One copied from financial data, or written by an MCP tool,
+ * has only a balance owed, and the price less that is what has been paid: the
+ * projection's loan then agrees with the dashboard until another figure is
+ * typed. Owing more than the price reads as nothing paid.
+ */
+export function seededDownPayment(
+  asset: Pick<ProfileTangibleAsset, 'value' | 'status' | 'outstanding_balance' | 'down_payment'>,
+): number | undefined {
+  if (asset.down_payment !== undefined) return asset.down_payment
+  if (asset.status !== 'financed' || asset.outstanding_balance === undefined) return undefined
+  return atLeastZero(asset.value, asset.outstanding_balance)
+}
 
 /** Editable shape of a tangible asset on the financial-data card. */
 export interface TangibleAssetUI {
