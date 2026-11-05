@@ -684,6 +684,11 @@
     },
     "currency": "Měna",
     "notImplemented": "Zatím není implementováno",
+    "newerData": {
+      "title": "Tato karta je zastaralá",
+      "description": "Vaše data uložila novější verze Kalkulu. Aby zůstala v bezpečí, změny provedené v této kartě se neukládají. Pokračujte znovunačtením stránky.",
+      "reload": "Načíst znovu"
+    },
     "unreadableData": {
       "title": "Uložená data se nepodařilo načíst",
       "description": "Data uložená v tomto prohlížeči jsou poškozená nebo pocházejí z nekompatibilní verze Kalkulu.",
@@ -712,6 +717,7 @@
       "importAnyway": "Přesto importovat",
       "backupDownloaded": "Vaše data byla stažena. Nyní můžete bezpečně vybrat soubor k importu.",
       "error": "Soubor se nepodařilo importovat. Ujistěte se, že jde o platnou zálohu Kalkulu.",
+      "newerVersion": "Tato záloha pochází z novější verze Kalkulu. Načtěte stránku znovu, aby se Kalkul aktualizoval, a pak ji importujte.",
       "droppedDescription": "Načíst přetažený soubor {name}.",
       "droppedBackupDownloaded": "Vaše data byla stažena. Nyní můžete bezpečně importovat soubor {name}.",
       "importFile": "Importovat soubor",

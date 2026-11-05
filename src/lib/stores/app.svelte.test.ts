@@ -7,6 +7,7 @@ import { createPlan } from '$lib/plan-defaults'
 import type { Profile, StoredData } from '$lib/schemas'
 import { buildSnapshotSections, seedSnapshotOn, snapshotFromFields } from '$lib/snapshot-form'
 import storageKeys from '$lib/storage-keys'
+import { NewerBackupError, STORED_DATA_VERSION } from '$lib/stored-data-version'
 import { toDateOnlyString } from '$lib/utils'
 
 import { type DataChange, appStore } from './app.svelte'
@@ -421,6 +422,154 @@ describe('appStore loading data it cannot read', () => {
         expect(appStore.profile.name).toBe('')
       })
     })
+  })
+})
+
+describe('appStore stored data version', () => {
+  const NEWER = JSON.stringify({
+    version: STORED_DATA_VERSION + 1,
+    lastUpdated: 2,
+    profile: { name: 'Newer', email: '', fieldFromNewerVersion: 'keep me' },
+    portfolios: [],
+  })
+  const READABLE = JSON.stringify({
+    version: STORED_DATA_VERSION,
+    lastUpdated: 3,
+    profile: { name: 'Same version', email: '' },
+    portfolios: [],
+  })
+  let onStorage: ((event: StorageEvent) => void) | undefined
+  let stopSync: () => void
+
+  function saveFromOtherTab(raw: string): void {
+    backing.set(storageKeys.DATA, raw)
+    onStorage?.({ key: storageKeys.DATA, newValue: raw } as StorageEvent)
+  }
+
+  beforeEach(() => {
+    stubLocalStorage()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.stubGlobal('window', {
+      addEventListener: (_type: string, listener: (event: StorageEvent) => void) => {
+        onStorage = listener
+      },
+      removeEventListener: () => {},
+    })
+    appStore.importBackup(JSON.stringify({ profile: { name: 'Jane', email: '' }, portfolios: [] }))
+    stopSync = appStore.startSync()
+  })
+
+  afterEach(() => {
+    stopSync()
+    appStore.clear()
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it('writes the version with every save', () => {
+    appStore.updateProfile({ name: 'Jane Doe' })
+
+    expect(JSON.parse(backing.get(storageKeys.DATA) ?? '{}').version).toBe(STORED_DATA_VERSION)
+  })
+
+  it('writes the version into backups', () => {
+    expect(JSON.parse(appStore.exportBackup()).version).toBe(STORED_DATA_VERSION)
+  })
+
+  it('reads data saved before versions existed and versions it on the next save', () => {
+    backing.set(
+      storageKeys.DATA,
+      JSON.stringify({ lastUpdated: 1, profile: { name: 'Old', email: '' }, portfolios: [] }),
+    )
+    appStore.load()
+    expect(appStore.profile.name).toBe('Old')
+    expect(appStore.newerDataStored).toBe(false)
+
+    appStore.updateProfile({ cash_amount: 5 })
+
+    expect(JSON.parse(backing.get(storageKeys.DATA) ?? '{}').version).toBe(STORED_DATA_VERSION)
+  })
+
+  it('loads newer data as newer, not as unreadable, and keeps it from the next save', () => {
+    backing.set(storageKeys.DATA, NEWER)
+
+    appStore.load()
+    appStore.updateProfile({ name: 'This tab' })
+
+    expect(appStore.newerDataStored).toBe(true)
+    expect(appStore.unreadableData).toBeUndefined()
+    expect(backing.get(storageKeys.DATA)).toBe(NEWER)
+  })
+
+  it('keeps its state and stops saving when another tab saves newer data', () => {
+    saveFromOtherTab(NEWER)
+    expect(appStore.newerDataStored).toBe(true)
+    expect(appStore.profile.name).toBe('Jane')
+
+    appStore.updateProfile({ name: 'This tab' })
+
+    expect(backing.get(storageKeys.DATA)).toBe(NEWER)
+  })
+
+  it('stops saving even when the storage event never arrived', () => {
+    const changes: DataChange[] = []
+    const stop = appStore.onDataChange((change) => changes.push(change))
+    backing.set(storageKeys.DATA, NEWER)
+
+    appStore.updateProfile({ name: 'This tab' })
+    stop()
+
+    expect(appStore.newerDataStored).toBe(true)
+    expect(backing.get(storageKeys.DATA)).toBe(NEWER)
+    expect(changes).toEqual([])
+  })
+
+  it('keeps no copy of newer data, which nothing overwrites', () => {
+    saveFromOtherTab(NEWER)
+    appStore.updateProfile({ name: 'This tab' })
+
+    const copies = [...backing.keys()].filter((key) =>
+      key.startsWith(storageKeys.UNREADABLE_DATA_PREFIX),
+    )
+    expect(copies).toEqual([])
+  })
+
+  it('saves again once storage no longer holds newer data', () => {
+    saveFromOtherTab(NEWER)
+    saveFromOtherTab(READABLE)
+    expect(appStore.newerDataStored).toBe(false)
+
+    appStore.updateProfile({ cash_amount: 5 })
+
+    expect(JSON.parse(backing.get(storageKeys.DATA) ?? '{}').profile.cash_amount).toBe(5)
+  })
+
+  it('stops flagging newer data once another tab clears it', () => {
+    saveFromOtherTab(NEWER)
+    backing.delete(storageKeys.DATA)
+    onStorage?.({ key: storageKeys.DATA, newValue: null } as StorageEvent)
+
+    expect(appStore.newerDataStored).toBe(false)
+  })
+
+  it('never lets a demo touch newer data', () => {
+    appStore.loadDemo({ profile: { name: 'Claire', email: '' }, portfolios: [] }, NOW)
+    backing.set(storageKeys.DATA, NEWER)
+
+    appStore.updateProfile({ cash_amount: 5 })
+    expect(backing.get(storageKeys.DATA)).toBe(NEWER)
+
+    appStore.exitDemo()
+    expect(appStore.newerDataStored).toBe(true)
+  })
+
+  it('refuses a backup from a newer version and changes nothing', () => {
+    const before = backing.get(storageKeys.DATA)
+
+    expect(() => appStore.importBackup(NEWER)).toThrow(NewerBackupError)
+
+    expect(appStore.profile.name).toBe('Jane')
+    expect(backing.get(storageKeys.DATA)).toBe(before)
   })
 })
 

@@ -684,6 +684,11 @@
     },
     "currency": "Currency",
     "notImplemented": "Not implemented yet",
+    "newerData": {
+      "title": "This tab is out of date",
+      "description": "Your data was saved by a newer version of Kalkul. To protect it, changes made in this tab aren't being saved. Reload to continue.",
+      "reload": "Reload"
+    },
     "unreadableData": {
       "title": "Your saved data couldn't be read",
       "description": "The data saved in this browser is damaged or comes from an incompatible version of Kalkul.",
@@ -712,6 +717,7 @@
       "importAnyway": "Import anyway",
       "backupDownloaded": "Your data has been downloaded. You can now safely choose a file to import.",
       "error": "Could not import file. Please make sure it is a valid Kalkul backup.",
+      "newerVersion": "This backup comes from a newer version of Kalkul. Reload the page to update Kalkul, then import it again.",
       "droppedDescription": "Load the dropped file {name}.",
       "droppedBackupDownloaded": "Your data has been downloaded. You can now safely import {name}.",
       "importFile": "Import file",

@@ -26,6 +26,7 @@ import {
   withSeededSnapshot,
 } from '$lib/snapshots'
 import storageKeys from '$lib/storage-keys'
+import { NewerBackupError, STORED_DATA_VERSION, isNewerData } from '$lib/stored-data-version'
 import {
   DEFAULT_CURRENCY,
   formatCompactCurrency,
@@ -188,6 +189,26 @@ function readStoredData(raw: string): StoredData | undefined {
   return undefined
 }
 
+/** Whether `raw` was saved by a newer version of the app. */
+function isNewerRaw(raw: string): boolean {
+  try {
+    return isNewerData(JSON.parse(raw))
+  } catch {
+    return false
+  }
+}
+
+/** Whether storage holds data saved by a newer version of the app. */
+function storageHoldsNewerData(): boolean {
+  try {
+    const raw = localStorage.getItem(storageKeys.DATA)
+    return !!raw && isNewerRaw(raw)
+  } catch (e) {
+    console.error('Failed to read the stored data version', e)
+    return false
+  }
+}
+
 /**
  * Copies `raw` to a new `UNREADABLE_DATA_PREFIX` key unless an identical copy
  * exists. False when the write fails.
@@ -211,8 +232,11 @@ function keepUnreadableCopy(raw: string): boolean {
   }
 }
 
-/** The stored data, or the empty default and the stored text when it cannot be read. */
-function loadData(): { data: StoredData; unreadable?: string } {
+/**
+ * The stored data, or the empty default and why: `unreadable` holds text that
+ * cannot be read, `newer` marks data from a newer version of the app.
+ */
+function loadData(): { data: StoredData; unreadable?: string; newer?: boolean } {
   let raw: string | undefined
   try {
     raw = localStorage.getItem(storageKeys.DATA) ?? undefined
@@ -220,6 +244,7 @@ function loadData(): { data: StoredData; unreadable?: string } {
     console.error('Failed to load data from localStorage', e)
   }
   if (!raw) return { data: emptyData() }
+  if (isNewerRaw(raw)) return { data: emptyData(), newer: true }
   const data = readStoredData(raw)
   return data ? { data } : { data: emptyData(), unreadable: raw }
 }
@@ -244,6 +269,7 @@ function withAppStore() {
   let lastUpdated = $state(0)
   let unreadableData = $state<UnreadableData | undefined>(undefined)
   let unreadableFromOtherTab: string | undefined
+  let newerDataStored = $state(false)
   let dataListeners: ((change: DataChange) => void)[] = []
 
   function emitChange(source: DataChange['source']): void {
@@ -252,7 +278,8 @@ function withAppStore() {
   }
 
   function loadFromStorage(): void {
-    const { data, unreadable } = loadData()
+    const { data, unreadable, newer } = loadData()
+    newerDataStored = newer === true
     if (unreadable === undefined) unreadableData = undefined
     else setAside(unreadable)
     // Data saved before snapshots existed gets its baseline from the last
@@ -276,6 +303,7 @@ function withAppStore() {
     lastUpdated = 0
     unreadableData = undefined
     unreadableFromOtherTab = undefined
+    newerDataStored = false
     loading = false
   }
 
@@ -293,15 +321,17 @@ function withAppStore() {
 
   function persist(): void {
     if (demo) return
+    newerDataStored = storageHoldsNewerData()
     if (unreadableFromOtherTab !== undefined) {
       if (localStorage.getItem(storageKeys.DATA) === unreadableFromOtherTab) {
         setAside(unreadableFromOtherTab)
       }
       unreadableFromOtherTab = undefined
     }
-    if (unreadableData?.kept !== false) {
+    if (!newerDataStored && unreadableData?.kept !== false) {
       const now = Date.now()
       const stored: StoredData = {
+        version: STORED_DATA_VERSION,
         lastUpdated: now,
         profile: profile.toJSON(),
         portfolios: portfolios.map((p) => p.toJSON()),
@@ -437,6 +467,10 @@ function withAppStore() {
     get unreadableData(): UnreadableData | undefined {
       return unreadableData
     },
+    /** Whether a newer version of the app saved the stored data; saves are held back meanwhile. */
+    get newerDataStored() {
+      return newerDataStored
+    },
     /** Marks the unreadable data as kept. */
     markUnreadableDataDownloaded(): void {
       if (unreadableData) unreadableData = { ...unreadableData, kept: true }
@@ -567,6 +601,12 @@ function withAppStore() {
           return
         }
 
+        newerDataStored = isNewerRaw(event.newValue)
+        if (newerDataStored) {
+          unreadableFromOtherTab = undefined
+          return
+        }
+
         const data = readStoredData(event.newValue)
         if (!data) {
           // Another tab saved data this version cannot read.
@@ -602,15 +642,21 @@ function withAppStore() {
 
     exportBackup(): string {
       return JSON.stringify(
-        { profile: profile.toJSON(), portfolios: portfolios.map((p) => p.toJSON()) },
+        {
+          version: STORED_DATA_VERSION,
+          profile: profile.toJSON(),
+          portfolios: portfolios.map((p) => p.toJSON()),
+        },
         undefined,
         2,
       )
     },
 
     importBackup(json: string): void {
+      const backup: unknown = JSON.parse(json)
+      if (isNewerData(backup)) throw new NewerBackupError()
       // Repaired like readStoredData so older backups still restore.
-      const parsed: unknown = repairStoredData(JSON.parse(json))
+      const parsed: unknown = repairStoredData(backup)
       const validated = storedDataSchema.pick({ profile: true, portfolios: true }).parse(parsed)
       // A backup taken before snapshots existed carries no history; treat the
       // restored balances as confirmed now rather than as indefinitely stale.
