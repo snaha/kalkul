@@ -8,10 +8,10 @@ dialog, the FI column in History and the per-year FI% of a projection.
 
 | UI label                           | Field / code                                 | Meaning                                                      |
 | ---------------------------------- | -------------------------------------------- | ------------------------------------------------------------ |
-| Annual expenses                    | `getAnnualOutflowsTotal`                     | Expenses plus loan installments, annualized                  |
+| Living cost (annually)             | `getAnnualOutflowsTotal`                     | Expenses plus loan installments, annualized                  |
 | Current portfolio value            | `getInvestableNetWorth`                      | Cash plus investments minus loans not secured by an asset    |
 | Withdrawal rate                    | `Profile.fi_withdrawal_rate`                 | Percent of the portfolio drawn a year; absent means 4%       |
-| Your Financial Independence number | `getFiNumber`                                | Annual expenses × 100 / withdrawal rate                      |
+| Your financial independence number | `getFiNumber`                                | Living cost × 100 / withdrawal rate                          |
 | Financial independence             | `getFiPercent`, `YearlyProjection.fiPercent` | Portfolio value as a percent of the FI number, never below 0 |
 
 ## Rules
@@ -26,8 +26,11 @@ dialog, the FI column in History and the per-year FI% of a projection.
 - The rate is a setting, not financial data. One rate applies to the card,
   every History row and every year of every projection; a projection does not
   copy it, and History rows use today's rate.
-- The dialog previews the edit live; nothing is written until Apply. Reset
-  puts the field back to 4% without applying.
+- The dialog shows the living cost and the portfolio value with a tooltip
+  each, the withdrawal rate with a tooltip and a one-line description beside
+  the field, and the FI number it implies with its own description. It
+  previews the edit live; nothing is written until Apply. Reset puts the
+  field back to 4% without applying.
 - The landing page sample always uses 4%.
 
 ## Worked examples
@@ -44,10 +47,12 @@ dialog, the FI column in History and the per-year FI% of a projection.
 
 ## Open questions
 
-- The Figma copy says "Annual expenses" and "minus liabilities"; the code
-  counts installments and leaves mortgages out. The copy now says what the
-  code does; the designer has not confirmed this is the intended meaning
-  (#220).
+- The dialog uses the designer's tooltips verbatim (#220, 2026-11-05). The
+  living-cost one, "expenses plus loan and other liability instalments", says
+  what the code does. The portfolio one says "minus what you owe", while the
+  code subtracts only loans not secured by an asset, so a mortgage stays out
+  with the house that secures it. Whether a mortgage should count is not
+  confirmed with the designer.
 - Whether the runway settings (#391) and this rate should share one storage
   shape on the profile.
 
