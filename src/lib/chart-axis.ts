@@ -86,7 +86,7 @@ export function monthTicks(from: string, to: string): string[] {
 /**
  * Which of the surviving X-axis labels carry a year: the leading one always
  * and, once the chart spans more than a year, every label that starts a new
- * year. A shorter chart keeps the single leading year the spec draws (#227).
+ * year. A shorter chart keeps the single leading year the spec draws.
  */
 export function labelsWithYear(dates: string[], spansOverAYear: boolean): boolean[] {
   return dates.map(
