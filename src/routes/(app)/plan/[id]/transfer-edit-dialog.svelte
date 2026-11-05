@@ -304,59 +304,58 @@
 
   <!-- Amount, with the Max switch on a one-time transfer. Max has no amount of
        its own: the field is disabled and reads "Auto" (Figma frame 1387). -->
-  <div class="flex items-end gap-2">
-    <div class="flex flex-1 flex-col gap-2">
-      <Label for="{uid}-transferAmount">{$_('page.setup.common.amount')}</Label>
-      <div class="flex items-center gap-2">
-        <div class="flex-1">
-          <SuffixedInput
-            id="{uid}-transferAmount"
-            value={form.transfer_all ? undefined : form.amount}
-            placeholder={form.transfer_all ? $_('page.plan.transferAuto') : undefined}
-            disabled={form.transfer_all}
-            suffix={currencyLabel}
-            formatNumber={appStore.formatNumber}
-            onValueChange={(v) => {
-              if (!form.transfer_all) form.amount = v
-            }}
-          />
-        </div>
-        {#if form.schedule === 'one_time'}
-          <label class="flex shrink-0 cursor-pointer items-center gap-2">
-            <Switch
-              checked={form.transfer_all}
-              onCheckedChange={(v) => (form.transfer_all = v === true)}
-            />
-            <span class="text-sm font-medium">{$_('page.plan.transferMax')}</span>
-          </label>
-          <Tooltip.Provider delayDuration={150}>
-            <Tooltip.Root bind:open={maxTooltipOpen} disableCloseOnTriggerClick>
-              <Tooltip.Trigger
-                type="button"
-                aria-label={$_('page.plan.transferMaxDescription')}
-                onclick={() => (maxTooltipOpen = !maxTooltipOpen)}
-                class="text-muted-foreground hover:text-foreground shrink-0"
-              >
-                <CircleHelp class="size-4" />
-              </Tooltip.Trigger>
-              <Tooltip.Content>
-                {$_('page.plan.transferMaxDescription')}
-              </Tooltip.Content>
-            </Tooltip.Root>
-          </Tooltip.Provider>
-        {/if}
-      </div>
-    </div>
-    <!-- Max moves whatever the source holds, so there is no amount to adjust. -->
-    {#if !form.transfer_all}
-      <div class="flex h-8 flex-1 items-center">
-        <InflationAdjustToggle
-          checked={form.inflation_adjusted}
-          onCheckedChange={(v) => (form.inflation_adjusted = v)}
+  <div class="flex flex-col gap-2">
+    <Label for="{uid}-transferAmount">{$_('page.setup.common.amount')}</Label>
+    <div class="flex items-center gap-2">
+      <div class="flex-1">
+        <SuffixedInput
+          id="{uid}-transferAmount"
+          value={form.transfer_all ? undefined : form.amount}
+          placeholder={form.transfer_all ? $_('page.plan.transferAuto') : undefined}
+          disabled={form.transfer_all}
+          suffix={currencyLabel}
+          formatNumber={appStore.formatNumber}
+          onValueChange={(v) => {
+            if (!form.transfer_all) form.amount = v
+          }}
         />
       </div>
-    {/if}
+      {#if form.schedule === 'one_time'}
+        <label class="flex shrink-0 cursor-pointer items-center gap-2">
+          <Switch
+            checked={form.transfer_all}
+            onCheckedChange={(v) => (form.transfer_all = v === true)}
+          />
+          <span class="text-sm font-medium">{$_('page.plan.transferMax')}</span>
+        </label>
+        <Tooltip.Provider delayDuration={150}>
+          <Tooltip.Root bind:open={maxTooltipOpen} disableCloseOnTriggerClick>
+            <Tooltip.Trigger
+              type="button"
+              aria-label={$_('page.plan.transferMaxDescription')}
+              onclick={() => (maxTooltipOpen = !maxTooltipOpen)}
+              class="text-muted-foreground hover:text-foreground shrink-0"
+            >
+              <CircleHelp class="size-4" />
+            </Tooltip.Trigger>
+            <Tooltip.Content>
+              {$_('page.plan.transferMaxDescription')}
+            </Tooltip.Content>
+          </Tooltip.Root>
+        </Tooltip.Provider>
+      {/if}
+    </div>
   </div>
+
+  <!-- On its own row (frames 1340 and 1344), so it does not move when Max is
+       switched. Max moves whatever the source holds, so there is no amount to
+       adjust and the switch is hidden. -->
+  {#if !form.transfer_all}
+    <InflationAdjustToggle
+      checked={form.inflation_adjusted}
+      onCheckedChange={(v) => (form.inflation_adjusted = v)}
+    />
+  {/if}
 
   {#if form.schedule === 'recurring'}
     <DateAgeSelector
