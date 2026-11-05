@@ -1482,12 +1482,14 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       })),
     ]
 
-    // 9. Per-year FI % and runway, mirroring the dashboard's snapshot
-    //    formulas (getFiPercent/getRunwayYears in financial-totals.ts):
-    //    investable wealth excludes tangibles and subtracts only standalone
-    //    liabilities (a mortgage is secured by its asset), while outflows
-    //    include every installment actually paid this year. Numerator and denominator are both nominal,
-    //    so the deflator cancels and the ratio is basis-independent.
+    // 9. Per-year FI % and runway. FI mirrors the dashboard's getFiPercent in
+    //    financial-totals.ts; the runway stays the ratio of investable wealth
+    //    to outflows, while the dashboard's Runway card runs the drawdown in
+    //    runway.ts (docs/product/runway.md). Investable wealth excludes
+    //    tangibles and subtracts only standalone liabilities (a mortgage is
+    //    secured by its asset); outflows include every installment actually
+    //    paid this year. Numerator and denominator are both nominal, so the
+    //    deflator cancels and the ratio is basis-independent.
     const standaloneOutstandingNominal = standaloneSchedules.reduce<Decimal>(
       (sum, s) => sum.plus(s.outstandingByYear.get(year) ?? DECIMAL_0),
       DECIMAL_0,

@@ -10,6 +10,40 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-05 Runway is a drawdown the user configures
+
+**Context.** The Runway card divided investable net worth by annual outflows:
+one number, no way to see what it assumed, and nothing a user could change
+(#219). The Figma dialog offers three switches: withdraw from investments,
+include income, sell tangible assets. Under the first and the last a growth
+checkbox appears while the switch is on, and a tax rate on the gain while
+growth is on (frame 1377 shows everything on, frame 1389 the collapsed
+default, revised on 2026-11-03).
+
+**Decision.** Runway is a month-by-month drawdown of today's balances against
+today's recurring outflows: cash first, then investments, then tangible
+assets, as far as the switches allow. Loans run on their own schedule for
+their remaining term, and selling a financed asset settles what it still owes
+on that schedule. Investments grow at their effective APY and assets at their
+own value-over-time rate only when the growth checkbox is on; nothing else
+moves, so the figures are nominal and flat. Tax takes its rate of the gain
+accrued since today, since today's balance is the only cost basis Kalkul has,
+and the two rates are the runway's own. The defaults are the frame's: investments on
+without growth, income and asset sales off, both rates 0. That is close to
+the old ratio, not equal to it: loans are paid by installment over time
+instead of being subtracted up front, and a loan with no installment is never
+paid. Money that never runs out reads "100+ years". Each setting is a flat
+optional field on the profile, the shape `fi_withdrawal_rate` uses, so Apply
+writes only what changed and the MCP `update_profile` sees them as plain
+fields. Projections keep the ratio for their per-year runway. (#391)
+
+**Why.** A drawdown answers the question the card asks, "how long", with the
+loans paid as they fall due rather than netted off today, and it lets each
+switch mean one visible thing. Tax on the gain since today is the only
+estimate that needs no purchase history. Flat fields rather than a nested
+object keep one storage shape for both calculation settings and keep the
+fields-only save rule.
+
 ## 2026-11-05 No capital gains tax rules in Settings
 
 **Context.** The Settings page let the user enter default capital gains tax
