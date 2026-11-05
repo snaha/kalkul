@@ -207,6 +207,34 @@
     />
   </div>
 
+  <!-- From + To -->
+  <div class="flex items-end gap-2">
+    <div class="flex flex-1 flex-col gap-2">
+      <Label for="{uid}-transferFromLabel">{$_('page.plan.transferFromLabel')}</Label>
+      <SelectField
+        id="{uid}-transferFromLabel"
+        value={form.from_asset_id}
+        items={fromAssetItems}
+        placeholder={$_('page.plan.pickAsset')}
+        onValueChange={(v) => {
+          if (v) form.from_asset_id = v
+        }}
+      />
+    </div>
+    <div class="flex flex-1 flex-col gap-2">
+      <Label for="{uid}-transferToLabel">{$_('page.plan.transferToLabel')}</Label>
+      <SelectField
+        id="{uid}-transferToLabel"
+        value={form.to_asset_id}
+        items={toAssetItems}
+        placeholder={$_('page.plan.pickAsset')}
+        onValueChange={(v) => {
+          if (v) form.to_asset_id = v
+        }}
+      />
+    </div>
+  </div>
+
   <!-- Type + (one-time) Date  /  (recurring) Frequency -->
   <div class="flex items-end gap-2">
     <div class="flex flex-1 flex-col gap-2">
@@ -274,57 +302,24 @@
     {/if}
   </div>
 
-  <!-- From + To -->
-  <div class="flex items-end gap-2">
-    <div class="flex flex-1 flex-col gap-2">
-      <Label for="{uid}-transferFromLabel">{$_('page.plan.transferFromLabel')}</Label>
-      <SelectField
-        id="{uid}-transferFromLabel"
-        value={form.from_asset_id}
-        items={fromAssetItems}
-        placeholder={$_('page.plan.pickAsset')}
-        onValueChange={(v) => {
-          if (v) form.from_asset_id = v
-        }}
-      />
-    </div>
-    <div class="flex flex-1 flex-col gap-2">
-      <Label for="{uid}-transferToLabel">{$_('page.plan.transferToLabel')}</Label>
-      <SelectField
-        id="{uid}-transferToLabel"
-        value={form.to_asset_id}
-        items={toAssetItems}
-        placeholder={$_('page.plan.pickAsset')}
-        onValueChange={(v) => {
-          if (v) form.to_asset_id = v
-        }}
-      />
-    </div>
-  </div>
-
-  <!-- Amount (+ Max toggle for one-time only) + Adjust for inflation -->
-  <!-- The Max switch is not in the Figma frames; kept as an existing feature. -->
+  <!-- Amount, with the Max switch on a one-time transfer. Max has no amount of
+       its own: the field is disabled and reads "Auto" (Figma frame 1387). -->
   <div class="flex items-end gap-2">
     <div class="flex flex-1 flex-col gap-2">
       <Label for="{uid}-transferAmount">{$_('page.setup.common.amount')}</Label>
       <div class="flex items-center gap-2">
         <div class="flex-1">
-          {#if form.transfer_all}
-            <Input
-              id="{uid}-transferAmount"
-              value={$_('page.plan.transferMax')}
-              readonly
-              class="text-muted-foreground"
-            />
-          {:else}
-            <SuffixedInput
-              id="{uid}-transferAmount"
-              value={form.amount}
-              suffix={currencyLabel}
-              formatNumber={appStore.formatNumber}
-              onValueChange={(v) => (form.amount = v)}
-            />
-          {/if}
+          <SuffixedInput
+            id="{uid}-transferAmount"
+            value={form.transfer_all ? undefined : form.amount}
+            placeholder={form.transfer_all ? $_('page.plan.transferAuto') : undefined}
+            disabled={form.transfer_all}
+            suffix={currencyLabel}
+            formatNumber={appStore.formatNumber}
+            onValueChange={(v) => {
+              if (!form.transfer_all) form.amount = v
+            }}
+          />
         </div>
         {#if form.schedule === 'one_time'}
           <label class="flex shrink-0 cursor-pointer items-center gap-2">
@@ -352,13 +347,15 @@
         {/if}
       </div>
     </div>
-    <div class="flex h-8 flex-1 items-center">
-      <InflationAdjustToggle
-        checked={form.inflation_adjusted}
-        disabled={form.transfer_all}
-        onCheckedChange={(v) => (form.inflation_adjusted = v)}
-      />
-    </div>
+    <!-- Max moves whatever the source holds, so there is no amount to adjust. -->
+    {#if !form.transfer_all}
+      <div class="flex h-8 flex-1 items-center">
+        <InflationAdjustToggle
+          checked={form.inflation_adjusted}
+          onCheckedChange={(v) => (form.inflation_adjusted = v)}
+        />
+      </div>
+    {/if}
   </div>
 
   {#if form.schedule === 'recurring'}
