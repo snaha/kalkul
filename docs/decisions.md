@@ -10,6 +10,31 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-10-29 Financial independence uses a withdrawal rate the user sets
+
+**Context.** The Financial independence card compared investable wealth with
+25 times annual outflows, the 4% rule, with no way to see or change that
+(#220). The Figma dialog shows the inputs and lets the rate be changed.
+
+**Decision.** The FI number is annual outflows, expenses plus loan
+installments, times 100 over the withdrawal rate; FI% is the portfolio over
+that number. The portfolio is cash plus investments minus standalone loans. The
+rate lives on the profile, defaults to 4%, must be above 0 and at most 100, and
+applies everywhere FI% is shown: the dashboard card, the History table and each
+year of a projection. The landing page sample keeps 4%. (#392)
+
+**Why.** Installments count as outflows because they are paid every month
+whether or not the household works; leaving them out would call someone with
+a large mortgage independent too early. A mortgage is not subtracted from the
+portfolio because the house that secures it is not in the portfolio either;
+subtracting one without the other would count the house as a pure debt. Both
+keep the card's existing behaviour, so at 4% no figure moves. The dialog copy
+says so rather than "minus liabilities". The rate is a setting about how the
+user reads their numbers, not financial data: it sits on the profile next to
+the language, a projection reads the live rate rather than copying it the way
+it copies `inflation_rate`, and History rows recompute with today's rate, so
+changing it moves every FI figure at once and they stay comparable.
+
 ## 2026-10-29 Repair drops items that are not running today
 
 **Context.** Converting stored data to the no-planned-timing rule had to do

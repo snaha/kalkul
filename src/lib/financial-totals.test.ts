@@ -6,6 +6,7 @@ import {
   getAnnualExpensesTotal,
   getAnnualIncomeTotal,
   getCashTotal,
+  getFiNumber,
   getFiPercent,
   getFinancedAssetsDebtTotal,
   getInvestableNetWorth,
@@ -442,6 +443,19 @@ describe('getFiPercent / getRunwayYears', () => {
   test('matches the worked example', () => {
     expect(getFiPercent(workedExample)).toBeCloseTo(62, 6)
     expect(getRunwayYears(workedExample)).toBeCloseTo(15.5, 6)
+  })
+
+  test('the FI number is the outflows over the withdrawal rate', () => {
+    expect(getFiNumber(workedExample)).toBe(1_000_000)
+    expect(getFiNumber(workedExample, 2)).toBe(2_000_000)
+    expect(getFiNumber(workedExample, 0)).toBeUndefined()
+    expect(getFiNumber(EMPTY_PROFILE)).toBeUndefined()
+  })
+
+  test('the withdrawal rate comes from the argument, then the profile, then 4%', () => {
+    expect(getFiPercent(workedExample, 2)).toBeCloseTo(31, 6)
+    expect(getFiPercent({ ...workedExample, fi_withdrawal_rate: 5 })).toBeCloseTo(77.5, 6)
+    expect(getFiPercent({ ...workedExample, fi_withdrawal_rate: 5 }, 4)).toBeCloseTo(62, 6)
   })
 
   test('return undefined without expenses', () => {

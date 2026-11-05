@@ -2758,6 +2758,28 @@ describe('getYearlyPlanProjection', () => {
     expect(result[0].runwayYears).toBeCloseTo(10, 6)
   })
 
+  it("uses the profile's withdrawal rate for the FI number", () => {
+    const expenses: Expense[] = [
+      {
+        id: 'e1',
+        name: 'Living',
+        amount: 10_000,
+        schedule: 'recurring',
+        frequency: 'yearly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const investments: ProfileInvestment[] = [{ id: 'i1', name: 'Fund', balance: 100_000, apy: 0 }]
+    const result = project(
+      makePlan(),
+      makeProfile({ investments, expenses, fi_withdrawal_rate: 2 }),
+    )
+    // At 2% the FI number is 50 times the outflows: 100,000 / 500,000 = 20%.
+    expect(result[0].fiPercent).toBeCloseTo(20, 6)
+  })
+
   it('subtracts standalone liabilities from investable wealth and counts their installments as outflows', () => {
     const liabilities: ProfileLiability[] = [
       {

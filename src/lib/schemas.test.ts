@@ -1192,6 +1192,21 @@ describe('storedDataSchema golden fixture', () => {
   })
 })
 
+describe('profileSchema FI withdrawal rate', () => {
+  const base = { name: 'Test', email: '' }
+
+  it('accepts a rate above 0 up to 100', () => {
+    expect(profileSchema.parse({ ...base, fi_withdrawal_rate: 4.4 }).fi_withdrawal_rate).toBe(4.4)
+    expect(profileSchema.parse({ ...base, fi_withdrawal_rate: 100 }).fi_withdrawal_rate).toBe(100)
+  })
+
+  it('rejects zero, a negative rate and a rate above 100', () => {
+    expect(() => profileSchema.parse({ ...base, fi_withdrawal_rate: 0 })).toThrow()
+    expect(() => profileSchema.parse({ ...base, fi_withdrawal_rate: -1 })).toThrow()
+    expect(() => profileSchema.parse({ ...base, fi_withdrawal_rate: 1000 })).toThrow()
+  })
+})
+
 describe('profileSchema tax rules', () => {
   it('round-trips investment and tangible asset tax rules, including half-filled ones', () => {
     const profile = {
