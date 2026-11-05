@@ -112,11 +112,11 @@
       </div>
 
       <div class="flex flex-col gap-2">
-        <Label for="{uid}-notes">{$_('page.addProjection.exploring')}</Label>
+        <Label for="{uid}-notes">{$_('page.addProjection.notes')}</Label>
         <Textarea
           id="{uid}-notes"
           bind:value={notes}
-          placeholder={$_('page.addProjection.exploringPlaceholder')}
+          placeholder={$_('page.addProjection.notesPlaceholder')}
           class="min-h-16"
         />
       </div>

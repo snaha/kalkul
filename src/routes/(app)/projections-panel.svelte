@@ -126,9 +126,9 @@
                 </div>
                 <div class="flex min-w-0 flex-1 flex-col gap-1">
                   <p class="font-bold">{plan.name}</p>
-                  <p class="text-sm text-muted-foreground">
-                    {plan.notes || $_('page.dashboard.projections.noNotes')}
-                  </p>
+                  {#if plan.notes}
+                    <p class="text-sm text-muted-foreground">{plan.notes}</p>
+                  {/if}
                 </div>
               </Card.Content>
             </Card.Root>
