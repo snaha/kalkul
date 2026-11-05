@@ -1,1 +1,0 @@
-import{U as e,ct as t,ut as n}from"./B4nPWE2i.js";function r(){let r=n(!1),i=n(void 0);return{get open(){return e(r)},set open(e){t(r,e,!0),e||t(i,void 0)},get droppedFile(){return e(i)},openPicker(){t(i,void 0),t(r,!0)},openWithFile(e){t(i,e,!0),t(r,!0)},forgetDroppedFile(){t(i,void 0)}}}var i=r();export{i as t};
