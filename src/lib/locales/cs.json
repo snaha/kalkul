@@ -4,8 +4,8 @@
       "title": "Přidat projekci",
       "name": "Název",
       "defaultName": "Alternativní projekce {index}",
-      "exploring": "Co chcete prozkoumat?",
-      "exploringPlaceholder": "např. koupě domu za 3 roky, přechod na částečný úvazek, předčasný odchod do důchodu...",
+      "notes": "Poznámky",
+      "notesPlaceholder": "např. koupě domu za 3 roky, přechod na částečný úvazek, předčasný odchod do důchodu...",
       "startFromCurrentFinances": "Začít od vašich aktuálních financí",
       "startFromCurrentFinancesHelp": "Udržte svou projekci ukotvenou v realitě. Vaše současná aktiva a peněžní toky jsou zahrnuty jako výchozí bod — cokoli můžete upravit nebo přidat. Vypnutím začnete od nuly; váš hotovostní zůstatek zůstává výchozím bodem v obou případech.",
       "create": "Vytvořit projekci",
@@ -341,7 +341,6 @@
       "projections": {
         "title": "Projekce",
         "addProjection": "Přidat projekci",
-        "noNotes": "Žádný popis",
         "planChartLabel": "Odhadované čisté jmění pro {name}",
         "illustrationAlt": "Ilustrace plánů",
         "emptyTitle": "Připraveni prozkoumat svou budoucnost?",

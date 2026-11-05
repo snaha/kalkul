@@ -4,8 +4,8 @@
       "title": "Add projection",
       "name": "Name",
       "defaultName": "Alternative projection {index}",
-      "exploring": "What are you exploring?",
-      "exploringPlaceholder": "e.g. Buy a house in 3 years, switch to part-time work, early retirement...",
+      "notes": "Notes",
+      "notesPlaceholder": "e.g. Buy a house in 3 years, switch to part-time work, early retirement...",
       "startFromCurrentFinances": "Start from your current finances",
       "startFromCurrentFinancesHelp": "Keep your projection grounded in reality. Your current assets and cash flows are included as the starting point — you can modify or add anything. Turn off to start from scratch; your cash balance stays as the starting point either way.",
       "create": "Create projection",
@@ -341,7 +341,6 @@
       "projections": {
         "title": "Projections",
         "addProjection": "Add projection",
-        "noNotes": "No description",
         "planChartLabel": "Projected net worth for {name}",
         "illustrationAlt": "Plans illustration",
         "emptyTitle": "Ready to explore your future(s)?",
