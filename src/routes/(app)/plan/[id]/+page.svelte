@@ -975,7 +975,9 @@
                       <PlanSidebarRow
                         dense
                         name={item.name}
-                        value={`-${appStore.formatCurrencyCode(item.value)}`}
+                        value={item.value > 0
+                          ? `-${appStore.formatCurrencyCode(item.value)}`
+                          : appStore.formatCurrencyCode(0)}
                         valueClass="text-destructive"
                         linkedLabel={item.assetId ? $_('page.plan.financedAssetLoan') : undefined}
                         onclick={notImplemented}

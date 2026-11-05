@@ -1515,8 +1515,8 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     }))
 
     // Every liability, standalone or the loan behind a financed asset, so the
-    // rows add up to the total (#390). A paid-off loan, or the financing of a
-    // purchase the plan could not afford, stays listed at 0.
+    // rows add up to the total. A loan not yet taken out, paid off, settled by
+    // a sale, or behind a purchase the plan could not afford stays listed at 0.
     const liabilitiesByItem: YearlyProjectionItem[] = [
       ...liabilities.map((liability, i) => ({
         id: liability.id,

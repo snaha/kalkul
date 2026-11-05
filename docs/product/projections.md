@@ -98,8 +98,9 @@ page's "Liabilities balance" and the MCP `get_projection` output) lists every
 liability, so its rows add up to the liabilities total. That includes the loan
 behind each financed tangible asset: one row per asset, named after it,
 carrying the asset's id as `assetId` and marked in the sidebar as tied to the
-asset. A loan that is paid off, or whose asset purchase the plan could not
-afford, stays listed at 0.
+asset. A loan stays listed at 0 while it is not owed: before a planned
+purchase, after it is paid off or settled by a sale, and when the plan could
+not afford the purchase.
 
 ### When a feature seems to need a projection to write financial data
 

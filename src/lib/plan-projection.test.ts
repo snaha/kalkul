@@ -1013,7 +1013,7 @@ describe('getYearlyPlanProjection', () => {
       const sum = year.liabilitiesByItem.reduce((s, i) => s + i.value, 0)
       expect(sum).toBeCloseTo(year.liabilities, 6)
     }
-    // A paid-off loan stays listed at 0 (#390: every liability is always shown).
+    // A paid-off loan stays listed at 0: every liability is always shown.
     expect(result[5].liabilitiesByItem[0]).toEqual({ id: 'l1', name: 'Loan', value: 0 })
   })
 

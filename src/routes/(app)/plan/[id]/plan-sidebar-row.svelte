@@ -39,9 +39,18 @@
 
 {#snippet content()}
   {#if linkedLabel}
-    <span role="img" aria-label={linkedLabel} title={linkedLabel} class="shrink-0">
-      <Link class="size-3 text-muted-foreground" aria-hidden="true" />
-    </span>
+    <Tooltip.Provider delayDuration={150}>
+      <Tooltip.Root>
+        <Tooltip.Trigger>
+          {#snippet child({ props })}
+            <span {...props} role="img" aria-label={linkedLabel} class="shrink-0">
+              <Link class="size-3 text-muted-foreground" aria-hidden="true" />
+            </span>
+          {/snippet}
+        </Tooltip.Trigger>
+        <Tooltip.Content>{linkedLabel}</Tooltip.Content>
+      </Tooltip.Root>
+    </Tooltip.Provider>
   {/if}
   <span class={cn('min-w-0 flex-1 truncate', hasInsufficientFunds && 'text-destructive')}>
     {name}
