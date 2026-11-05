@@ -970,15 +970,18 @@ export const taxRuleSchema = z.object({
 /** The 4% rule: the withdrawal rate the FI number assumes until the user sets one. */
 export const DEFAULT_FI_WITHDRAWAL_RATE = 4
 
+// Mirrors the supported locales in `src/lib/locales/index.ts` — keep the two
+// lists in sync.
+export const languageSchema = z.enum(['en', 'cs'])
+
 export const profileFieldsSchema = z.object({
   name: z.string(),
   email: z.string(),
   birth_date: z.string().optional(),
   location: z.string().optional(),
   currency: z.string().optional(),
-  // UI language preference. Mirrors the supported locales in
-  // `src/lib/locales/index.ts` — keep the two lists in sync.
-  language: z.enum(['en', 'cs']).optional(),
+  // UI language preference.
+  language: languageSchema.optional(),
   // Usage/license terms accepted in the first Get started step. Persisted so
   // navigating Back does not force the user to accept them again.
   terms_accepted: z.boolean().optional(),
