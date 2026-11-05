@@ -1,6 +1,7 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
+  import Link from '@lucide/svelte/icons/link'
   import TriangleAlert from '@lucide/svelte/icons/triangle-alert'
 
   import * as Tooltip from '$lib/components/ui/tooltip'
@@ -12,6 +13,9 @@
     valueClass?: string
     dense?: boolean
     hasInsufficientFunds?: boolean
+    // Marks the row as tied to another item (a financed asset's loan); the
+    // text is the icon's accessible label and tooltip.
+    linkedLabel?: string
     onclick?: () => void
   }
 
@@ -21,6 +25,7 @@
     valueClass,
     dense = false,
     hasInsufficientFunds = false,
+    linkedLabel,
     onclick,
   }: Props = $props()
 
@@ -33,6 +38,11 @@
 </script>
 
 {#snippet content()}
+  {#if linkedLabel}
+    <span role="img" aria-label={linkedLabel} title={linkedLabel} class="shrink-0">
+      <Link class="size-3 text-muted-foreground" aria-hidden="true" />
+    </span>
+  {/if}
   <span class={cn('min-w-0 flex-1 truncate', hasInsufficientFunds && 'text-destructive')}>
     {name}
   </span>

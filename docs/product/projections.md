@@ -91,6 +91,16 @@ one fact: whether the liability's id is in `base.liabilities`. Never by dates
 or names. A new loan pays its balance into cash in the year it starts; existing
 debt pays nothing in, however the plan has edited it since.
 
+### The liabilities breakdown lists every loan
+
+A projection's per-year liabilities breakdown (`liabilitiesByItem`, the plan
+page's "Liabilities balance" and the MCP `get_projection` output) lists every
+liability, so its rows add up to the liabilities total. That includes the loan
+behind each financed tangible asset: one row per asset, named after it,
+carrying the asset's id as `assetId` and marked in the sidebar as tied to the
+asset. A loan that is paid off, or whose asset purchase the plan could not
+afford, stays listed at 0.
+
 ### When a feature seems to need a projection to write financial data
 
 The answer is a projection-level setting, never a profile write. Raise it
@@ -119,6 +129,13 @@ rather than papering over it.
    she instead edits her existing renovation loan's balance from 14,500 to
    30,000 inside the plan, cash does not move; only the debt and its schedule
    change.
+
+6. **Every loan is in the breakdown.** A plan holds a standalone loan of
+   1,000 paid off at 250 a year, and a house financed with 3,000,000
+   outstanding paid off at 300,000 a year, both at 0% interest. Its first year
+   lists "Loan" at 750 and "House" at 2,700,000, the house's row marked as tied
+   to the house; they add up to the liabilities total of 2,700,750. From the
+   fourth year "Loan" stays listed at 0.
 
 ## Where this lives in the code
 

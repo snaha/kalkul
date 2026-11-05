@@ -977,6 +977,7 @@
                         name={item.name}
                         value={`-${appStore.formatCurrencyCode(item.value)}`}
                         valueClass="text-destructive"
+                        linkedLabel={item.assetId ? $_('page.plan.financedAssetLoan') : undefined}
                         onclick={notImplemented}
                       />
                     {/each}

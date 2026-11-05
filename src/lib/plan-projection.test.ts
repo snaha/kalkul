@@ -979,7 +979,7 @@ describe('getYearlyPlanProjection', () => {
     expect(result[3].liabilitiesByItem[0].value).toBeCloseTo(0, 6)
   })
 
-  it('excludes tangible-asset financings from liabilitiesByItem', () => {
+  it('lists tangible-asset financings in liabilitiesByItem so the rows add up to the total', () => {
     const tangible_assets: ProfileTangibleAsset[] = [
       {
         id: 't1',
@@ -993,11 +993,28 @@ describe('getYearlyPlanProjection', () => {
         remaining_term: 10,
       },
     ]
-    const result = project(makePlan(), makeProfile({ tangible_assets }))
-    // No standalone liabilities entered → none listed, even though the asset
-    // contributes to the aggregate liabilities figure.
-    expect(result[0].liabilitiesByItem).toEqual([])
-    expect(result[0].liabilities).toBeGreaterThan(0)
+    const liabilities: ProfileLiability[] = [
+      {
+        id: 'l1',
+        name: 'Loan',
+        outstanding_balance: 1000,
+        installment_frequency: 'yearly',
+        annual_rate: 0,
+        installment_amount: 250,
+        remaining_term: 4,
+      },
+    ]
+    const result = project(makePlan(), makeProfile({ tangible_assets, liabilities }))
+    expect(result[0].liabilitiesByItem).toEqual([
+      { id: 'l1', name: 'Loan', value: 750 },
+      { id: 'tangible-asset-financing-t1', name: 'House', value: 2_700_000, assetId: 't1' },
+    ])
+    for (const year of result) {
+      const sum = year.liabilitiesByItem.reduce((s, i) => s + i.value, 0)
+      expect(sum).toBeCloseTo(year.liabilities, 6)
+    }
+    // A paid-off loan stays listed at 0 (#390: every liability is always shown).
+    expect(result[5].liabilitiesByItem[0]).toEqual({ id: 'l1', name: 'Loan', value: 0 })
   })
 
   it('exposes totalIncome and totalExpenses per year in real terms', () => {

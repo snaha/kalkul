@@ -63,6 +63,7 @@
       "investmentsValue": "Hodnota investic",
       "tangibleAssetsValue": "Hodnota hmotných aktiv",
       "liabilitiesBalance": "Zůstatek závazků",
+      "financedAssetLoan": "Úvěr vázaný na financované aktivum",
       "addCashFlow": "Přidat peněžní tok",
       "addAsset": "Přidat aktivum",
       "yearOnYear": "Meziročně",
