@@ -70,7 +70,7 @@
     if (!snapshot) return
     snapshotMode = 'edit'
     snapshotSource = editSourceOf(storedProfile, snapshot)
-    snapshotSeedOn = undefined
+    snapshotSeedOn = (date: string) => editSourceOf(storedProfile, snapshot, date)
     snapshotOriginalDate = date
     snapshotOpen = true
   }
