@@ -621,7 +621,6 @@
         "backup": "Backup",
         "appearance": "Appearance",
         "localisation": "Localisation",
-        "taxRules": "Tax rules",
         "yourDetails": "Your details",
         "mcpServer": "MCP server"
       },
@@ -656,23 +655,6 @@
           "erase": "Erase",
           "cancel": "Cancel"
         }
-      },
-      "taxRules": {
-        "description": "Set default tax rules for when you sell investments or tangible assets. These will apply automatically unless overridden.",
-        "investments": "For investments",
-        "tangibleAssets": "For tangible assets",
-        "capitalGainsTax": "Capital gains tax",
-        "if": "if",
-        "holdingPeriodIs": "Holding period is",
-        "moreThan": "More than",
-        "lessThan": "Less than",
-        "years": "years",
-        "holdingYears": "Holding period in years",
-        "addRule": "Add tax rule",
-        "removeRule": "Remove tax rule",
-        "rateOutOfRange": "Enter a rate between 0 and 100",
-        "holdingYearsOutOfRange": "Enter 0 or more years",
-        "cgtHelp": "Capital gains tax (CGT) is a tax levied on the profit (gain) made from selling an asset—such as stocks, bonds, real estate, or collectibles—that has increased in value. It only applies when the asset is sold (realized), not while it is held. Rates generally depend on how long the asset was held (short-term vs. long-term) and the owner's income level."
       }
     },
     "demo": {

@@ -953,20 +953,6 @@ export const transferSchema = z
     }
   })
 
-export const holdingPeriodSchema = z.enum(['more_than', 'less_than'])
-
-// Default capital gains tax applied when an investment or tangible asset is
-// sold: `rate` % if the holding period is more/less than `holding_years`.
-// Rate and years are optional so a half-filled row on the Settings page can
-// be persisted as-is; the projection engine ignores incomplete rules (and
-// does not apply tax rules at all yet).
-export const taxRuleSchema = z.object({
-  id: z.string(),
-  rate: z.number().min(0).max(100).optional(),
-  holding_period: holdingPeriodSchema,
-  holding_years: z.number().min(0).optional(),
-})
-
 /** The 4% rule: the withdrawal rate the FI number assumes until the user sets one. */
 export const DEFAULT_FI_WITHDRAWAL_RATE = 4
 
@@ -992,8 +978,6 @@ export const profileFieldsSchema = z.object({
   incomes: z.array(incomeSchema).optional(),
   expenses: z.array(expenseSchema).optional(),
   transfers: z.array(transferSchema).optional(),
-  investment_tax_rules: z.array(taxRuleSchema).optional(),
-  tangible_asset_tax_rules: z.array(taxRuleSchema).optional(),
   // Percent of the portfolio withdrawn a year behind the Financial independence
   // number (`getFiNumber`); absent means `DEFAULT_FI_WITHDRAWAL_RATE`.
   fi_withdrawal_rate: z.number().positive().max(100).optional(),
@@ -1130,5 +1114,3 @@ export type RemainingTermUnit = z.infer<typeof remainingTermUnitSchema>
 export type LiabilityPayOff = z.infer<typeof liabilityPayOffSchema>
 export type PlanStartType = z.infer<typeof planStartTypeSchema>
 export type PlanEndType = z.infer<typeof planEndTypeSchema>
-export type HoldingPeriod = z.infer<typeof holdingPeriodSchema>
-export type TaxRule = z.infer<typeof taxRuleSchema>

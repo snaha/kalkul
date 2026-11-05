@@ -10,6 +10,24 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-05 No capital gains tax rules in Settings
+
+**Context.** The Settings page let the user enter default capital gains tax
+rules by holding period, and a projection taxed the gain share of an
+investment withdrawal at the matching rate. The cost-basis work in #344
+settled on tracking what Kalkul itself knows instead, and the rules were
+left behind (#386).
+
+**Decision.** The tax rules and their profile fields are removed. A
+projection charges no capital gains tax on a withdrawal; only the exit and
+entry fees apply. The runway's own tax rates (#391) are unaffected, as they
+never read these rules. (#386)
+
+**Why.** Rules the user types by holding period were a second, hand-entered
+tax model beside the one #344 chose, and nothing but the projection's
+withdrawal path read them. Removing them is cheaper than reconciling the
+two, and pre-production data needs no migration.
+
 ## 2026-11-05 Liabilities include the loans behind financed assets
 
 **Context.** A plan's liabilities total counted the loans behind financed

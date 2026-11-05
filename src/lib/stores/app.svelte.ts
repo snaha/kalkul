@@ -67,8 +67,6 @@ function enrichProfile({
   incomes,
   expenses,
   transfers,
-  investment_tax_rules,
-  tangible_asset_tax_rules,
   fi_withdrawal_rate,
   snapshots,
 }: Profile): ProfileStore {
@@ -90,8 +88,6 @@ function enrichProfile({
     incomes,
     expenses,
     transfers,
-    investment_tax_rules,
-    tangible_asset_tax_rules,
     fi_withdrawal_rate,
     snapshots,
     get birthDate() {
@@ -119,8 +115,6 @@ function enrichProfile({
         incomes,
         expenses,
         transfers,
-        investment_tax_rules,
-        tangible_asset_tax_rules,
         fi_withdrawal_rate,
         snapshots,
       }
