@@ -10,6 +10,29 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-05 A projection stores a financed asset's down payment
+
+**Context.** The plan dialog showed the down payment as the price less the
+balance owed. A new asset has no balance, so the field filled in with the
+price as it was typed (#263), and every attempt to hold it (#307, #381) had to
+decide per keystroke whether the price or the balance wins, with a different
+answer for a new, an existing, a paid-off and an underwater asset.
+
+**Decision.** A tangible asset in a projection carries `down_payment`. The
+projection's loan is the price less the down payment, recomputed when either
+is edited; nothing fills the down payment in from the price. An asset copied
+from financial data, which knows only the balance owed, opens at the price
+less that balance, so the projection agrees with the dashboard until the user
+types another figure. Financial data does not store a down payment.
+Supersedes the derived field from #228's dialog.
+
+**Why.** The two numbers answer different questions: what was paid in cash,
+and what is owed now. Financial data needs only the second, which comes from a
+statement and amortizes forward. A projection is a scenario rerun from its
+first year, so there the first is an input the user may change, past or
+future, and the second follows from it. Deriving one from the other in the
+dialog was the source of every regression.
+
 ## 2026-11-05 Liabilities include the loans behind financed assets
 
 **Context.** A plan's liabilities total counted the loans behind financed

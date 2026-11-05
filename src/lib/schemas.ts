@@ -629,6 +629,10 @@ export const profileTangibleAssetSchema = z
     value: z.number(),
     status: tangibleAssetStatusSchema,
     outstanding_balance: z.number().optional(),
+    // Cash paid at purchase, carried only inside a projection: the plan dialog
+    // asks for it and keeps the balance owed at the price less this. Financial
+    // data knows only the balance owed; `profileSchema` rejects it there.
+    down_payment: z.number().optional(),
     installment_frequency: frequencySchema.optional(),
     annual_rate: z.number().optional(),
     installment_amount: z.number().optional(),
@@ -1077,6 +1081,14 @@ export const profileSchema = profileFieldsSchema.superRefine((profile, ctx) => {
         })
     })
   }
+  ;(profile.tangible_assets ?? []).forEach((asset, index) => {
+    if (asset.down_payment !== undefined)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['tangible_assets', index, 'down_payment'],
+        message: get(_)('validation.no_down_payment_in_financial_data'),
+      })
+  })
 })
 
 export const portfolioSchema = z.object({
