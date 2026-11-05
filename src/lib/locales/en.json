@@ -755,9 +755,10 @@
     "confirm": {
       "title": "Replace all your data?",
       "description": "Loading this preset overwrites all data currently stored in this browser.",
-      "warning": "Your current data will be exported to a file first so you can restore it later.",
+      "warning": "Export your current data to a file first if you want to restore it later.",
       "cancel": "Cancel",
-      "exportAndContinue": "Export and continue",
+      "export": "Export",
+      "replace": "Replace",
       "continue": "Continue"
     }
   },

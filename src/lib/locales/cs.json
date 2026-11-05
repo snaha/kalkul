@@ -755,9 +755,10 @@
     "confirm": {
       "title": "Nahradit všechna vaše data?",
       "description": "Načtení této předlohy přepíše všechna data aktuálně uložená v tomto prohlížeči.",
-      "warning": "Vaše stávající data budou nejprve exportována do souboru, abyste je mohli později obnovit.",
+      "warning": "Pokud je chcete později obnovit, nejprve exportujte svá stávající data do souboru.",
       "cancel": "Zrušit",
-      "exportAndContinue": "Exportovat a pokračovat",
+      "export": "Exportovat",
+      "replace": "Nahradit",
       "continue": "Pokračovat"
     }
   },

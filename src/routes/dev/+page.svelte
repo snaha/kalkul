@@ -60,11 +60,9 @@
     goto(resolve(routes.HOME))
   }
 
-  // Export-first: back up any existing data before the destructive action.
   function confirmLoadPreset(): void {
     const preset = pendingPreset
     if (!preset) return
-    if (hasData) downloadBackup()
     confirmOpen = false
     applyPreset(preset)
   }
@@ -113,7 +111,7 @@
   </div>
 </div>
 
-<!-- Confirm destructive preset load (export-first, like the navbar import flow) -->
+<!-- Confirm destructive preset load: Export backs up and keeps the dialog open, Replace overwrites -->
 <Dialog.Root bind:open={confirmOpen}>
   <Dialog.Content class="sm:max-w-[576px]">
     <Dialog.Header>
@@ -131,14 +129,19 @@
       <Button variant="outline" onclick={() => (confirmOpen = false)}>
         {$_('dev.confirm.cancel')}
       </Button>
-      <Button variant="destructive" onclick={confirmLoadPreset}>
-        {#if hasData}
+      {#if hasData}
+        <Button variant="outline" onclick={downloadBackup}>
           <FileDown class="size-4" />
-          {$_('dev.confirm.exportAndContinue')}
-        {:else}
+          {$_('dev.confirm.export')}
+        </Button>
+        <Button variant="destructive" onclick={confirmLoadPreset}>
+          {$_('dev.confirm.replace')}
+        </Button>
+      {:else}
+        <Button variant="destructive" onclick={confirmLoadPreset}>
           {$_('dev.confirm.continue')}
-        {/if}
-      </Button>
+        </Button>
+      {/if}
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>
