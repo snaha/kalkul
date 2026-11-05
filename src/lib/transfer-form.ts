@@ -21,6 +21,8 @@ export interface TransferFields {
   to_asset_id: string
   amount: number | undefined
   transfer_all: boolean
+  deduct_tax: boolean
+  tax_rate: number | undefined
   inflation_adjusted: boolean
   schedule: TransferSchedule
   // one-time
@@ -55,6 +57,8 @@ export function blankTransferFields(
     to_asset_id: '',
     amount: undefined,
     transfer_all: false,
+    deduct_tax: false,
+    tax_rate: undefined,
     // Default ON — mirrors the income/expense default so new transfers keep
     // their real value over time without the user having to flip it.
     inflation_adjusted: true,
@@ -84,6 +88,8 @@ export function transferToFields(src: Transfer): TransferFields {
   f.to_asset_id = src.to_asset_id
   f.amount = src.amount > 0 ? src.amount : undefined
   f.transfer_all = src.transfer_all ?? false
+  f.deduct_tax = src.deduct_tax ?? false
+  f.tax_rate = src.tax_rate
   f.schedule = src.schedule
   f.transaction_year = src.transaction_year ?? f.transaction_year
   f.transaction_month = src.transaction_month ?? f.transaction_month
@@ -114,6 +120,7 @@ export function transferFromFields(f: TransferFields): Transfer {
     to_asset_id: f.to_asset_id,
     amount: f.transfer_all ? 0 : (f.amount ?? 0),
     ...(f.transfer_all ? { transfer_all: true } : {}),
+    ...(f.deduct_tax ? { deduct_tax: true, tax_rate: f.tax_rate ?? 0 } : {}),
     // Max moves the source's whole balance, so there is no amount to adjust.
     inflation_adjusted: f.inflation_adjusted && !f.transfer_all ? true : undefined,
   }

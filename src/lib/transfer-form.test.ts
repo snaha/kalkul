@@ -75,6 +75,22 @@ describe('transfer-form round trip', () => {
     expect(transferFromFields(f).inflation_adjusted).toBe(true)
   })
 
+  test('deduct_tax carries its rate, and both are omitted when off', () => {
+    const f = transferToFields(RECURRING)
+    f.deduct_tax = true
+    f.tax_rate = 15
+    expect(transferFromFields(f)).toMatchObject({ deduct_tax: true, tax_rate: 15 })
+    f.tax_rate = undefined
+    expect(transferFromFields(f).tax_rate).toBe(0)
+    f.deduct_tax = false
+    expect('deduct_tax' in transferFromFields(f)).toBe(false)
+    expect('tax_rate' in transferFromFields(f)).toBe(false)
+    expect(transferToFields({ ...RECURRING, deduct_tax: true, tax_rate: 15 })).toMatchObject({
+      deduct_tax: true,
+      tax_rate: 15,
+    })
+  })
+
   test('transfer_all zeroes the amount and is omitted when off', () => {
     const f = transferToFields(RECURRING)
     f.transfer_all = true

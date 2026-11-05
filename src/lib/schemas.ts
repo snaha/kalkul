@@ -868,6 +868,11 @@ export const transferSchema = z
     // When true, ignore `amount` and transfer the source's full available
     // balance at the time of execution.
     transfer_all: z.boolean().optional(),
+    // Deduct an estimated tax on the gain share of what leaves an investment,
+    // at `tax_rate` %: the gain is estimated from the investment's APY and
+    // the years it has been held in the plan (`estimatedGainShare`).
+    deduct_tax: z.boolean().optional(),
+    tax_rate: z.number().min(0).max(100).optional(),
     // Independent toggle: grows the nominal amount with the plan's inflation
     // rate. For one-time transfers, scales from plan start to the transaction
     // year. For recurring transfers, compounds yearly alongside change_over_time.

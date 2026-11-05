@@ -2954,7 +2954,7 @@ describe('summarizeTransfer', () => {
   }
 
   it('counts a one-time transfer once at face value without inflation', () => {
-    expect(summarizeTransfer(oneTime, makePlan(), undefined)).toEqual({
+    expect(summarizeTransfer(oneTime, makePlan(), undefined)).toMatchObject({
       occurrences: 1,
       nominalTotal: 1000,
       realTotal: 1000,
@@ -2972,14 +2972,40 @@ describe('summarizeTransfer', () => {
     expect(result.realTotal).toBe(1000)
   })
 
+  it('estimates the gain from the source APY and deducts the tax rate from it', () => {
+    const sale: Transfer = {
+      ...oneTime,
+      from_asset_id: 'inv1',
+      to_asset_id: 'cash',
+      transaction_year: 2026,
+      deduct_tax: true,
+      tax_rate: 30,
+    }
+    const plan = makePlan({ investments: [{ id: 'inv1', name: 'Fund', balance: 1000, apy: 100 }] })
+    // Held a year at 100%: half of what is sold is gain, taxed at 30%.
+    expect(summarizeTransfer(sale, plan, undefined)).toEqual({
+      occurrences: 1,
+      nominalTotal: 1000,
+      realTotal: 1000,
+      gainTotal: 500,
+      taxTotal: 150,
+      netTotal: 850,
+    })
+    // Sold from cash there is no gain to estimate.
+    expect(
+      summarizeTransfer({ ...sale, from_asset_id: 'cash', to_asset_id: 'inv1' }, plan, undefined)
+        .taxTotal,
+    ).toBe(0)
+  })
+
   it('reports zero occurrences for a one-time transfer outside the plan', () => {
     expect(
       summarizeTransfer({ ...oneTime, transaction_year: 2035 }, makePlan(), undefined),
-    ).toEqual({ occurrences: 0, nominalTotal: 0, realTotal: 0 })
+    ).toMatchObject({ occurrences: 0, nominalTotal: 0, realTotal: 0 })
   })
 
   it('counts every month of a never-ending recurring transfer over the plan', () => {
-    expect(summarizeTransfer(recurring, makePlan(), undefined)).toEqual({
+    expect(summarizeTransfer(recurring, makePlan(), undefined)).toMatchObject({
       occurrences: 72,
       nominalTotal: 72000,
       realTotal: 72000,
@@ -2992,7 +3018,7 @@ describe('summarizeTransfer', () => {
       makePlan(),
       undefined,
     )
-    expect(result).toEqual({ occurrences: 18, nominalTotal: 18000, realTotal: 18000 })
+    expect(result).toMatchObject({ occurrences: 18, nominalTotal: 18000, realTotal: 18000 })
   })
 
   it('stops counting at a when_age_is end when a birth year is given', () => {
@@ -3019,13 +3045,13 @@ describe('summarizeTransfer', () => {
   })
 
   it('counts yearly transfers once per plan year', () => {
-    expect(summarizeTransfer({ ...recurring, frequency: 'yearly' }, makePlan(), undefined)).toEqual(
-      {
-        occurrences: 6,
-        nominalTotal: 6000,
-        realTotal: 6000,
-      },
-    )
+    expect(
+      summarizeTransfer({ ...recurring, frequency: 'yearly' }, makePlan(), undefined),
+    ).toMatchObject({
+      occurrences: 6,
+      nominalTotal: 6000,
+      realTotal: 6000,
+    })
   })
 })
 
@@ -3209,6 +3235,61 @@ describe('one-time cash flows in the projection', () => {
     )
     const year2027 = result.find((r) => r.year === 2027)
     expect(year2027?.insufficientFundExpenseIds).toContain('e1')
+  })
+})
+
+describe('estimated tax on a transfer out of an investment', () => {
+  // Investment doubles in year 2 (apy 100 %), so half of any withdrawal is gain.
+  const doubling: ProfileInvestment[] = [{ id: 'i1', name: 'Fund', balance: 1000, apy: 100 }]
+  function sell(year: number, deduct = true): Transfer {
+    return {
+      id: 't1',
+      name: 'Sell',
+      from_asset_id: 'i1',
+      to_asset_id: 'cash',
+      amount: 1000,
+      schedule: 'one_time',
+      transaction_year: year,
+      transaction_month: 1,
+      deduct_tax: deduct,
+      tax_rate: 30,
+    }
+  }
+
+  it('deducts the rate from the gain share estimated by the APY', () => {
+    const result = project(
+      makePlan(),
+      makeProfile({ cash_amount: 0, investments: doubling, transfers: [sell(2026)] }),
+    )
+    // Held a year: 1 − 2^−1 = 50 % gain. 1000 sold: 500 gain × 30 % = 150 tax.
+    expect(result[1].investments).toBeCloseTo(1000, 6)
+    expect(result[1].cash).toBeCloseTo(850, 6)
+  })
+
+  it('charges nothing in the year the plan starts, or without the switch', () => {
+    const atStart = project(
+      makePlan(),
+      makeProfile({ cash_amount: 0, investments: doubling, transfers: [sell(2025)] }),
+    )
+    expect(atStart[0].cash).toBeCloseTo(1000, 6)
+    const off = project(
+      makePlan(),
+      makeProfile({ cash_amount: 0, investments: doubling, transfers: [sell(2026, false)] }),
+    )
+    expect(off[1].cash).toBeCloseTo(1000, 6)
+  })
+
+  it('applies to a Max transfer on whatever the source holds', () => {
+    const result = project(
+      makePlan(),
+      makeProfile({
+        cash_amount: 0,
+        investments: doubling,
+        transfers: [{ ...sell(2026), amount: 0, transfer_all: true }],
+      }),
+    )
+    // 2000 swept, half of it gain: 1000 × 30 % = 300 tax.
+    expect(result[1].cash).toBeCloseTo(1700, 6)
   })
 })
 

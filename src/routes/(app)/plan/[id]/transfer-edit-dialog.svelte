@@ -165,19 +165,27 @@
           ))),
   )
 
+  // The APY the tax estimate runs on, when the source is an investment.
+  const sourceApy = $derived(plan.investments.find((i) => i.id === form.from_asset_id)?.apy)
+  const taxRateValid = $derived(
+    !form.deduct_tax || ((form.tax_rate ?? 0) >= 0 && (form.tax_rate ?? 0) <= 100),
+  )
+
   const canSave = $derived(
     amountAndTimingValid &&
+      taxRateValid &&
       form.from_asset_id !== '' &&
       form.to_asset_id !== '' &&
       form.from_asset_id !== form.to_asset_id,
   )
 
   // Preview of what the transfer moves over the plan (Figma frames 1340-1345).
-  // A one-time transfer without inflation has nothing to add beyond the
-  // amount itself, so the box is hidden for it; "Max" has no fixed amount.
+  // A one-time transfer without inflation or tax has nothing to add beyond
+  // the amount itself, so the box is hidden for it; "Max" has no fixed amount.
   const summary = $derived.by(() => {
-    if (!amountAndTimingValid || form.transfer_all) return undefined
-    if (form.schedule === 'one_time' && !form.inflation_adjusted) return undefined
+    if (!amountAndTimingValid || !taxRateValid || form.transfer_all) return undefined
+    if (form.schedule === 'one_time' && !form.inflation_adjusted && !form.deduct_tax)
+      return undefined
     return summarizeTransfer(
       transferFromFields(form),
       plan,
@@ -357,6 +365,35 @@
     />
   {/if}
 
+  <!-- Deduct estimated tax (frames 1340 and 1344): the switch on its own row,
+       and the rate with its note once it is on. -->
+  <label class="flex cursor-pointer items-center gap-2">
+    <Switch checked={form.deduct_tax} onCheckedChange={(v) => (form.deduct_tax = v === true)} />
+    <span class="text-sm font-medium">{$_('page.plan.deductTax')}</span>
+  </label>
+  {#if form.deduct_tax}
+    <div class="flex items-end gap-2">
+      <div class="flex flex-1 flex-col gap-2">
+        <Label for="{uid}-taxRate">{$_('page.plan.taxRateOnGain')}</Label>
+        <SuffixedInput
+          id="{uid}-taxRate"
+          value={form.tax_rate}
+          suffix="%"
+          formatNumber={appStore.formatNumber}
+          aria-invalid={!taxRateValid || undefined}
+          onValueChange={(v) => (form.tax_rate = v)}
+        />
+      </div>
+      <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">
+        {sourceApy === undefined
+          ? $_('page.plan.taxRateOnGainDescription')
+          : $_('page.plan.taxRateOnGainDescriptionApy', {
+              values: { apy: appStore.formatNumber(sourceApy) },
+            })}
+      </p>
+    </div>
+  {/if}
+
   {#if form.schedule === 'recurring'}
     <DateAgeSelector
       mode="start"
@@ -412,7 +449,17 @@
           {$_('page.plan.transferOccurrences', { values: { count: summary.occurrences } })}
         </span>
       {/if}
-      {#if !form.inflation_adjusted}
+      {#if form.deduct_tax}
+        <span>
+          {$_('page.plan.transferNetValue', {
+            values: {
+              net: appStore.formatCurrencyCode(summary.netTotal),
+              tax: appStore.formatCurrencyCode(summary.taxTotal),
+              gain: appStore.formatCurrencyCode(summary.gainTotal),
+            },
+          })}
+        </span>
+      {:else if !form.inflation_adjusted}
         <span>
           {$_('page.plan.transferTotal', {
             values: { total: appStore.formatCurrencyCode(summary.nominalTotal) },

@@ -813,6 +813,34 @@ function transferAmountForYear(
     .mul(fraction)
 }
 
+/**
+ * The share of an investment's balance that is gain after `heldYears` at
+ * `apyPercent`: a rough estimate for taxing a withdrawal, since a plan keeps
+ * no cost basis. A balance that grew by (1 + r)^n is gain for 1 − (1 + r)^−n
+ * of it; nothing in the year it was bought, nothing at a loss.
+ */
+export function estimatedGainShare(apyPercent: number, heldYears: number): Decimal {
+  if (heldYears <= 0 || apyPercent <= 0) return DECIMAL_0
+  return DECIMAL_1.minus(DECIMAL_1.plus(new Decimal(apyPercent).div(100)).pow(-heldYears))
+}
+
+/**
+ * The tax a transfer deducts from `amount` on the way out of `source`, held
+ * for `heldYears`: nothing unless the transfer asks for it and draws on an
+ * investment, since cash has no gain.
+ */
+export function estimatedTransferTax(
+  transfer: Pick<Transfer, 'deduct_tax' | 'tax_rate'>,
+  amount: Decimal,
+  source: ProfileInvestment | undefined,
+  heldYears: number,
+): Decimal {
+  if (!transfer.deduct_tax || !transfer.tax_rate || !source) return DECIMAL_0
+  return amount
+    .mul(estimatedGainShare(source.apy, heldYears))
+    .mul(new Decimal(transfer.tax_rate).div(100))
+}
+
 export interface TransferSummary {
   /** How many times the transfer fires within the plan. */
   occurrences: number
@@ -820,6 +848,12 @@ export interface TransferSummary {
   nominalTotal: number
   /** The same sum in today's money (inflation factor stripped). */
   realTotal: number
+  /** The estimated gain inside `nominalTotal` when the transfer deducts tax. */
+  gainTotal: number
+  /** The tax deducted from `nominalTotal` on that gain. */
+  taxTotal: number
+  /** `nominalTotal` less `taxTotal`: what reaches the destination before fees. */
+  netTotal: number
 }
 
 /**
@@ -830,18 +864,28 @@ export interface TransferSummary {
  */
 export function summarizeTransfer(
   transfer: Transfer,
-  plan: Pick<Portfolio, 'start_date' | 'end_date' | 'inflation_rate'>,
+  plan: Pick<Portfolio, 'start_date' | 'end_date' | 'inflation_rate'> &
+    Partial<Pick<Portfolio, 'investments'>>,
   birthYear: number | undefined,
 ): TransferSummary {
   const startYear = yearOf(plan.start_date)
   const endYear = yearOf(plan.end_date)
   const inflationRate = new Decimal(plan.inflation_rate)
+  const source = plan.investments?.find((i) => i.id === transfer.from_asset_id)
+  // ponytail: held since the plan start or a dated purchase; a purchase by age
+  // counts from the plan start until the preview resolves ages too.
+  const boughtYear =
+    source?.start === 'at_specific_date' && source.start_year !== undefined
+      ? source.start_year
+      : startYear
   // Same transfer with the inflation factor off: growthFactor then yields the
   // real-terms amount, change over time included.
   const real: Transfer = { ...transfer, inflation_adjusted: false }
   let occurrences = 0
   let nominalTotal = DECIMAL_0
   let realTotal = DECIMAL_0
+  let gainTotal = DECIMAL_0
+  let taxTotal = DECIMAL_0
   for (let year = startYear; year <= endYear; year++) {
     if (!isTransferActiveThisYear(transfer, year, startYear, birthYear)) continue
     if (transfer.schedule === 'one_time') {
@@ -858,14 +902,24 @@ export function summarizeTransfer(
         FLOW_PERIODS_PER_YEAR[transfer.frequency ?? 'monthly'] * fraction.toNumber(),
       )
     }
-    nominalTotal = nominalTotal.plus(
-      transferAmountForYear(transfer, year, startYear, birthYear, inflationRate),
-    )
+    const amount = transferAmountForYear(transfer, year, startYear, birthYear, inflationRate)
+    nominalTotal = nominalTotal.plus(amount)
     realTotal = realTotal.plus(
       transferAmountForYear(real, year, startYear, birthYear, inflationRate),
     )
+    if (transfer.deduct_tax && source) {
+      gainTotal = gainTotal.plus(amount.mul(estimatedGainShare(source.apy, year - boughtYear)))
+      taxTotal = taxTotal.plus(estimatedTransferTax(transfer, amount, source, year - boughtYear))
+    }
   }
-  return { occurrences, nominalTotal: nominalTotal.toNumber(), realTotal: realTotal.toNumber() }
+  return {
+    occurrences,
+    nominalTotal: nominalTotal.toNumber(),
+    realTotal: realTotal.toNumber(),
+    gainTotal: gainTotal.toNumber(),
+    taxTotal: taxTotal.toNumber(),
+    netTotal: nominalTotal.minus(taxTotal).toNumber(),
+  }
 }
 
 export interface CashFlowSummary {
@@ -1351,12 +1405,21 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
         }
       }
       // Source loses the full `amount`. Destination receives what's left
-      // after the exit fee on the way out and the upfront entry fee on the
-      // way in. Difference is lost to the broker.
+      // after the exit fee and the estimated tax on the way out and the
+      // upfront entry fee on the way in. Difference is lost to the broker
+      // and the tax office. The tax is on the gross gain share, before the
+      // exit fee: a modelling choice, real brokers usually tax net proceeds.
+      const source = investmentsById.get(transfer.from_asset_id)
+      const tax = estimatedTransferTax(
+        transfer,
+        amount,
+        source,
+        year - (assetWindows.get(transfer.from_asset_id)?.startYear ?? startYear),
+      )
       withdraw(transfer.from_asset_id, amount)
       const netToDestination = applyEntryFee(
         investmentsById.get(transfer.to_asset_id),
-        applyExitFee(investmentsById.get(transfer.from_asset_id), amount),
+        Decimal.max(applyExitFee(source, amount).minus(tax), DECIMAL_0),
       )
       deposit(transfer.to_asset_id, netToDestination)
     }
