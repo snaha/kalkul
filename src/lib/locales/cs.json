@@ -109,7 +109,7 @@
       "deleteTransferConfirm": "Smazat tento převod? Akci nelze vrátit zpět.",
       "transferFrequencyLabel": "Frekvence",
       "transferMax": "Max",
-      "transferMaxDescription": "Zapněte pro převod celého zůstatku. Pokud převádíte z investice, bude zlikvidována.",
+      "transferMaxDescription": "Zapněte pro převod celého zůstatku. Pokud převádíte z investice, bude prodána.",
       "transferAuto": "Auto",
       "adjustForInflation": "Upravit podle inflace",
       "adjustForInflationDescription": "Každý rok zvýší částku o inflační míru plánu, aby si zachovala reálnou hodnotu v čase.",

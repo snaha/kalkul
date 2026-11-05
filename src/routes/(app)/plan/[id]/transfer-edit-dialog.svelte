@@ -302,8 +302,9 @@
     {/if}
   </div>
 
-  <!-- Amount, with the Max switch on a one-time transfer. Max has no amount of
-       its own: the field is disabled and reads "Auto" (Figma frame 1387). -->
+  <!-- Amount. One-time (frame 1387): full width with the Max switch beside it;
+       Max has no amount of its own, so the field is disabled and reads "Auto".
+       Recurring (frame 1345): half width with Adjust for inflation beside it. -->
   <div class="flex flex-col gap-2">
     <Label for="{uid}-transferAmount">{$_('page.setup.common.amount')}</Label>
     <div class="flex items-center gap-2">
@@ -343,14 +344,21 @@
             </Tooltip.Content>
           </Tooltip.Root>
         </Tooltip.Provider>
+      {:else}
+        <div class="flex flex-1 items-center">
+          <InflationAdjustToggle
+            checked={form.inflation_adjusted}
+            onCheckedChange={(v) => (form.inflation_adjusted = v)}
+          />
+        </div>
       {/if}
     </div>
   </div>
 
-  <!-- On its own row (frames 1340 and 1344), so it does not move when Max is
-       switched. Max moves whatever the source holds, so there is no amount to
-       adjust and the switch is hidden. -->
-  {#if !form.transfer_all}
+  <!-- One-time: on its own row under the amount (frames 1340 and 1344). Max
+       moves whatever the source holds, so there is no amount to adjust and
+       the switch is hidden. -->
+  {#if form.schedule === 'one_time' && !form.transfer_all}
     <InflationAdjustToggle
       checked={form.inflation_adjusted}
       onCheckedChange={(v) => (form.inflation_adjusted = v)}

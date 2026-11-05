@@ -66,7 +66,7 @@ describe('transfer-form round trip', () => {
     expect(stored.change_percentage).toBeUndefined()
   })
 
-  test('transfer_all drops the inflation flag, since there is no amount to adjust', () => {
+  test('transfer_all drops the inflation flag', () => {
     const f = transferToFields({ ...RECURRING, schedule: 'one_time' })
     f.transfer_all = true
     f.inflation_adjusted = true
