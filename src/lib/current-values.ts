@@ -47,8 +47,8 @@ interface AnnualFlows {
 /**
  * Net yearly cash flow from everything the profile runs: take-home income,
  * less living expenses, less debt service on loans that still carry a balance.
- * Financial data carries no planned timing (AGENTS.md), so every flow on it is
- * running today.
+ * Financial data carries no planned timing (docs/product/projections.md), so
+ * every flow on it is running today.
  */
 function netAnnualCashFlow(profile: Profile): Decimal {
   const income = (profile.incomes ?? []).reduce<Decimal>(
