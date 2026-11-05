@@ -158,11 +158,10 @@ const DEFAULT_PROFILE: Profile = {
 
 /**
  * Parses stored data, from this tab's storage or another tab's write. Repairs
- * before parsing: data stored before stricter validation rules — or before a
- * snapshot recorded everything it records now — must keep loading, otherwise
- * the whole dataset falls back to the empty default and gets overwritten on
- * the next persist. It also keeps a tab still running an older app version
- * from breaking cross-tab sync with since-invalidated data.
+ * before parsing: data stored before stricter validation rules must keep
+ * loading, otherwise the whole dataset falls back to the empty default and gets
+ * overwritten on the next persist. It also keeps a tab still running an older
+ * app version from breaking cross-tab sync with since-invalidated data.
  */
 function parseStoredData(json: string): StoredData {
   return storedDataSchema.parse(repairStoredData(JSON.parse(json)))

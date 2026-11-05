@@ -321,110 +321,21 @@ describe('repairStoredData: unfinished transfers', () => {
 })
 
 describe('repairStoredData: snapshots', () => {
-  const LOAN = {
-    id: 'l1',
-    name: 'Car loan',
-    outstanding_balance: 6_000,
-    installment_frequency: 'monthly',
-    annual_rate: 5,
-    installment_amount: 200,
-    remaining_term: 3,
-  }
-
-  function storedWith(snapshot: Record<string, unknown>) {
-    return {
-      lastUpdated: 1,
-      profile: {
-        name: 'Test',
-        email: '',
-        cash_amount: 1_000,
-        liabilities: [LOAN],
-        incomes: [{ ...baseIncome, amount: 4_000, frequency: 'monthly' }],
-        expenses: [{ ...baseExpense, amount: 1_000, frequency: 'monthly' }],
-        snapshots: [snapshot],
-      },
-      portfolios: [],
-    }
-  }
-
-  it('fills the cash flows a snapshot predating them never recorded', () => {
-    // Reading an absent list as "earned and spent nothing" would state that
-    // row's financial independence against debt service alone. Filled once
-    // here, so nothing downstream has to guess what undefined meant.
-    const repaired = storedDataSchema.parse(
-      repairStoredData(storedWith({ date: '2026-01-01', cash_amount: 1_000 })),
-    )
-    expect(repaired.profile.snapshots?.[0].incomes).toEqual([
-      { id: baseIncome.id, amount: 4_000, frequency: 'monthly' },
-    ])
-    expect(repaired.profile.snapshots?.[0].expenses).toEqual([
-      { id: baseExpense.id, amount: 1_000, frequency: 'monthly' },
-    ])
-  })
-
-  it('fills them with only the flows a snapshot records', () => {
-    // A one-time expense has no frequency, so copying it would write an entry
-    // the schema rejects — failing the whole dataset, which then falls back to
-    // the empty profile. It is left out, exactly as `captureSnapshot` leaves it out.
-    const stored = storedWith({ date: '2026-01-01', cash_amount: 1_000 })
+  it('leaves cash flows a snapshot never recorded unrecorded', () => {
     const repaired = storedDataSchema.parse(
       repairStoredData({
-        ...stored,
+        lastUpdated: 1,
         profile: {
-          ...stored.profile,
-          expenses: [
-            ...stored.profile.expenses,
-            {
-              id: 'trip',
-              name: 'Trip',
-              amount: 3_000,
-              schedule: 'one_time',
-              transaction_year: 2026,
-              transaction_month: 8,
-            },
-          ],
+          name: 'Test',
+          email: '',
+          incomes: [{ ...baseIncome, amount: 4_000, frequency: 'monthly' }],
+          expenses: [{ ...baseExpense, amount: 1_000, frequency: 'monthly' }],
+          snapshots: [{ date: '2026-01-01', cash_amount: 1_000 }],
         },
+        portfolios: [],
       }),
     )
-    expect(repaired.profile.snapshots?.[0].incomes).toEqual([
-      { id: baseIncome.id, amount: 4_000, frequency: 'monthly' },
-    ])
-    expect(repaired.profile.snapshots?.[0].expenses).toEqual([
-      { id: baseExpense.id, amount: 1_000, frequency: 'monthly' },
-    ])
-  })
-
-  it('leaves a recorded empty list empty', () => {
-    const repaired = storedDataSchema.parse(
-      repairStoredData(storedWith({ date: '2026-01-01', incomes: [], expenses: [] })),
-    )
-    expect(repaired.profile.snapshots?.[0].incomes).toEqual([])
-  })
-
-  it("leaves a recorded debt's missing term unstated", () => {
-    // The profile's term is as of its newest snapshot, not this one's date.
-    // Writing it onto an older balance would pair January's debt with June's
-    // clock and have the loan pay off on a balloon. Left unstated, a rewind
-    // falls back to the loan's own term at read time — the same estimate, but
-    // never persisted as if it had been recorded.
-    const repaired = storedDataSchema.parse(
-      repairStoredData(
-        storedWith({
-          date: '2026-01-01',
-          liabilities: [{ id: 'l1', outstanding_balance: 6_000 }],
-        }),
-      ),
-    )
-    expect(repaired.profile.snapshots?.[0].liabilities?.[0]).toEqual({
-      id: 'l1',
-      outstanding_balance: 6_000,
-    })
-  })
-
-  it('leaves a profile with no snapshots alone', () => {
-    const stored = storedWith({ date: '2026-01-01' })
-    const withoutSnapshots = { ...stored, profile: { ...stored.profile, snapshots: undefined } }
-    expect(() => storedDataSchema.parse(repairStoredData(withoutSnapshots))).not.toThrow()
+    expect(repaired.profile.snapshots?.[0]).toEqual({ date: '2026-01-01', cash_amount: 1_000 })
   })
 })
 
@@ -1669,22 +1580,6 @@ describe('repairStoredData: a plan without a base gets its copy of financial dat
     }
     const repaired = storedDataSchema.parse(repairStoredData(interim))
     expect(repaired.portfolios[0].investments).toEqual([edited, own])
-  })
-
-  it("fills in a snapshot from financial data only, never from a plan's own cash flows", () => {
-    const withSnapshot = {
-      ...stored,
-      profile: {
-        ...stored.profile,
-        incomes: [
-          { ...baseIncome, id: 'sal', amount: 10, frequency: 'monthly' },
-          { ...baseIncome, id: 'side', amount: 5, frequency: 'monthly', plan_id: 'plan-1' },
-        ],
-        snapshots: [{ date: '2026-01-01', cash_amount: 1 }],
-      },
-    }
-    const repaired = storedDataSchema.parse(repairStoredData(withSnapshot))
-    expect(repaired.profile.snapshots?.[0].incomes?.map((i) => i.id)).toEqual(['sal'])
   })
 
   it('leaves a plan that has a base alone', () => {
