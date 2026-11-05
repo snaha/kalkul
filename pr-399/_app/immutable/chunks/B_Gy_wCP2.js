@@ -1,1 +1,0 @@
-import"./BwSMn3DW.js";
