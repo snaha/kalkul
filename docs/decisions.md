@@ -10,6 +10,19 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-05 Liabilities include the loans behind financed assets
+
+**Context.** A plan's liabilities total counted the loans behind financed
+tangible assets, but the per-item breakdown beside it listed standalone
+liabilities only, so the rows did not add up and an MCP agent could not say
+what the debt was (#390).
+
+**Decision.** Liabilities include the loans from tangible assets. Every
+liability is always shown, whether or not it is attached to an asset, and the
+sidebar marks the ones linked to an asset under Liabilities. A paid-off loan
+stays listed at 0. This replaces the earlier code rule that a financing is
+tracked as part of its asset only. (#390)
+
 ## 2026-10-29 Financial independence uses a withdrawal rate the user sets
 
 **Context.** The Financial independence card compared investable wealth with

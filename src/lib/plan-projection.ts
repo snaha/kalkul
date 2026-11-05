@@ -57,6 +57,9 @@ export interface YearlyProjectionItem {
   id: string
   name: string
   value: number
+  // Set on a liabilities row that is the loan behind a financed tangible
+  // asset: the asset it belongs to. The row is named after the asset.
+  assetId?: string
 }
 
 export interface YearlyProjection {
@@ -1118,6 +1121,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     const window = assetWindows.get(asset.id)
     return {
       assetId: asset.id,
+      liability,
       schedule: simulateLiability(
         liability,
         startYear,
@@ -1510,15 +1514,26 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       value: clampNonNeg((tangValuesNominal.get(asset.id) ?? DECIMAL_0).div(deflationFactor)),
     }))
 
-    // Only user-defined liabilities; tangible-asset financings are tracked as
-    // part of the asset, not as standalone items in the sidebar list.
-    const liabilitiesByItem: YearlyProjectionItem[] = liabilities.map((liability, i) => ({
-      id: liability.id,
-      name: liability.name,
-      value: clampNonNeg(
-        (standaloneSchedules[i].outstandingByYear.get(year) ?? DECIMAL_0).div(deflationFactor),
-      ),
-    }))
+    // Every liability, standalone or the loan behind a financed asset, so the
+    // rows add up to the total. A loan not yet taken out, paid off, settled by
+    // a sale, or behind a purchase the plan could not afford stays listed at 0.
+    const liabilitiesByItem: YearlyProjectionItem[] = [
+      ...liabilities.map((liability, i) => ({
+        id: liability.id,
+        name: liability.name,
+        value: clampNonNeg(
+          (standaloneSchedules[i].outstandingByYear.get(year) ?? DECIMAL_0).div(deflationFactor),
+        ),
+      })),
+      ...financedSchedules.map(({ assetId, liability, schedule }) => ({
+        id: liability.id,
+        name: liability.name,
+        assetId,
+        value: abandonedAssetIds.has(assetId)
+          ? 0
+          : clampNonNeg((schedule.outstandingByYear.get(year) ?? DECIMAL_0).div(deflationFactor)),
+      })),
+    ]
 
     // 9. Per-year FI % and runway, mirroring the dashboard's snapshot
     //    formulas (getFiPercent/getRunwayYears in financial-totals.ts):

@@ -63,6 +63,7 @@
       "investmentsValue": "Investments value",
       "tangibleAssetsValue": "Tangible assets value",
       "liabilitiesBalance": "Liabilities balance",
+      "financedAssetLoan": "Loan tied to a financed asset",
       "addCashFlow": "Add cash flow",
       "addAsset": "Add asset",
       "yearOnYear": "Year-on-year",
