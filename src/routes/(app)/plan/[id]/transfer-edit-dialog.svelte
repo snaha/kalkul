@@ -207,6 +207,34 @@
     />
   </div>
 
+  <!-- From + To -->
+  <div class="flex items-end gap-2">
+    <div class="flex flex-1 flex-col gap-2">
+      <Label for="{uid}-transferFromLabel">{$_('page.plan.transferFromLabel')}</Label>
+      <SelectField
+        id="{uid}-transferFromLabel"
+        value={form.from_asset_id}
+        items={fromAssetItems}
+        placeholder={$_('page.plan.pickAsset')}
+        onValueChange={(v) => {
+          if (v) form.from_asset_id = v
+        }}
+      />
+    </div>
+    <div class="flex flex-1 flex-col gap-2">
+      <Label for="{uid}-transferToLabel">{$_('page.plan.transferToLabel')}</Label>
+      <SelectField
+        id="{uid}-transferToLabel"
+        value={form.to_asset_id}
+        items={toAssetItems}
+        placeholder={$_('page.plan.pickAsset')}
+        onValueChange={(v) => {
+          if (v) form.to_asset_id = v
+        }}
+      />
+    </div>
+  </div>
+
   <!-- Type + (one-time) Date  /  (recurring) Frequency -->
   <div class="flex items-end gap-2">
     <div class="flex flex-1 flex-col gap-2">
@@ -274,92 +302,68 @@
     {/if}
   </div>
 
-  <!-- From + To -->
-  <div class="flex items-end gap-2">
-    <div class="flex flex-1 flex-col gap-2">
-      <Label for="{uid}-transferFromLabel">{$_('page.plan.transferFromLabel')}</Label>
-      <SelectField
-        id="{uid}-transferFromLabel"
-        value={form.from_asset_id}
-        items={fromAssetItems}
-        placeholder={$_('page.plan.pickAsset')}
-        onValueChange={(v) => {
-          if (v) form.from_asset_id = v
-        }}
-      />
-    </div>
-    <div class="flex flex-1 flex-col gap-2">
-      <Label for="{uid}-transferToLabel">{$_('page.plan.transferToLabel')}</Label>
-      <SelectField
-        id="{uid}-transferToLabel"
-        value={form.to_asset_id}
-        items={toAssetItems}
-        placeholder={$_('page.plan.pickAsset')}
-        onValueChange={(v) => {
-          if (v) form.to_asset_id = v
-        }}
-      />
+  <!-- Amount. One-time (frame 1387): full width with the Max switch beside it;
+       Max has no amount of its own, so the field is disabled and reads "Auto".
+       Recurring (frame 1345): half width with Adjust for inflation beside it. -->
+  <div class="flex flex-col gap-2">
+    <Label for="{uid}-transferAmount">{$_('page.setup.common.amount')}</Label>
+    <div class="flex items-center gap-2">
+      <div class="flex-1">
+        <SuffixedInput
+          id="{uid}-transferAmount"
+          value={form.transfer_all ? undefined : form.amount}
+          placeholder={form.transfer_all ? $_('page.plan.transferAuto') : undefined}
+          disabled={form.transfer_all}
+          suffix={currencyLabel}
+          formatNumber={appStore.formatNumber}
+          onValueChange={(v) => {
+            if (!form.transfer_all) form.amount = v
+          }}
+        />
+      </div>
+      {#if form.schedule === 'one_time'}
+        <label class="flex shrink-0 cursor-pointer items-center gap-2">
+          <Switch
+            checked={form.transfer_all}
+            onCheckedChange={(v) => (form.transfer_all = v === true)}
+          />
+          <span class="text-sm font-medium">{$_('page.plan.transferMax')}</span>
+        </label>
+        <Tooltip.Provider delayDuration={150}>
+          <Tooltip.Root bind:open={maxTooltipOpen} disableCloseOnTriggerClick>
+            <Tooltip.Trigger
+              type="button"
+              aria-label={$_('page.plan.transferMaxDescription')}
+              onclick={() => (maxTooltipOpen = !maxTooltipOpen)}
+              class="text-muted-foreground hover:text-foreground shrink-0"
+            >
+              <CircleHelp class="size-4" />
+            </Tooltip.Trigger>
+            <Tooltip.Content>
+              {$_('page.plan.transferMaxDescription')}
+            </Tooltip.Content>
+          </Tooltip.Root>
+        </Tooltip.Provider>
+      {:else}
+        <div class="flex flex-1 items-center">
+          <InflationAdjustToggle
+            checked={form.inflation_adjusted}
+            onCheckedChange={(v) => (form.inflation_adjusted = v)}
+          />
+        </div>
+      {/if}
     </div>
   </div>
 
-  <!-- Amount (+ Max toggle for one-time only) + Adjust for inflation -->
-  <!-- The Max switch is not in the Figma frames; kept as an existing feature. -->
-  <div class="flex items-end gap-2">
-    <div class="flex flex-1 flex-col gap-2">
-      <Label for="{uid}-transferAmount">{$_('page.setup.common.amount')}</Label>
-      <div class="flex items-center gap-2">
-        <div class="flex-1">
-          {#if form.transfer_all}
-            <Input
-              id="{uid}-transferAmount"
-              value={$_('page.plan.transferMax')}
-              readonly
-              class="text-muted-foreground"
-            />
-          {:else}
-            <SuffixedInput
-              id="{uid}-transferAmount"
-              value={form.amount}
-              suffix={currencyLabel}
-              formatNumber={appStore.formatNumber}
-              onValueChange={(v) => (form.amount = v)}
-            />
-          {/if}
-        </div>
-        {#if form.schedule === 'one_time'}
-          <label class="flex shrink-0 cursor-pointer items-center gap-2">
-            <Switch
-              checked={form.transfer_all}
-              onCheckedChange={(v) => (form.transfer_all = v === true)}
-            />
-            <span class="text-sm font-medium">{$_('page.plan.transferMax')}</span>
-          </label>
-          <Tooltip.Provider delayDuration={150}>
-            <Tooltip.Root bind:open={maxTooltipOpen} disableCloseOnTriggerClick>
-              <Tooltip.Trigger
-                type="button"
-                aria-label={$_('page.plan.transferMaxDescription')}
-                onclick={() => (maxTooltipOpen = !maxTooltipOpen)}
-                class="text-muted-foreground hover:text-foreground shrink-0"
-              >
-                <CircleHelp class="size-4" />
-              </Tooltip.Trigger>
-              <Tooltip.Content>
-                {$_('page.plan.transferMaxDescription')}
-              </Tooltip.Content>
-            </Tooltip.Root>
-          </Tooltip.Provider>
-        {/if}
-      </div>
-    </div>
-    <div class="flex h-8 flex-1 items-center">
-      <InflationAdjustToggle
-        checked={form.inflation_adjusted}
-        disabled={form.transfer_all}
-        onCheckedChange={(v) => (form.inflation_adjusted = v)}
-      />
-    </div>
-  </div>
+  <!-- One-time: on its own row under the amount (frames 1340 and 1344). Max
+       moves whatever the source holds, so there is no amount to adjust and
+       the switch is hidden. -->
+  {#if form.schedule === 'one_time' && !form.transfer_all}
+    <InflationAdjustToggle
+      checked={form.inflation_adjusted}
+      onCheckedChange={(v) => (form.inflation_adjusted = v)}
+    />
+  {/if}
 
   {#if form.schedule === 'recurring'}
     <DateAgeSelector
