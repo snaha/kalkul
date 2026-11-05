@@ -29,13 +29,12 @@
     /** Today as a date-only ISO string — the latest date a snapshot may carry. */
     today: string
     /**
-     * The figures to show for a given date, so re-dating re-seeds every field
-     * the user has not typed in. Left out for a duplicate, whose figures are
-     * the point.
+     * For a fresh snapshot: the figures to open at for a given date, so
+     * re-dating it re-seeds every field the user has not typed in. Left out for
+     * an edit or a duplicate, whose figures are the point.
      */
     seedOn?: (date: string) => Snapshot
-    /** `shown` is what the fields opened at, so a save can tell what the user changed. */
-    onConfirm: (snapshot: Snapshot, originalDate?: string, shown?: Snapshot) => void
+    onConfirm: (snapshot: Snapshot, originalDate?: string) => void
   }
 
   let {
@@ -64,7 +63,9 @@
   const heldOn = $derived(date || figures.date || today)
   // The stored profile decides which items the dialog offers a field for; the
   // figures supply the values.
-  const sections = $derived(buildSnapshotSections(appStore.profile.toJSON(), figures, heldOn))
+  const sections = $derived(
+    buildSnapshotSections(appStore.profile.toJSON(), figures, heldOn, originalDate),
+  )
 
   function reset(): void {
     date = openingDate(source.date, takenDates, originalDate)
@@ -72,7 +73,8 @@
     reseeded = undefined
   }
 
-  // The figures follow the date when `seedOn` says they do. Typed values stay
+  // A fresh snapshot follows its date: the figures are the app's estimate for
+  // that day, so a different day means a different estimate. Typed values stay
   // — `edits` is kept — and only the untouched fields move with the date.
   function reseedForDate(): void {
     if (!seedOn || !date || dateError) return
@@ -153,11 +155,7 @@
 
   function confirm(): void {
     if (dateError || !date) return
-    onConfirm(
-      snapshotFromFields(figures, sections, edits, date),
-      originalDate,
-      snapshotFromFields(figures, sections, {}, date),
-    )
+    onConfirm(snapshotFromFields(figures, sections, edits, date), originalDate)
     open = false
   }
 </script>
