@@ -979,7 +979,7 @@ describe('getYearlyPlanProjection', () => {
     expect(result[3].liabilitiesByItem[0].value).toBeCloseTo(0, 6)
   })
 
-  it('excludes tangible-asset financings from liabilitiesByItem', () => {
+  it('lists tangible-asset financings in liabilitiesByItem so the rows add up to the total', () => {
     const tangible_assets: ProfileTangibleAsset[] = [
       {
         id: 't1',
@@ -993,11 +993,28 @@ describe('getYearlyPlanProjection', () => {
         remaining_term: 10,
       },
     ]
-    const result = project(makePlan(), makeProfile({ tangible_assets }))
-    // No standalone liabilities entered → none listed, even though the asset
-    // contributes to the aggregate liabilities figure.
-    expect(result[0].liabilitiesByItem).toEqual([])
-    expect(result[0].liabilities).toBeGreaterThan(0)
+    const liabilities: ProfileLiability[] = [
+      {
+        id: 'l1',
+        name: 'Loan',
+        outstanding_balance: 1000,
+        installment_frequency: 'yearly',
+        annual_rate: 0,
+        installment_amount: 250,
+        remaining_term: 4,
+      },
+    ]
+    const result = project(makePlan(), makeProfile({ tangible_assets, liabilities }))
+    expect(result[0].liabilitiesByItem).toEqual([
+      { id: 'l1', name: 'Loan', value: 750 },
+      { id: 'tangible-asset-financing-t1', name: 'House', value: 2_700_000, assetId: 't1' },
+    ])
+    for (const year of result) {
+      const sum = year.liabilitiesByItem.reduce((s, i) => s + i.value, 0)
+      expect(sum).toBeCloseTo(year.liabilities, 6)
+    }
+    // A paid-off loan stays listed at 0: every liability is always shown.
+    expect(result[5].liabilitiesByItem[0]).toEqual({ id: 'l1', name: 'Loan', value: 0 })
   })
 
   it('exposes totalIncome and totalExpenses per year in real terms', () => {
@@ -2758,6 +2775,28 @@ describe('getYearlyPlanProjection', () => {
     expect(result[0].runwayYears).toBeCloseTo(10, 6)
   })
 
+  it("uses the profile's withdrawal rate for the FI number", () => {
+    const expenses: Expense[] = [
+      {
+        id: 'e1',
+        name: 'Living',
+        amount: 10_000,
+        schedule: 'recurring',
+        frequency: 'yearly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const investments: ProfileInvestment[] = [{ id: 'i1', name: 'Fund', balance: 100_000, apy: 0 }]
+    const result = project(
+      makePlan(),
+      makeProfile({ investments, expenses, fi_withdrawal_rate: 2 }),
+    )
+    // At 2% the FI number is 50 times the outflows: 100,000 / 500,000 = 20%.
+    expect(result[0].fiPercent).toBeCloseTo(20, 6)
+  })
+
   it('subtracts standalone liabilities from investable wealth and counts their installments as outflows', () => {
     const liabilities: ProfileLiability[] = [
       {
@@ -3170,122 +3209,6 @@ describe('one-time cash flows in the projection', () => {
     )
     const year2027 = result.find((r) => r.year === 2027)
     expect(year2027?.insufficientFundExpenseIds).toContain('e1')
-  })
-})
-
-describe('capital gains tax on withdrawals', () => {
-  // Investment doubles in year 2 (apy 100 %), so half of any withdrawal is gain.
-  const doubling: ProfileInvestment[] = [{ id: 'i1', name: 'Fund', balance: 1000, apy: 100 }]
-  function sell(amount: number, year: number, id = 't1'): Transfer {
-    return {
-      id,
-      name: 'Sell',
-      from_asset_id: 'i1',
-      to_asset_id: 'cash',
-      amount,
-      schedule: 'one_time',
-      transaction_year: year,
-      transaction_month: 1,
-    }
-  }
-
-  it('taxes only the gain share of a withdrawal at the matching rule rate', () => {
-    const result = project(
-      makePlan(),
-      makeProfile({
-        cash_amount: 0,
-        investments: doubling,
-        transfers: [sell(1000, 2026)],
-        investment_tax_rules: [{ id: 'r1', rate: 30, holding_period: 'more_than' }],
-      }),
-    )
-    // Value 2000, basis 1000 → 50 % gain. 1000 sold: 500 gain × 30 % = 150 tax.
-    expect(result[1].investments).toBeCloseTo(1000, 6)
-    expect(result[1].cash).toBeCloseTo(850, 6)
-  })
-
-  it('applies a rule with no year threshold to any holding period', () => {
-    const result = project(
-      makePlan(),
-      makeProfile({
-        cash_amount: 0,
-        investments: doubling,
-        transfers: [sell(1000, 2026)],
-        investment_tax_rules: [{ id: 'r1', rate: 30, holding_period: 'less_than' }],
-      }),
-    )
-    // No year threshold → matches regardless of years held. 500 gain × 30 % = 150.
-    expect(result[1].cash).toBeCloseTo(850, 6)
-  })
-
-  it('applies no tax without rules', () => {
-    const result = project(
-      makePlan(),
-      makeProfile({ cash_amount: 0, investments: doubling, transfers: [sell(1000, 2026)] }),
-    )
-    expect(result[1].cash).toBeCloseTo(1000, 6)
-  })
-
-  it('counts contributions as cost basis', () => {
-    const investments: ProfileInvestment[] = [{ id: 'i1', name: 'Fund', balance: 1000, apy: 0 }]
-    const buy: Transfer = {
-      id: 'b1',
-      name: 'Buy',
-      from_asset_id: 'cash',
-      to_asset_id: 'i1',
-      amount: 500,
-      schedule: 'one_time',
-      transaction_year: 2025,
-      transaction_month: 1,
-    }
-    const result = project(
-      makePlan(),
-      makeProfile({
-        cash_amount: 500,
-        investments,
-        transfers: [buy, sell(1500, 2026)],
-        investment_tax_rules: [{ id: 'r1', rate: 30, holding_period: 'more_than' }],
-      }),
-    )
-    // Basis 1500 = value 1500 → no gain, no tax.
-    expect(result[1].cash).toBeCloseTo(1500, 6)
-    expect(result[1].investments).toBeCloseTo(0, 6)
-  })
-
-  it('picks the rule whose holding period matches the years held', () => {
-    const investments: ProfileInvestment[] = [{ id: 'i1', name: 'Fund', balance: 1000, apy: 0 }]
-    // apy 100 gives a known gain each year, so a fraction's gain share is exact.
-    const result = project(
-      makePlan(),
-      makeProfile({
-        cash_amount: 0,
-        investments: [{ ...investments[0], apy: 100 }],
-        transfers: [sell(1000, 2026, 'early'), sell(1000, 2028, 'late')],
-        investment_tax_rules: [
-          { id: 'short', rate: 40, holding_period: 'less_than', holding_years: 2 },
-          { id: 'long', rate: 10, holding_period: 'more_than', holding_years: 2 },
-        ],
-      }),
-    )
-    // 2026: held 1 year (< 2) → 40 %. Value 2000, basis 1000: 500 gain → 200 tax → 800 cash.
-    expect(result[1].cash).toBeCloseTo(800, 6)
-    // After the sale: value 1000, basis 500. 2027: 2000/500, 2028: 4000/500.
-    // 2028: held 3 years (> 2) → 10 %. Selling 1000: gain share 3500/4000 → 875 × 10 % = 87.5.
-    expect(result[3].cash).toBeCloseTo(800 + 912.5, 6)
-  })
-
-  it('charges nothing on a withdrawal at a loss', () => {
-    const investments: ProfileInvestment[] = [{ id: 'i1', name: 'Fund', balance: 1000, apy: -50 }]
-    const result = project(
-      makePlan(),
-      makeProfile({
-        cash_amount: 0,
-        investments,
-        transfers: [sell(500, 2026)],
-        investment_tax_rules: [{ id: 'r1', rate: 30, holding_period: 'more_than' }],
-      }),
-    )
-    expect(result[1].cash).toBeCloseTo(500, 6)
   })
 })
 

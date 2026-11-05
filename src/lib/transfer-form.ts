@@ -114,7 +114,8 @@ export function transferFromFields(f: TransferFields): Transfer {
     to_asset_id: f.to_asset_id,
     amount: f.transfer_all ? 0 : (f.amount ?? 0),
     ...(f.transfer_all ? { transfer_all: true } : {}),
-    inflation_adjusted: f.inflation_adjusted ? true : undefined,
+    // Max moves the source's whole balance, so there is no amount to adjust.
+    inflation_adjusted: f.inflation_adjusted && !f.transfer_all ? true : undefined,
   }
   if (f.schedule === 'one_time') {
     return {

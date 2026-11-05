@@ -4,8 +4,8 @@
       "title": "Přidat projekci",
       "name": "Název",
       "defaultName": "Alternativní projekce {index}",
-      "exploring": "Co chcete prozkoumat?",
-      "exploringPlaceholder": "např. koupě domu za 3 roky, přechod na částečný úvazek, předčasný odchod do důchodu...",
+      "notes": "Poznámky",
+      "notesPlaceholder": "např. koupě domu za 3 roky, přechod na částečný úvazek, předčasný odchod do důchodu...",
       "startFromCurrentFinances": "Začít od vašich aktuálních financí",
       "startFromCurrentFinancesHelp": "Udržte svou projekci ukotvenou v realitě. Vaše současná aktiva a peněžní toky jsou zahrnuty jako výchozí bod — cokoli můžete upravit nebo přidat. Vypnutím začnete od nuly; váš hotovostní zůstatek zůstává výchozím bodem v obou případech.",
       "create": "Vytvořit projekci",
@@ -63,6 +63,7 @@
       "investmentsValue": "Hodnota investic",
       "tangibleAssetsValue": "Hodnota hmotných aktiv",
       "liabilitiesBalance": "Zůstatek závazků",
+      "financedAssetLoan": "Úvěr vázaný na financované aktivum",
       "addCashFlow": "Přidat peněžní tok",
       "addAsset": "Přidat aktivum",
       "yearOnYear": "Meziročně",
@@ -108,7 +109,8 @@
       "deleteTransferConfirm": "Smazat tento převod? Akci nelze vrátit zpět.",
       "transferFrequencyLabel": "Frekvence",
       "transferMax": "Max",
-      "transferMaxDescription": "Převede všechny dostupné prostředky v okamžiku provedení",
+      "transferMaxDescription": "Zapněte pro převod celého zůstatku. Pokud převádíte z investice, bude prodána.",
+      "transferAuto": "Auto",
       "adjustForInflation": "Upravit podle inflace",
       "adjustForInflationDescription": "Každý rok zvýší částku o inflační míru plánu, aby si zachovala reálnou hodnotu v čase.",
       "totalExpenseRatio": "Celkové roční náklady",
@@ -316,6 +318,23 @@
           "help": "Odhadovaný pokrok k životu z vašich investic",
           "settings": "Nastavení finanční nezávislosti"
         },
+        "fiSettings": {
+          "title": "Nastavení výpočtu finanční nezávislosti",
+          "description": "Finanční nezávislost znamená mít dost investic na pokrytí výdajů bez práce.",
+          "livingCost": "Životní náklady (ročně)",
+          "livingCostHelp": "Vaše roční výdaje plus splátky úvěrů a dalších závazků.",
+          "portfolioValue": "Současná hodnota portfolia",
+          "portfolioValueHelp": "Vaše hotovost a investice dnes, minus to, co dlužíte.",
+          "withdrawalRate": "Míra čerpání",
+          "withdrawalRateHelp": "Nižší míra je bezpečnější, ale vyžaduje větší portfolio. Vyšší míra vystačí s menším portfoliem, ale je riskantnější, protože na vyšší výnosy se nedá tolik spolehnout.",
+          "withdrawalRateDescription": "Procento portfolia, které každý rok vyberete na živobytí (4 % je běžná výchozí hodnota).",
+          "fiNumber": "Vaše číslo finanční nezávislosti",
+          "fiNumberDescription": "Podle vaší míry čerpání je to portfolio, které potřebujete na pokrytí životních nákladů.",
+          "preview": "Finanční nezávislost:",
+          "reset": "Obnovit",
+          "apply": "Použít změny",
+          "close": "Zavřít"
+        },
         "history": {
           "title": "Historie",
           "viewDetails": "Zobrazit detaily",
@@ -326,7 +345,6 @@
       "projections": {
         "title": "Projekce",
         "addProjection": "Přidat projekci",
-        "noNotes": "Žádný popis",
         "planChartLabel": "Odhadované čisté jmění pro {name}",
         "illustrationAlt": "Ilustrace plánů",
         "emptyTitle": "Připraveni prozkoumat svou budoucnost?",
@@ -605,7 +623,6 @@
         "backup": "Zálohování",
         "appearance": "Vzhled",
         "localisation": "Lokalizace",
-        "taxRules": "Daňová pravidla",
         "yourDetails": "Vaše údaje",
         "mcpServer": "MCP server"
       },
@@ -640,23 +657,6 @@
           "erase": "Smazat",
           "cancel": "Zrušit"
         }
-      },
-      "taxRules": {
-        "description": "Nastavte výchozí daňová pravidla pro prodej investic nebo hmotného majetku. Použijí se automaticky, pokud nebudou přepsána.",
-        "investments": "Pro investice",
-        "tangibleAssets": "Pro hmotný majetek",
-        "capitalGainsTax": "Daň z kapitálových výnosů",
-        "if": "pokud",
-        "holdingPeriodIs": "Doba držení je",
-        "moreThan": "Více než",
-        "lessThan": "Méně než",
-        "years": "let",
-        "holdingYears": "Doba držení v letech",
-        "addRule": "Přidat daňové pravidlo",
-        "removeRule": "Odebrat daňové pravidlo",
-        "rateOutOfRange": "Zadejte sazbu mezi 0 a 100",
-        "holdingYearsOutOfRange": "Zadejte 0 nebo více let",
-        "cgtHelp": "Daň z kapitálových výnosů (CGT) je daň ze zisku z prodeje majetku – například akcií, dluhopisů, nemovitostí nebo sběratelských předmětů – jehož hodnota vzrostla. Platí se pouze při prodeji (realizaci), nikoli během držení. Sazby obvykle závisí na době držení (krátkodobé vs. dlouhodobé) a na výši příjmu vlastníka."
       }
     },
     "demo": {
@@ -740,9 +740,10 @@
     "confirm": {
       "title": "Nahradit všechna vaše data?",
       "description": "Načtení této předlohy přepíše všechna data aktuálně uložená v tomto prohlížeči.",
-      "warning": "Vaše stávající data budou nejprve exportována do souboru, abyste je mohli později obnovit.",
+      "warning": "Pokud je chcete později obnovit, nejprve exportujte svá stávající data do souboru.",
       "cancel": "Zrušit",
-      "exportAndContinue": "Exportovat a pokračovat",
+      "export": "Exportovat",
+      "replace": "Nahradit",
       "continue": "Pokračovat"
     }
   },
@@ -762,6 +763,7 @@
     "required_for_recurring_transfer": "Povinné pro opakovaný převod",
     "required_for_one_time_cash_flow": "Povinné pro jednorázovou položku",
     "no_planned_timing_in_financial_data": "Finanční data nemají plánované načasování; nastavte ho v projekci",
+    "no_down_payment_in_financial_data": "Finanční data nemají akontaci; nastavte ji v projekci",
     "required_for_recurring_cash_flow": "Povinné pro opakovanou položku",
     "transfer_endpoint_required": "Odkud a Kam musí být obojí vybráno",
     "transfer_same_endpoints": "Odkud a Kam musí být různá aktiva"

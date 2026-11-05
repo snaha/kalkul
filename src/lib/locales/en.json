@@ -4,8 +4,8 @@
       "title": "Add projection",
       "name": "Name",
       "defaultName": "Alternative projection {index}",
-      "exploring": "What are you exploring?",
-      "exploringPlaceholder": "e.g. Buy a house in 3 years, switch to part-time work, early retirement...",
+      "notes": "Notes",
+      "notesPlaceholder": "e.g. Buy a house in 3 years, switch to part-time work, early retirement...",
       "startFromCurrentFinances": "Start from your current finances",
       "startFromCurrentFinancesHelp": "Keep your projection grounded in reality. Your current assets and cash flows are included as the starting point — you can modify or add anything. Turn off to start from scratch; your cash balance stays as the starting point either way.",
       "create": "Create projection",
@@ -63,6 +63,7 @@
       "investmentsValue": "Investments value",
       "tangibleAssetsValue": "Tangible assets value",
       "liabilitiesBalance": "Liabilities balance",
+      "financedAssetLoan": "Loan tied to a financed asset",
       "addCashFlow": "Add cash flow",
       "addAsset": "Add asset",
       "yearOnYear": "Year-on-year",
@@ -108,7 +109,8 @@
       "deleteTransferConfirm": "Delete this transfer? This cannot be undone.",
       "transferFrequencyLabel": "Frequency",
       "transferMax": "Max",
-      "transferMaxDescription": "Transfers all available funds at the time of execution",
+      "transferMaxDescription": "Turn on to transfer the entire balance. If you’re transferring from an investment, it will be liquidated.",
+      "transferAuto": "Auto",
       "adjustForInflation": "Adjust for inflation",
       "adjustForInflationDescription": "Grows the amount each year by the plan's inflation rate, so it keeps its real value over time.",
       "totalExpenseRatio": "Total expense ratio",
@@ -316,6 +318,23 @@
           "help": "Estimated progress toward living off your investments",
           "settings": "Financial independence settings"
         },
+        "fiSettings": {
+          "title": "Financial independence calculation settings",
+          "description": "Financial independence is having enough investments to cover your expenses without working.",
+          "livingCost": "Living cost (annually)",
+          "livingCostHelp": "Your yearly expenses plus loan and other liability installments.",
+          "portfolioValue": "Current portfolio value",
+          "portfolioValueHelp": "Your cash and investments today, minus what you owe.",
+          "withdrawalRate": "Withdrawal rate",
+          "withdrawalRateHelp": "A lower rate is safer but needs a larger portfolio. A higher rate needs a smaller portfolio, but is riskier because higher returns are harder to count on.",
+          "withdrawalRateDescription": "The percentage of your portfolio you withdraw each year to live on (4% is a common default).",
+          "fiNumber": "Your financial independence number",
+          "fiNumberDescription": "Based on your withdrawal rate, this is the portfolio you need to cover your living costs.",
+          "preview": "Financial independence:",
+          "reset": "Reset",
+          "apply": "Apply changes",
+          "close": "Close"
+        },
         "history": {
           "title": "History",
           "viewDetails": "View details",
@@ -326,7 +345,6 @@
       "projections": {
         "title": "Projections",
         "addProjection": "Add projection",
-        "noNotes": "No description",
         "planChartLabel": "Projected net worth for {name}",
         "illustrationAlt": "Plans illustration",
         "emptyTitle": "Ready to explore your future(s)?",
@@ -605,7 +623,6 @@
         "backup": "Backup",
         "appearance": "Appearance",
         "localisation": "Localisation",
-        "taxRules": "Tax rules",
         "yourDetails": "Your details",
         "mcpServer": "MCP server"
       },
@@ -640,23 +657,6 @@
           "erase": "Erase",
           "cancel": "Cancel"
         }
-      },
-      "taxRules": {
-        "description": "Set default tax rules for when you sell investments or tangible assets. These will apply automatically unless overridden.",
-        "investments": "For investments",
-        "tangibleAssets": "For tangible assets",
-        "capitalGainsTax": "Capital gains tax",
-        "if": "if",
-        "holdingPeriodIs": "Holding period is",
-        "moreThan": "More than",
-        "lessThan": "Less than",
-        "years": "years",
-        "holdingYears": "Holding period in years",
-        "addRule": "Add tax rule",
-        "removeRule": "Remove tax rule",
-        "rateOutOfRange": "Enter a rate between 0 and 100",
-        "holdingYearsOutOfRange": "Enter 0 or more years",
-        "cgtHelp": "Capital gains tax (CGT) is a tax levied on the profit (gain) made from selling an asset—such as stocks, bonds, real estate, or collectibles—that has increased in value. It only applies when the asset is sold (realized), not while it is held. Rates generally depend on how long the asset was held (short-term vs. long-term) and the owner's income level."
       }
     },
     "demo": {
@@ -740,9 +740,10 @@
     "confirm": {
       "title": "Replace all your data?",
       "description": "Loading this preset overwrites all data currently stored in this browser.",
-      "warning": "Your current data will be exported to a file first so you can restore it later.",
+      "warning": "Export your current data to a file first if you want to restore it later.",
       "cancel": "Cancel",
-      "exportAndContinue": "Export and continue",
+      "export": "Export",
+      "replace": "Replace",
       "continue": "Continue"
     }
   },
@@ -762,6 +763,7 @@
     "required_for_recurring_transfer": "Required for a recurring transfer",
     "required_for_one_time_cash_flow": "Required for a one-time item",
     "no_planned_timing_in_financial_data": "Financial data has no planned timing; set it in a projection",
+    "no_down_payment_in_financial_data": "Financial data has no down payment; set it in a projection",
     "required_for_recurring_cash_flow": "Required for a recurring item",
     "transfer_endpoint_required": "From and To must both be chosen",
     "transfer_same_endpoints": "From and To must be different assets"

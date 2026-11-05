@@ -1103,52 +1103,18 @@ describe('storedDataSchema golden fixture', () => {
   })
 })
 
-describe('profileSchema tax rules', () => {
-  it('round-trips investment and tangible asset tax rules, including half-filled ones', () => {
-    const profile = {
-      name: 'Test',
-      email: '',
-      investment_tax_rules: [
-        { id: 'r1', rate: 15, holding_period: 'less_than', holding_years: 3 },
-        { id: 'r2', holding_period: 'more_than' },
-      ],
-      tangible_asset_tax_rules: [
-        { id: 'r3', rate: 0, holding_period: 'more_than', holding_years: 5 },
-      ],
-    }
-    expect(profileSchema.parse(profile)).toEqual(profile)
+describe('profileSchema FI withdrawal rate', () => {
+  const base = { name: 'Test', email: '' }
+
+  it('accepts a rate above 0 up to 100', () => {
+    expect(profileSchema.parse({ ...base, fi_withdrawal_rate: 4.4 }).fi_withdrawal_rate).toBe(4.4)
+    expect(profileSchema.parse({ ...base, fi_withdrawal_rate: 100 }).fi_withdrawal_rate).toBe(100)
   })
 
-  it('rejects a rate outside 0-100 and negative holding years', () => {
-    const base = { name: 'Test', email: '' }
-    expect(() =>
-      profileSchema.parse({
-        ...base,
-        investment_tax_rules: [{ id: 'r1', rate: 150, holding_period: 'more_than' }],
-      }),
-    ).toThrow()
-    expect(() =>
-      profileSchema.parse({
-        ...base,
-        investment_tax_rules: [{ id: 'r1', rate: -1, holding_period: 'more_than' }],
-      }),
-    ).toThrow()
-    expect(() =>
-      profileSchema.parse({
-        ...base,
-        tangible_asset_tax_rules: [{ id: 'r1', holding_period: 'more_than', holding_years: -2 }],
-      }),
-    ).toThrow()
-  })
-
-  it('rejects an unknown holding period', () => {
-    expect(() =>
-      profileSchema.parse({
-        name: 'Test',
-        email: '',
-        investment_tax_rules: [{ id: 'r1', holding_period: 'between' }],
-      }),
-    ).toThrow()
+  it('rejects zero, a negative rate and a rate above 100', () => {
+    expect(() => profileSchema.parse({ ...base, fi_withdrawal_rate: 0 })).toThrow()
+    expect(() => profileSchema.parse({ ...base, fi_withdrawal_rate: -1 })).toThrow()
+    expect(() => profileSchema.parse({ ...base, fi_withdrawal_rate: 1000 })).toThrow()
   })
 })
 
@@ -1231,6 +1197,28 @@ describe('profileSchema: financial data has no planned timing', () => {
   it('rejects a dated field even when the mode says already running', () => {
     const result = profileSchema.safeParse({ ...base, incomes: [{ ...baseIncome, end_age: 55 }] })
     expect(result.error?.issues.map((i) => i.path)).toEqual([['incomes', 0, 'end_age']])
+  })
+
+  it('rejects a down payment on a tangible asset', () => {
+    const asset = {
+      id: 't',
+      name: 'House',
+      value: 420000,
+      status: 'financed',
+      outstanding_balance: 235000,
+      installment_frequency: 'monthly',
+      annual_rate: 5,
+      installment_amount: 1500,
+      remaining_term: 20,
+    }
+    expect(profileSchema.safeParse({ ...base, tangible_assets: [asset] }).success).toBe(true)
+    const result = profileSchema.safeParse({
+      ...base,
+      tangible_assets: [{ ...asset, down_payment: 185000 }],
+    })
+    expect(result.error?.issues.map((i) => i.path)).toEqual([
+      ['tangible_assets', 0, 'down_payment'],
+    ])
   })
 })
 

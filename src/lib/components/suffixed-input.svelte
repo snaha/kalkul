@@ -13,6 +13,7 @@
     'aria-label'?: string
     'aria-invalid'?: HTMLInputAttributes['aria-invalid']
     class?: string
+    disabled?: boolean
     // Required so no call site can accidentally fall back to the OS locale —
     // pass appStore.formatNumber (or a wrapper around it).
     formatNumber: (n: number) => string
@@ -27,6 +28,7 @@
     'aria-label': ariaLabel,
     'aria-invalid': ariaInvalid,
     class: className,
+    disabled = false,
     formatNumber,
     onValueChange,
   }: Props = $props()
@@ -81,6 +83,7 @@
     {id}
     aria-label={ariaLabel}
     aria-invalid={ariaInvalid}
+    {disabled}
     value={displayValue}
     inputmode="decimal"
     onfocus={handleFocus}

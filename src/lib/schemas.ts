@@ -272,7 +272,7 @@ function edgeMonth(
  * one-time item, one that starts later or one that ended, was sold or was
  * paid off earlier is dropped: it is not something the user has today. Runs
  * after `materializePlans`, so the plans keep their copies with the timing.
- * Transitional, see AGENTS.md.
+ * Transitional, see docs/product/projections.md.
  */
 function stripPlannedTiming(
   owner: Record<string, unknown>,
@@ -338,7 +338,7 @@ const INCLUDED_IDS: Record<PlanListKey, string> = {
  * holds a copy of everything it projects. A plan without a `base` gets the
  * items it included plus its own, its opening cash, and the financial data of
  * the moment as its base. Items of a deleted plan are dropped, so none of them
- * turns into financial data. Transitional, see AGENTS.md.
+ * turns into financial data. Transitional, see docs/product/projections.md.
  */
 function materializePlans(profile: Record<string, unknown>, portfolios: unknown): void {
   const plans = Array.isArray(portfolios) ? portfolios.filter(isRecord) : []
@@ -587,6 +587,10 @@ export const profileTangibleAssetSchema = z
     value: z.number(),
     status: tangibleAssetStatusSchema,
     outstanding_balance: z.number().optional(),
+    // Cash paid at purchase, carried only inside a projection: the plan dialog
+    // asks for it and keeps the balance owed at the price less this. Financial
+    // data knows only the balance owed; `profileSchema` rejects it there.
+    down_payment: z.number().optional(),
     installment_frequency: frequencySchema.optional(),
     annual_rate: z.number().optional(),
     installment_amount: z.number().optional(),
@@ -911,19 +915,12 @@ export const transferSchema = z
     }
   })
 
-export const holdingPeriodSchema = z.enum(['more_than', 'less_than'])
+/** The 4% rule: the withdrawal rate the FI number assumes until the user sets one. */
+export const DEFAULT_FI_WITHDRAWAL_RATE = 4
 
-// Default capital gains tax applied when an investment or tangible asset is
-// sold: `rate` % if the holding period is more/less than `holding_years`.
-// Rate and years are optional so a half-filled row on the Settings page can
-// be persisted as-is; the projection engine ignores incomplete rules (and
-// does not apply tax rules at all yet).
-export const taxRuleSchema = z.object({
-  id: z.string(),
-  rate: z.number().min(0).max(100).optional(),
-  holding_period: holdingPeriodSchema,
-  holding_years: z.number().min(0).optional(),
-})
+// Mirrors the supported locales in `src/lib/locales/index.ts` — keep the two
+// lists in sync.
+export const languageSchema = z.enum(['en', 'cs'])
 
 export const profileFieldsSchema = z.object({
   name: z.string(),
@@ -931,9 +928,8 @@ export const profileFieldsSchema = z.object({
   birth_date: z.string().optional(),
   location: z.string().optional(),
   currency: z.string().optional(),
-  // UI language preference. Mirrors the supported locales in
-  // `src/lib/locales/index.ts` — keep the two lists in sync.
-  language: z.enum(['en', 'cs']).optional(),
+  // UI language preference.
+  language: languageSchema.optional(),
   // Usage/license terms accepted in the first Get started step. Persisted so
   // navigating Back does not force the user to accept them again.
   terms_accepted: z.boolean().optional(),
@@ -947,8 +943,9 @@ export const profileFieldsSchema = z.object({
   incomes: z.array(incomeSchema).optional(),
   expenses: z.array(expenseSchema).optional(),
   transfers: z.array(transferSchema).optional(),
-  investment_tax_rules: z.array(taxRuleSchema).optional(),
-  tangible_asset_tax_rules: z.array(taxRuleSchema).optional(),
+  // Percent of the portfolio withdrawn a year behind the Financial independence
+  // number (`getFiNumber`); absent means `DEFAULT_FI_WITHDRAWAL_RATE`.
+  fi_withdrawal_rate: z.number().positive().max(100).optional(),
   // Normalized on the way in, so every entry point — a fresh load, a restored
   // backup, cross-tab sync, a store write — hands the rest of the app a sorted,
   // one-per-date list. `.overwrite` rather than `.transform`: it does not change
@@ -983,8 +980,9 @@ export type PlanListKey = (typeof PLAN_LIST_KEYS)[number]
 /**
  * Per list, the fields that carry planned timing and the end value that means
  * no end. A profile item may only be running: start 'immediately' or 'now',
- * end at `openEnd`, no dated fields, never one-time (AGENTS.md).
- * `profileSchema` checks it; `repairStoredData` strips it from stored data.
+ * end at `openEnd`, no dated fields, never one-time
+ * (docs/product/projections.md). `profileSchema` checks it; `repairStoredData`
+ * strips it from stored data.
  */
 const PLANNED_TIMING = {
   incomes: { start: 'start', end: 'end', openEnd: 'never' },
@@ -1025,6 +1023,14 @@ export const profileSchema = profileFieldsSchema.superRefine((profile, ctx) => {
         })
     })
   }
+  ;(profile.tangible_assets ?? []).forEach((asset, index) => {
+    if (asset.down_payment !== undefined)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['tangible_assets', index, 'down_payment'],
+        message: get(_)('validation.no_down_payment_in_financial_data'),
+      })
+  })
 })
 
 export const portfolioSchema = z.object({
@@ -1081,5 +1087,3 @@ export type RemainingTermUnit = z.infer<typeof remainingTermUnitSchema>
 export type LiabilityPayOff = z.infer<typeof liabilityPayOffSchema>
 export type PlanStartType = z.infer<typeof planStartTypeSchema>
 export type PlanEndType = z.infer<typeof planEndTypeSchema>
-export type HoldingPeriod = z.infer<typeof holdingPeriodSchema>
-export type TaxRule = z.infer<typeof taxRuleSchema>

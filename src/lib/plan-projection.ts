@@ -1,6 +1,7 @@
 import Decimal from 'decimal.js'
 
 import { DECIMAL_0, DECIMAL_1 } from '$lib/@snaha/kalkul-maths'
+import { DEFAULT_FI_WITHDRAWAL_RATE } from '$lib/schemas'
 import type {
   CashFlowEnd,
   CashFlowSchedule,
@@ -56,6 +57,9 @@ export interface YearlyProjectionItem {
   id: string
   name: string
   value: number
+  // Set on a liabilities row that is the loan behind a financed tangible
+  // asset: the asset it belongs to. The row is named after the asset.
+  assetId?: string
 }
 
 export interface YearlyProjection {
@@ -72,7 +76,8 @@ export interface YearlyProjection {
   totalExpenses: number
   // Progress toward financial independence in this year: investable wealth
   // (cash + investments − standalone liabilities outstanding) as a percent of
-  // 25× this year's outflows (living expenses + loan installments).
+  // the FI number: this year's outflows (living expenses + loan installments)
+  // × 100 / the profile's withdrawal rate, 25× at the default 4%.
   // Undefined in years with zero outflows, where the ratio is meaningless.
   fiPercent?: number
   // Years this year's investable wealth could cover this year's outflow
@@ -1057,7 +1062,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   const birthYear = profile.birth_date ? yearOf(profile.birth_date) : undefined
 
   // A plan holds its own copy of everything it projects; financial data is
-  // only consulted for what a plan does not copy (birth date, tax rules).
+  // only consulted for what a plan does not copy (birth date).
   const investments: ProfileInvestment[] = plan.investments
   const liabilities: ProfileLiability[] = plan.liabilities
   const tangibleAssets = plan.tangible_assets
@@ -1101,6 +1106,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   // however the plan has edited it since. A start before the plan pays in at
   // plan start. A planned pay-off before that start means the schedule above
   // never goes live, so nothing is borrowed either.
+  const fiWithdrawalRate = profile.fi_withdrawal_rate ?? DEFAULT_FI_WITHDRAWAL_RATE
   const currentDebtIds = new Set(plan.base.liabilities.map((l) => l.id))
   const borrowedByYear = new Map<number, Decimal>()
   for (const l of liabilities) {
@@ -1115,6 +1121,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     const window = assetWindows.get(asset.id)
     return {
       assetId: asset.id,
+      liability,
       schedule: simulateLiability(
         liability,
         startYear,
@@ -1156,16 +1163,6 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     return !window.fundsFromCash && window.exitYear >= startYear
   }
   const invBalancesNominal = new Map<string, Decimal>(
-    investments.map((i) => [i.id, heldAtPlanStart(i.id) ? new Decimal(i.balance) : DECIMAL_0]),
-  )
-  // Cost basis per investment, for capital gains tax on withdrawals. Money
-  // paid in (initial balance, contributions, the synthetic buy) is basis;
-  // growth is not. A withdrawal takes basis and gain in the same proportion
-  // as the balance holds them (average-cost method).
-  // ponytail: the initial balance counts fully as basis — gains made before
-  // the plan start are untaxed; add a cost_basis field to investments if that
-  // ever matters.
-  const invBasisNominal = new Map<string, Decimal>(
     investments.map((i) => [i.id, heldAtPlanStart(i.id) ? new Decimal(i.balance) : DECIMAL_0]),
   )
   // A not-yet-purchased asset starts at 0; its synthetic buy (plus the
@@ -1293,17 +1290,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       if (id === CASH_ENDPOINT) {
         cashNominal = cashNominal.minus(amount)
       } else if (invBalancesNominal.has(id)) {
-        const balance = invBalancesNominal.get(id) ?? DECIMAL_0
-        const basis = invBasisNominal.get(id) ?? DECIMAL_0
-        if (balance.greaterThan(0)) {
-          // Clamp at zero so an overdraw (amount > balance) does not drive the
-          // basis negative and skew the gain share of the next withdrawal.
-          invBasisNominal.set(
-            id,
-            Decimal.max(basis.mul(DECIMAL_1.minus(amount.div(balance))), DECIMAL_0),
-          )
-        }
-        invBalancesNominal.set(id, balance.minus(amount))
+        invBalancesNominal.set(id, (invBalancesNominal.get(id) ?? DECIMAL_0).minus(amount))
       } else if (tangValuesNominal.has(id)) {
         tangValuesNominal.set(id, (tangValuesNominal.get(id) ?? DECIMAL_0).minus(amount))
       }
@@ -1314,37 +1301,9 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
         cashNominal = cashNominal.plus(amount)
       } else if (invBalancesNominal.has(id)) {
         invBalancesNominal.set(id, (invBalancesNominal.get(id) ?? DECIMAL_0).plus(amount))
-        invBasisNominal.set(id, (invBasisNominal.get(id) ?? DECIMAL_0).plus(amount))
       } else if (tangValuesNominal.has(id)) {
         tangValuesNominal.set(id, (tangValuesNominal.get(id) ?? DECIMAL_0).plus(amount))
       }
-    }
-
-    // Capital gains tax on the gain share of a withdrawal from an investment,
-    // at the rate of the first profile rule whose holding period matches the
-    // years the investment has been held in this plan. No matching rule, no
-    // gain, or a loss → no tax. Must run before withdraw() moves the basis.
-    // Tangible assets are not taxed here (tangible_asset_tax_rules) — that
-    // belongs to the selling flow (#223).
-    function capitalGainsTax(fromId: string, amount: Decimal): Decimal {
-      if (!invBalancesNominal.has(fromId)) return DECIMAL_0
-      const balance = invBalancesNominal.get(fromId) ?? DECIMAL_0
-      const basis = invBasisNominal.get(fromId) ?? DECIMAL_0
-      if (balance.lessThanOrEqualTo(basis) || balance.isZero()) return DECIMAL_0
-      const heldYears = year - (assetWindows.get(fromId)?.startYear ?? startYear)
-      const rule = (profile.investment_tax_rules ?? []).find((r) => {
-        // No year threshold (the Settings field is optional) → the rule applies
-        // whatever the holding period.
-        if (r.holding_years === undefined) return true
-        return r.holding_period === 'more_than'
-          ? heldYears > r.holding_years
-          : heldYears < r.holding_years
-      })
-      if (!rule?.rate) return DECIMAL_0
-      // Taxed on the gross gain share of `amount`, before the exit fee — a
-      // modeling choice; real brokers usually tax the net proceeds.
-      const gain = amount.mul(balance.minus(basis).div(balance))
-      return gain.mul(new Decimal(rule.rate).div(100))
     }
 
     // An investment only takes part in transfers between its start and exit
@@ -1392,17 +1351,12 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
         }
       }
       // Source loses the full `amount`. Destination receives what's left
-      // after the exit fee and capital gains tax on the way out and the
-      // upfront entry fee on the way in. Difference is lost to the broker
-      // and the tax office.
-      const tax = capitalGainsTax(transfer.from_asset_id, amount)
+      // after the exit fee on the way out and the upfront entry fee on the
+      // way in. Difference is lost to the broker.
       withdraw(transfer.from_asset_id, amount)
       const netToDestination = applyEntryFee(
         investmentsById.get(transfer.to_asset_id),
-        Decimal.max(
-          applyExitFee(investmentsById.get(transfer.from_asset_id), amount).minus(tax),
-          DECIMAL_0,
-        ),
+        applyExitFee(investmentsById.get(transfer.from_asset_id), amount),
       )
       deposit(transfer.to_asset_id, netToDestination)
     }
@@ -1507,15 +1461,26 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       value: clampNonNeg((tangValuesNominal.get(asset.id) ?? DECIMAL_0).div(deflationFactor)),
     }))
 
-    // Only user-defined liabilities; tangible-asset financings are tracked as
-    // part of the asset, not as standalone items in the sidebar list.
-    const liabilitiesByItem: YearlyProjectionItem[] = liabilities.map((liability, i) => ({
-      id: liability.id,
-      name: liability.name,
-      value: clampNonNeg(
-        (standaloneSchedules[i].outstandingByYear.get(year) ?? DECIMAL_0).div(deflationFactor),
-      ),
-    }))
+    // Every liability, standalone or the loan behind a financed asset, so the
+    // rows add up to the total. A loan not yet taken out, paid off, settled by
+    // a sale, or behind a purchase the plan could not afford stays listed at 0.
+    const liabilitiesByItem: YearlyProjectionItem[] = [
+      ...liabilities.map((liability, i) => ({
+        id: liability.id,
+        name: liability.name,
+        value: clampNonNeg(
+          (standaloneSchedules[i].outstandingByYear.get(year) ?? DECIMAL_0).div(deflationFactor),
+        ),
+      })),
+      ...financedSchedules.map(({ assetId, liability, schedule }) => ({
+        id: liability.id,
+        name: liability.name,
+        assetId,
+        value: abandonedAssetIds.has(assetId)
+          ? 0
+          : clampNonNeg((schedule.outstandingByYear.get(year) ?? DECIMAL_0).div(deflationFactor)),
+      })),
+    ]
 
     // 9. Per-year FI % and runway, mirroring the dashboard's snapshot
     //    formulas (getFiPercent/getRunwayYears in financial-totals.ts):
@@ -1534,7 +1499,11 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     let fiPercent: number | undefined
     let runwayYears: number | undefined
     if (outflowsNominal.greaterThan(0)) {
-      fiPercent = Math.max(0, investableNominal.div(outflowsNominal.mul(25)).mul(100).toNumber())
+      // Investable over the FI number (outflows × 100 / rate), as a percentage.
+      fiPercent = Math.max(
+        0,
+        investableNominal.mul(fiWithdrawalRate).div(outflowsNominal).toNumber(),
+      )
       runwayYears = Math.max(0, investableNominal.div(outflowsNominal).toNumber())
     }
 

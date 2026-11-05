@@ -2,7 +2,7 @@
   import { locale } from 'svelte-i18n'
 
   import { daysBetween } from '$lib/@snaha/kalkul-maths'
-  import { monthTicks, niceAxisBounds } from '$lib/chart-axis'
+  import { labelsWithYear, monthTicks, niceAxisBounds } from '$lib/chart-axis'
   import type { HistoryPoint } from '$lib/history-series'
   import { cn, parseDateOnly } from '$lib/utils'
 
@@ -28,11 +28,11 @@
     new Intl.DateTimeFormat($locale ?? undefined, { month: 'short', year: 'numeric' }),
   )
 
-  // Only the leading tick carries a year, matching the spec. Which tick that is
-  // depends on how far the labels had to be thinned.
-  function formatMonth(date: string, isFirst: boolean): string {
+  // The leading tick carries a year, matching the spec; a chart longer than a
+  // year repeats it where a new year starts (`labelsWithYear`).
+  function formatMonth(date: string, withYear: boolean): string {
     const parsed = parseDateOnly(date)
-    return isFirst ? monthWithYear.format(parsed) : shortMonth.format(parsed)
+    return withYear ? monthWithYear.format(parsed) : shortMonth.format(parsed)
   }
 
   // Geometry is computed in real pixels rather than a stretched viewBox so
@@ -117,12 +117,15 @@
     // every Nth so whatever survives is legible at the current width.
     const gap = ticks.length > 1 ? ticks[1].x - ticks[0].x : plotWidth
     const stride = Math.max(1, Math.ceil(MIN_TICK_SPACING / Math.max(gap, 1)))
-    return (
-      ticks
-        .filter((_, i) => i % stride === 0)
-        // The trailing "Now" label owns the right edge.
-        .filter((tick) => plotWidth - tick.x > NOW_LABEL_WIDTH)
+    const shown = ticks
+      .filter((_, i) => i % stride === 0)
+      // The trailing "Now" label owns the right edge.
+      .filter((tick) => plotWidth - tick.x > NOW_LABEL_WIDTH)
+    const withYear = labelsWithYear(
+      shown.map((tick) => tick.date),
+      ticks.length > 12,
     )
+    return shown.map((tick, i) => ({ ...tick, withYear: withYear[i] }))
   })
 </script>
 
@@ -208,10 +211,10 @@
   <div class="flex h-4 gap-2 text-xs leading-none">
     <div class="w-12 shrink-0"></div>
     <div class="relative min-w-0 flex-1">
-      {#each monthLabels as tick, i (tick.date)}
+      {#each monthLabels as tick (tick.date)}
         <span
           class="absolute -translate-x-1/2 whitespace-nowrap text-muted-foreground"
-          style:left="{tick.x}px">{formatMonth(tick.date, i === 0)}</span
+          style:left="{tick.x}px">{formatMonth(tick.date, tick.withYear)}</span
         >
       {/each}
       <span class="absolute right-0 whitespace-nowrap font-medium text-foreground">{nowLabel}</span>
