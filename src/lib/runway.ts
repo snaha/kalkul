@@ -59,24 +59,59 @@ export function runwaySettingsOf(profile: Profile): RunwaySettings {
   }
 }
 
-/** The profile fields `settings` changes, which is all the dialog's Apply writes. */
+/**
+ * Which tax rates are in effect: each only while its switch and its growth
+ * checkbox are on, which is also when the dialog shows it.
+ */
+export function taxRatesInEffect(settings: RunwaySettings): {
+  investment: boolean
+  tangible: boolean
+} {
+  return {
+    investment: settings.withdraw_investments && settings.investment_growth,
+    tangible: settings.sell_tangible_assets && settings.tangible_asset_growth,
+  }
+}
+
+/**
+ * The profile fields `settings` changes, which is all the dialog's Apply
+ * writes. A tax rate not in effect is left as stored.
+ */
 export function changedRunwaySettings(
   profile: Profile,
   settings: RunwaySettings,
 ): Partial<Profile> {
   const stored = runwaySettingsOf(profile)
+  const shown = taxRatesInEffect(settings)
+  const next: RunwaySettings = {
+    ...settings,
+    investment_tax_rate: shown.investment
+      ? settings.investment_tax_rate
+      : stored.investment_tax_rate,
+    tangible_asset_tax_rate: shown.tangible
+      ? settings.tangible_asset_tax_rate
+      : stored.tangible_asset_tax_rate,
+  }
   return Object.fromEntries(
-    SETTING_KEYS.filter((key) => settings[key] !== stored[key]).map((key) => [
+    SETTING_KEYS.filter((key) => next[key] !== stored[key]).map((key) => [
       `runway_${key}`,
-      settings[key],
+      next[key],
     ]),
   ) as Partial<Profile>
 }
 
-/** Whether the tax rates are percentages the schema accepts. */
+/** Whether a tax rate is a percentage the schema accepts. */
+export function validTaxRate(rate: number): boolean {
+  return rate >= 0 && rate <= 100
+}
+
+/** Whether the tax rates in effect are percentages the schema accepts. */
 export function validRunwaySettings(settings: RunwaySettings): boolean {
-  const percent = (rate: number) => rate >= 0 && rate <= 100
-  return percent(settings.investment_tax_rate) && percent(settings.tangible_asset_tax_rate)
+  const shown = taxRatesInEffect(settings)
+  return (
+    (!shown.investment || validTaxRate(settings.investment_tax_rate)) &&
+    (!shown.tangible || validTaxRate(settings.tangible_asset_tax_rate))
+  )
 }
 
 /** Past this the money is as good as endless and the card reads "100+ years". */
@@ -93,7 +128,7 @@ function monthlyFactor(annualPercent: Decimal): Decimal {
   )
 }
 
-/** The asset's own yearly change; one tracking inflation does not move here, as nothing else does. */
+/** The asset's own yearly change; one with no rate set does not move, as nothing else does. */
 function tangibleAnnualRate(asset: ProfileTangibleAsset): Decimal {
   if (asset.value_over_time === undefined) return DECIMAL_0
   const rate = new Decimal(asset.value_rate ?? 0)
@@ -112,19 +147,22 @@ interface Loan {
 }
 
 function loanOf(l: ProfileLiability, assetId?: string): Loan | undefined {
-  if (!(l.outstanding_balance > 0) || !(l.installment_amount > 0)) return undefined
+  if (!(l.outstanding_balance > 0)) return undefined
   const periodsPerMonth = new Decimal(INSTALLMENT_PERIODS_PER_YEAR[l.installment_frequency]).div(
     DECIMAL_12,
   )
   const months =
     l.remaining_term_unit === 'months' ? l.remaining_term : l.remaining_term * MONTHS_PER_YEAR
+  // A loan with no installment is never paid, but it is still owed, so a sale
+  // of its asset settles the balance as it stands.
+  const scheduled = l.installment_amount > 0
   return {
     assetId,
     balance: new Decimal(l.outstanding_balance),
     monthlyRate: DECIMAL_1.plus(installmentPeriodRate(l)).pow(periodsPerMonth).minus(DECIMAL_1),
     monthlyPayment: new Decimal(l.installment_amount).mul(periodsPerMonth),
     // Without a usable term the installments run until they cover the balance.
-    monthsLeft: months > 0 ? months : Infinity,
+    monthsLeft: !scheduled ? 0 : months > 0 ? months : Infinity,
   }
 }
 
@@ -177,7 +215,7 @@ export function getRunwayYears(
     const loan = financing && loanOf(financing, a.id)
     if (loan) loans.push(loan)
   }
-  if (monthlyExpenses.isZero() && loans.length === 0) return undefined
+  if (monthlyExpenses.isZero() && !loans.some(owes)) return undefined
 
   const investmentTax = new Decimal(settings.investment_tax_rate).div(DECIMAL_100)
   const tangibleTax = new Decimal(settings.tangible_asset_tax_rate).div(DECIMAL_100)
@@ -243,6 +281,8 @@ export function getRunwayYears(
     }
 
     if (cash.lessThan(0)) {
+      // Cash below zero against a net surplus is climbing out; keep walking.
+      if (netOut.lessThan(0)) continue
       // The month ran out part-way: count the share of its net outflow that
       // was covered. Cash that started below zero against no net outflow
       // never recovers, so it is simply out.
@@ -256,18 +296,20 @@ export function getRunwayYears(
     }
 
     if (loans.some(owes)) continue
-    // Nothing drains, or growth outpaces the draw: the money never runs out.
+    // Nothing drains: the money never runs out.
     if (baseOut.lessThanOrEqualTo(0)) return Infinity
-    const unsold = tangibles.filter((t) => !t.sold)
-    if (settings.investment_growth || (settings.tangible_asset_growth && unsold.length > 0)) {
-      if (!settings.investment_growth) continue
-      const growth = investments.reduce(
-        (sum, inv) => sum.plus(inv.balance.mul(inv.factor.minus(DECIMAL_1))),
-        DECIMAL_0,
-      )
-      if (growth.greaterThanOrEqualTo(baseOut) && investmentTax.lessThan(DECIMAL_1)) return Infinity
+    const drawn = investments.find((inv) => inv.balance.greaterThan(0))
+    if (settings.investment_growth && drawn) {
+      // The investment being drawn can never shrink once a month's growth,
+      // taxed as if it were all gain, covers the draw. Anything short of that
+      // walks the months: the tax rises as sales eat the basis, and the next
+      // investment in line may grow slower.
+      const growth = drawn.balance.mul(drawn.factor.minus(DECIMAL_1))
+      if (growth.mul(DECIMAL_1.minus(investmentTax)).greaterThanOrEqualTo(baseOut)) return Infinity
       continue
     }
+    const unsold = tangibles.filter((t) => !t.sold)
+    if (settings.tangible_asset_growth && unsold.length > 0) continue
     // Flat from here on, with no gain left to tax: what is left over what
     // drains, without walking the months.
     const left = investments

@@ -331,6 +331,7 @@
           "tangibleAssetGrowthHelp": "Asset values grow according to the rate you set for each asset.",
           "tangibleAssetTaxRate": "Tax rate on tangible asset gains",
           "tangibleAssetTaxRateHelp": "Applied to a rough estimate of the gain, based on each asset’s value over time.",
+          "taxRateInvalid": "Enter a rate from 0 to 100.",
           "preview": "Runway:",
           "reset": "Reset",
           "apply": "Apply changes",

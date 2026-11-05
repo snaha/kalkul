@@ -18,6 +18,7 @@
     getRunwayYears,
     runwaySettingsOf,
     validRunwaySettings,
+    validTaxRate,
   } from '$lib/runway'
   import type { Profile } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
@@ -63,6 +64,7 @@
   growth: { label: string; help: string; checked: boolean; set: (v: boolean) => void },
   tax: { label: string; help: string; value: number; set: (v: number) => void },
 )}
+  {@const invalid = !validTaxRate(tax.value)}
   <div class="flex flex-col gap-4 border-l-4 pl-4">
     <label class="flex cursor-pointer items-start gap-2">
       <Checkbox checked={growth.checked} onCheckedChange={(v) => growth.set(v === true)} />
@@ -79,9 +81,15 @@
             {id}
             value={tax.value}
             suffix="%"
+            aria-invalid={invalid || undefined}
             formatNumber={appStore.formatNumber}
             onValueChange={(v) => tax.set(v ?? 0)}
           />
+          {#if invalid}
+            <p class="text-xs text-destructive">
+              {$_('page.dashboard.finances.runwaySettings.taxRateInvalid')}
+            </p>
+          {/if}
         </div>
         <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">{tax.help}</p>
       </div>

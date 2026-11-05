@@ -331,6 +331,7 @@
           "tangibleAssetGrowthHelp": "Hodnota majetku roste podle sazby nastavené u každé položky.",
           "tangibleAssetTaxRate": "Daň ze zisku z hmotného majetku",
           "tangibleAssetTaxRateHelp": "Uplatní se na hrubý odhad zisku podle vývoje hodnoty každé položky.",
+          "taxRateInvalid": "Zadejte sazbu od 0 do 100.",
           "preview": "Rezerva:",
           "reset": "Obnovit",
           "apply": "Použít změny",

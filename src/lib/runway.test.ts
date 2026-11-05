@@ -6,8 +6,9 @@ import {
   changedRunwaySettings,
   getRunwayYears,
   validRunwaySettings,
+  validTaxRate,
 } from './runway'
-import type { Expense, Income, Profile, ProfileLiability } from './schemas'
+import type { Expense, Income, Profile, ProfileInvestment, ProfileLiability } from './schemas'
 
 const BASE: Profile = { name: 'Test', email: 't@example.com' }
 
@@ -17,6 +18,10 @@ function expense(amount: number, frequency: Expense['frequency'] = 'monthly'): E
 
 function income(amount: number): Income {
   return { id: `i-${amount}`, name: 'Income', amount, schedule: 'recurring', frequency: 'monthly' }
+}
+
+function etf(id: string, balance: number, apy: number): ProfileInvestment {
+  return { id, name: id, balance, apy }
 }
 
 // Yearly rates whose monthly factor is exactly 1.01 and 0.99, so grown balances can be worked by hand.
@@ -48,6 +53,17 @@ describe('getRunwayYears', () => {
     expect(getRunwayYears({ ...BASE, cash_amount: 100 })).toBeUndefined()
     expect(getRunwayYears({ ...BASE, cash_amount: 100, expenses: [expense(0)] })).toBeUndefined()
     expect(getRunwayYears({ ...BASE, expenses: [expense(1_000)] })).toBe(0)
+    // A loan with no installment is nothing to pay either.
+    const unpaid: ProfileLiability = {
+      id: 'l',
+      name: 'Loan',
+      outstanding_balance: 5_000,
+      installment_frequency: 'monthly',
+      annual_rate: 0,
+      installment_amount: 0,
+      remaining_term: 0,
+    }
+    expect(getRunwayYears({ ...BASE, cash_amount: 100, liabilities: [unpaid] })).toBeUndefined()
   })
 
   test('credits the covered share of the month it runs out in', () => {
@@ -66,6 +82,8 @@ describe('getRunwayYears', () => {
     expect(getRunwayYears(breakEven, FLAT)).toBe(0)
     const surplus: Profile = { ...breakEven, incomes: [income(3_000)] }
     expect(getRunwayYears(surplus, FLAT)).toBe(Infinity)
+    // Deeper than one month's surplus still climbs out.
+    expect(getRunwayYears({ ...surplus, cash_amount: -1_001 }, FLAT)).toBe(Infinity)
   })
 
   test('income offsets the outflows unless switched off', () => {
@@ -117,8 +135,9 @@ describe('getRunwayYears', () => {
       ...profile,
       investments: [{ id: 'i', name: 'ETF', balance: 1_000, apy: ONE_PERCENT_A_MONTH, ter: 1 }],
     }
-    expect(getRunwayYears(withTer, grown)).toBeLessThan(2.030502 / 12)
-    expect(getRunwayYears(withTer, grown)).toBeGreaterThan(2 / 12)
+    // 11.68% a year is 0.925% a month: 1,009.25 − 500 = 509.25; 513.96 − 500 =
+    // 13.96; 14.09 covers 2.818% of month three.
+    expect(getRunwayYears(withTer, grown)).toBeCloseTo(2.02818 / 12, 5)
   })
 
   test('tax takes its share of the gain only', () => {
@@ -150,6 +169,89 @@ describe('getRunwayYears', () => {
       expenses: [expense(100)],
     }
     expect(getRunwayYears(profile, { ...FLAT, investment_growth: true })).toBe(Infinity)
+    // The 4% rule: a million at 7% against 40,000 a year.
+    const fourPercent: Profile = {
+      ...BASE,
+      investments: [etf('a', 1_000_000, 7)],
+      expenses: [expense(3_333)],
+    }
+    expect(getRunwayYears(fourPercent, { ...FLAT, investment_growth: true })).toBe(Infinity)
+  })
+
+  test('a draw close to the growth walks the months, as tax and slower investments eat into it', () => {
+    const grown = (investment_tax_rate: number): RunwaySettings => ({
+      ...FLAT,
+      investment_growth: true,
+      investment_tax_rate,
+    })
+    const cases: [Profile, RunwaySettings, number][] = [
+      [
+        { ...BASE, investments: [etf('a', 500_000, 6)], expenses: [expense(2_200)] },
+        grown(26),
+        55.72,
+      ],
+      [
+        {
+          ...BASE,
+          investments: [etf('a', 400_000, 5)],
+          incomes: [income(1_500)],
+          expenses: [expense(3_000)],
+        },
+        grown(20),
+        76.71,
+      ],
+      [
+        {
+          ...BASE,
+          investments: [etf('a', 600_000, 7), etf('b', 400_000, 3)],
+          expenses: [expense(4_000)],
+        },
+        grown(0),
+        55.77,
+      ],
+      [
+        {
+          ...BASE,
+          investments: [etf('a', 300_000, 8), etf('b', 200_000, 2)],
+          expenses: [expense(2_200)],
+        },
+        grown(0),
+        42.31,
+      ],
+      [
+        {
+          ...BASE,
+          investments: [etf('a', 800_000, 6)],
+          liabilities: [
+            {
+              id: 'l',
+              name: 'Loan',
+              outstanding_balance: 144_000,
+              installment_frequency: 'monthly',
+              annual_rate: 0,
+              installment_amount: 1_200,
+              remaining_term: 10,
+            },
+          ],
+          expenses: [expense(3_000)],
+        },
+        grown(25),
+        59.94,
+      ],
+      // Either side of the line between sustainable and not, no cliff.
+      [
+        { ...BASE, investments: [etf('a', 1_000_000, 7)], expenses: [expense(5_650)] },
+        grown(25),
+        31.97,
+      ],
+      [
+        { ...BASE, investments: [etf('a', 1_000_000, 7)], expenses: [expense(5_700)] },
+        grown(25),
+        31.12,
+      ],
+    ]
+    for (const [profile, settings, years] of cases)
+      expect(getRunwayYears(profile, settings)).toBeCloseTo(years, 2)
   })
 
   test('a return below −100% is a total loss, not NaN', () => {
@@ -228,6 +330,29 @@ describe('getRunwayYears', () => {
     // 39,000 still owed after one installment leaves 59,000 after the month's
     // shortfall, which then covers 59 more months of expenses alone.
     expect(getRunwayYears(profile, FLAT)).toBeCloseTo(5, 6)
+  })
+
+  test('a loan with no installment is never paid but still settled by a sale', () => {
+    const profile: Profile = {
+      ...BASE,
+      tangible_assets: [
+        {
+          id: 't',
+          name: 'House',
+          value: 100_000,
+          status: 'financed',
+          outstanding_balance: 90_000,
+          installment_frequency: 'monthly',
+          annual_rate: 5,
+          installment_amount: 0,
+          remaining_term: 0,
+        },
+      ],
+      expenses: [expense(1_000)],
+    }
+    // Nothing is paid on the loan, so the first month sells the house for
+    // 100,000 less the 90,000 owed: 9,000 after the month covers 9 more.
+    expect(getRunwayYears(profile, FLAT)).toBeCloseTo(10 / 12, 6)
   })
 
   test('what is owed at a sale follows the loan schedule, interest included', () => {
@@ -364,24 +489,54 @@ describe('changedRunwaySettings', () => {
       changedRunwaySettings(BASE, {
         ...DEFAULT_RUNWAY_SETTINGS,
         include_income: true,
+        investment_growth: true,
         investment_tax_rate: 15,
       }),
-    ).toEqual({ runway_include_income: true, runway_investment_tax_rate: 15 })
+    ).toEqual({
+      runway_include_income: true,
+      runway_investment_growth: true,
+      runway_investment_tax_rate: 15,
+    })
     const stored: Profile = { ...BASE, runway_include_income: true, runway_investment_growth: true }
     expect(changedRunwaySettings(stored, DEFAULT_RUNWAY_SETTINGS)).toEqual({
       runway_include_income: false,
       runway_investment_growth: false,
     })
   })
+
+  test('leaves a tax rate alone while it is not shown', () => {
+    const hidden: RunwaySettings = { ...DEFAULT_RUNWAY_SETTINGS, investment_tax_rate: 150 }
+    expect(changedRunwaySettings(BASE, hidden)).toEqual({})
+    const stored: Profile = { ...BASE, runway_investment_tax_rate: 20 }
+    expect(changedRunwaySettings(stored, { ...hidden, investment_growth: false })).toEqual({})
+    expect(changedRunwaySettings(stored, { ...hidden, investment_growth: true })).toEqual({
+      runway_investment_growth: true,
+      runway_investment_tax_rate: 150,
+    })
+  })
 })
 
 describe('validRunwaySettings', () => {
-  test('accepts tax rates from 0 to 100 and rejects the rest', () => {
-    expect(validRunwaySettings(DEFAULT_RUNWAY_SETTINGS)).toBe(true)
-    expect(validRunwaySettings({ ...DEFAULT_RUNWAY_SETTINGS, investment_tax_rate: 100 })).toBe(true)
-    expect(validRunwaySettings({ ...DEFAULT_RUNWAY_SETTINGS, investment_tax_rate: -1 })).toBe(false)
-    expect(validRunwaySettings({ ...DEFAULT_RUNWAY_SETTINGS, tangible_asset_tax_rate: 101 })).toBe(
-      false,
-    )
+  test('accepts tax rates from 0 to 100 and rejects the rest, where they are shown', () => {
+    expect(validTaxRate(0)).toBe(true)
+    expect(validTaxRate(100)).toBe(true)
+    expect(validTaxRate(-1)).toBe(false)
+    expect(validTaxRate(101)).toBe(false)
+    const shown: RunwaySettings = {
+      ...FLAT,
+      investment_growth: true,
+      tangible_asset_growth: true,
+    }
+    expect(validRunwaySettings(shown)).toBe(true)
+    expect(validRunwaySettings({ ...shown, investment_tax_rate: 100 })).toBe(true)
+    expect(validRunwaySettings({ ...shown, investment_tax_rate: -1 })).toBe(false)
+    expect(validRunwaySettings({ ...shown, tangible_asset_tax_rate: 101 })).toBe(false)
+    // A rate the dialog does not show cannot block Apply.
+    expect(
+      validRunwaySettings({ ...shown, investment_growth: false, investment_tax_rate: -1 }),
+    ).toBe(true)
+    expect(
+      validRunwaySettings({ ...shown, sell_tangible_assets: false, tangible_asset_tax_rate: 101 }),
+    ).toBe(true)
   })
 })
