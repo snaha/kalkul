@@ -1,4 +1,4 @@
-import type { Profile } from '$lib/schemas'
+import { type Profile, languageSchema } from '$lib/schemas'
 
 // Named `$_` so `pnpm check-locales` recognises the keys below as used.
 type Translate = (key: string) => string
@@ -33,4 +33,12 @@ export function getLanguageItems($_: Translate): { value: Language; label: strin
     { value: 'en', label: $_('page.setup.aboutYou.languageEnglish') },
     { value: 'cs', label: $_('page.setup.aboutYou.languageCzech') },
   ]
+}
+
+/** The language a language select shows: the profile's, else `$locale`'s. */
+export function effectiveLanguage(
+  profileLanguage: Language | undefined,
+  locale: string | undefined,
+): Language {
+  return profileLanguage ?? languageSchema.catch('en').parse(locale)
 }
