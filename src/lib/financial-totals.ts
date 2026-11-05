@@ -194,9 +194,9 @@ export function getFiNumber(
   profile: Profile,
   withdrawalRate = profile.fi_withdrawal_rate ?? DEFAULT_FI_WITHDRAWAL_RATE,
 ): number | undefined {
-  const annualOutflows = getAnnualOutflowsTotal(profile)
-  if (annualOutflows <= 0 || withdrawalRate <= 0) return undefined
-  return (annualOutflows * 100) / withdrawalRate
+  const annualOutflows = new Decimal(getAnnualOutflowsTotal(profile))
+  if (annualOutflows.lessThanOrEqualTo(0) || withdrawalRate <= 0) return undefined
+  return annualOutflows.mul(100).div(withdrawalRate).toNumber()
 }
 
 export function getFiPercent(
@@ -205,7 +205,10 @@ export function getFiPercent(
 ): number | undefined {
   const fiNumber = getFiNumber(profile, withdrawalRate)
   if (fiNumber === undefined) return undefined
-  return Math.max(0, (getInvestableNetWorth(profile) / fiNumber) * 100)
+  return Decimal.max(
+    0,
+    new Decimal(getInvestableNetWorth(profile)).div(fiNumber).mul(100),
+  ).toNumber()
 }
 
 export function getRunwayYears(profile: Profile): number | undefined {

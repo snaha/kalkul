@@ -31,7 +31,7 @@
   // svelte-ignore state_referenced_locally
   let rate = $state<number | undefined>(profile.fi_withdrawal_rate ?? DEFAULT_FI_WITHDRAWAL_RATE)
 
-  const valid = $derived(rate !== undefined && rate > 0)
+  const valid = $derived(rate !== undefined && rate > 0 && rate <= 100)
   const fiNumber = $derived(valid ? getFiNumber(profile, rate) : undefined)
   const fiPercent = $derived(valid ? getFiPercent(profile, rate) : undefined)
 

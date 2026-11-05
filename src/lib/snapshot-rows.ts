@@ -21,7 +21,8 @@ export interface SnapshotRow {
  * Each row is derived from the profile *as it stood on that date* rather than
  * from today's figures, so a row reports the day it was taken: the assets owned
  * then, the debt outstanding then, and financial independence measured against
- * the outflows that were running then.
+ * the outflows that were running then. The one exception is the FI withdrawal
+ * rate: it is a setting, not financial data, so every row uses today's rate.
  *
  * Net worth is taken from the snapshot itself, the same figure the chart plots
  * for the date.

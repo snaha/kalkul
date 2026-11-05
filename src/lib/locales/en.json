@@ -325,7 +325,7 @@
           "fiNumber": "Your Financial Independence number",
           "withdrawalRateHelp": "Your withdrawal rate is the percentage of your portfolio you take out each year to live on, and it directly dictates your Financial Independence number.",
           "tradeoff": "Choosing a lower withdrawal rate makes your retirement safer but requires a much larger portfolio. Conversely, a higher withdrawal rate lets you retire sooner with less money, but increases the risk of running out of funds.",
-          "portfolioFootnote": "*Your portfolio value is the total value of your investments, plus cash balance, minus liabilities.",
+          "portfolioFootnote": "*Your portfolio value is the total value of your investments, plus cash balance, minus loans not secured by an asset. Annual expenses include loan installments.",
           "preview": "Financial independence:",
           "reset": "Reset",
           "apply": "Apply changes",

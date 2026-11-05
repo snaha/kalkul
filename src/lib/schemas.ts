@@ -996,7 +996,7 @@ export const profileFieldsSchema = z.object({
   tangible_asset_tax_rules: z.array(taxRuleSchema).optional(),
   // Percent of the portfolio withdrawn a year behind the Financial independence
   // number (`getFiNumber`); absent means `DEFAULT_FI_WITHDRAWAL_RATE`.
-  fi_withdrawal_rate: z.number().positive().optional(),
+  fi_withdrawal_rate: z.number().positive().max(100).optional(),
   // Normalized on the way in, so every entry point — a fresh load, a restored
   // backup, cross-tab sync, a store write — hands the rest of the app a sorted,
   // one-per-date list. `.overwrite` rather than `.transform`: it does not change

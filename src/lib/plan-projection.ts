@@ -73,7 +73,8 @@ export interface YearlyProjection {
   totalExpenses: number
   // Progress toward financial independence in this year: investable wealth
   // (cash + investments − standalone liabilities outstanding) as a percent of
-  // 25× this year's outflows (living expenses + loan installments).
+  // the FI number: this year's outflows (living expenses + loan installments)
+  // × 100 / the profile's withdrawal rate, 25× at the default 4%.
   // Undefined in years with zero outflows, where the ratio is meaningless.
   fiPercent?: number
   // Years this year's investable wealth could cover this year's outflow
