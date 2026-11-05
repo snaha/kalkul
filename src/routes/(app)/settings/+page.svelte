@@ -3,17 +3,13 @@
 
   import Eraser from '@lucide/svelte/icons/eraser'
   import FileDown from '@lucide/svelte/icons/file-down'
-  import Plus from '@lucide/svelte/icons/plus'
   import RefreshCw from '@lucide/svelte/icons/refresh-cw'
-  import Trash2 from '@lucide/svelte/icons/trash-2'
   import X from '@lucide/svelte/icons/x'
 
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
 
-  import HelpTooltip from '$lib/components/help-tooltip.svelte'
   import SelectField, { type SelectFieldItem } from '$lib/components/select-field.svelte'
-  import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Card } from '$lib/components/ui/card'
   import * as Dialog from '$lib/components/ui/dialog'
@@ -31,12 +27,11 @@
     getLanguageItems,
   } from '$lib/profile-options'
   import routes from '$lib/routes'
-  import { type HoldingPeriod, type Profile, type TaxRule } from '$lib/schemas'
+  import type { Profile } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
   import { importDialogStore } from '$lib/stores/import-dialog.svelte'
   import { syncStore } from '$lib/stores/sync.svelte'
   import { type Theme, themeStore } from '$lib/stores/theme.svelte'
-  import { invalidTaxRuleFields } from '$lib/tax-rule-form'
   import {
     CURRENCY_OPTIONS,
     DEFAULT_CURRENCY,
@@ -50,26 +45,12 @@
   const uid = $props.id()
 
   // --- Sidebar ---
-  type SectionId =
-    | 'backup'
-    | 'appearance'
-    | 'localisation'
-    | 'taxRules'
-    | 'yourDetails'
-    | 'mcpServer'
-  const sections: SectionId[] = [
-    'backup',
-    'appearance',
-    'localisation',
-    'taxRules',
-    'yourDetails',
-    'mcpServer',
-  ]
+  type SectionId = 'backup' | 'appearance' | 'localisation' | 'yourDetails' | 'mcpServer'
+  const sections: SectionId[] = ['backup', 'appearance', 'localisation', 'yourDetails', 'mcpServer']
   const navLabels = $derived<Record<SectionId, string>>({
     backup: $_('page.settings.nav.backup'),
     appearance: $_('page.settings.nav.appearance'),
     localisation: $_('page.settings.nav.localisation'),
-    taxRules: $_('page.settings.nav.taxRules'),
     yourDetails: $_('page.settings.nav.yourDetails'),
     mcpServer: $_('page.settings.nav.mcpServer'),
   })
@@ -140,47 +121,6 @@
     appStore.updateProfile(updates)
   }
 
-  // --- Tax rules ---
-  type TaxRuleKey = 'investment_tax_rules' | 'tangible_asset_tax_rules'
-  const holdingPeriodItems = $derived<SelectFieldItem<HoldingPeriod>[]>([
-    { value: 'more_than', label: $_('page.settings.taxRules.moreThan') },
-    { value: 'less_than', label: $_('page.settings.taxRules.lessThan') },
-  ])
-
-  function blankRule(): TaxRule {
-    return { id: crypto.randomUUID(), holding_period: 'more_than' }
-  }
-
-  // An empty list renders one unsaved seed row (as drawn in Figma). It is
-  // only persisted once the user edits it, so an untouched profile stays
-  // unchanged. Created once per mount so the row keeps its identity.
-  const seedRule: Record<TaxRuleKey, TaxRule> = {
-    investment_tax_rules: blankRule(),
-    tangible_asset_tax_rules: blankRule(),
-  }
-
-  function saveRules(key: TaxRuleKey, rules: TaxRule[]) {
-    const updates: Partial<Profile> = {}
-    updates[key] = rules
-    appStore.updateProfile(updates)
-  }
-
-  // Out-of-range edits (e.g. a 150 % rate) are kept here, keyed by rule id,
-  // instead of being persisted: updateProfile would throw. The row renders
-  // the draft with an error until the rule is valid again.
-  let drafts = $state<Record<string, Partial<TaxRule>>>({})
-
-  function updateRule(key: TaxRuleKey, rows: TaxRule[], id: string, patch: Partial<TaxRule>) {
-    const draft = { ...drafts[id], ...patch }
-    const next = rows.map((rule) => (rule.id === id ? { ...rule, ...draft } : rule))
-    if (next.every((rule) => invalidTaxRuleFields(rule).length === 0)) {
-      delete drafts[id]
-      saveRules(key, next)
-    } else {
-      drafts[id] = draft
-    }
-  }
-
   // --- Your details ---
   const profile = appStore.profile
   let birthYear = $state(profile.birthDate ? String(profile.birthDate.getFullYear()) : '')
@@ -213,96 +153,6 @@
     })
   }
 </script>
-
-{#snippet taxRuleBlock(title: string, key: TaxRuleKey)}
-  {@const stored = appStore.profile[key] ?? []}
-  {@const rows = stored.length > 0 ? stored : [seedRule[key]]}
-  <div class="flex w-full flex-col gap-4">
-    <h3 class="text-base font-bold text-foreground">{title}</h3>
-    {#each rows as storedRule (storedRule.id)}
-      {@const rule = { ...storedRule, ...drafts[storedRule.id] }}
-      {@const invalid = invalidTaxRuleFields(rule)}
-      <div class="flex items-end gap-2">
-        <div class="flex flex-1 flex-col gap-2">
-          <Label for="{uid}-{key}-{rule.id}-rate">
-            {$_('page.settings.taxRules.capitalGainsTax')}
-          </Label>
-          <SuffixedInput
-            id="{uid}-{key}-{rule.id}-rate"
-            value={rule.rate}
-            suffix="%"
-            formatNumber={appStore.formatNumber}
-            aria-invalid={invalid.includes('rate') || undefined}
-            onValueChange={(v) => updateRule(key, rows, rule.id, { rate: v })}
-          />
-        </div>
-        <span
-          class="flex h-8 w-[10px] shrink-0 items-center justify-center text-sm font-medium text-muted-foreground"
-        >
-          {$_('page.settings.taxRules.if')}
-        </span>
-        <div class="flex flex-1 flex-col gap-2">
-          <Label for="{uid}-{key}-{rule.id}-period">
-            {$_('page.settings.taxRules.holdingPeriodIs')}
-          </Label>
-          <SelectField
-            id="{uid}-{key}-{rule.id}-period"
-            value={rule.holding_period}
-            items={holdingPeriodItems}
-            onValueChange={(v) => updateRule(key, rows, rule.id, { holding_period: v })}
-          />
-        </div>
-        <div class="flex flex-1">
-          <SuffixedInput
-            value={rule.holding_years}
-            suffix={$_('page.settings.taxRules.years')}
-            aria-label={$_('page.settings.taxRules.holdingYears')}
-            formatNumber={appStore.formatNumber}
-            aria-invalid={invalid.includes('holding_years') || undefined}
-            onValueChange={(v) => updateRule(key, rows, rule.id, { holding_years: v })}
-          />
-        </div>
-        <HelpTooltip
-          text={$_('page.settings.taxRules.cgtHelp')}
-          class="flex size-8 items-center justify-center rounded-md hover:bg-accent"
-        />
-        {#if stored.length > 0}
-          <!-- Not drawn in Figma; without it an added rule could never be removed. -->
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={$_('page.settings.taxRules.removeRule')}
-            onclick={() => {
-              delete drafts[rule.id]
-              saveRules(
-                key,
-                stored.filter((r) => r.id !== rule.id),
-              )
-            }}
-          >
-            <Trash2 class="size-4" />
-          </Button>
-        {/if}
-      </div>
-      {#if invalid.includes('rate')}
-        <p class="text-sm text-destructive">{$_('page.settings.taxRules.rateOutOfRange')}</p>
-      {/if}
-      {#if invalid.includes('holding_years')}
-        <p class="text-sm text-destructive">
-          {$_('page.settings.taxRules.holdingYearsOutOfRange')}
-        </p>
-      {/if}
-    {/each}
-    <div>
-      <!-- Appends to the stored rules, not the drafts, so an in-progress
-           invalid edit on another row survives the add. -->
-      <Button variant="outline" onclick={() => saveRules(key, [...rows, blankRule()])}>
-        <Plus class="size-4" />
-        {$_('page.settings.taxRules.addRule')}
-      </Button>
-    </div>
-  </div>
-{/snippet}
 
 <div class="flex min-h-0 flex-1 flex-col">
   <header class="flex items-center gap-4 p-8">
@@ -436,21 +286,6 @@
             onValueChange={(language) => appStore.updateProfile({ language })}
           />
         </div>
-      </section>
-
-      <Separator class="max-w-[576px]" />
-
-      <!-- Tax rules -->
-      <section id="{uid}-taxRules" class="flex w-full max-w-[576px] scroll-mt-8 flex-col gap-8">
-        <div class="flex flex-col">
-          <h2 class="text-xl font-bold text-foreground">{navLabels.taxRules}</h2>
-          <p class="text-sm text-muted-foreground">{$_('page.settings.taxRules.description')}</p>
-        </div>
-        {@render taxRuleBlock($_('page.settings.taxRules.investments'), 'investment_tax_rules')}
-        {@render taxRuleBlock(
-          $_('page.settings.taxRules.tangibleAssets'),
-          'tangible_asset_tax_rules',
-        )}
       </section>
 
       <Separator class="max-w-[576px]" />

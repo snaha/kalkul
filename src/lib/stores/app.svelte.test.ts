@@ -478,20 +478,12 @@ describe('appStore.updateProfile persistence', () => {
     vi.unstubAllGlobals()
   })
 
-  it('keeps terms_accepted and tax rules when persisting', () => {
+  it('keeps terms_accepted when persisting', () => {
     appStore.importBackup(JSON.stringify({ profile: { name: 'Jane', email: '' }, portfolios: [] }))
-    appStore.updateProfile({
-      terms_accepted: true,
-      investment_tax_rules: [{ id: 'r1', rate: 15, holding_period: 'less_than', holding_years: 3 }],
-      tangible_asset_tax_rules: [{ id: 'r2', holding_period: 'more_than' }],
-    })
+    appStore.updateProfile({ terms_accepted: true })
 
     const persisted = JSON.parse(backing.get(storageKeys.DATA) ?? '{}').profile
     expect(persisted.terms_accepted).toBe(true)
-    expect(persisted.investment_tax_rules).toEqual([
-      { id: 'r1', rate: 15, holding_period: 'less_than', holding_years: 3 },
-    ])
-    expect(persisted.tangible_asset_tax_rules).toEqual([{ id: 'r2', holding_period: 'more_than' }])
   })
 })
 

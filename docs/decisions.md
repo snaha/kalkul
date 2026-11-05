@@ -10,6 +10,26 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-05 No capital gains tax rules in Settings
+
+**Context.** The Settings page let the user enter default capital gains tax
+rules by holding period, and a projection taxed the gain share of an
+investment withdrawal at the matching rate, which needed a cost basis per
+investment. The cost-basis work in #344 concluded that a plan keeps no cost
+basis, and the rules were left behind (#386).
+
+**Decision.** The tax rules, their profile fields and the cost-basis tracking
+are removed. A projection charges no capital gains tax on a withdrawal; only
+the exit and entry fees apply. Tax on a transfer's gain is instead an estimate
+the user turns on per transfer, from the investment's APY and the years held
+(#313). The runway's own tax rates (#391) are unaffected, as they never read
+these rules. (#386)
+
+**Why.** Rules the user types by holding period need a cost basis to apply
+to, which the plan no longer keeps, and nothing but the projection's
+withdrawal path read them. A per-transfer estimate asks for one rate where it
+is used. Pre-production data needs no migration.
+
 ## 2026-11-05 A projection stores a financed asset's down payment
 
 **Context.** The plan dialog showed the down payment as the price less the
