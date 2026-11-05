@@ -468,9 +468,7 @@ describe('profileAtSnapshot', () => {
   })
 
   test('reads a missing cash-flow list the way it reads a missing balance', () => {
-    // Undefined means "none recorded" in every section. Snapshots written
-    // before cash flows were recorded are filled in from the profile at the
-    // load boundary (`repairStoredData`), so nothing downstream has to guess.
+    // Undefined means "none recorded" in every section.
     const legacy: Snapshot = { ...snapshot, incomes: undefined, expenses: undefined }
     const at = profileAtSnapshot(PROFILE, legacy)
     expect(at.incomes).toEqual([])
