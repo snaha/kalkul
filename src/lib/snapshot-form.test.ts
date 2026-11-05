@@ -149,12 +149,9 @@ describe('buildSnapshotSections', () => {
     // the load boundary (`repairStoredData`), so they never reach the dialog
     // empty. The frequency still comes from the profile — a field opening at
     // zero has to carry some cadence in its suffix.
-    //
-    // This holds on the newest snapshot's own date too, where the estimate runs
-    // on the profile's flows: a salary entered since records nothing, and an
-    // untouched Confirm must not write it onto a day it was not recorded for.
     const partial: Snapshot = { ...SOURCE, incomes: [] }
-    const history: Profile = { ...PROFILE, snapshots: [partial] }
+    const newer = captureSnapshot(PROFILE, '2026-09-01')
+    const history: Profile = { ...PROFILE, snapshots: [partial, newer] }
     expect(
       fieldsOf(buildSnapshotSections(history, partial, '2026-06-01'), 'incomes')[0],
     ).toMatchObject({ value: 0, frequency: 'monthly' })
@@ -378,6 +375,20 @@ describe('editSourceOf', () => {
 
   test('opens an older snapshot at its own figures', () => {
     expect(editSourceOf(raised, OLDER)).toBe(OLDER)
+  })
+
+  test('keeps the cash flows running now on a date that is still the latest', () => {
+    expect(editSourceOf(raised, SOURCE, '2026-07-01').incomes).toEqual([
+      { id: 'i1', amount: 5_000, frequency: 'monthly' },
+    ])
+  })
+
+  test('falls back to the recorded figures on a date before another snapshot', () => {
+    expect(editSourceOf(raised, SOURCE, '2025-12-01')).toBe(SOURCE)
+  })
+
+  test('an older snapshot moved past the latest keeps its own figures', () => {
+    expect(editSourceOf(raised, OLDER, '2026-09-01')).toBe(OLDER)
   })
 })
 

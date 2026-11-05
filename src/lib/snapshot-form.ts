@@ -80,12 +80,6 @@ export interface SnapshotSection {
  * opened since on an untouched Confirm. On an older snapshot's own date the
  * estimate is that snapshot itself, so an item it never recorded still opens
  * at zero — it did not exist yet as far as the history knows.
- *
- * Cash flows make one exception, on the newest snapshot's own date. They are
- * history rather than baseline — the profile's may have moved on since without
- * recording anything — so there the estimate, which runs on the profile's
- * flows, would put today's onto that day. A flow opens at what the history
- * recorded for the date whenever it has a snapshot for it.
  */
 export function buildSnapshotSections(
   profile: Profile,
@@ -93,9 +87,6 @@ export function buildSnapshotSections(
   date: string,
 ): SnapshotSection[] {
   const estimate = seedSnapshotOn(profile, date)
-  // Where a cash flow `source` never recorded is read from: see the exception above.
-  const flowFallback =
-    (profile.snapshots ?? []).find((snapshot) => snapshot.date === date) ?? estimate
 
   /** An item's entry in `source`, or in the estimate when `source` has none. */
   const lookup = <T extends { id: string }>(
@@ -113,7 +104,7 @@ export function buildSnapshotSections(
   // Incomes and expenses are the same shape and the same rules; one section
   // builder covers both.
   const cashFlowSection = (id: 'incomes' | 'expenses'): SnapshotSection => {
-    const entryOf = lookup(source[id], flowFallback[id])
+    const entryOf = lookup(source[id], estimate[id])
     return {
       id,
       fields: countedCashFlows(profile[id]).map((flow) => {
@@ -304,13 +295,22 @@ export function seedSnapshotOn(profile: Profile, date: string): Snapshot {
 }
 
 /**
- * The figures the dialog opens at for editing `snapshot`. The latest one opens
- * with the cash flows running now: they may have changed since it was taken
- * without recording anything, and a flow changed in it is written onto the
- * profile.
+ * The figures the dialog shows for editing `snapshot` on `date`. The latest one
+ * shows the cash flows running now while `date` keeps it the latest: they may
+ * have changed since it was taken without recording anything, and a flow
+ * changed in it is written onto the profile. Saving it therefore records them,
+ * even if the user changes no flow. Any other snapshot, or the latest moved
+ * before another, shows what it recorded.
  */
-export function editSourceOf(profile: Profile, snapshot: Snapshot): Snapshot {
-  if (latestSnapshot(profile.snapshots)?.date !== snapshot.date) return snapshot
+export function editSourceOf(
+  profile: Profile,
+  snapshot: Snapshot,
+  date: string = snapshot.date,
+): Snapshot {
+  const snapshots = profile.snapshots ?? []
+  const isLatest = latestSnapshot(snapshots)?.date === snapshot.date
+  const staysLatest = snapshots.every((other) => other.date === snapshot.date || other.date < date)
+  if (!isLatest || !staysLatest) return snapshot
   const { incomes, expenses } = captureSnapshot(profile, snapshot.date)
   return { ...snapshot, incomes, expenses }
 }
