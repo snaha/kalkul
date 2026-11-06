@@ -21,7 +21,7 @@
   import { removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
   import { summarizeCashFlow } from '$lib/plan-projection'
   import { planRangeOf, planYearOptions, yearWithinPlan } from '$lib/plan-range'
-  import { sameYearMonthsInverted, timingComplete } from '$lib/schemas'
+  import { ageRangeEmpty, sameYearMonthsInverted, timingComplete } from '$lib/schemas'
   import type { CashFlowSchedule, Expense, Income } from '$lib/schemas'
   import { getFrequencyItems } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
@@ -114,7 +114,8 @@
             form.end,
             form.end_year,
             form.end_month,
-          ))),
+          ) &&
+          !ageRangeEmpty(form.start, form.start_age, form.end, form.end_age))),
   )
 
   function close() {
@@ -288,6 +289,7 @@
       {range}
       {months}
       minMonth={endMinMonth(form)}
+      afterAge={form.start === 'when_age_is' ? form.start_age : undefined}
       birthDateSet={appStore.profile.birthDate !== undefined}
       neverLabel={$_('page.plan.cashFlowEndNever')}
       description={kind === 'income'

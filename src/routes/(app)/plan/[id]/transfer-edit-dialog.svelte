@@ -16,7 +16,7 @@
   import { removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
   import { summarizeTransfer } from '$lib/plan-projection'
   import { planRangeOf, planYearOptions, yearWithinPlan } from '$lib/plan-range'
-  import { sameYearMonthsInverted, timingComplete } from '$lib/schemas'
+  import { ageRangeEmpty, sameYearMonthsInverted, timingComplete } from '$lib/schemas'
   import type { Transfer, TransferSchedule } from '$lib/schemas'
   import { getFrequencyItems } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
@@ -162,7 +162,8 @@
             form.end,
             form.end_year,
             form.end_month,
-          ))),
+          ) &&
+          !ageRangeEmpty(form.start, form.start_age, form.end, form.end_age))),
   )
 
   // The APY the tax estimate runs on, when the source is an investment.
@@ -398,6 +399,7 @@
       {range}
       {months}
       minMonth={endMinMonth(form)}
+      afterAge={form.start === 'when_age_is' ? form.start_age : undefined}
       birthDateSet={appStore.profile.birthDate !== undefined}
       neverLabel={$_('page.plan.transferEndNever')}
       description={$_('page.plan.transferEndDescription')}

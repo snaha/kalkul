@@ -15,7 +15,7 @@ const range = planRangeOf(
 
 describe('planRangeOf', () => {
   it('reads the plan years and the birth year', () => {
-    expect(range).toEqual({ startYear: 2026, endYear: 2030, birthYear: 1980 })
+    expect(range).toEqual({ startYear: 2026, endYear: 2030, birthYear: 1980, birthMonth: 5 })
   })
 })
 
@@ -53,6 +53,18 @@ describe('timingWithinPlan', () => {
     expect(timingWithinPlan(range, 'start', 'when_age_is', undefined, 50)).toBe(true)
     expect(timingWithinPlan(range, 'end', 'when_age_is', undefined, 45)).toBe(false)
     expect(timingWithinPlan(range, 'end', 'when_age_is', undefined, 65)).toBe(true)
+  })
+
+  it('needs a month left in the first year for an end at an age reached then', () => {
+    // Born May 1980: 46 in May 2026, so January to April 2026 run.
+    expect(timingWithinPlan(range, 'end', 'when_age_is', undefined, 46)).toBe(true)
+    // Born January: the flow would stop with 2025, before the plan.
+    expect(timingWithinPlan({ ...range, birthMonth: 1 }, 'end', 'when_age_is', undefined, 46)).toBe(
+      false,
+    )
+    expect(timingWithinPlan({ ...range, birthMonth: 1 }, 'end', 'when_age_is', undefined, 47)).toBe(
+      true,
+    )
   })
 
   it('leaves incomplete or undated timing to other checks', () => {

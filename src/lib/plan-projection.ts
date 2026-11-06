@@ -177,10 +177,8 @@ function activeMonthFraction(
 ): Decimal {
   let startMonth = 1
   let endMonth = 12
-  // An age is reached in the birthday month: a flow starting at an age runs
-  // from that month, one ending at an age runs until the month before it, so
-  // the two hand over without a gap or an overlap. A January birthday leaves
-  // no month in the end year, and the callers treat a zero fraction as inactive.
+  // An age is reached in the birthday month: a start at an age runs from it,
+  // an end at an age stops before it (docs/product/projections.md).
   if (birth !== undefined) {
     if (year === startYear && cashFlow.start === 'when_age_is') startMonth = birth.month
     if (year === endYear && cashFlow.end === 'when_age_is') endMonth = birth.month - 1

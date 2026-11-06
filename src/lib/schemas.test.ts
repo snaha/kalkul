@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import en from './locales/en.json'
 import { isPlanOutdated } from './plan-base'
 import {
+  ageRangeEmpty,
   expenseSchema,
   incomeSchema,
   profileInvestmentSchema,
@@ -242,6 +243,53 @@ describe('cash flow month order validation', () => {
       end_age: 65,
     })
     expect(result.success).toBe(true)
+  })
+})
+
+describe('age range validation', () => {
+  const sameAge = { start: 'when_age_is', start_age: 45, end: 'when_age_is', end_age: 45 }
+
+  it('rejects a range from an age to the same or an earlier age, which has no month to run', () => {
+    for (const end_age of [45, 44]) {
+      const result = incomeSchema.safeParse({ ...baseIncome, ...sameAge, end_age })
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error.issues).toHaveLength(1)
+        expect(result.error.issues[0].path).toEqual(['end_age'])
+        expect(result.error.issues[0].message).toBe('End age must be after the start age')
+      }
+    }
+    expect(transferSchema.safeParse({ ...baseTransfer, ...sameAge }).success).toBe(false)
+  })
+
+  it('accepts an end age after the start age', () => {
+    expect(incomeSchema.safeParse({ ...baseIncome, ...sameAge, end_age: 46 }).success).toBe(true)
+  })
+
+  it('says when a range of ages is empty', () => {
+    expect(ageRangeEmpty('when_age_is', 45, 'when_age_is', 45)).toBe(true)
+    expect(ageRangeEmpty('when_age_is', 45, 'when_age_is', 44)).toBe(true)
+    expect(ageRangeEmpty('when_age_is', 45, 'when_age_is', 46)).toBe(false)
+    expect(ageRangeEmpty('when_age_is', 45, 'never', undefined)).toBe(false)
+    expect(ageRangeEmpty('when_age_is', undefined, 'when_age_is', 45)).toBe(false)
+    expect(ageRangeEmpty('immediately', 45, 'when_age_is', 45)).toBe(false)
+  })
+})
+
+describe('profileSchema birth date', () => {
+  it('accepts a month and year as a date', () => {
+    expect(
+      profileSchema.safeParse({ name: 'A', email: 'a@b.c', birth_date: '1965-06-01' }).success,
+    ).toBe(true)
+  })
+
+  it('rejects a bare year or a month out of range', () => {
+    for (const birth_date of ['1965', '1965-13-01', '1965-00-01', '06/1965']) {
+      const result = profileSchema.safeParse({ name: 'A', email: 'a@b.c', birth_date })
+      expect(result.success).toBe(false)
+      if (!result.success)
+        expect(result.error.issues.map((i) => i.path)).toContainEqual(['birth_date'])
+    }
   })
 })
 

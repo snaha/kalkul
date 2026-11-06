@@ -3435,6 +3435,43 @@ describe('age-based timing at the birthday month', () => {
     expect(summarizeCashFlow(pension, makePlan(plan), '1979-03-01').occurrences).toBe(22)
   })
 
+  it('hands over between transfers the same way', () => {
+    const drawdown: Transfer = {
+      id: 'draw',
+      name: 'Drawdown',
+      from_asset_id: 'inv1',
+      to_asset_id: 'cash',
+      amount: 5000,
+      schedule: 'recurring',
+      frequency: 'monthly',
+      start: 'immediately',
+      end: 'when_age_is',
+      end_age: 60,
+      change_over_time: 'none',
+    }
+    const years = project(
+      makePlan(plan),
+      makeProfile({
+        birth_date: '1979-03-01',
+        investments: [{ id: 'inv1', name: 'Fund', balance: 1_000_000, apy: 0 }],
+        transfers: [
+          drawdown,
+          {
+            ...drawdown,
+            id: 'bigger',
+            amount: 8000,
+            start: 'when_age_is',
+            start_age: 60,
+            end: 'never',
+          },
+        ],
+      }),
+    )
+    // 60 in March 2039: two months at 5,000, then ten at 8,000.
+    expect(years[1].cash - years[0].cash).toBeCloseTo(90_000, 6)
+    expect(years[0].investments - years[1].investments).toBeCloseTo(90_000, 6)
+  })
+
   it('ends a flow before the year it would reach the age with a January birthday', () => {
     const years = project(
       makePlan(plan),

@@ -25,8 +25,11 @@ without a gap or an overlap. With a January birthday a flow ending at an age
 has no month left in that year and stops with the previous one. The month
 comes from the profile's birth date, which the user enters as a month and a
 year. This covers incomes, expenses and transfers, whose amounts already
-scale with the months active in a year. A planned purchase, sale or loan
-timed by age is still a whole-year event in that year, as it was.
+scale with the months active in a year. A start and an end at the same age
+is therefore an empty range, and the form and the schema reject it, as they
+do a same-year date range that ends before it starts. A planned purchase,
+sale or loan timed by age is still a whole-year event in that year, as it
+was. The rule is stated in `docs/product/projections.md`.
 
 **Why.** "When your age is 60" names a birthday, and the user plans a
 handover at it. Assets and loans are yearly events in the engine, so moving

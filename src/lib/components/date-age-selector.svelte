@@ -5,7 +5,7 @@
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Label } from '$lib/components/ui/label'
   import { type PlanRange, planYearOptions, timingWithinPlan } from '$lib/plan-range'
-  import type { CashFlowEnd, CashFlowStart } from '$lib/schemas'
+  import { type CashFlowEnd, type CashFlowStart, ageRangeEmpty } from '$lib/schemas'
   import { monthToOption, optionToMonth, yearItemsIncluding } from '$lib/utils'
 
   interface Props {
@@ -41,6 +41,12 @@
      */
     minMonth?: number
     /**
+     * The start age, passed to an end selector when the start is an age. An
+     * end at that age or an earlier one has no month to run, so it shows an
+     * error (`ageRangeEmpty`).
+     */
+    afterAge?: number
+    /**
      * The plan's years, offered in the year list. A start after them or an
      * end before them shows an error.
      */
@@ -66,6 +72,7 @@
     neverLabel,
     description,
     minMonth,
+    afterAge,
     range,
     onValueChange,
     onYearChange,
@@ -121,6 +128,7 @@
   let outsidePlan = $derived(
     !timingWithinPlan(range, mode, value as CashFlowStart | CashFlowEnd, year, age),
   )
+  let emptyAgeRange = $derived(mode === 'end' && ageRangeEmpty('when_age_is', afterAge, value, age))
   // The plan's years plus the stored one.
   let yearItems = $derived(yearItemsIncluding(planYearOptions(range), year))
   let monthItems = $derived(
@@ -186,4 +194,7 @@
       ? $_('validation.start_after_plan', { values: { end: String(range.endYear) } })
       : $_('validation.end_before_plan', { values: { start: String(range.startYear) } })}
   </p>
+{/if}
+{#if emptyAgeRange}
+  <p class="text-xs text-destructive">{$_('validation.end_age_not_after_start_age')}</p>
 {/if}
