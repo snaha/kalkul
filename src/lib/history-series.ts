@@ -1,8 +1,8 @@
 import { addDays, daysBetween } from '$lib/@snaha/kalkul-maths'
 import { getCurrentProfile } from '$lib/current-values'
 import { hasAnyFinancialData } from '$lib/financial-totals'
-import { type Profile, normalizeSnapshots } from '$lib/schemas'
-import { captureSnapshot, snapshotNetWorth } from '$lib/snapshots'
+import type { Profile } from '$lib/schemas'
+import { captureSnapshot, resolveSnapshots, snapshotNetWorth } from '$lib/snapshots'
 import { parseDateOnly, toDateOnlyString } from '$lib/utils'
 
 export interface HistoryPoint {
@@ -59,7 +59,7 @@ export function hasHistoryToShow(profile: Profile): boolean {
  */
 export function buildHistorySeries(profile: Profile, today: Date): HistoryPoint[] {
   if (!hasHistoryToShow(profile)) return []
-  const snapshots = normalizeSnapshots(profile.snapshots ?? [])
+  const snapshots = resolveSnapshots(profile)
 
   const todayDate = toDateOnlyString(today)
   const points: HistoryPoint[] = snapshots

@@ -266,20 +266,114 @@ describe('appStore.confirmBalances', () => {
     vi.useRealTimers()
   })
 
+  it('records figures that were not entered as unknown', () => {
+    appStore.updateProfile({
+      cash_amount: 15_000,
+      investments: [{ id: 'inv1', name: 'ETF', balance: 100_000, apy: 10 }],
+      snapshots: [{ ...STALE, investments: [{ id: 'inv1', balance: 100_000 }] }],
+    })
+    const stored = appStore.profile.toJSON()
+
+    appStore.confirmBalances(
+      { cash_amount: 16_000, investments: stored.investments },
+      { cash: true, investmentIds: new Set() },
+    )
+
+    const recorded = appStore.profile.snapshots?.at(-1)
+    expect(recorded?.cash_amount).toBe(16_000)
+    expect(recorded?.investments).toEqual([{ id: 'inv1' }])
+    expect(appStore.profile.investments?.[0].balance).toBe(184_974)
+  })
+
+  describe('confirming twice on one day', () => {
+    const LATER_TODAY = new Date(2026, 5, 15, 17, 0, 0)
+
+    beforeEach(() => {
+      appStore.updateProfile({
+        cash_amount: 15_000,
+        investments: [{ id: 'inv1', name: 'ETF', balance: 100_000, apy: 10 }],
+        snapshots: [{ ...STALE, investments: [{ id: 'inv1', balance: 100_000 }] }],
+      })
+    })
+
+    const confirmTyped = (cash?: number, etf?: number) => {
+      const investments = appStore.profile.toJSON().investments ?? []
+      appStore.confirmBalances(
+        {
+          ...(cash === undefined ? {} : { cash_amount: cash }),
+          investments: investments.map((i) => ({ ...i, balance: etf ?? i.balance })),
+        },
+        { cash: cash !== undefined, investmentIds: new Set(etf === undefined ? [] : ['inv1']) },
+      )
+    }
+
+    it('keeps figures typed earlier today when a later Confirm leaves them untouched', () => {
+      confirmTyped(16_000, 110_000)
+      vi.setSystemTime(LATER_TODAY)
+      confirmTyped()
+
+      const recorded = appStore.profile.snapshots?.at(-1)
+      expect(recorded?.cash_amount).toBe(16_000)
+      expect(recorded?.investments).toEqual([{ id: 'inv1', balance: 110_000 }])
+    })
+
+    it('replaces a figure typed earlier today with one typed later', () => {
+      confirmTyped(16_000, 110_000)
+      vi.setSystemTime(LATER_TODAY)
+      confirmTyped(17_000, 120_000)
+
+      const recorded = appStore.profile.snapshots?.at(-1)
+      expect(recorded?.cash_amount).toBe(17_000)
+      expect(recorded?.investments).toEqual([{ id: 'inv1', balance: 120_000 }])
+    })
+
+    it('keeps a figure unknown when neither Confirm enters it', () => {
+      confirmTyped()
+      vi.setSystemTime(LATER_TODAY)
+      confirmTyped()
+
+      const recorded = appStore.profile.snapshots?.at(-1)
+      expect(recorded?.cash_amount).toBeUndefined()
+      expect(recorded?.investments).toEqual([{ id: 'inv1' }])
+    })
+
+    it('records a figure typed on the second Confirm of the day', () => {
+      confirmTyped()
+      vi.setSystemTime(LATER_TODAY)
+      confirmTyped(16_000, 110_000)
+
+      const recorded = appStore.profile.snapshots?.at(-1)
+      expect(recorded?.cash_amount).toBe(16_000)
+      expect(recorded?.investments).toEqual([{ id: 'inv1', balance: 110_000 }])
+    })
+  })
+
+  it('does not read an unknown baseline figure as a moved balance', () => {
+    appStore.updateProfile({ cash_amount: 15_000, snapshots: [STALE] })
+    appStore.confirmBalances({}, { cash: false, investmentIds: new Set() })
+    const dates = appStore.profile.snapshots?.map((s) => s.date)
+    expect(appStore.profile.snapshots?.at(-1)?.cash_amount).toBeUndefined()
+
+    appStore.updateProfile({ name: 'Renamed' })
+
+    expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual(dates)
+    expect(appStore.profile.snapshots?.at(-1)?.cash_amount).toBeUndefined()
+  })
+
   it('re-dates the baseline to today even when no balance changed', () => {
     appStore.updateProfile({ cash_amount: 15_000, snapshots: [STALE] })
     // Nothing moved, so the plain update left the stale baseline alone.
     expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual(['2020-01-01'])
 
-    appStore.confirmBalances({ cash_amount: 15_000 })
+    appStore.confirmBalances({ cash_amount: 15_000 }, { cash: true })
 
     expect(appStore.profile.snapshots).toEqual([STALE, { ...STALE, date: TODAY }])
   })
 
   it('records edited values under today, replacing an existing entry for today', () => {
     appStore.updateProfile({ cash_amount: 15_000, snapshots: [STALE] })
-    appStore.confirmBalances({ cash_amount: 15_000 })
-    appStore.confirmBalances({ cash_amount: 16_000 })
+    appStore.confirmBalances({ cash_amount: 15_000 }, { cash: true })
+    appStore.confirmBalances({ cash_amount: 16_000 }, { cash: true })
 
     expect(appStore.profile.snapshots).toEqual([
       STALE,
@@ -402,10 +496,13 @@ describe('appStore.updateProfile on a stale profile', () => {
     // The user looked at the Quick update suggestion, decided their cash really
     // is still 15,000 and typed it back. That is a statement about today, so it
     // has to be persisted verbatim rather than replaced by the projection.
-    appStore.confirmBalances({
-      cash_amount: 15_000,
-      investments: [{ id: 'inv1', name: 'ETF', balance: 100_000, apy: 10 }],
-    })
+    appStore.confirmBalances(
+      {
+        cash_amount: 15_000,
+        investments: [{ id: 'inv1', name: 'ETF', balance: 100_000, apy: 10 }],
+      },
+      { cash: true, investmentIds: new Set(['inv1']) },
+    )
 
     expect(appStore.profile.cash_amount).toBe(15_000)
     expect(appStore.profile.investments?.[0].balance).toBe(100_000)
@@ -413,10 +510,13 @@ describe('appStore.updateProfile on a stale profile', () => {
   })
 
   it('amortizes loans the confirmation does not mention with its own clock', () => {
-    appStore.confirmBalances({
-      cash_amount: 15_000,
-      investments: [{ id: 'inv1', name: 'ETF', balance: 100_000, apy: 10 }],
-    })
+    appStore.confirmBalances(
+      {
+        cash_amount: 15_000,
+        investments: [{ id: 'inv1', name: 'ETF', balance: 100_000, apy: 10 }],
+      },
+      { cash: true, investmentIds: new Set(['inv1']) },
+    )
 
     expect(appStore.profile.liabilities?.[0].outstanding_balance).toBe(5_118)
     expect(appStore.profile.liabilities?.[0].remaining_term).toBe(2.58)
@@ -976,7 +1076,7 @@ describe('appStore re-baselining a loan', () => {
   })
 
   it('shortens the term with the balance when Quick update confirms today', () => {
-    appStore.confirmBalances({ cash_amount: 5_000 })
+    appStore.confirmBalances({ cash_amount: 5_000 }, { cash: true })
     expect(loan()?.outstanding_balance).toBe(8_000)
     expect(loan()?.remaining_term).toBe(8)
   })
@@ -998,7 +1098,7 @@ describe('appStore re-baselining a loan', () => {
     // The inverse: rewinding to January restores 12,000 outstanding, so it has
     // to restore the twelve installments that pay it off — a rewound balance
     // against a shortened term would end the loan on a balloon payment.
-    appStore.confirmBalances({ cash_amount: 5_000 })
+    appStore.confirmBalances({ cash_amount: 5_000 }, { cash: true })
     appStore.deleteSnapshot(TODAY)
     expect(loan()?.outstanding_balance).toBe(12_000)
     expect(loan()?.remaining_term).toBe(12)

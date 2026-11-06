@@ -163,3 +163,22 @@ describe('hasHistoryToShow', () => {
     expect(hasHistoryToShow({ ...EMPTY, snapshots: [] })).toBe(false)
   })
 })
+
+describe('buildHistorySeries with unknown figures', () => {
+  test('plots an unknown figure at its calculated value', () => {
+    const series = buildHistorySeries(
+      {
+        name: 'Alice',
+        email: 'a@example.com',
+        cash_amount: 2_200,
+        snapshots: [
+          { date: '2026-01-01', cash_amount: 1_000 },
+          { date: '2026-03-01' },
+          { date: '2026-05-01', cash_amount: 2_200 },
+        ],
+      },
+      new Date('2026-05-01T12:00:00'),
+    )
+    expect(series.map((point) => point.netWorth)).toEqual([1_000, 1_590, 2_200])
+  })
+})

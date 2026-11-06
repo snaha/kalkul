@@ -89,10 +89,17 @@ describe('buildSnapshotSections', () => {
 
   test('seeds each field from the snapshot', () => {
     expect(fieldsOf(sections, 'cash')).toEqual([
-      { key: 'cash', itemId: 'cash', label: '', kind: 'cash', value: 20_000 },
+      { key: 'cash', itemId: 'cash', label: '', kind: 'cash', value: 20_000, unknown: false },
     ])
     expect(fieldsOf(sections, 'investments')).toEqual([
-      { key: 'investments:inv1', itemId: 'inv1', label: 'ETF', kind: 'balance', value: 80_000 },
+      {
+        key: 'investments:inv1',
+        itemId: 'inv1',
+        label: 'ETF',
+        kind: 'balance',
+        value: 80_000,
+        unknown: false,
+      },
     ])
     expect(fieldsOf(sections, 'liabilities')).toEqual([
       {
@@ -384,8 +391,22 @@ describe('buildSnapshotSections on a date the snapshot does not record', () => {
     // it, so a field opening at zero would wipe Gold on an untouched Confirm.
     const copy: Snapshot = { ...JAN, date: '2026-07-01' }
     expect(fieldsOf(buildSnapshotSections(HISTORY, copy, '2026-07-01'), 'investments')).toEqual([
-      { key: 'investments:inv1', itemId: 'inv1', label: 'ETF', kind: 'balance', value: 50_000 },
-      { key: 'investments:inv2', itemId: 'inv2', label: 'Gold', kind: 'balance', value: 500 },
+      {
+        key: 'investments:inv1',
+        itemId: 'inv1',
+        label: 'ETF',
+        kind: 'balance',
+        value: 50_000,
+        unknown: false,
+      },
+      {
+        key: 'investments:inv2',
+        itemId: 'inv2',
+        label: 'Gold',
+        kind: 'balance',
+        value: 500,
+        unknown: false,
+      },
     ])
   })
 
@@ -443,5 +464,53 @@ describe('openingDate', () => {
 
   test("keeps the snapshot's own date when editing it", () => {
     expect(openingDate('2026-08-01', ['2026-08-01'], '2026-08-01')).toBe('2026-08-01')
+  })
+})
+
+describe('unknown figures in the snapshot dialog', () => {
+  const investment = { id: 'inv1', name: 'ETF', balance: 3_000, apy: 5 }
+  const JAN: Snapshot = {
+    date: '2026-01-01',
+    cash_amount: 1_000,
+    investments: [{ id: 'inv1', balance: 1_000 }],
+  }
+  const MAR: Snapshot = { date: '2026-03-01', investments: [{ id: 'inv1' }] }
+  const MAY: Snapshot = {
+    date: '2026-05-01',
+    cash_amount: 2_200,
+    investments: [{ id: 'inv1', balance: 3_000 }],
+  }
+  const profile: Profile = {
+    name: 'Alice',
+    email: 'a@example.com',
+    cash_amount: 2_200,
+    investments: [investment],
+    snapshots: [JAN, MAR, MAY],
+  }
+  const fieldOf = (sections: ReturnType<typeof buildSnapshotSections>, key: string) =>
+    sections.flatMap((section) => section.fields).find((field) => field.key === key)
+
+  test('opens an unknown figure at its calculated value', () => {
+    const sections = buildSnapshotSections(profile, MAR, MAR.date)
+    expect(fieldOf(sections, 'cash')?.value).toBe(1_590)
+    expect(fieldOf(sections, 'investments:inv1')?.value).toBe(1_983)
+  })
+
+  test('keeps an untouched unknown figure unknown', () => {
+    const sections = buildSnapshotSections(profile, MAR, MAR.date)
+    const saved = snapshotFromFields(MAR, sections, {}, MAR.date)
+    expect(saved.cash_amount).toBeUndefined()
+    expect(saved.investments).toStrictEqual([{ id: 'inv1' }])
+  })
+
+  test('records a typed figure', () => {
+    const sections = buildSnapshotSections(profile, MAR, MAR.date)
+    const saved = snapshotFromFields(MAR, sections, { cash: 7, 'investments:inv1': 8 }, MAR.date)
+    expect(saved.cash_amount).toBe(7)
+    expect(saved.investments).toEqual([{ id: 'inv1', balance: 8 }])
+  })
+
+  test('seeds a date from the calculated value of the snapshot before it', () => {
+    expect(seedSnapshotOn(profile, '2026-03-02').cash_amount).toBe(1_590)
   })
 })
