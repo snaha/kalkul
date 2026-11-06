@@ -733,17 +733,47 @@ describe('resolveSnapshots', () => {
     expect(resolved[0].cash_amount).toBe(0)
   })
 
-  test('reads a left-out entry as a known zero', () => {
+  test('holds the last known value up to the date an investment is no longer held', () => {
     const resolved = resolveSnapshots({
       ...base,
       snapshots: [
-        { date: '2026-01-01', investments: [{ id: 'inv1', balance: 1_200 }], cash_amount: 0 },
-        { date: '2026-03-01', investments: [{ id: 'inv1' }], cash_amount: 0 },
-        { date: '2026-05-01', investments: [], cash_amount: 0 },
+        { date: '2026-01-15', cash_amount: 10_000, investments: [{ id: 'inv1', balance: 50_000 }] },
+        { date: '2026-03-15', cash_amount: 10_000, investments: [{ id: 'inv1' }] },
+        { date: '2026-05-15', cash_amount: 10_000, investments: [{ id: 'inv1' }] },
+        { date: '2026-07-15', cash_amount: 60_000, investments: [] },
       ],
     })
-    expect(resolved[1].investments).toEqual([{ id: 'inv1', balance: 610 }])
-    expect(resolved[2].investments).toEqual([])
+    expect(resolved.map((s) => s.investments?.[0]?.balance)).toEqual([
+      50_000,
+      50_000,
+      50_000,
+      undefined,
+    ])
+    expect(resolved.map(snapshotNetWorth)).toEqual([60_000, 60_000, 60_000, 60_000])
+  })
+
+  test('counts an unknown figure right after a date it was not held as zero', () => {
+    const resolved = resolveSnapshots({
+      ...base,
+      investments: [investment],
+      snapshots: [
+        { date: '2026-01-01', cash_amount: 0, investments: [] },
+        { date: '2026-03-01', cash_amount: 0, investments: [{ id: 'inv1' }] },
+        { date: '2026-05-01', cash_amount: 0, investments: [{ id: 'inv1', balance: 1_200 }] },
+      ],
+    })
+    expect(resolved[1].investments).toEqual([{ id: 'inv1', balance: 0 }])
+  })
+
+  test('holds the last known value when the profile no longer has the investment', () => {
+    const resolved = resolveSnapshots({
+      ...base,
+      snapshots: [
+        { date: '2026-01-01', cash_amount: 0, investments: [{ id: 'inv1', balance: 1_200 }] },
+        { date: '2026-03-01', cash_amount: 0, investments: [{ id: 'inv1' }] },
+      ],
+    })
+    expect(resolved[1].investments).toEqual([{ id: 'inv1', balance: 1_200 }])
   })
 
   test('leaves known figures as recorded', () => {

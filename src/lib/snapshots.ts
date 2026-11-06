@@ -117,24 +117,30 @@ export function hasAnyBalance(snapshot: SnapshotBalances): boolean {
   return false
 }
 
+/** An investment with no entry on a date. */
+const NOT_HELD = 'not held'
+
 /**
  * A figure's value on every date, in date order, with each unknown calculated:
- * linearly by date between its nearest known values, or 0 with no earlier one.
- * The last figure is always known.
+ * linearly by date between the nearest known values. With no number before it
+ * the figure is 0, and with no number after it the earlier value holds.
  */
 function withUnknownsCalculated(
   dates: string[],
-  figures: (number | undefined)[],
+  figures: (number | undefined | typeof NOT_HELD)[],
 ): (number | undefined)[] {
   return figures.map((figure, index) => {
+    if (figure === NOT_HELD) return undefined
     if (figure !== undefined) return figure
     const before = figures.findLastIndex((f, i) => i < index && f !== undefined)
-    if (before === -1) return 0
+    const from = figures[before]
+    if (typeof from !== 'number') return 0
     const after = figures.findIndex((f, i) => i > index && f !== undefined)
-    const from = new Decimal(figures[before] ?? 0)
-    return from
+    const to = figures[after]
+    if (typeof to !== 'number') return from
+    return new Decimal(from)
       .plus(
-        new Decimal(figures[after] ?? 0)
+        new Decimal(to)
           .minus(from)
           .times(daysBetween(dates[before], dates[index]))
           .dividedBy(daysBetween(dates[before], dates[after])),
@@ -146,8 +152,7 @@ function withUnknownsCalculated(
 
 /**
  * The history in date order with every unknown figure calculated. The profile
- * holds the figures as of the newest date, so it states any unknown there. An
- * investment with no entry on a date counts as a known 0.
+ * holds the figures as of the newest date, so it states any unknown there.
  */
 export function resolveSnapshots(profile: Profile): Snapshot[] {
   const snapshots = normalizeSnapshots(profile.snapshots ?? [])
@@ -175,8 +180,8 @@ export function resolveSnapshots(profile: Profile): Snapshot[] {
         dates,
         entries.map((byItem, index) => {
           const entry = byItem.get(id)
-          if (!entry) return 0
-          return index === newest ? (entry.balance ?? held.get(id)?.balance ?? 0) : entry.balance
+          if (!entry) return NOT_HELD
+          return index === newest ? (entry.balance ?? held.get(id)?.balance) : entry.balance
         }),
       ),
     ]),

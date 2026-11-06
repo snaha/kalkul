@@ -6,13 +6,13 @@ yet.
 
 ## Vocabulary
 
-| UI label                   | Field                                        | Meaning                         |
-| -------------------------- | -------------------------------------------- | ------------------------------- |
-| Cash, bold in Quick update | `cash_amount: 1000`                          | The figure the user gave        |
-| Cash, regular              | `cash_amount` missing                        | Unknown: calculated on read     |
-| Investment, bold           | `investments: [{ id, balance: 1000 }]`       | The figure the user gave        |
-| Investment, regular        | `investments: [{ id }]`                      | Unknown: calculated on read     |
-| None                       | No entry for the investment in `investments` | Not held on the date, a known 0 |
+| UI label                   | Field                                        | Meaning                     |
+| -------------------------- | -------------------------------------------- | --------------------------- |
+| Cash, bold in Quick update | `cash_amount: 1000`                          | The figure the user gave    |
+| Cash, regular              | `cash_amount` missing                        | Unknown: calculated on read |
+| Investment, bold           | `investments: [{ id, balance: 1000 }]`       | The figure the user gave    |
+| Investment, regular        | `investments: [{ id }]`                      | Unknown: calculated on read |
+| None                       | No entry for the investment in `investments` | Not held on the date        |
 
 ## Rules
 
@@ -28,7 +28,11 @@ yet.
   nearest known values, rounded to whole currency units.
 - On the newest date the profile states the figure, so it counts as known for
   calculating earlier dates.
-- With no earlier known value the figure counts as 0.
+- With no earlier number the figure counts as 0, including right after a date
+  the investment was not held.
+- With no later number the figure keeps its last known value, including right
+  before a date the investment was not held. A sold position stays at its last
+  known value up to the sale.
 - Deleting the newest snapshot rewinds the profile to the calculated value of
   any unknown figure on the snapshot before it. The figure stays unknown.
 - The snapshot dialog opens an unknown figure at its calculated value and keeps
@@ -46,6 +50,11 @@ between 1 January and 1 June instead.
 
 Deleting the 1 May snapshot above, with 1 March unknown, sets the profile's cash
 to 1,590.
+
+An ETF is 50,000 on 15 January and unknown on 15 March and 15 May, with cash
+entered at 10,000 on all three dates. It is sold on 15 July, leaving cash at
+60,000 and no entry for the ETF. History shows the ETF at 50,000 on both unknown
+dates, so net worth stays at 60,000 throughout.
 
 ## Open questions
 

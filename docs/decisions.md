@@ -43,7 +43,8 @@ snapshot could not say "I don't know this figure" (#372).
 
 **Decision.** A cash or investment row left untouched or erased in Quick update
 is stored with no number. History calculates it on read, linearly by date
-between the nearest known values, and the newest date reads the profile. The
+between the nearest known values, and the newest date reads the profile. An
+unknown just before an investment is sold keeps its last known value. The
 dialog shows a typed figure and its change in bold and an estimate at regular
 weight. Nothing else changes: no estimated or incomplete state on the chart or
 in the table, no unknown control in the snapshot dialog, and other figures stay
@@ -52,6 +53,8 @@ recorded as numbers.
 **Why.** No marker is needed: a missing number already says the figure was not
 given, and a stored prediction would go stale once a later figure arrives.
 Linear works for cash, which has no APY, and always meets both known values.
+A sale is a jump, so sloping towards the 0 after it would show a dip in net
+worth that never happened.
 This replaces the rule proposed in the issue that the newest snapshot states
 every figure; the profile states them instead.
 
