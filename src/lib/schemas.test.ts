@@ -571,6 +571,17 @@ describe('transferSchema refinement', () => {
     }
   })
 
+  it('requires a tax rate once the transfer deducts tax', () => {
+    const result = transferSchema.safeParse({ ...oneTime, deduct_tax: true })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((i) => i.path)).toContainEqual(['tax_rate'])
+    }
+    expect(transferSchema.safeParse({ ...oneTime, deduct_tax: true, tax_rate: 15 }).success).toBe(
+      true,
+    )
+  })
+
   it('rejects identical endpoints', () => {
     const result = transferSchema.safeParse({ ...oneTime, to_asset_id: 'cash' })
     expect(result.success).toBe(false)
