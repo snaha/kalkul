@@ -10,6 +10,31 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-06 An age is reached in the birthday month
+
+**Context.** A cash flow or transfer timed "when your age is N" resolved to
+the whole calendar year the user turns N: one ending at 60 ran through
+December of that year and one starting at 60 ran from its January. A salary
+ending at 60 and a withdrawal starting at 60 therefore both ran for the whole
+year, and the plan showed a year of double income that nothing explained.
+
+**Decision.** An age-based start takes effect in the birthday month of the
+year the age is reached, and an age-based end runs until the month before
+it, so a flow ending at an age and one starting at the same age hand over
+without a gap or an overlap. With a January birthday a flow ending at an age
+has no month left in that year and stops with the previous one. The month
+comes from the profile's birth date, which the user enters as a month and a
+year. This covers incomes, expenses and transfers, whose amounts already
+scale with the months active in a year. A start and an end at the same age
+is therefore an empty range, and the form and the schema reject it, as they
+do a same-year date range that ends before it starts. A planned purchase,
+sale or loan timed by age is still a whole-year event in that year, as it
+was. The rule is stated in `docs/product/projections.md`.
+
+**Why.** "When your age is 60" names a birthday, and the user plans a
+handover at it. Assets and loans are yearly events in the engine, so moving
+them to a month is a separate change with its own cases.
+
 ## 2026-11-06 A transfer's amount is what arrives after the tax
 
 **Context.** The 2026-11-05 decision below deducted the estimated tax from

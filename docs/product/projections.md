@@ -22,6 +22,7 @@ The dependency is one-way: projections read financial data, they never write it.
 | Outdated           | "Financial data has changed" | `isPlanOutdated`                                               |
 | Current projection | Current projection           | `buildCurrentProjectionPlan`, built fresh on every read        |
 | Down payment       | Down payment                 | `down_payment` on a projection's tangible asset                |
+| Birth month        | Date of birth, in Settings   | `Profile.birth_date`, a month and a year                       |
 
 ## Rules
 
@@ -124,6 +125,25 @@ Financial data does not store a down payment: `profileSchema` rejects it, and
 the MCP `update_profile` and `upsert_plan_item` descriptions say which copy
 carries which field.
 
+### An age is reached in the birthday month
+
+A start or end "when your age is N" on an income, expense or transfer resolves
+to a month, not a year: the month the user turns N, from the birth month and
+year in the profile. A start at an age runs from that month. An end at an age
+runs until the month before it, so a flow ending at an age and one starting
+at the same age hand over with no gap and no overlap. With a January birthday
+an end at an age leaves no month in that year, and the flow stops with the
+previous year. The previews in the dialogs count the same months.
+
+A start and an end at the same age, or an end at an earlier age, is an empty
+range: `profileSchema` rejects it and the dialogs say so under the end age,
+as they do for a same-year date range that ends before it starts. An end at
+an age reached in the plan's first year is rejected the same way when no
+month of that year is left before the birthday.
+
+A planned purchase, sale or loan timed by an age is still a whole-year event
+in the year the age is reached.
+
 ### When a feature seems to need a projection to write financial data
 
 The answer is a projection-level setting, never a profile write. Raise it
@@ -166,6 +186,12 @@ rather than papering over it.
    lists "Loan" at 750 and "House" at 2,700,000, the house's row marked as tied
    to the house; they add up to the liabilities total of 2,700,750. From the
    fourth year "Loan" stays listed at 0.
+8. **An age is a month.** Jan is born in March 1979. In his plan the salary
+   ends at 60 and the pension starts at 60. In 2039 the salary pays January
+   and February and the pension March to December: twelve months of income,
+   none of them doubled. Were Jan born in January, the salary's last month
+   would be December 2038. A flow set to run from 45 to 45 is rejected in
+   the dialog, since it would have no month to run.
 
 ## Where this lives in the code
 
@@ -178,6 +204,10 @@ rather than papering over it.
   tool) and `removePlanItem` drops one. They are read off the `Portfolio`.
 - `profileSchema` and `repairStoredData` in `src/lib/schemas.ts` enforce and
   repair the no-planned-timing rule.
+- `activeMonthFraction` and `birthOf` in `src/lib/plan-projection.ts` place an
+  age in its month; `ageRangeEmpty` in `src/lib/schemas.ts` rejects an empty
+  range of ages and `timingWithinPlan` in `src/lib/plan-range.ts` an end
+  with no month left in the plan.
 - `financedAmount` and `seededDownPayment` in `src/lib/tangible-asset-form.ts`
   hold the down-payment rule; the plan asset dialog is their only caller.
 - The engine is `src/lib/plan-projection.ts`; the MCP tools in

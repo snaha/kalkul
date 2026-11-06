@@ -118,26 +118,22 @@ const DECIMAL_MINUS_100 = new Decimal(-100)
 function resolveStartYear(
   cashFlow: CashFlowTemporal,
   planStartYear: number,
-  birthYear: number | undefined,
+  birth: Birth | undefined,
 ): number {
   if (cashFlow.start === 'immediately') return planStartYear
   // 'now' anchors to the real-world current month at projection time.
   if (cashFlow.start === 'now') return new Date().getFullYear()
   if (cashFlow.start === 'at_specific_date') return cashFlow.start_year ?? planStartYear
-  if (
-    cashFlow.start === 'when_age_is' &&
-    birthYear !== undefined &&
-    cashFlow.start_age !== undefined
-  )
-    return birthYear + cashFlow.start_age
+  if (cashFlow.start === 'when_age_is' && birth !== undefined && cashFlow.start_age !== undefined)
+    return birth.year + cashFlow.start_age
   return planStartYear
 }
 
-function resolveEndYear(cashFlow: CashFlowTemporal, birthYear: number | undefined): number {
+function resolveEndYear(cashFlow: CashFlowTemporal, birth: Birth | undefined): number {
   if (cashFlow.end === 'never') return Number.POSITIVE_INFINITY
   if (cashFlow.end === 'at_specific_date') return cashFlow.end_year ?? Number.POSITIVE_INFINITY
-  if (cashFlow.end === 'when_age_is' && birthYear !== undefined && cashFlow.end_age !== undefined)
-    return birthYear + cashFlow.end_age
+  if (cashFlow.end === 'when_age_is' && birth !== undefined && cashFlow.end_age !== undefined)
+    return birth.year + cashFlow.end_age
   return Number.POSITIVE_INFINITY
 }
 
@@ -148,17 +144,13 @@ function resolveEndYear(cashFlow: CashFlowTemporal, birthYear: number | undefine
  */
 function liabilityStartYear(
   liability: ProfileLiability,
-  birthYear: number | undefined,
+  birth: Birth | undefined,
 ): number | undefined {
   if (liability.start === undefined || liability.start === 'immediately') return undefined
   if (liability.start === 'now') return new Date().getFullYear()
   if (liability.start === 'at_specific_date') return liability.start_year
-  if (
-    liability.start === 'when_age_is' &&
-    birthYear !== undefined &&
-    liability.start_age !== undefined
-  )
-    return birthYear + liability.start_age
+  if (liability.start === 'when_age_is' && birth !== undefined && liability.start_age !== undefined)
+    return birth.year + liability.start_age
   return undefined
 }
 
@@ -181,9 +173,16 @@ function activeMonthFraction(
   year: number,
   startYear: number,
   endYear: number,
+  birth: Birth | undefined,
 ): Decimal {
   let startMonth = 1
   let endMonth = 12
+  // An age is reached in the birthday month: a start at an age runs from it,
+  // an end at an age stops before it (docs/product/projections.md).
+  if (birth !== undefined) {
+    if (year === startYear && cashFlow.start === 'when_age_is') startMonth = birth.month
+    if (year === endYear && cashFlow.end === 'when_age_is') endMonth = birth.month - 1
+  }
   if (
     year === startYear &&
     cashFlow.start === 'at_specific_date' &&
@@ -559,12 +558,12 @@ export function monthIndex(year: number, month: number): number {
  * The month an explicitly planned start falls in, or undefined when the start
  * is not planned ('immediately'/'now') or its field was never filled in.
  */
-function plannedStartsAt(flow: TimingWindow, birthYear: number | undefined): number | undefined {
+function plannedStartsAt(flow: TimingWindow, birth: Birth | undefined): number | undefined {
   if (flow.start === 'at_specific_date' && flow.start_year !== undefined) {
     return monthIndex(flow.start_year, flow.start_month ?? 1)
   }
-  if (flow.start === 'when_age_is' && birthYear !== undefined && flow.start_age !== undefined) {
-    return monthIndex(birthYear + flow.start_age, 1)
+  if (flow.start === 'when_age_is' && birth !== undefined && flow.start_age !== undefined) {
+    return monthIndex(birth.year + flow.start_age, 1)
   }
   return undefined
 }
@@ -587,17 +586,17 @@ function plannedWindow(
   planStartYear: number,
   /** The plan's first month, so a purchase later that same year is still a purchase. */
   planStartsAt: number,
-  birthYear: number | undefined,
+  birth: Birth | undefined,
 ): PlannedWindow {
-  const resolvedStart = resolveStartYear(temporal, planStartYear, birthYear)
+  const resolvedStart = resolveStartYear(temporal, planStartYear, birth)
   // A planned start is bought once the plan reaches its month — including a
   // month later in the plan's first year (#246). A start before the plan
   // window would never fire as a one-time transfer, so the start year is
   // clamped and the position is simply already held.
-  const startsAt = plannedStartsAt(temporal, birthYear)
+  const startsAt = plannedStartsAt(temporal, birth)
   return {
     startYear: Math.max(resolvedStart, planStartYear),
-    exitYear: resolveEndYear(temporal, birthYear),
+    exitYear: resolveEndYear(temporal, birth),
     fundsFromCash:
       startsAt === undefined ? resolvedStart > planStartYear : startsAt >= planStartsAt,
   }
@@ -699,14 +698,14 @@ function isTransferActiveThisYear(
   transfer: Transfer,
   year: number,
   planStartYear: number,
-  birthYear: number | undefined,
+  birth: Birth | undefined,
 ): boolean {
   if (transfer.schedule === 'one_time') return year === transfer.transaction_year
   const temporal = transferToTemporal(transfer)
-  const tStart = resolveStartYear(temporal, planStartYear, birthYear)
-  const tEnd = resolveEndYear(temporal, birthYear)
+  const tStart = resolveStartYear(temporal, planStartYear, birth)
+  const tEnd = resolveEndYear(temporal, birth)
   if (year < tStart || year > tEnd) return false
-  return !activeMonthFraction(temporal, year, tStart, tEnd).isZero()
+  return !activeMonthFraction(temporal, year, tStart, tEnd, birth).isZero()
 }
 
 /**
@@ -787,7 +786,7 @@ function transferAmountForYear(
   transfer: Transfer,
   year: number,
   planStartYear: number,
-  birthYear: number | undefined,
+  birth: Birth | undefined,
   inflationRate: Decimal,
 ): Decimal {
   if (transfer.schedule === 'one_time') {
@@ -800,10 +799,10 @@ function transferAmountForYear(
     )
   }
   const temporal = transferToTemporal(transfer)
-  const tStart = resolveStartYear(temporal, planStartYear, birthYear)
-  const tEnd = resolveEndYear(temporal, birthYear)
+  const tStart = resolveStartYear(temporal, planStartYear, birth)
+  const tEnd = resolveEndYear(temporal, birth)
   if (year < tStart || year > tEnd) return DECIMAL_0
-  const fraction = activeMonthFraction(temporal, year, tStart, tEnd)
+  const fraction = activeMonthFraction(temporal, year, tStart, tEnd, birth)
   if (fraction.isZero()) return DECIMAL_0
   const yearsSinceStart = year - tStart
   const yearsSincePlanStart = year - planStartYear
@@ -902,8 +901,9 @@ export interface TransferSummary {
 export function summarizeTransfer(
   transfer: Transfer,
   plan: Pick<Portfolio, 'start_date' | 'end_date' | 'inflation_rate' | 'investments'>,
-  birthYear: number | undefined,
+  birthDate: string | undefined,
 ): TransferSummary {
+  const birth = birthOf(birthDate)
   const startYear = yearOf(plan.start_date)
   const endYear = yearOf(plan.end_date)
   const inflationRate = new Decimal(plan.inflation_rate)
@@ -911,7 +911,7 @@ export function summarizeTransfer(
   // Held since the same year the engine counts from: the plan start, or a
   // later planned purchase (`assetWindows` in `getYearlyPlanProjection`).
   const boughtYear = source
-    ? Math.max(resolveStartYear(investmentToTemporal(source), startYear, birthYear), startYear)
+    ? Math.max(resolveStartYear(investmentToTemporal(source), startYear, birth), startYear)
     : startYear
   // Same transfer with the inflation factor off: growthFactor then yields the
   // real-terms amount, change over time included.
@@ -923,7 +923,7 @@ export function summarizeTransfer(
   let gainTotal = DECIMAL_0
   let taxTotal = DECIMAL_0
   for (let year = startYear; year <= endYear; year++) {
-    if (!isTransferActiveThisYear(transfer, year, startYear, birthYear)) continue
+    if (!isTransferActiveThisYear(transfer, year, startYear, birth)) continue
     if (transfer.schedule === 'one_time') {
       occurrences += 1
     } else {
@@ -931,18 +931,17 @@ export function summarizeTransfer(
       const fraction = activeMonthFraction(
         temporal,
         year,
-        resolveStartYear(temporal, startYear, birthYear),
-        resolveEndYear(temporal, birthYear),
+        resolveStartYear(temporal, startYear, birth),
+        resolveEndYear(temporal, birth),
+        birth,
       )
       occurrences += Math.round(
         FLOW_PERIODS_PER_YEAR[transfer.frequency ?? 'monthly'] * fraction.toNumber(),
       )
     }
-    const amount = transferAmountForYear(transfer, year, startYear, birthYear, inflationRate)
+    const amount = transferAmountForYear(transfer, year, startYear, birth, inflationRate)
     nominalTotal = nominalTotal.plus(amount)
-    realTotal = realTotal.plus(
-      transferAmountForYear(real, year, startYear, birthYear, inflationRate),
-    )
+    realTotal = realTotal.plus(transferAmountForYear(real, year, startYear, birth, inflationRate))
     const heldYears = year - boughtYear
     const gross = grossTransferAmount(transfer, amount, source, heldYears)
     grossTotal = grossTotal.plus(gross)
@@ -979,8 +978,9 @@ export interface CashFlowSummary {
 export function summarizeCashFlow(
   flow: Income | Expense,
   plan: Pick<Portfolio, 'start_date' | 'end_date' | 'inflation_rate'>,
-  birthYear: number | undefined,
+  birthDate: string | undefined,
 ): CashFlowSummary {
+  const birth = birthOf(birthDate)
   const startYear = yearOf(plan.start_date)
   const endYear = yearOf(plan.end_date)
   const inflationRate = new Decimal(plan.inflation_rate)
@@ -996,10 +996,10 @@ export function summarizeCashFlow(
       occurrences += 1
     } else {
       const temporal = cashFlowToTemporal(flow)
-      const itemStart = resolveStartYear(temporal, startYear, birthYear)
-      const itemEnd = resolveEndYear(temporal, birthYear)
+      const itemStart = resolveStartYear(temporal, startYear, birth)
+      const itemEnd = resolveEndYear(temporal, birth)
       if (year < itemStart || year > itemEnd) continue
-      const fraction = activeMonthFraction(temporal, year, itemStart, itemEnd)
+      const fraction = activeMonthFraction(temporal, year, itemStart, itemEnd, birth)
       if (fraction.isZero()) continue
       occurrences += Math.round(
         FLOW_PERIODS_PER_YEAR[flow.frequency ?? 'monthly'] * fraction.toNumber(),
@@ -1007,10 +1007,10 @@ export function summarizeCashFlow(
     }
     const amount = new Decimal(flow.amount)
     nominalTotal = nominalTotal.plus(
-      cashFlowAmountForYear(flow, amount, year, startYear, birthYear, inflationRate),
+      cashFlowAmountForYear(flow, amount, year, startYear, birth, inflationRate),
     )
     realTotal = realTotal.plus(
-      cashFlowAmountForYear(real, amount, year, startYear, birthYear, inflationRate),
+      cashFlowAmountForYear(real, amount, year, startYear, birth, inflationRate),
     )
   }
   return { occurrences, nominalTotal: nominalTotal.toNumber(), realTotal: realTotal.toNumber() }
@@ -1026,17 +1026,17 @@ function cashFlowAmountForYear(
   amount: Decimal,
   year: number,
   planStartYear: number,
-  birthYear: number | undefined,
+  birth: Birth | undefined,
   inflationRate: Decimal,
 ): Decimal {
   if (flow.schedule === 'one_time') {
     return oneTimeAmountForYear(flow, amount, year, planStartYear, inflationRate)
   }
   const temporal = cashFlowToTemporal(flow)
-  const itemStart = resolveStartYear(temporal, planStartYear, birthYear)
-  const itemEnd = resolveEndYear(temporal, birthYear)
+  const itemStart = resolveStartYear(temporal, planStartYear, birth)
+  const itemEnd = resolveEndYear(temporal, birth)
   if (year < itemStart || year > itemEnd) return DECIMAL_0
-  const fraction = activeMonthFraction(temporal, year, itemStart, itemEnd)
+  const fraction = activeMonthFraction(temporal, year, itemStart, itemEnd, birth)
   if (fraction.isZero()) return DECIMAL_0
   return annualizedAmount(amount, flow.frequency ?? 'monthly')
     .mul(growthFactor(temporal, year - itemStart, year - planStartYear, inflationRate))
@@ -1058,7 +1058,7 @@ function accumulateCashFlows<T extends ScheduledCashFlow & { id: string }>(
   items: T[],
   year: number,
   planStartYear: number,
-  birthYear: number | undefined,
+  birth: Birth | undefined,
   inflationRate: Decimal,
   getAmount: (item: T) => Decimal,
 ): { total: Decimal; activeIds: string[] } {
@@ -1069,13 +1069,13 @@ function accumulateCashFlows<T extends ScheduledCashFlow & { id: string }>(
       if (year !== item.transaction_year) continue
     } else {
       const temporal = cashFlowToTemporal(item)
-      const itemStart = resolveStartYear(temporal, planStartYear, birthYear)
-      const itemEnd = resolveEndYear(temporal, birthYear)
+      const itemStart = resolveStartYear(temporal, planStartYear, birth)
+      const itemEnd = resolveEndYear(temporal, birth)
       if (year < itemStart || year > itemEnd) continue
-      if (activeMonthFraction(temporal, year, itemStart, itemEnd).isZero()) continue
+      if (activeMonthFraction(temporal, year, itemStart, itemEnd, birth).isZero()) continue
     }
     total = total.plus(
-      cashFlowAmountForYear(item, getAmount(item), year, planStartYear, birthYear, inflationRate),
+      cashFlowAmountForYear(item, getAmount(item), year, planStartYear, birth, inflationRate),
     )
     activeIds.push(item.id)
   }
@@ -1091,6 +1091,17 @@ function accumulateCashFlows<T extends ScheduledCashFlow & { id: string }>(
  */
 export function yearOf(dateString: string): number {
   return Number(dateString.slice(0, 4))
+}
+
+/** The year and month (1–12) an age counts from. */
+interface Birth {
+  year: number
+  month: number
+}
+
+function birthOf(dateString: string | undefined): Birth | undefined {
+  if (!dateString) return undefined
+  return { year: yearOf(dateString), month: Number(dateString.slice(5, 7)) }
 }
 
 /**
@@ -1152,7 +1163,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
 
   if (endYear < startYear) return []
 
-  const birthYear = profile.birth_date ? yearOf(profile.birth_date) : undefined
+  const birth = birthOf(profile.birth_date)
 
   // A plan holds its own copy of everything it projects; financial data is
   // only consulted for what a plan does not copy (birth date).
@@ -1168,11 +1179,11 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   const assetWindows = new Map<string, PlannedWindow>([
     ...investments.map((i): [string, PlannedWindow] => [
       i.id,
-      plannedWindow(investmentToTemporal(i), startYear, planStartsAt, birthYear),
+      plannedWindow(investmentToTemporal(i), startYear, planStartsAt, birth),
     ]),
     ...tangibleAssets.map((a): [string, PlannedWindow] => [
       a.id,
-      plannedWindow(tangibleToTemporal(a), startYear, planStartsAt, birthYear),
+      plannedWindow(tangibleToTemporal(a), startYear, planStartsAt, birth),
     ]),
   ])
 
@@ -1189,7 +1200,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
 
   const standaloneSchedules = liabilities.map((l) =>
     simulateLiability(l, startYear, endYear, {
-      firstYear: liabilityStartYear(l, birthYear),
+      firstYear: liabilityStartYear(l, birth),
       lastYear: liabilityPayOffYear(l),
     }),
   )
@@ -1204,7 +1215,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   const borrowedByYear = new Map<number, Decimal>()
   for (const l of liabilities) {
     if (currentDebtIds.has(l.id)) continue
-    const firstYear = Math.max(liabilityStartYear(l, birthYear) ?? startYear, startYear)
+    const firstYear = Math.max(liabilityStartYear(l, birth) ?? startYear, startYear)
     const lastYear = liabilityPayOffYear(l)
     if (lastYear !== undefined && lastYear < firstYear) continue
     const soFar = borrowedByYear.get(firstYear) ?? DECIMAL_0
@@ -1342,7 +1353,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       incomes,
       year,
       startYear,
-      birthYear,
+      birth,
       inflationRate,
       (income) => new Decimal(income.amount),
     ).total
@@ -1351,7 +1362,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
         expenses,
         year,
         startYear,
-        birthYear,
+        birth,
         inflationRate,
         (expense) => new Decimal(expense.amount),
       )
@@ -1411,7 +1422,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     const insufficientFundTransferIdsThisYear: string[] = []
     const insufficientFundAssetIdsThisYear: string[] = []
     for (const transfer of planTransfers) {
-      if (!isTransferActiveThisYear(transfer, year, startYear, birthYear)) continue
+      if (!isTransferActiveThisYear(transfer, year, startYear, birth)) continue
       // The synthetic buy is what makes its asset active, so it is exempt
       // from the endpoint check on the way in.
       const plannedStartFor = plannedBuyAssetId(transfer)
@@ -1435,7 +1446,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       } else {
         // The entered amount is what arrives after the tax, so the source
         // gives up that plus the tax (`grossTransferAmount`).
-        const entered = transferAmountForYear(transfer, year, startYear, birthYear, inflationRate)
+        const entered = transferAmountForYear(transfer, year, startYear, birth, inflationRate)
         amount = grossTransferAmount(transfer, entered, source, heldYears)
         if (amount.isZero()) continue
         const balance = getBalance(transfer.from_asset_id)
