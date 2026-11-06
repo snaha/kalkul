@@ -806,6 +806,21 @@ describe('withUnknownBalances', () => {
   test('keeps entered cash', () => {
     expect(withUnknownBalances(snapshot, { cash: true }).cash_amount).toBe(100)
   })
+
+  test('keeps the figures that are numbers on the snapshot it replaces', () => {
+    const replaced: Snapshot = {
+      date: '2026-05-01',
+      cash_amount: 100,
+      investments: [{ id: 'inv1', balance: 200 }, { id: 'inv2' }],
+    }
+
+    expect(withUnknownBalances(snapshot, {}, replaced)).toEqual({
+      date: '2026-05-01',
+      cash_amount: 100,
+      investments: [{ id: 'inv1', balance: 200 }, { id: 'inv2' }],
+      liabilities: [{ id: 'l1', outstanding_balance: 50 }],
+    })
+  })
 })
 
 describe('unknown figures in the history', () => {

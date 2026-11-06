@@ -265,7 +265,10 @@ export function snapshotFromFields(
     date,
     cash_amount: cashField ? figureOf(cashField) : base.cash_amount,
     investments: withMissingEntries(
-      fieldsOf('investments').map((field) => ({ id: field.itemId, balance: figureOf(field) })),
+      fieldsOf('investments').map((field) => {
+        const balance = figureOf(field)
+        return balance === undefined ? { id: field.itemId } : { id: field.itemId, balance }
+      }),
       base.investments,
     ),
     tangible_assets: withMissingEntries(tangible, base.tangible_assets),

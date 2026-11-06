@@ -500,7 +500,7 @@ describe('unknown figures in the snapshot dialog', () => {
     const sections = buildSnapshotSections(profile, MAR, MAR.date)
     const saved = snapshotFromFields(MAR, sections, {}, MAR.date)
     expect(saved.cash_amount).toBeUndefined()
-    expect(saved.investments).toEqual([{ id: 'inv1' }])
+    expect(saved.investments).toStrictEqual([{ id: 'inv1' }])
   })
 
   test('records a typed figure', () => {

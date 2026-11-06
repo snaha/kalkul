@@ -21,6 +21,10 @@ yet.
   bold.
 - Confirm stores a row left untouched or erased as unknown. Erasing a row or
   pressing Reset values returns it to its estimate at regular weight.
+- A figure that is already a number on today's snapshot stays a number when a
+  later Confirm that day leaves it untouched. Its row shows at regular weight,
+  as bold only marks what is typed in the open dialog. Typing a figure replaces
+  it.
 - The profile still moves to the estimate, so the dashboard reads a number.
 - Only Quick update writes unknowns from the app, and only for cash and
   investments. An AI client can write the same forms through `update_profile`.
@@ -48,6 +52,10 @@ nothing newer exists. The snapshot stores no cash, the profile holds 2,200, and
 1 May reads 2,200. If the user later enters 3,000 on 1 June, 1 May is calculated
 between 1 January and 1 June instead.
 
+Quick update at 09:00 enters cash at 16,000. Quick update at 17:00 the same day
+opens cash at 16,000 at regular weight and Confirm leaves it untouched. The
+snapshot keeps 16,000, so a later figure does not recalculate it.
+
 Deleting the 1 May snapshot above, with 1 March unknown, sets the profile's cash
 to 1,590.
 
@@ -59,7 +67,10 @@ dates, so net worth stays at 60,000 throughout.
 ## Open questions
 
 - Should the History chart and table mark calculated figures? Today they read as
-  any other figure.
+  any other figure, and the net worth card says "Actual data" (#372).
+- An unknown with no earlier number reads as 0, so history backfilled without a
+  cash figure draws cash at 0 on every past date. Should the item be left out
+  and the date marked incomplete instead (#372)?
 - A financial data edit on the day of a Quick update replaces that day's
   snapshot with numbers, so its unknowns are lost. Should they survive?
 - A financial data edit records carried-forward figures as numbers. Should

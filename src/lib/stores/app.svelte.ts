@@ -282,20 +282,6 @@ function withAppStore() {
   }
 
   /**
-   * The balances a confirmation states outright: everything Quick update's
-   * dialog puts in front of the user. They are persisted exactly as submitted,
-   * including a value typed back to the stored figure — that is a correction,
-   * not an untouched field. Everything the payload leaves out (loans, asset
-   * values) is carried forward by the clock read here rather than the page's.
-   */
-  function explicitBalancesOf(updates: Partial<Profile>): ExplicitBalances {
-    return {
-      cash: updates.cash_amount !== undefined,
-      investmentIds: new Set((updates.investments ?? []).map((i) => i.id)),
-    }
-  }
-
-  /**
    * How a write treats history. 'auto' records today's figures when they moved,
    * 'confirm' always records them, and 'manage' leaves history exactly as the
    * caller supplied it — the History page settles the snapshot list itself, and
@@ -336,13 +322,14 @@ function withAppStore() {
     )
 
     const captured = captureSnapshot(validated, todayDate)
+    const replaced = validated.snapshots?.find((snapshot) => snapshot.date === todayDate)
     profile = enrichProfile(
       recording
         ? {
             ...validated,
             snapshots: upsertSnapshot(
               validated.snapshots,
-              entered ? withUnknownBalances(captured, entered) : captured,
+              entered ? withUnknownBalances(captured, entered, replaced) : captured,
             ),
           }
         : // Nothing recorded, but a loan term may still have changed — it moves
@@ -465,7 +452,7 @@ function withAppStore() {
      * date is the whole point of the action. Cash and investment figures not in
      * `entered` are carried forward and recorded as unknown.
      */
-    confirmBalances(updates: Partial<Profile>, entered = explicitBalancesOf(updates)) {
+    confirmBalances(updates: Partial<Profile>, entered: ExplicitBalances) {
       writeProfile(updates, 'confirm', entered)
       trackUsage(EVENTS.BALANCES_CONFIRMED)
     },
