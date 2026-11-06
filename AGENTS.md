@@ -110,6 +110,7 @@ publicly — and this note with it.
    - **Forms handle UX validation** (e.g. `canContinue` checks) to guide the user, but **runtime correctness is enforced by Zod** at the store boundary
    - Never bypass `updateProfile()` to write profile data — it's the validation gate
    - TypeScript types are derived from schemas (`z.infer<typeof schema>`) — never define types separately from schemas
+   - **Stored data version:** every save and backup carries `version`, and a tab never writes over data with a higher one: it holds saves back and asks the user to reload. `src/lib/stored-data-version.json` records the version and a hash of `storedDataSchema`. When the schema changes, `stored-data-version.test.ts` fails: raise `version` and set `shape` to the hash it reports. `pnpm check-data-version` fails when `shape` changed from `origin/main` without `version` going up. The hash cannot see `.superRefine()` rules or a field changing meaning, so raise `version` by hand for those. A raised version needs no migration, but data the new schema rejects still needs a `repair*` helper
 
 3. **Financial data is never written from a projection**
    - The full rule, its vocabulary and worked examples are in `docs/product/projections.md`. Read it before touching anything under `src/routes/(app)/plan/`, `src/lib/plan-*.ts`, `src/lib/plan-projection.ts` or the MCP tools. In one line: a projection (`Portfolio`) is a copy of financial data taken at creation; it never writes the profile, never follows it afterwards, and its `base` is never written after creation (an ESLint rule rejects profile writes under the plan routes).
@@ -274,8 +275,9 @@ Non-UI logic is anything a Vitest unit test can exercise without rendering a com
 3. `pnpm check` - Runs Svelte Kit sync and TypeScript type checking
 4. `pnpm knip` - Finds unused files, dependencies, and exports. Runs in two passes: default mode, then `--production` mode, which only follows production entries (routes) so code kept alive solely by its own tests is still reported
 5. `pnpm check-locales` - Checks for missing, unused or duplicate translations
+6. `pnpm check-data-version` - Checks that a changed stored data shape raised its version
 
-**Quick check**: Use `pnpm check:all` to run all the above checks at once locally. CI (`.github/workflows/check.yaml`) does not call `check:all`; it runs the equivalent checks as individual steps (`pnpm check`, `pnpm lint`, `pnpm check-locales`, `pnpm knip`) and additionally runs `pnpm test:unit`.
+**Quick check**: Use `pnpm check:all` to run all the above checks at once locally. CI (`.github/workflows/check.yaml`) does not call `check:all`; it runs the equivalent checks as individual steps (`pnpm check`, `pnpm lint`, `pnpm check-locales`, `pnpm check-data-version`, `pnpm knip`) and additionally runs `pnpm test:unit`.
 
 All commands must pass successfully before committing. This ensures code quality and prevents CI/CD failures.
 
