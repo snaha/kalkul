@@ -842,6 +842,25 @@ export function estimatedTransferTax(
 }
 
 /**
+ * What has to leave `source`, held for `heldYears`, so that `net` is left
+ * after the estimated tax: the amount the user enters is what they get, the
+ * tax is paid on top of it. The gain share is strictly below 1 and the rate
+ * at most 100 %, so the divisor never reaches 0.
+ */
+export function grossTransferAmount(
+  transfer: Pick<Transfer, 'deduct_tax' | 'tax_rate'>,
+  net: Decimal,
+  source: ProfileInvestment | undefined,
+  heldYears: number,
+): Decimal {
+  if (!transfer.deduct_tax || !transfer.tax_rate || !source) return net
+  const taxShare = estimatedGainShare(source.apy, heldYears).mul(
+    new Decimal(transfer.tax_rate).div(100),
+  )
+  return net.div(DECIMAL_1.minus(taxShare))
+}
+
+/**
  * What a transfer of `amount` out of `source`, held for `heldYears`, delivers
  * to `destination`: the exit fee and the estimated tax come off on the way
  * out, the upfront entry fee on the way in. The difference is lost to the
@@ -862,16 +881,16 @@ export function transferNetToDestination(
 export interface TransferSummary {
   /** How many times the transfer fires within the plan. */
   occurrences: number
-  /** Sum of the amounts actually moved, after inflation and change over time. */
+  /** Sum of the entered amounts, after inflation and change over time: what arrives before fees. */
   nominalTotal: number
   /** The same sum in today's money (inflation factor stripped). */
   realTotal: number
-  /** The estimated gain inside `nominalTotal` when the transfer deducts tax. */
+  /** What leaves the source: `nominalTotal` plus the tax, when the transfer deducts one. */
+  grossTotal: number
+  /** The estimated gain inside `grossTotal` when the transfer deducts tax. */
   gainTotal: number
-  /** The tax deducted from `nominalTotal` on that gain. */
+  /** The tax deducted from `grossTotal` on that gain. */
   taxTotal: number
-  /** What reaches the destination: `nominalTotal` less the tax and the fees. */
-  netTotal: number
 }
 
 /**
@@ -889,7 +908,6 @@ export function summarizeTransfer(
   const endYear = yearOf(plan.end_date)
   const inflationRate = new Decimal(plan.inflation_rate)
   const source = plan.investments.find((i) => i.id === transfer.from_asset_id)
-  const destination = plan.investments.find((i) => i.id === transfer.to_asset_id)
   // Held since the same year the engine counts from: the plan start, or a
   // later planned purchase (`assetWindows` in `getYearlyPlanProjection`).
   const boughtYear = source
@@ -901,9 +919,9 @@ export function summarizeTransfer(
   let occurrences = 0
   let nominalTotal = DECIMAL_0
   let realTotal = DECIMAL_0
+  let grossTotal = DECIMAL_0
   let gainTotal = DECIMAL_0
   let taxTotal = DECIMAL_0
-  let netTotal = DECIMAL_0
   for (let year = startYear; year <= endYear; year++) {
     if (!isTransferActiveThisYear(transfer, year, startYear, birthYear)) continue
     if (transfer.schedule === 'one_time') {
@@ -926,21 +944,20 @@ export function summarizeTransfer(
       transferAmountForYear(real, year, startYear, birthYear, inflationRate),
     )
     const heldYears = year - boughtYear
+    const gross = grossTransferAmount(transfer, amount, source, heldYears)
+    grossTotal = grossTotal.plus(gross)
     if (transfer.deduct_tax && source) {
-      gainTotal = gainTotal.plus(amount.mul(estimatedGainShare(source.apy, heldYears)))
-      taxTotal = taxTotal.plus(estimatedTransferTax(transfer, amount, source, heldYears))
+      gainTotal = gainTotal.plus(gross.mul(estimatedGainShare(source.apy, heldYears)))
+      taxTotal = taxTotal.plus(estimatedTransferTax(transfer, gross, source, heldYears))
     }
-    netTotal = netTotal.plus(
-      transferNetToDestination(transfer, amount, source, destination, heldYears),
-    )
   }
   return {
     occurrences,
     nominalTotal: nominalTotal.toNumber(),
     realTotal: realTotal.toNumber(),
+    grossTotal: grossTotal.toNumber(),
     gainTotal: gainTotal.toNumber(),
     taxTotal: taxTotal.toNumber(),
-    netTotal: netTotal.toNumber(),
   }
 }
 
@@ -1402,6 +1419,8 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
         if (!isEndpointActive(transfer.from_asset_id) || !isEndpointActive(transfer.to_asset_id))
           continue
       }
+      const source = investmentsById.get(transfer.from_asset_id)
+      const heldYears = year - (assetWindows.get(transfer.from_asset_id)?.startYear ?? startYear)
       let amount: Decimal
       if (transfer.transfer_all) {
         // "Max" mode: take whatever the source has at execution time. If the
@@ -1414,9 +1433,16 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
           continue
         }
       } else {
-        amount = transferAmountForYear(transfer, year, startYear, birthYear, inflationRate)
+        // The entered amount is what arrives after the tax, so the source
+        // gives up that plus the tax (`grossTransferAmount`).
+        const entered = transferAmountForYear(transfer, year, startYear, birthYear, inflationRate)
+        amount = grossTransferAmount(transfer, entered, source, heldYears)
         if (amount.isZero()) continue
-        if (getBalance(transfer.from_asset_id).lessThan(amount)) {
+        const balance = getBalance(transfer.from_asset_id)
+        // The source holds the amount but not the tax on top: sweep it the
+        // way Max would (it lands less the tax) rather than skip the transfer.
+        if (balance.lessThan(amount) && balance.greaterThanOrEqualTo(entered)) amount = balance
+        if (balance.lessThan(amount)) {
           if (plannedStartFor !== undefined) {
             insufficientFundAssetIdsThisYear.push(plannedStartFor)
             abandonedAssetIds.add(plannedStartFor)
@@ -1434,9 +1460,9 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
         transferNetToDestination(
           transfer,
           amount,
-          investmentsById.get(transfer.from_asset_id),
+          source,
           investmentsById.get(transfer.to_asset_id),
-          year - (assetWindows.get(transfer.from_asset_id)?.startYear ?? startYear),
+          heldYears,
         ),
       )
     }

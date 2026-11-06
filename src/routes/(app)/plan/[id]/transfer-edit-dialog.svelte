@@ -453,13 +453,14 @@
     {/if}
   {/if}
 
-  <!-- Frames 1345 and 1350: the net transfer in its own box above the
-       nominal one, which keeps its figures whether the tax is on or not. -->
+  <!-- Frames 1345 and 1350 draw this box as the net transfer; since the
+       amount is the net, it shows the gross leaving the source instead, above
+       the nominal box, which keeps its figures whether the tax is on or not. -->
   {#if summary && form.deduct_tax}
     <div class="rounded-md bg-muted p-3 text-sm text-muted-foreground">
-      {$_('page.plan.transferNetValue', {
+      {$_('page.plan.transferGrossValue', {
         values: {
-          net: appStore.formatCurrencyCode(summary.netTotal),
+          gross: appStore.formatCurrencyCode(summary.grossTotal),
           tax: appStore.formatCurrencyCode(summary.taxTotal),
           gain: appStore.formatCurrencyCode(summary.gainTotal),
         },
