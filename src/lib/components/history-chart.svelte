@@ -275,12 +275,10 @@
         {/each}
 
         {#if active}
-          <!-- Beside the dot, towards whichever side and half has more room, so
-               it stays over the plot rather than the axis labels. -->
+          <!-- Beside the dot, on whichever side has more room. -->
           <div
-            class="pointer-events-none absolute z-10 w-max rounded-md border bg-background p-3 text-sm shadow-md"
-            style:top={active.y < plotHeight / 2 ? `${active.y}px` : undefined}
-            style:bottom={active.y < plotHeight / 2 ? undefined : `${plotHeight - active.y}px`}
+            class="pointer-events-none absolute z-10 w-max -translate-y-1/2 rounded-md border bg-background p-3 text-sm shadow-md"
+            style:top="{active.y}px"
             style:left={active.x < plotWidth / 2 ? `${active.x + TOOLTIP_GAP}px` : undefined}
             style:right={active.x < plotWidth / 2
               ? undefined
