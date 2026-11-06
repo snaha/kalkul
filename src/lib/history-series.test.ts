@@ -220,6 +220,18 @@ describe('buildHistorySeries figures and changes', () => {
     expect(Object.is(april.change?.runwayYears, 0)).toBe(true)
   })
 
+  test('the change is between the figures as shown, not the rounded raw difference', () => {
+    // 2,920 a month: runway 3.14 years and FI 12.6 %, against 3.06 years and
+    // 12.2 % in January. The tooltip shows 3.1 both times, and 12 % then 13 %.
+    const april: Snapshot = {
+      ...JANUARY,
+      date: '2026-04-01',
+      expenses: [{ id: 'exp1', amount: 2_920, frequency: 'monthly' }],
+    }
+    const [, point] = buildHistorySeries({ ...PROFILE, snapshots: [JANUARY, april] }, APRIL_FIRST)
+    expect(point.change).toEqual({ netWorth: 0, runwayYears: 0, fiPercent: 1 })
+  })
+
   test('a figure missing on either side has no change', () => {
     // Nothing to pay in January: no runway and no FI number to compare with.
     const noExpensesThen = { ...JANUARY, expenses: [] }

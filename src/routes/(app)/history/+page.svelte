@@ -134,7 +134,7 @@
             formatNumber={appStore.formatNumber}
             nowLabel={$_('page.history.now')}
             ariaLabel={$_('page.history.chartLabel')}
-            onSelect={openEdit}
+            onSelect={rows.length > 0 ? openEdit : undefined}
             class="h-96"
           />
         </div>

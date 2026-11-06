@@ -1,3 +1,5 @@
+import Decimal from 'decimal.js'
+
 import { addDays, daysBetween } from '$lib/@snaha/kalkul-maths'
 import { getCurrentProfile } from '$lib/current-values'
 import { getFiPercent, hasAnyFinancialData } from '$lib/financial-totals'
@@ -43,14 +45,16 @@ export interface HistoryPoint extends HistoryMetrics {
  */
 const PROJECTED_SAMPLES = 8
 
-/** The figures as the balances stand on `date`, projected from the last snapshot. */
-function metricsOn(profile: Profile, date: string): HistoryMetrics {
+/**
+ * The figures as the balances stand on `date`, projected from the last
+ * snapshot. Only the last sample of the tail is ever shown, so the others
+ * carry the net worth alone, which is all the line needs.
+ */
+function metricsOn(profile: Profile, date: string, netWorthOnly = false): HistoryMetrics {
   const current = getCurrentProfile(profile, parseDateOnly(date))
-  return {
-    netWorth: snapshotNetWorth(captureSnapshot(current, date)),
-    runwayYears: getRunwayYears(current),
-    fiPercent: getFiPercent(current),
-  }
+  const netWorth = snapshotNetWorth(captureSnapshot(current, date))
+  if (netWorthOnly) return { netWorth }
+  return { netWorth, runwayYears: getRunwayYears(current), fiPercent: getFiPercent(current) }
 }
 
 /** The figures as a snapshot recorded them. */
@@ -64,9 +68,10 @@ function metricsOf(profile: Profile, snapshot: Snapshot): HistoryMetrics {
 }
 
 /**
- * `current − previous` to `decimals` places, so a sub-unit move reads as
- * unchanged rather than as "+0". Runway can be `Infinity` on either side:
- * still infinite is no change, and a jump to or from infinite has no size.
+ * The difference between the two figures as the tooltip shows them, each
+ * rounded to `decimals` places first, so the label never contradicts the
+ * figures beside it. Runway can be `Infinity` on either side: still infinite
+ * is no change, and a jump across the cap has no size.
  */
 function diff(
   previous: number | undefined,
@@ -76,9 +81,10 @@ function diff(
   if (previous === undefined || current === undefined) return undefined
   if (previous === current) return 0
   if (!Number.isFinite(previous) || !Number.isFinite(current)) return undefined
-  const scale = 10 ** decimals
-  // `+ 0` turns the -0 a tiny negative rounds to into plain 0.
-  return Math.round((current - previous) * scale) / scale + 0
+  return new Decimal(current)
+    .toDecimalPlaces(decimals)
+    .minus(new Decimal(previous).toDecimalPlaces(decimals))
+    .toNumber()
 }
 
 function changeBetween(previous: HistoryMetrics, current: HistoryMetrics): HistoryChange {
@@ -155,7 +161,7 @@ export function buildHistorySeries(profile: Profile, today: Date): HistoryPoint[
   const samples = Math.min(PROJECTED_SAMPLES, elapsed)
   for (let sample = 1; sample <= samples; sample++) {
     const date = addDays(lastRecorded, Math.round((elapsed * sample) / samples))
-    push(date, metricsOn(profile, date), true)
+    push(date, metricsOn(profile, date, sample < samples), true)
   }
   return points
 }

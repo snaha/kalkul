@@ -22,12 +22,13 @@ dashboard cards. Hovering (or focusing) a dot draws a vertical guide and shows
 the date, net worth, runway and financial independence on that date, each
 followed by a small label with its change since the previous recorded
 snapshot: green when it rose, red when it fell, grey when it did not move.
-The change is in the figure's own unit (currency, years, percentage points),
-rounded to what the tooltip shows, and absent when either side has no figure
-(nothing to pay then, or now). The "now" dot compares today's projected
-figures with the latest snapshot. On the History page a recorded dot opens
-its snapshot for editing; the dashboard chart has no edit dialog, so it does
-not. (#292, #345)
+The change is in the figure's own unit (currency, years, and "pp" for
+percentage points), the difference between the two figures as the tooltip
+shows them, and absent when either side has no figure (nothing to pay then,
+or now) or when runway crosses the 100-year cap, since that move has no size.
+The "now" dot compares today's projected figures with the latest snapshot. On
+the History page a recorded dot opens its snapshot for editing; the dashboard
+chart has no edit dialog, so it does not, which leaves #345 open. (#292, #345)
 
 **Why.** The previous snapshot is a baseline the user set themselves, so the
 label means "since your last update" whether the chart is read right after one

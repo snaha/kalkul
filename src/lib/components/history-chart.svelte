@@ -249,8 +249,8 @@
 
         {#each dots as point (point.date)}
           <!-- Recorded points are solid; the projected "now" point is hollow.
-               Each is a button so the tooltip opens from the keyboard too; the
-               pseudo-element widens the hit area past the 8px dot. -->
+               A button, so the tooltip also opens on focus; the pseudo-element
+               widens the hit area past the 8px dot. -->
           <button
             type="button"
             class={cn(
@@ -275,10 +275,12 @@
         {/each}
 
         {#if active}
-          <!-- Beside the dot, on whichever side has more room. -->
+          <!-- Beside the dot, towards whichever side and half has more room, so
+               it stays over the plot rather than the axis labels. -->
           <div
-            class="pointer-events-none absolute z-10 w-max -translate-y-1/2 rounded-md border bg-background p-3 text-sm shadow-md"
-            style:top="{active.y}px"
+            class="pointer-events-none absolute z-10 w-max rounded-md border bg-background p-3 text-sm shadow-md"
+            style:top={active.y < plotHeight / 2 ? `${active.y}px` : undefined}
+            style:bottom={active.y < plotHeight / 2 ? undefined : `${plotHeight - active.y}px`}
             style:left={active.x < plotWidth / 2 ? `${active.x + TOOLTIP_GAP}px` : undefined}
             style:right={active.x < plotWidth / 2
               ? undefined
@@ -311,7 +313,10 @@
                 $_('page.dashboard.finances.history.tooltip.fi'),
                 active.fiPercent === undefined ? '—' : formatPercent(active.fiPercent, 0),
                 active.change?.fiPercent,
-                (points) => formatPercent(points, 0),
+                (points) =>
+                  $_('page.dashboard.finances.history.tooltip.percentagePoints', {
+                    values: { points: formatNumber(points) },
+                  }),
               )}
             </div>
           </div>
