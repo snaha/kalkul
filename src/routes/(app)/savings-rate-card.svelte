@@ -12,20 +12,15 @@
     getAnnualIncomeTotal,
     getSavingsRate,
   } from '$lib/financial-totals'
-  import type { MetricChanges } from '$lib/metric-changes'
   import type { Profile } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
   import { cn } from '$lib/utils'
 
-  import ChangeLabel from './change-label.svelte'
-
   interface Props {
     profile: Profile
-    /** How the rate moved since the previous update; omit it when there is none. */
-    changes?: MetricChanges
   }
 
-  let { profile, changes }: Props = $props()
+  let { profile }: Props = $props()
 
   type Period = 'monthly' | 'yearly'
   let period = $state<Period>('monthly')
@@ -77,30 +72,21 @@
 
       <div class="flex items-center gap-2">
         {#if savingsRate}
-          <div class="flex flex-1 items-center gap-2">
-            <p
-              class={cn(
-                'text-xl font-extrabold',
-                // Saving nothing is neither good nor bad news, the same reading
-                // Quick update gives a balance that did not move — so only a
-                // rate that is actually positive gets the success green.
-                savingsRate.percent > 0
-                  ? 'text-success'
-                  : savingsRate.percent < 0
-                    ? 'text-destructive'
-                    : undefined,
-              )}
-            >
-              {appStore.formatPercent(savingsRate.percent, 0)}
-            </p>
-            {#if changes?.savingsRate !== undefined}
-              <ChangeLabel
-                value={changes.savingsRate}
-                since={changes.since}
-                format={(points) => appStore.formatPercent(points, 0)}
-              />
-            {/if}
-          </div>
+          <p
+            class={cn(
+              'flex-1 text-xl font-extrabold',
+              // Saving nothing is neither good nor bad news, the same reading
+              // Quick update gives a balance that did not move — so only a
+              // rate that is actually positive gets the success green.
+              savingsRate.percent > 0
+                ? 'text-success'
+                : savingsRate.percent < 0
+                  ? 'text-destructive'
+                  : undefined,
+            )}
+          >
+            {appStore.formatPercent(savingsRate.percent, 0)}
+          </p>
           <p class="truncate text-right text-xs font-medium">
             {perPeriod(savingsRate.annualAmount)}
           </p>

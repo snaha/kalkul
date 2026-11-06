@@ -9,11 +9,8 @@
   import { Separator } from '$lib/components/ui/separator'
   import type { CategoryLabel } from '$lib/financial-totals'
   import { getNetWorth, getOverviewSegments, getTotalAssets } from '$lib/financial-totals'
-  import type { MetricChanges } from '$lib/metric-changes'
   import type { Profile } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
-
-  import ChangeLabel from './change-label.svelte'
 
   interface Props {
     /** Balances as they stand today — pass the projected profile. */
@@ -23,11 +20,9 @@
      * the "projected from" caption; omit it when the figures are current.
      */
     projectedFrom?: string
-    /** How the headline moved since the previous update; omit it when there is none. */
-    changes?: MetricChanges
   }
 
-  let { profile, projectedFrom, changes }: Props = $props()
+  let { profile, projectedFrom }: Props = $props()
 
   const CATEGORY_LABELS: Record<CategoryLabel, string> = {
     cash: 'page.financialData.nav.cash',
@@ -60,16 +55,7 @@
             iconClass="size-3"
           />
         </div>
-        <div class="flex items-center gap-2">
-          <p class="text-xl font-extrabold">{appStore.formatCompactCurrency(netWorth)}</p>
-          {#if changes?.netWorth !== undefined}
-            <ChangeLabel
-              value={changes.netWorth}
-              since={changes.since}
-              format={appStore.formatCompactCurrency}
-            />
-          {/if}
-        </div>
+        <p class="text-xl font-extrabold">{appStore.formatCompactCurrency(netWorth)}</p>
         <p class="text-xs text-muted-foreground">
           {#if projectedFrom}
             {$_('page.dashboard.finances.netWorthCard.projected', {

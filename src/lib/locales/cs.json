@@ -292,9 +292,6 @@
           "description": "Všechny údaje jsou odhadnuté od poslední aktualizace — zkontrolujte je pro větší přesnost.",
           "quickUpdate": "Rychlá aktualizace"
         },
-        "change": {
-          "since": "Změna od vaší předchozí aktualizace {date}"
-        },
         "netWorthCard": {
           "title": "Čisté jmění",
           "help": "Celková hodnota vašeho majetku po odečtení závazků",
@@ -370,7 +367,15 @@
           "title": "Historie",
           "viewDetails": "Zobrazit detaily",
           "chartLabel": "Čisté jmění v čase",
-          "now": "Nyní"
+          "now": "Nyní",
+          "tooltip": {
+            "netWorth": "Čisté jmění",
+            "runway": "Rezerva",
+            "fi": "Finanční nezávislost",
+            "years": "{years} let",
+            "yearsCapped": "{years}+ let",
+            "clickToEdit": "Klikněte pro úpravu"
+          }
         }
       },
       "projections": {

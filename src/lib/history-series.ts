@@ -1,19 +1,37 @@
 import { addDays, daysBetween } from '$lib/@snaha/kalkul-maths'
 import { getCurrentProfile } from '$lib/current-values'
-import { hasAnyFinancialData } from '$lib/financial-totals'
-import { type Profile, normalizeSnapshots } from '$lib/schemas'
-import { captureSnapshot, snapshotNetWorth } from '$lib/snapshots'
+import { getFiPercent, hasAnyFinancialData } from '$lib/financial-totals'
+import { getRunwayYears } from '$lib/runway'
+import { type Profile, type Snapshot, normalizeSnapshots } from '$lib/schemas'
+import { captureSnapshot, profileAtSnapshot, snapshotNetWorth } from '$lib/snapshots'
 import { parseDateOnly, toDateOnlyString } from '$lib/utils'
 
-export interface HistoryPoint {
+/** The figures the History chart reports for one date. */
+export interface HistoryMetrics {
+  netWorth: number
+  /** Undefined with nothing to pay; `Infinity` past the runway cap. */
+  runwayYears?: number
+  /** Undefined with nothing to pay. */
+  fiPercent?: number
+}
+
+/**
+ * How each figure moved since the previous recorded point, in its own unit
+ * (currency, years, percentage points), rounded to the precision the chart
+ * shows it at. A figure missing on either side has no change.
+ */
+export type HistoryChange = { [K in keyof HistoryMetrics]?: number }
+
+export interface HistoryPoint extends HistoryMetrics {
   /** Date-only ISO string (`YYYY-MM-DD`). */
   date: string
-  netWorth: number
   /**
    * True for points carried forward from the most recent snapshot rather than
    * recorded by the user. The History chart draws them as a dashed tail.
    */
   projected: boolean
+  /** Absent on the first recorded point: nothing came before it. */
+  change?: HistoryChange
 }
 
 /**
@@ -25,9 +43,50 @@ export interface HistoryPoint {
  */
 const PROJECTED_SAMPLES = 8
 
-/** Net worth as the balances stand on `date`, projected from the last snapshot. */
-function netWorthOn(profile: Profile, date: string): number {
-  return snapshotNetWorth(captureSnapshot(getCurrentProfile(profile, parseDateOnly(date)), date))
+/** The figures as the balances stand on `date`, projected from the last snapshot. */
+function metricsOn(profile: Profile, date: string): HistoryMetrics {
+  const current = getCurrentProfile(profile, parseDateOnly(date))
+  return {
+    netWorth: snapshotNetWorth(captureSnapshot(current, date)),
+    runwayYears: getRunwayYears(current),
+    fiPercent: getFiPercent(current),
+  }
+}
+
+/** The figures as a snapshot recorded them. */
+function metricsOf(profile: Profile, snapshot: Snapshot): HistoryMetrics {
+  const then = profileAtSnapshot(profile, snapshot)
+  return {
+    netWorth: snapshotNetWorth(snapshot),
+    runwayYears: getRunwayYears(then),
+    fiPercent: getFiPercent(then),
+  }
+}
+
+/**
+ * `current − previous` to `decimals` places, so a sub-unit move reads as
+ * unchanged rather than as "+0". Runway can be `Infinity` on either side:
+ * still infinite is no change, and a jump to or from infinite has no size.
+ */
+function diff(
+  previous: number | undefined,
+  current: number | undefined,
+  decimals: number,
+): number | undefined {
+  if (previous === undefined || current === undefined) return undefined
+  if (previous === current) return 0
+  if (!Number.isFinite(previous) || !Number.isFinite(current)) return undefined
+  const scale = 10 ** decimals
+  // `+ 0` turns the -0 a tiny negative rounds to into plain 0.
+  return Math.round((current - previous) * scale) / scale + 0
+}
+
+function changeBetween(previous: HistoryMetrics, current: HistoryMetrics): HistoryChange {
+  return {
+    netWorth: diff(previous.netWorth, current.netWorth, 0),
+    runwayYears: diff(previous.runwayYears, current.runwayYears, 1),
+    fiPercent: diff(previous.fiPercent, current.fiPercent, 0),
+  }
 }
 
 /**
@@ -43,8 +102,10 @@ export function hasHistoryToShow(profile: Profile): boolean {
 }
 
 /**
- * Net worth over time for the History chart: one point per recorded snapshot,
- * then a sampled projection running from the last of them to today.
+ * Net worth, runway and FI over time for the History chart: one point per
+ * recorded snapshot, then a sampled projection running from the last of them
+ * to today. Every point after the first carries its change since the last
+ * recorded point before it, so hovering a reading shows what the update moved.
  *
  * Pass the *stored* profile — the one holding balances as of its latest
  * snapshot. Each projected sample is computed by carrying those balances
@@ -62,20 +123,30 @@ export function buildHistorySeries(profile: Profile, today: Date): HistoryPoint[
   const snapshots = normalizeSnapshots(profile.snapshots ?? [])
 
   const todayDate = toDateOnlyString(today)
-  const points: HistoryPoint[] = snapshots
-    .filter((snapshot) => snapshot.date <= todayDate)
-    .map((snapshot) => ({
-      date: snapshot.date,
-      netWorth: snapshotNetWorth(snapshot),
-      projected: false,
-    }))
+  const points: HistoryPoint[] = []
+  let previous: HistoryMetrics | undefined
+  const push = (date: string, metrics: HistoryMetrics, projected: boolean) => {
+    points.push({
+      date,
+      ...metrics,
+      projected,
+      ...(previous ? { change: changeBetween(previous, metrics) } : {}),
+    })
+    // The baseline is always a recorded reading, not a sample of the tail.
+    if (!projected) previous = metrics
+  }
+
+  for (const snapshot of snapshots) {
+    if (snapshot.date <= todayDate) push(snapshot.date, metricsOf(profile, snapshot), false)
+  }
 
   const lastRecorded = points.at(-1)?.date
   if (lastRecorded === todayDate) return points
 
   // No history to project from: today's balances are simply what they are.
   if (lastRecorded === undefined) {
-    return [{ date: todayDate, netWorth: netWorthOn(profile, todayDate), projected: false }]
+    push(todayDate, metricsOn(profile, todayDate), false)
+    return points
   }
 
   // At most one sample a day, so a tail spanning a couple of days doesn't
@@ -84,7 +155,7 @@ export function buildHistorySeries(profile: Profile, today: Date): HistoryPoint[
   const samples = Math.min(PROJECTED_SAMPLES, elapsed)
   for (let sample = 1; sample <= samples; sample++) {
     const date = addDays(lastRecorded, Math.round((elapsed * sample) / samples))
-    points.push({ date, netWorth: netWorthOn(profile, date), projected: true })
+    push(date, metricsOn(profile, date), true)
   }
   return points
 }

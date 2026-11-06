@@ -10,26 +10,31 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
-## 2026-11-06 Dashboard headlines show their change since the previous update
+## 2026-11-06 The History chart tooltip shows what each update changed
 
-**Context.** #292 asks for some reward for updating one's data. The design
-proposed tooltips over the four headline figures, with a banner to hide them.
+**Context.** #292 asks for some reward for updating one's data; its design
+proposed tooltips over the four dashboard headline figures, with a banner to
+hide them. #345 adds a tooltip to the History chart's dots with the reading on
+that date: net worth, runway and financial independence.
 
-**Decision.** Each headline on the dashboard (net worth, savings rate, runway,
-financial independence) carries a small label after the figure: green when it
-rose, red when it fell, grey when it did not move. The label is the figure as
-shown today less the same figure as it stood on the snapshot before the latest
-one, in the figure's own unit: the currency amount for net worth, percentage
-points for the two rates, years for runway. It is always shown once there are
-two snapshots, and absent until then or when either side has no figure (no
-expenses recorded then, no income now). Nothing to dismiss. (#292)
+**Decision.** The change lives in the History chart tooltip, not on the
+dashboard cards. Hovering (or focusing) a dot draws a vertical guide and shows
+the date, net worth, runway and financial independence on that date, each
+followed by a small label with its change since the previous recorded
+snapshot: green when it rose, red when it fell, grey when it did not move.
+The change is in the figure's own unit (currency, years, percentage points),
+rounded to what the tooltip shows, and absent when either side has no figure
+(nothing to pay then, or now). The "now" dot compares today's projected
+figures with the latest snapshot. On the History page a recorded dot opens
+its snapshot for editing; the dashboard chart has no edit dialog, so it does
+not. (#292, #345)
 
-**Why.** Inline labels are read without hovering and need no banner or
-dismiss state, and comparing against the previous snapshot is a baseline the
-user set themselves, so the number means "since your last update" whether the
-page is opened right after one or weeks later. The relative change the design
-showed in parentheses is dropped: for the two rates it would be a percentage
-of a percentage. The chart tooltips of #345 are a separate change.
+**Why.** The previous snapshot is a baseline the user set themselves, so the
+label means "since your last update" whether the chart is read right after one
+or weeks later, and it is read next to the dot it compares with. A relative
+change (the design's "(9.24 %)") is dropped: for the two rates it would be a
+percentage of a percentage. Savings rate is not in the tooltip, following the
+#345 frame.
 
 ## 2026-11-06 An age is reached in the birthday month
 
