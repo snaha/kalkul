@@ -670,7 +670,7 @@
       },
       "backup": {
         "export": "Export to file",
-        "exportDescription": "Save your current Kalkul data as a file to back up or transfer to another device.",
+        "exportDescription": "Save your current Kalkul data as a file to back up or transfer to another device. Hold Ctrl (⌘ on Mac) while clicking to choose the file name and place.",
         "import": "Import from file",
         "importDescription": "Load a previously exported Kalkul file. This will replace your current data.",
         "startFresh": "Start fresh",

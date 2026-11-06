@@ -10,6 +10,20 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-06 Ctrl-click on Export opens the browser's "Save as" dialog
+
+**Context.** Export downloads the backup under an automatic name, and a file
+of that name already in the folder gets a "-1" suffix from the browser.
+
+**Decision.** A plain click keeps the automatic download. A Ctrl-click (Cmd
+on a Mac) opens the browser's own "Save as" dialog with that name filled in,
+where the user picks the name and the place and may overwrite. Browsers
+without the dialog (Firefox, Safari) download as before. Cancelling the dialog
+exports nothing.
+
+**Why.** The browser's dialog does what a Kalkul dialog would, with no code
+for it, and the modifier keeps the one-click export for everyone else.
+
 ## 2026-11-06 An age is reached in the birthday month
 
 **Context.** A cash flow or transfer timed "when your age is N" resolved to

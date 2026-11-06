@@ -670,7 +670,7 @@
       },
       "backup": {
         "export": "Exportovat do souboru",
-        "exportDescription": "Uložte svá aktuální data Kalkul do souboru pro zálohu nebo přenos na jiné zařízení.",
+        "exportDescription": "Uložte svá aktuální data Kalkul do souboru pro zálohu nebo přenos na jiné zařízení. Podržte Ctrl (⌘ na Macu) při kliknutí a vyberte název a umístění souboru.",
         "import": "Importovat ze souboru",
         "importDescription": "Načtěte dříve exportovaný soubor Kalkul. Tím nahradíte svá aktuální data.",
         "startFresh": "Začít od nuly",
