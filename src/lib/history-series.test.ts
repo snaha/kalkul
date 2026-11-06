@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 
 import { buildHistorySeries, hasHistoryToShow } from './history-series'
-import type { Profile } from './schemas'
+import type { Profile, Snapshot } from './schemas'
 
 // Snapshot on 2026-01-01, read on 2026-07-02 — 182 elapsed days.
 const TODAY = new Date(2026, 6, 2)
@@ -119,7 +119,7 @@ describe('buildHistorySeries', () => {
     const recorded = buildHistorySeries(profile, TODAY).filter((point) => !point.projected)
     expect(recorded).toEqual([
       { date: '2026-01-01', netWorth: 10_000, projected: false },
-      { date: '2026-03-01', netWorth: 12_000, projected: false },
+      { date: '2026-03-01', netWorth: 12_000, projected: false, change: { netWorth: 2_000 } },
     ])
   })
 
@@ -139,6 +139,108 @@ describe('buildHistorySeries', () => {
 
   test('returns nothing for a profile with no financial data', () => {
     expect(buildHistorySeries({ name: '', email: '' }, TODAY)).toEqual([])
+  })
+})
+
+describe('buildHistorySeries figures and changes', () => {
+  const JANUARY: Snapshot = {
+    date: '2026-01-01',
+    cash_amount: 10_000,
+    investments: [{ id: 'inv1', balance: 100_000 }],
+    tangible_assets: [],
+    liabilities: [],
+    incomes: [{ id: 'inc1', amount: 4_000, frequency: 'monthly' }],
+    expenses: [{ id: 'exp1', amount: 3_000, frequency: 'monthly' }],
+  }
+  const APRIL: Snapshot = {
+    ...JANUARY,
+    date: '2026-04-01',
+    cash_amount: 12_000,
+    investments: [{ id: 'inv1', balance: 105_000 }],
+    expenses: [{ id: 'exp1', amount: 3_400, frequency: 'monthly' }],
+  }
+  /** Stored as of April; 0 % APY so nothing moves between readings. */
+  const PROFILE: Profile = {
+    name: 'Alice',
+    email: 'a@example.com',
+    cash_amount: 12_000,
+    investments: [{ id: 'inv1', name: 'ETF', balance: 105_000, apy: 0 }],
+    incomes: [
+      { id: 'inc1', name: 'Salary', amount: 4_000, schedule: 'recurring', frequency: 'monthly' },
+    ],
+    expenses: [
+      { id: 'exp1', name: 'Rent', amount: 3_400, schedule: 'recurring', frequency: 'monthly' },
+    ],
+    snapshots: [JANUARY, APRIL],
+  }
+  const APRIL_FIRST = new Date(2026, 3, 1)
+
+  test('each recorded point carries its figures and the change since the previous one', () => {
+    const [january, april] = buildHistorySeries(PROFILE, APRIL_FIRST)
+    expect(january).toEqual({
+      date: '2026-01-01',
+      netWorth: 110_000,
+      // 110,000 / 3,000 a month = 36.7 months
+      runwayYears: expect.closeTo(3.06, 2),
+      // FI number 3,000 × 12 / 4 % = 900,000; cash + investments 110,000 of it
+      fiPercent: expect.closeTo(12.22, 2),
+      projected: false,
+    })
+    expect(april).toEqual({
+      date: '2026-04-01',
+      netWorth: 117_000,
+      // 117,000 / 3,400 a month = 34.4 months
+      runwayYears: expect.closeTo(2.87, 2),
+      // 3,400 × 12 / 4 % = 1,020,000; 117,000 of it
+      fiPercent: expect.closeTo(11.47, 2),
+      projected: false,
+      change: { netWorth: 7_000, runwayYears: -0.2, fiPercent: -1 },
+    })
+  })
+
+  test('the projected tail measures against the last recorded point, not the previous sample', () => {
+    const tail = buildHistorySeries(GROWING, TODAY).slice(1)
+    expect(tail.map((point) => point.change?.netWorth)).toEqual([
+      602, 1_208, 1_790, 2_403, 3_019, 3_640, 4_236, 4_864,
+    ])
+  })
+
+  test('a sub-unit move reads as unchanged, not as "-0"', () => {
+    // 3,001 a month instead of 3,000 moves runway by a thousandth of a year.
+    const nearlyTheSame: Snapshot = {
+      ...JANUARY,
+      date: '2026-04-01',
+      expenses: [{ id: 'exp1', amount: 3_001, frequency: 'monthly' }],
+    }
+    const [, april] = buildHistorySeries(
+      { ...PROFILE, snapshots: [JANUARY, nearlyTheSame] },
+      APRIL_FIRST,
+    )
+    expect(april.change).toEqual({ netWorth: 0, runwayYears: 0, fiPercent: 0 })
+    expect(Object.is(april.change?.runwayYears, 0)).toBe(true)
+  })
+
+  test('the change is between the figures as shown, not the rounded raw difference', () => {
+    // 2,920 a month: runway 3.14 years and FI 12.6 %, against 3.06 years and
+    // 12.2 % in January. The tooltip shows 3.1 both times, and 12 % then 13 %.
+    const april: Snapshot = {
+      ...JANUARY,
+      date: '2026-04-01',
+      expenses: [{ id: 'exp1', amount: 2_920, frequency: 'monthly' }],
+    }
+    const [, point] = buildHistorySeries({ ...PROFILE, snapshots: [JANUARY, april] }, APRIL_FIRST)
+    expect(point.change).toEqual({ netWorth: 0, runwayYears: 0, fiPercent: 1 })
+  })
+
+  test('a figure missing on either side has no change', () => {
+    // Nothing to pay in January: no runway and no FI number to compare with.
+    const noExpensesThen = { ...JANUARY, expenses: [] }
+    const [, april] = buildHistorySeries(
+      { ...PROFILE, snapshots: [noExpensesThen, APRIL] },
+      APRIL_FIRST,
+    )
+    expect(april.change).toEqual({ netWorth: 7_000 })
+    expect(april.change?.runwayYears).toBeUndefined()
   })
 })
 

@@ -10,6 +10,33 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-06 The History chart tooltip shows what each update changed
+
+**Context.** #292 asks for some reward for updating one's data; its design
+proposed tooltips over the four dashboard headline figures, with a banner to
+hide them. #345 adds a tooltip to the History chart's dots with the reading on
+that date: net worth, runway and financial independence.
+
+**Decision.** The change lives in the History chart tooltip, not on the
+dashboard cards. Hovering (or focusing) a dot draws a vertical guide and shows
+the date, net worth, runway and financial independence on that date, each
+followed by a small label with its change since the previous recorded
+snapshot: green when it rose, red when it fell, grey when it did not move.
+The change is in the figure's own unit (currency, years, and "pp" for
+percentage points), the difference between the two figures as the tooltip
+shows them, and absent when either side has no figure (nothing to pay then,
+or now) or when runway crosses the 100-year cap, since that move has no size.
+The "now" dot compares today's projected figures with the latest snapshot. On
+the History page a recorded dot opens its snapshot for editing; the dashboard
+chart has no edit dialog, so it does not, which leaves #345 open. (#292, #345)
+
+**Why.** The previous snapshot is a baseline the user set themselves, so the
+label means "since your last update" whether the chart is read right after one
+or weeks later, and it is read next to the dot it compares with. A relative
+change (the design's "(9.24 %)") is dropped: for the two rates it would be a
+percentage of a percentage. Savings rate is not in the tooltip, following the
+#345 frame.
+
 ## 2026-11-06 An age is reached in the birthday month
 
 **Context.** A cash flow or transfer timed "when your age is N" resolved to
