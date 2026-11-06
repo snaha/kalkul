@@ -141,11 +141,7 @@
   const summary = $derived.by(() => {
     if (!canSave) return undefined
     if (form.schedule === 'one_time' && !form.inflation_adjusted) return undefined
-    return summarizeCashFlow(
-      cashFlowFromFields(form),
-      plan,
-      appStore.profile.birthDate?.getFullYear(),
-    )
+    return summarizeCashFlow(cashFlowFromFields(form), plan, appStore.profile.birth_date)
   })
 </script>
 

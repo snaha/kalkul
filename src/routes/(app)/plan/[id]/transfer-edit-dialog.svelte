@@ -186,11 +186,7 @@
     if (!amountAndTimingValid || !taxRateValid || form.transfer_all) return undefined
     if (form.schedule === 'one_time' && !form.inflation_adjusted && !form.deduct_tax)
       return undefined
-    return summarizeTransfer(
-      transferFromFields(form),
-      plan,
-      appStore.profile.birthDate?.getFullYear(),
-    )
+    return summarizeTransfer(transferFromFields(form), plan, appStore.profile.birth_date)
   })
 </script>
 
