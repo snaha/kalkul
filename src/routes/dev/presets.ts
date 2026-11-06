@@ -114,7 +114,7 @@ function rewoundSnapshot(
     cash_amount: round((snapshot.cash_amount ?? 0) * liquidFactor),
     investments: snapshot.investments?.map((investment) => ({
       ...investment,
-      balance: round(investment.balance * liquidFactor),
+      balance: round((investment.balance ?? 0) * liquidFactor),
     })),
     tangible_assets: snapshot.tangible_assets?.map((asset) => {
       const financing = financingFor(asset.id)

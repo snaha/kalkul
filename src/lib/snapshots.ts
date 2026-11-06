@@ -1,3 +1,7 @@
+import Decimal from 'decimal.js'
+
+import { daysBetween } from '$lib/@snaha/kalkul-maths'
+import type { ExplicitBalances } from '$lib/current-values'
 import {
   type Expense,
   type Income,
@@ -93,7 +97,7 @@ function recordedFlows(flows: CashFlow[] | undefined): SnapshotCashFlow[] {
 export function snapshotNetWorth(snapshot: SnapshotBalances): number {
   const assets =
     (snapshot.cash_amount ?? 0) +
-    (snapshot.investments ?? []).reduce((sum, i) => sum + i.balance, 0) +
+    (snapshot.investments ?? []).reduce((sum, i) => sum + (i.balance ?? 0), 0) +
     (snapshot.tangible_assets ?? []).reduce((sum, a) => sum + a.value, 0)
   const liabilities =
     (snapshot.liabilities ?? []).reduce((sum, l) => sum + l.outstanding_balance, 0) +
@@ -107,10 +111,96 @@ export function snapshotNetWorth(snapshot: SnapshotBalances): number {
  */
 export function hasAnyBalance(snapshot: SnapshotBalances): boolean {
   if ((snapshot.cash_amount ?? 0) > 0) return true
-  if ((snapshot.investments ?? []).some((i) => i.balance > 0)) return true
+  if ((snapshot.investments ?? []).some((i) => (i.balance ?? 0) > 0)) return true
   if ((snapshot.tangible_assets ?? []).some((a) => a.value > 0)) return true
   if ((snapshot.liabilities ?? []).some((l) => l.outstanding_balance > 0)) return true
   return false
+}
+
+/**
+ * A figure's value on every date, in date order, with each unknown calculated:
+ * linearly by date between its nearest known values, or 0 with no earlier one.
+ * The last figure is always known.
+ */
+function withUnknownsCalculated(
+  dates: string[],
+  figures: (number | undefined)[],
+): (number | undefined)[] {
+  return figures.map((figure, index) => {
+    if (figure !== undefined) return figure
+    const before = figures.findLastIndex((f, i) => i < index && f !== undefined)
+    if (before === -1) return 0
+    const after = figures.findIndex((f, i) => i > index && f !== undefined)
+    const from = new Decimal(figures[before] ?? 0)
+    return from
+      .plus(
+        new Decimal(figures[after] ?? 0)
+          .minus(from)
+          .times(daysBetween(dates[before], dates[index]))
+          .dividedBy(daysBetween(dates[before], dates[after])),
+      )
+      .toDecimalPlaces(0)
+      .toNumber()
+  })
+}
+
+/**
+ * The history in date order with every unknown figure calculated. The profile
+ * holds the figures as of the newest date, so it states any unknown there. An
+ * investment with no entry on a date counts as a known 0.
+ */
+export function resolveSnapshots(profile: Profile): Snapshot[] {
+  const snapshots = normalizeSnapshots(profile.snapshots ?? [])
+  const dates = snapshots.map((snapshot) => snapshot.date)
+  const newest = snapshots.length - 1
+
+  const cash = withUnknownsCalculated(
+    dates,
+    snapshots.map((snapshot, index) =>
+      index === newest ? (snapshot.cash_amount ?? profile.cash_amount ?? 0) : snapshot.cash_amount,
+    ),
+  )
+
+  const held = byId(profile.investments)
+  const entries = snapshots.map((snapshot) => byId(snapshot.investments))
+  const unknownIds = new Set(
+    snapshots.flatMap((snapshot) =>
+      (snapshot.investments ?? []).filter((i) => i.balance === undefined).map((i) => i.id),
+    ),
+  )
+  const balances = new Map(
+    [...unknownIds].map((id) => [
+      id,
+      withUnknownsCalculated(
+        dates,
+        entries.map((byItem, index) => {
+          const entry = byItem.get(id)
+          if (!entry) return 0
+          return index === newest ? (entry.balance ?? held.get(id)?.balance ?? 0) : entry.balance
+        }),
+      ),
+    ]),
+  )
+
+  return snapshots.map((snapshot, index) => ({
+    ...snapshot,
+    cash_amount: cash[index],
+    investments: snapshot.investments?.map((entry) => ({
+      ...entry,
+      balance: entry.balance ?? balances.get(entry.id)?.[index],
+    })),
+  }))
+}
+
+/** `snapshot` with every cash and investment figure not in `entered` unknown. */
+export function withUnknownBalances(snapshot: Snapshot, entered: ExplicitBalances): Snapshot {
+  return {
+    ...snapshot,
+    cash_amount: entered.cash ? snapshot.cash_amount : undefined,
+    investments: snapshot.investments?.map((entry) =>
+      entered.investmentIds?.has(entry.id) ? entry : { id: entry.id },
+    ),
+  }
 }
 
 /**
@@ -238,7 +328,7 @@ type SnapshotCashFlow = NonNullable<Snapshot['incomes']>[number]
 const withRecordedBalance = (
   item: ProfileInvestment,
   entry: SnapshotInvestment,
-): ProfileInvestment => ({ ...item, balance: entry.balance })
+): ProfileInvestment => ({ ...item, balance: entry.balance ?? item.balance })
 
 /**
  * Whether a recorded asset entry carries a debt — the one fact that decides
@@ -347,6 +437,8 @@ const MISSING_CASH_FLOW = {
  * nothing counts. Snapshots written before cash flows were recorded are filled
  * in from the profile at the load boundary (`repairStoredData` in
  * `schemas.ts`), so by the time one reaches here undefined has one meaning.
+ *
+ * Takes a snapshot from `resolveSnapshots`: an unknown figure counts as nothing.
  */
 export function profileAtSnapshot(profile: Profile, snapshot: Snapshot): Profile {
   const investments = byId(profile.investments)
@@ -388,10 +480,8 @@ export function profileAtSnapshot(profile: Profile, snapshot: Snapshot): Profile
  * entry for. That is right for reporting a past date, but wrong here: an
  * investment opened after the snapshot was taken is still owned today, and
  * re-baselining must not delete it from the profile — `withHistory` records it
- * in the snapshot instead, so the two agree again. Cash is the exception —
- * there is only one, and `snapshotNetWorth` counts a missing amount as zero, so
- * the profile has to as well or its net worth would disagree with the
- * snapshot it was just baselined onto.
+ * in the snapshot instead, so the two agree again. An unknown figure is left
+ * alone the same way.
  *
  * Cash flows are not re-baselined at all. A snapshot's recorded flows are what
  * ran on its date; the profile's are what runs now, and the two part ways the
@@ -415,7 +505,7 @@ function withSnapshotValues(profile: Profile, snapshot: Snapshot): Profile {
 
   return {
     ...profile,
-    cash_amount: snapshot.cash_amount ?? 0,
+    cash_amount: snapshot.cash_amount ?? profile.cash_amount,
     investments: overlay(profile.investments, snapshot.investments, withRecordedBalance),
     tangible_assets: overlay(profile.tangible_assets, snapshot.tangible_assets, withRecordedValue),
     liabilities: overlay(profile.liabilities, snapshot.liabilities, withRecordedDebt),
@@ -463,11 +553,18 @@ function withUnrecordedHoldings(snapshot: Snapshot, profile: Profile): Snapshot 
  * dashboard would count that holding and the History chart's last recorded
  * point would not, and the next rename would read as a balance moving and
  * re-date the baseline.
+ *
+ * An unknown figure takes its calculated value from the history as it stood,
+ * which is what a rewind onto that date restores.
  */
 function withHistory(profile: Profile, snapshots: Snapshot[]): Profile {
   const latest = latestSnapshot(snapshots)
   if (!latest) return { ...profile, snapshots }
-  const rebased = withSnapshotValues(profile, latest)
+  const calculated = resolveSnapshots(profile).find((snapshot) => snapshot.date === latest.date)
+  const rebased = withSnapshotValues(
+    calculated ? withSnapshotValues(profile, calculated) : profile,
+    latest,
+  )
   return {
     ...rebased,
     snapshots: upsertSnapshot(snapshots, withUnrecordedHoldings(latest, rebased)),

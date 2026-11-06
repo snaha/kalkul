@@ -18,12 +18,13 @@ import {
   canDeleteSnapshot,
   captureSnapshot,
   hasSameBalances,
-  latestSnapshot,
+  resolveSnapshots,
   upsertSnapshot,
   withDeletedSnapshot,
   withLatestTermsRecorded,
   withSavedSnapshot,
   withSeededSnapshot,
+  withUnknownBalances,
 } from '$lib/snapshots'
 import storageKeys from '$lib/storage-keys'
 import {
@@ -159,14 +160,20 @@ function enrichProfile({
  * profile whose values legitimately did not move can never clear the staleness
  * banner.
  */
-function shouldRecordSnapshot(profile: Profile, todayDate: string, force: boolean): boolean {
+function shouldRecordSnapshot(
+  stored: Profile,
+  profile: Profile,
+  todayDate: string,
+  force: boolean,
+): boolean {
   // Nothing to record for a profile that has never held a balance — that gate
   // is there to keep all-zero snapshots out of an empty profile's history. Once
   // a baseline exists, though, going to zero is a real move (the user spent
   // their cash and owns nothing else) and has to be recorded like any other.
   if (!hasAnyFinancialData(profile) && (profile.snapshots ?? []).length === 0) return false
   if (force) return true
-  return !hasSameBalances(latestSnapshot(profile.snapshots), captureSnapshot(profile, todayDate))
+  const baseline = resolveSnapshots({ ...stored, snapshots: profile.snapshots }).at(-1)
+  return !hasSameBalances(baseline, captureSnapshot(profile, todayDate))
 }
 
 const DEFAULT_PROFILE: Profile = {
@@ -296,7 +303,11 @@ function withAppStore() {
    */
   type HistoryMode = 'auto' | 'confirm' | 'manage'
 
-  function writeProfile(updates: Partial<Profile>, history: HistoryMode): void {
+  function writeProfile(
+    updates: Partial<Profile>,
+    history: HistoryMode,
+    entered?: ExplicitBalances,
+  ): void {
     const today = new Date()
     const todayDate = toDateOnlyString(today)
     const stored = profile.toJSON()
@@ -314,28 +325,25 @@ function withAppStore() {
     // Asked against the stored balances, which the latest snapshot matches by
     // construction — so the only differences it can see are the ones `updates`
     // introduces.
-    const recording = shouldRecordSnapshot(next, todayDate, history === 'confirm')
+    const recording = shouldRecordSnapshot(stored, next, todayDate, history === 'confirm')
 
     // Recording re-dates the baseline the dashboard projects from, so balances
     // the edit left alone have to reach today before that happens. An edit that
     // records nothing keeps the old baseline, and so has to keep the stored
     // balances matching it.
     const validated = profileSchema.parse(
-      recording
-        ? withBalancesCarriedForward(
-            stored,
-            next,
-            today,
-            history === 'confirm' ? explicitBalancesOf(updates) : undefined,
-          )
-        : next,
+      recording ? withBalancesCarriedForward(stored, next, today, entered) : next,
     )
 
+    const captured = captureSnapshot(validated, todayDate)
     profile = enrichProfile(
       recording
         ? {
             ...validated,
-            snapshots: upsertSnapshot(validated.snapshots, captureSnapshot(validated, todayDate)),
+            snapshots: upsertSnapshot(
+              validated.snapshots,
+              entered ? withUnknownBalances(captured, entered) : captured,
+            ),
           }
         : // Nothing recorded, but a loan term may still have changed — it moves
           // no balance — and the newest snapshot has to state it, or the next
@@ -454,10 +462,11 @@ function withAppStore() {
      * Same as `updateProfile`, but for an explicit "these are my balances as of
      * today" confirmation (Quick update's Confirm). Always stamps a snapshot
      * dated today, even when the confirmed values equal the stored ones — the
-     * date is the whole point of the action.
+     * date is the whole point of the action. Cash and investment figures not in
+     * `entered` are carried forward and recorded as unknown.
      */
-    confirmBalances(updates: Partial<Profile>) {
-      writeProfile(updates, 'confirm')
+    confirmBalances(updates: Partial<Profile>, entered = explicitBalancesOf(updates)) {
+      writeProfile(updates, 'confirm', entered)
       trackUsage(EVENTS.BALANCES_CONFIRMED)
     },
 

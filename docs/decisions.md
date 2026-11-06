@@ -35,6 +35,26 @@ work out the tax, not the other way round. Grossing up for the fees as well
 would be consistent but changes a rule older than the tax switch, so it is
 left as it is for now; showing what actually arrives with fees on is #413.
 
+## 2026-11-05 A figure Quick update did not get from the user is stored as unknown
+
+**Context.** Quick update saved its own prediction for every row the user left
+alone, so a guess and a checked figure looked the same in the history. A
+snapshot could not say "I don't know this figure" (#372).
+
+**Decision.** A cash or investment row left untouched or erased in Quick update
+is stored with no number. History calculates it on read, linearly by date
+between the nearest known values, and the newest date reads the profile. The
+dialog shows a typed figure and its change in bold and an estimate at regular
+weight. Nothing else changes: no estimated or incomplete state on the chart or
+in the table, no unknown control in the snapshot dialog, and other figures stay
+recorded as numbers.
+
+**Why.** No marker is needed: a missing number already says the figure was not
+given, and a stored prediction would go stale once a later figure arrives.
+Linear works for cash, which has no APY, and always meets both known values.
+This replaces the rule proposed in the issue that the newest snapshot states
+every figure; the profile states them instead.
+
 ## 2026-11-05 A transfer deducts an estimated tax on its gain
 
 **Context.** With the Settings tax rules gone (#386), nothing in a projection

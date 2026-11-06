@@ -57,10 +57,8 @@
     })),
   ])
 
-  // Edited values keyed by row id; a row with no entry uses its suggestion.
-  // Clearing a field stores `undefined`, not 0 — an empty box means "I haven't
-  // said", so it falls back to the suggestion. Confirming a zero balance is
-  // still possible by typing 0, which parses to the number.
+  // Figures the user typed, keyed by row id, shown in bold. A row with no entry,
+  // or a cleared one, shows its suggestion and is recorded as unknown.
   let edits = $state<Record<string, number | undefined>>({})
 
   const valueOf = (row: Row) => edits[row.id] ?? row.suggested
@@ -75,20 +73,19 @@
   })
 
   function confirm(): void {
-    const cashRow = rows.find((row) => row.id === 'cash')
-    // confirmBalances, not updateProfile: confirming unchanged values is still a
-    // confirmation and has to re-date the baseline snapshot to today. The store
-    // persists these values as given and carries the balances the dialog does
-    // not ask about (loans, asset values) forward on its own clock.
-    appStore.confirmBalances(
-      buildConfirmUpdates(
-        // The stored list, so a holding with no row here — one bought in a
-        // future year — survives the submission untouched.
-        storedProfile,
-        cashRow ? valueOf(cashRow) : (projectedProfile.cash_amount ?? 0),
-        new Map(rows.filter((row) => row.id !== 'cash').map((row) => [row.id, valueOf(row)])),
+    const { updates, entered } = buildConfirmUpdates(
+      storedProfile,
+      edits.cash,
+      new Map(
+        rows.flatMap((row) => {
+          const value = edits[row.id]
+          return row.id === 'cash' || value === undefined ? [] : [[row.id, value] as const]
+        }),
       ),
     )
+    // confirmBalances, not updateProfile: confirming unchanged values is still a
+    // confirmation and has to re-date the baseline snapshot to today.
+    appStore.confirmBalances(updates, entered)
     open = false
   }
 </script>
@@ -131,6 +128,7 @@
         <tbody>
           {#each rows as row (row.id)}
             {@const change = percentChange(row.previous, valueOf(row))}
+            {@const entered = edits[row.id] !== undefined}
             <tr>
               <th scope="row" class="py-2 pr-1 text-left text-sm font-medium">{row.label}</th>
               <td class="px-1 py-2 text-sm text-muted-foreground">
@@ -142,6 +140,7 @@
               <td class="p-1">
                 <SuffixedInput
                   value={valueOf(row)}
+                  class={cn(entered && 'font-bold')}
                   suffix={appStore.profile.currencyOrDefault}
                   aria-label={$_('page.dashboard.quickUpdate.currentValueFor', {
                     values: { name: row.label },
@@ -153,6 +152,7 @@
               <td
                 class={cn(
                   'py-2 pl-1 text-right text-sm',
+                  entered && 'font-bold',
                   // No change to report ("—") and a balance that did not move
                   // are neither good nor bad news, so both stay neutral rather
                   // than rendering in the success green.
