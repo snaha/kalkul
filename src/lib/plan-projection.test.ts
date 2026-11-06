@@ -2988,15 +2988,13 @@ describe('summarizeTransfer', () => {
     const plan = summaryPlan({
       investments: [{ id: 'inv1', name: 'Fund', balance: 1000, apy: 100 }],
     })
-    // Held a year at 100%: half of what is sold is gain, taxed at 30%.
-    expect(summarizeTransfer(sale, plan, undefined)).toEqual({
-      occurrences: 1,
-      nominalTotal: 1000,
-      realTotal: 1000,
-      gainTotal: 500,
-      taxTotal: 150,
-      netTotal: 850,
-    })
+    // Held a year at 100%: half of what is sold is gain, taxed at 30%. The
+    // 1,000 is what cash receives, so 1000 / (1 − 0.5 × 0.3) leaves the fund.
+    const result = summarizeTransfer(sale, plan, undefined)
+    expect(result).toMatchObject({ occurrences: 1, nominalTotal: 1000, realTotal: 1000 })
+    expect(result.grossTotal).toBeCloseTo(1000 / 0.85, 6)
+    expect(result.gainTotal).toBeCloseTo((1000 / 0.85) * 0.5, 6)
+    expect(result.taxTotal).toBeCloseTo((1000 / 0.85) * 0.15, 6)
     // Sold from cash there is no gain to estimate.
     expect(
       summarizeTransfer({ ...sale, from_asset_id: 'cash', to_asset_id: 'inv1' }, plan, undefined)
@@ -3004,20 +3002,18 @@ describe('summarizeTransfer', () => {
     ).toBe(0)
   })
 
-  it('previews the net of the fees as well as the tax, as the engine deposits it', () => {
-    const plan = summaryPlan({
-      investments: [
-        {
-          id: 'inv1',
-          name: 'Fund',
-          balance: 1000,
-          apy: 100,
-          exit_fee: 2,
-          exit_fee_type: 'percentage',
-        },
-        { id: 'inv2', name: 'Other', balance: 0, apy: 0, entry_fee: 1, entry_fee_type: 'upfront' },
-      ],
-    })
+  it('grosses up for the tax only: the fees still come off what arrives', () => {
+    const investments: ProfileInvestment[] = [
+      {
+        id: 'inv1',
+        name: 'Fund',
+        balance: 1000,
+        apy: 100,
+        exit_fee: 2,
+        exit_fee_type: 'percentage',
+      },
+      { id: 'inv2', name: 'Other', balance: 0, apy: 0, entry_fee: 1, entry_fee_type: 'upfront' },
+    ]
     const sale: Transfer = {
       ...oneTime,
       from_asset_id: 'inv1',
@@ -3026,8 +3022,13 @@ describe('summarizeTransfer', () => {
       deduct_tax: true,
       tax_rate: 30,
     }
-    // (1000 − 2 % exit fee − 150 tax) − 1 % entry fee.
-    expect(summarizeTransfer(sale, plan, undefined).netTotal).toBeCloseTo(821.7, 6)
+    const years = project(
+      makePlan(),
+      makeProfile({ cash_amount: 0, investments, transfers: [sale] }),
+    )
+    // 1000 / 0.85 leaves the doubled fund; (gross − 2 % exit fee − tax) − 1 % entry fee arrives.
+    const gross = 1000 / 0.85
+    expect(years[1].investments).toBeCloseTo(2000 - gross + (gross * 0.98 - gross * 0.15) * 0.99, 6)
   })
 
   it('counts the holding years the way the engine does: by age, and never before the plan', () => {
@@ -3048,9 +3049,14 @@ describe('summarizeTransfer', () => {
       })
       const years = project(makePlan(), profile)
       const preview = summarizeTransfer(sale, planFrom(profile, {}), 1980)
-      return { engine: years[4].cash - years[3].cash, preview: preview.netTotal }
+      // Cash gets the 1,000 as entered; the fund (grown first) loses the gross.
+      expect(years[4].cash - years[3].cash).toBeCloseTo(1000, 6)
+      return {
+        engine: years[3].investments * 1.07 - years[4].investments,
+        preview: preview.grossTotal,
+      }
     }
-    // Bought at 47 (2027), held two years at 7 %: 1 − 1.07^−2 of the 1,000 is gain.
+    // Bought at 47 (2027), held two years at 7 %: 1 − 1.07^−2 of the gross is gain.
     const byAge = netOf({
       id: 'inv1',
       name: 'Fund',
@@ -3059,7 +3065,7 @@ describe('summarizeTransfer', () => {
       start: 'when_age_is',
       start_age: 47,
     })
-    expect(byAge.preview).toBeCloseTo(1000 - 1000 * (1 - 1.07 ** -2) * 0.25, 6)
+    expect(byAge.preview).toBeCloseTo(1000 / (1 - (1 - 1.07 ** -2) * 0.25), 6)
     expect(byAge.preview).toBeCloseTo(byAge.engine, 6)
     // Bought before the plan: held since the plan start, four years.
     const before = netOf({
@@ -3070,7 +3076,7 @@ describe('summarizeTransfer', () => {
       start: 'at_specific_date',
       start_year: 2020,
     })
-    expect(before.preview).toBeCloseTo(1000 - 1000 * (1 - 1.07 ** -4) * 0.25, 6)
+    expect(before.preview).toBeCloseTo(1000 / (1 - (1 - 1.07 ** -4) * 0.25), 6)
     expect(before.preview).toBeCloseTo(before.engine, 6)
   })
 
@@ -3332,14 +3338,15 @@ describe('estimated tax on a transfer out of an investment', () => {
     }
   }
 
-  it('deducts the rate from the gain share estimated by the APY', () => {
+  it('withdraws the amount plus the tax on the gain share estimated by the APY', () => {
     const result = project(
       makePlan(),
       makeProfile({ cash_amount: 0, investments: doubling, transfers: [sell(2026)] }),
     )
-    // Held a year: 1 − 2^−1 = 50 % gain. 1000 sold: 500 gain × 30 % = 150 tax.
-    expect(result[1].investments).toBeCloseTo(1000, 6)
-    expect(result[1].cash).toBeCloseTo(850, 6)
+    // Held a year: 1 − 2^−1 = 50 % gain, taxed at 30 %. Cash gets the 1000 as
+    // entered; the fund loses 1000 / (1 − 0.5 × 0.3) so the tax is covered.
+    expect(result[1].cash).toBeCloseTo(1000, 6)
+    expect(result[1].investments).toBeCloseTo(2000 - 1000 / 0.85, 6)
   })
 
   it('charges nothing in the year the plan starts, or without the switch', () => {

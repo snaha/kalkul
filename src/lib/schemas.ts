@@ -872,9 +872,10 @@ export const transferSchema = z
     // When true, ignore `amount` and transfer the source's full available
     // balance at the time of execution.
     transfer_all: z.boolean().optional(),
-    // Deduct an estimated tax on the gain share of what leaves an investment,
-    // at `tax_rate` %: the gain is estimated from the investment's APY and
-    // the years it has been held in the plan (`estimatedGainShare`).
+    // Pay an estimated tax on top of `amount` when it leaves an investment:
+    // `amount` is what arrives, the source gives up that plus `tax_rate` % of
+    // the gain share, estimated from the investment's APY and the years it
+    // has been held in the plan (`estimatedGainShare`, `grossTransferAmount`).
     deduct_tax: z.boolean().optional(),
     tax_rate: z.number().min(0).max(100).optional(),
     // Independent toggle: grows the nominal amount with the plan's inflation

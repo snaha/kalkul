@@ -183,7 +183,7 @@
       "transferOccurrences": "{count, plural, one {# výskyt} few {# výskyty} other {# výskytů}}",
       "transferNominalValue": "Nominální hodnota: {nominal} ({real} v dnešních penězích)",
       "transferNominalTotal": "Nominální součet: {nominal} ({real} v dnešních penězích)",
-      "transferNetValue": "Čistý převod: {net} (po dani {tax} ze zisku {gain})",
+      "transferGrossValue": "Odebráno ze zdroje: {gross} (včetně daně {tax} ze zisku {gain})",
       "transferTotal": "Celkem: {total}",
       "newIncome": "Přidat příjem",
       "newExpense": "Přidat výdaj",

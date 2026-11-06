@@ -183,7 +183,7 @@
       "transferOccurrences": "{count, plural, one {# occurrence} other {# occurrences}}",
       "transferNominalValue": "Nominal value: {nominal} ({real} in today's money)",
       "transferNominalTotal": "Nominal total: {nominal} ({real} in today's money)",
-      "transferNetValue": "Net transfer: {net} (after {tax} tax applied on {gain} gain)",
+      "transferGrossValue": "Withdrawn from the source: {gross} (including {tax} tax on {gain} gain)",
       "transferTotal": "Total: {total}",
       "newIncome": "Add income",
       "newExpense": "Add expense",
