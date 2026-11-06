@@ -292,6 +292,9 @@
           "description": "All figures projected from your last update — review for more accuracy.",
           "quickUpdate": "Quick update"
         },
+        "change": {
+          "since": "Change since your previous update on {date}"
+        },
         "netWorthCard": {
           "title": "Net worth",
           "help": "Total value of your assets minus your liabilities",

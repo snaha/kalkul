@@ -10,6 +10,27 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-06 Dashboard headlines show their change since the previous update
+
+**Context.** #292 asks for some reward for updating one's data. The design
+proposed tooltips over the four headline figures, with a banner to hide them.
+
+**Decision.** Each headline on the dashboard (net worth, savings rate, runway,
+financial independence) carries a small label after the figure: green when it
+rose, red when it fell, grey when it did not move. The label is the figure as
+shown today less the same figure as it stood on the snapshot before the latest
+one, in the figure's own unit: the currency amount for net worth, percentage
+points for the two rates, years for runway. It is always shown once there are
+two snapshots, and absent until then or when either side has no figure (no
+expenses recorded then, no income now). Nothing to dismiss. (#292)
+
+**Why.** Inline labels are read without hovering and need no banner or
+dismiss state, and comparing against the previous snapshot is a baseline the
+user set themselves, so the number means "since your last update" whether the
+page is opened right after one or weeks later. The relative change the design
+showed in parentheses is dropped: for the two rates it would be a percentage
+of a percentage. The chart tooltips of #345 are a separate change.
+
 ## 2026-11-06 An age is reached in the birthday month
 
 **Context.** A cash flow or transfer timed "when your age is N" resolved to

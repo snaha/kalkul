@@ -13,6 +13,7 @@
   import { getCurrentProfile } from '$lib/current-values'
   import { getFiPercent, hasAnyFinancialData } from '$lib/financial-totals'
   import { buildHistorySeries } from '$lib/history-series'
+  import { getMetricChanges } from '$lib/metric-changes'
   import routes from '$lib/routes'
   import { RUNWAY_CAP_YEARS, getRunwayYears } from '$lib/runway'
   import { staleSince as staleSinceOf } from '$lib/snapshots'
@@ -20,6 +21,7 @@
   import { trackToday } from '$lib/today.svelte'
   import { toDateOnlyString } from '$lib/utils'
 
+  import ChangeLabel from './change-label.svelte'
   import FiSettingsDialog from './fi-settings-dialog.svelte'
   import HistorySection from './history-section.svelte'
   import Landing from './landing.svelte'
@@ -53,6 +55,8 @@
   // The stored profile, not the projected one: the series carries the balances
   // forward itself, sampling the tail so compounding reads as a curve.
   const historyPoints = $derived(buildHistorySeries(storedProfile, today))
+  // What each headline gained or lost since the update before the latest one.
+  const changes = $derived(getMetricChanges(storedProfile, currentProfile, todayDate))
 
   let quickUpdateOpen = $state(false)
   let fiSettingsOpen = $state(false)
@@ -92,10 +96,10 @@
               {/if}
 
               <div class="flex items-stretch gap-2">
-                <NetWorthCard profile={currentProfile} projectedFrom={staleSince} />
+                <NetWorthCard profile={currentProfile} projectedFrom={staleSince} {changes} />
 
                 <div class="flex min-w-0 flex-1 flex-col justify-center gap-2">
-                  <SavingsRateCard profile={currentProfile} />
+                  <SavingsRateCard profile={currentProfile} {changes} />
 
                   <MetricCard
                     title={$_('page.dashboard.finances.runwayCard.title')}
@@ -110,13 +114,25 @@
                         })}
                       </p>
                     {:else if runwayYears !== undefined}
-                      <p class="text-xl font-extrabold">
-                        {$_('page.dashboard.finances.runwayCard.value', {
-                          values: {
-                            years: appStore.formatNumber(Math.round(runwayYears * 10) / 10),
-                          },
-                        })}
-                      </p>
+                      <div class="flex items-center gap-2">
+                        <p class="text-xl font-extrabold">
+                          {$_('page.dashboard.finances.runwayCard.value', {
+                            values: {
+                              years: appStore.formatNumber(Math.round(runwayYears * 10) / 10),
+                            },
+                          })}
+                        </p>
+                        {#if changes?.runwayYears !== undefined}
+                          <ChangeLabel
+                            value={changes.runwayYears}
+                            since={changes.since}
+                            format={(years) =>
+                              $_('page.dashboard.finances.runwayCard.value', {
+                                values: { years: appStore.formatNumber(years) },
+                              })}
+                          />
+                        {/if}
+                      </div>
                     {:else}
                       <p class="text-xl font-extrabold">—</p>
                       <p class="text-xs text-muted-foreground">
@@ -134,6 +150,13 @@
                     {#if fiPercent !== undefined}
                       <div class="flex items-center gap-2">
                         <p class="text-xl font-extrabold">{appStore.formatPercent(fiPercent, 0)}</p>
+                        {#if changes?.fiPercent !== undefined}
+                          <ChangeLabel
+                            value={changes.fiPercent}
+                            since={changes.since}
+                            format={(points) => appStore.formatPercent(points, 0)}
+                          />
+                        {/if}
                         <Progress value={Math.min(fiPercent, 100)} class="flex-1" />
                       </div>
                     {:else}

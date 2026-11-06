@@ -292,6 +292,9 @@
           "description": "Všechny údaje jsou odhadnuté od poslední aktualizace — zkontrolujte je pro větší přesnost.",
           "quickUpdate": "Rychlá aktualizace"
         },
+        "change": {
+          "since": "Změna od vaší předchozí aktualizace {date}"
+        },
         "netWorthCard": {
           "title": "Čisté jmění",
           "help": "Celková hodnota vašeho majetku po odečtení závazků",
