@@ -156,6 +156,13 @@ function withUnknownsCalculated(
  */
 export function resolveSnapshots(profile: Profile): Snapshot[] {
   const snapshots = normalizeSnapshots(profile.snapshots ?? [])
+  const hasUnknown = snapshots.some(
+    (snapshot) =>
+      snapshot.cash_amount === undefined ||
+      snapshot.investments?.some((entry) => entry.balance === undefined),
+  )
+  if (!hasUnknown) return snapshots
+
   const dates = snapshots.map((snapshot) => snapshot.date)
   const newest = snapshots.length - 1
 
@@ -197,13 +204,24 @@ export function resolveSnapshots(profile: Profile): Snapshot[] {
   }))
 }
 
-/** `snapshot` with every cash and investment figure not in `entered` unknown. */
-export function withUnknownBalances(snapshot: Snapshot, entered: ExplicitBalances): Snapshot {
+/**
+ * `snapshot` with every cash and investment figure unknown, except those in
+ * `entered` and those that are numbers on `replaced`, the snapshot it replaces.
+ */
+export function withUnknownBalances(
+  snapshot: Snapshot,
+  entered: ExplicitBalances,
+  replaced?: Snapshot,
+): Snapshot {
+  const recorded = byId(replaced?.investments)
+  const keepsCash = entered.cash || replaced?.cash_amount !== undefined
   return {
     ...snapshot,
-    cash_amount: entered.cash ? snapshot.cash_amount : undefined,
+    cash_amount: keepsCash ? snapshot.cash_amount : undefined,
     investments: snapshot.investments?.map((entry) =>
-      entered.investmentIds?.has(entry.id) ? entry : { id: entry.id },
+      entered.investmentIds?.has(entry.id) || recorded.get(entry.id)?.balance !== undefined
+        ? entry
+        : { id: entry.id },
     ),
   }
 }
@@ -265,10 +283,12 @@ function sameEntries<T extends { id: string }>(
  *
  * Compared field by field rather than by serialized shape: only
  * `captureSnapshot` emits the canonical form, while the schema makes every
- * field optional, so a snapshot restored from a backup can legitimately omit a
- * balance that is simply zero or an empty list. Reading those omissions as
- * "changed" made a rename record a snapshot and re-date the projection
- * baseline.
+ * field optional, so a snapshot restored from a backup can legitimately omit an
+ * empty list. Reading those omissions as "changed" made a rename record a
+ * snapshot and re-date the projection baseline.
+ *
+ * Reads a missing cash or investment figure as 0, so an unknown has to be
+ * calculated first (`resolveSnapshots`).
  */
 export function hasSameBalances(
   previous: SnapshotBalances | undefined,
