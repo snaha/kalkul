@@ -22,13 +22,20 @@ what leaves an investment. The gain is estimated from the source's APY and
 the years it has been held in the plan: a balance that grew by (1 + r)^n is
 gain for 1 − (1 + r)^−n of it, so a sale in the plan's first year carries no
 tax. The tax comes off the gross gain share, before the exit fee, and reduces
-what reaches the destination. Cash has no gain. The dialog previews the net
-transfer, the tax and the gain it was applied on. (#313)
+what reaches the destination. Cash has no gain, so the switch is only shown
+when the source is an investment. The dialog previews the net transfer, what
+arrives after the tax and the fees, with the tax and the gain it was applied
+on, and counts the holding years exactly as the engine does. (#313)
 
 **Why.** A plan keeps no cost basis, so the gain since the plan start is the
 only estimate it can make without inventing history, and the APY is what the
 user already entered. A per-transfer rate puts the tax where the sale is
-decided, with no global rule to maintain.
+decided, with no global rule to maintain. The estimate is knowingly rough: it
+treats the whole balance as compounding since purchase, so an investment built
+by contributions has its gain overstated (1,000 a year for 30 years at 7 % reads
+as about 87 % gain where the real share is about 70 %), and it uses the gross
+APY while the engine grows the balance at APY less TER and fee drag. The UI
+says "rough estimate" for that reason.
 
 ## 2026-11-05 Runway is a drawdown the user configures
 

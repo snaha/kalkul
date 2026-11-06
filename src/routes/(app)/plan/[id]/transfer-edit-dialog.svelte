@@ -225,7 +225,9 @@
         items={fromAssetItems}
         placeholder={$_('page.plan.pickAsset')}
         onValueChange={(v) => {
-          if (v) form.from_asset_id = v
+          if (!v) return
+          form.from_asset_id = v
+          if (!plan.investments.some((i) => i.id === v)) form.deduct_tax = false
         }}
       />
     </div>
@@ -373,35 +375,6 @@
     />
   {/if}
 
-  <!-- Deduct estimated tax (frames 1340 and 1344): the switch on its own row,
-       and the rate with its note once it is on. -->
-  <label class="flex cursor-pointer items-center gap-2">
-    <Switch checked={form.deduct_tax} onCheckedChange={(v) => (form.deduct_tax = v === true)} />
-    <span class="text-sm font-medium">{$_('page.plan.deductTax')}</span>
-  </label>
-  {#if form.deduct_tax}
-    <div class="flex items-end gap-2">
-      <div class="flex flex-1 flex-col gap-2">
-        <Label for="{uid}-taxRate">{$_('page.plan.taxRateOnGain')}</Label>
-        <SuffixedInput
-          id="{uid}-taxRate"
-          value={form.tax_rate}
-          suffix="%"
-          formatNumber={appStore.formatNumber}
-          aria-invalid={!taxRateValid || undefined}
-          onValueChange={(v) => (form.tax_rate = v)}
-        />
-      </div>
-      <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">
-        {sourceApy === undefined
-          ? $_('page.plan.taxRateOnGainDescription')
-          : $_('page.plan.taxRateOnGainDescriptionApy', {
-              values: { apy: appStore.formatNumber(sourceApy) },
-            })}
-      </p>
-    </div>
-  {/if}
-
   {#if form.schedule === 'recurring'}
     <DateAgeSelector
       mode="start"
@@ -450,24 +423,57 @@
     />
   {/if}
 
-  {#if summary}
+  <!-- Deduct estimated tax (frames 1340, 1344 and 1345): the switch on its
+       own row after the timing, and the rate with its note once it is on.
+       Only an investment has a gain to tax, so cash gets no switch. -->
+  {#if sourceApy !== undefined}
+    <label class="flex cursor-pointer items-center gap-2">
+      <Switch checked={form.deduct_tax} onCheckedChange={(v) => (form.deduct_tax = v === true)} />
+      <span class="text-sm font-medium">{$_('page.plan.deductTax')}</span>
+    </label>
+    {#if form.deduct_tax}
+      <div class="flex items-end gap-2">
+        <div class="flex flex-1 flex-col gap-2">
+          <Label for="{uid}-taxRate">{$_('page.plan.taxRateOnGain')}</Label>
+          <SuffixedInput
+            id="{uid}-taxRate"
+            value={form.tax_rate}
+            suffix="%"
+            formatNumber={appStore.formatNumber}
+            aria-invalid={!taxRateValid || undefined}
+            onValueChange={(v) => (form.tax_rate = v)}
+          />
+        </div>
+        <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">
+          {$_('page.plan.taxRateOnGainDescriptionApy', {
+            values: { apy: appStore.formatNumber(sourceApy) },
+          })}
+        </p>
+      </div>
+    {/if}
+  {/if}
+
+  <!-- Frames 1345 and 1350: the net transfer in its own box above the
+       nominal one, which keeps its figures whether the tax is on or not. -->
+  {#if summary && form.deduct_tax}
+    <div class="rounded-md bg-muted p-3 text-sm text-muted-foreground">
+      {$_('page.plan.transferNetValue', {
+        values: {
+          net: appStore.formatCurrencyCode(summary.netTotal),
+          tax: appStore.formatCurrencyCode(summary.taxTotal),
+          gain: appStore.formatCurrencyCode(summary.gainTotal),
+        },
+      })}
+    </div>
+  {/if}
+  {#if summary && (form.schedule === 'recurring' || form.inflation_adjusted)}
     <div class="flex flex-col gap-1 rounded-md bg-muted p-3 text-sm text-muted-foreground">
       {#if form.schedule === 'recurring'}
         <span>
           {$_('page.plan.transferOccurrences', { values: { count: summary.occurrences } })}
         </span>
       {/if}
-      {#if form.deduct_tax}
-        <span>
-          {$_('page.plan.transferNetValue', {
-            values: {
-              net: appStore.formatCurrencyCode(summary.netTotal),
-              tax: appStore.formatCurrencyCode(summary.taxTotal),
-              gain: appStore.formatCurrencyCode(summary.gainTotal),
-            },
-          })}
-        </span>
-      {:else if !form.inflation_adjusted}
+      {#if !form.inflation_adjusted}
         <span>
           {$_('page.plan.transferTotal', {
             values: { total: appStore.formatCurrencyCode(summary.nominalTotal) },

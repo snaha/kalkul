@@ -906,6 +906,12 @@ export const transferSchema = z
         message: get(_)('validation.transfer_same_endpoints'),
       })
     }
+    if (obj.deduct_tax && obj.tax_rate === undefined)
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['tax_rate'],
+        message: get(_)('validation.required_when_deduct_tax'),
+      })
     if (obj.schedule === 'one_time') {
       if (obj.transaction_year === undefined)
         ctx.addIssue({

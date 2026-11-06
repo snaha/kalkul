@@ -2930,6 +2930,10 @@ describe('getYearlyPlanProjection', () => {
 })
 
 describe('summarizeTransfer', () => {
+  // The preview reads the plan's investments for the tax and the fees.
+  function summaryPlan(overrides: PlanEdits = {}) {
+    return { investments: [], ...makePlan(overrides) }
+  }
   const recurring: Transfer = {
     id: 't1',
     name: 'Monthly',
@@ -2954,7 +2958,7 @@ describe('summarizeTransfer', () => {
   }
 
   it('counts a one-time transfer once at face value without inflation', () => {
-    expect(summarizeTransfer(oneTime, makePlan(), undefined)).toMatchObject({
+    expect(summarizeTransfer(oneTime, summaryPlan(), undefined)).toMatchObject({
       occurrences: 1,
       nominalTotal: 1000,
       realTotal: 1000,
@@ -2964,7 +2968,7 @@ describe('summarizeTransfer', () => {
   it('scales a one-time inflation-adjusted transfer forward to its transaction year', () => {
     const result = summarizeTransfer(
       { ...oneTime, inflation_adjusted: true },
-      makePlan({ inflation_rate: 0.02 }),
+      summaryPlan({ inflation_rate: 0.02 }),
       undefined,
     )
     expect(result.occurrences).toBe(1)
@@ -2981,7 +2985,9 @@ describe('summarizeTransfer', () => {
       deduct_tax: true,
       tax_rate: 30,
     }
-    const plan = makePlan({ investments: [{ id: 'inv1', name: 'Fund', balance: 1000, apy: 100 }] })
+    const plan = summaryPlan({
+      investments: [{ id: 'inv1', name: 'Fund', balance: 1000, apy: 100 }],
+    })
     // Held a year at 100%: half of what is sold is gain, taxed at 30%.
     expect(summarizeTransfer(sale, plan, undefined)).toEqual({
       occurrences: 1,
@@ -2998,14 +3004,84 @@ describe('summarizeTransfer', () => {
     ).toBe(0)
   })
 
+  it('previews the net of the fees as well as the tax, as the engine deposits it', () => {
+    const plan = summaryPlan({
+      investments: [
+        {
+          id: 'inv1',
+          name: 'Fund',
+          balance: 1000,
+          apy: 100,
+          exit_fee: 2,
+          exit_fee_type: 'percentage',
+        },
+        { id: 'inv2', name: 'Other', balance: 0, apy: 0, entry_fee: 1, entry_fee_type: 'upfront' },
+      ],
+    })
+    const sale: Transfer = {
+      ...oneTime,
+      from_asset_id: 'inv1',
+      to_asset_id: 'inv2',
+      transaction_year: 2026,
+      deduct_tax: true,
+      tax_rate: 30,
+    }
+    // (1000 − 2 % exit fee − 150 tax) − 1 % entry fee.
+    expect(summarizeTransfer(sale, plan, undefined).netTotal).toBeCloseTo(821.7, 6)
+  })
+
+  it('counts the holding years the way the engine does: by age, and never before the plan', () => {
+    const sale: Transfer = {
+      ...oneTime,
+      from_asset_id: 'inv1',
+      to_asset_id: 'cash',
+      transaction_year: 2029,
+      deduct_tax: true,
+      tax_rate: 25,
+    }
+    function netOf(investment: ProfileInvestment) {
+      const profile = makeProfile({
+        cash_amount: 100_000,
+        investments: [investment],
+        transfers: [sale],
+        birth_date: '1980-01-01',
+      })
+      const years = project(makePlan(), profile)
+      const preview = summarizeTransfer(sale, planFrom(profile, {}), 1980)
+      return { engine: years[4].cash - years[3].cash, preview: preview.netTotal }
+    }
+    // Bought at 47 (2027), held two years at 7 %: 1 − 1.07^−2 of the 1,000 is gain.
+    const byAge = netOf({
+      id: 'inv1',
+      name: 'Fund',
+      balance: 20_000,
+      apy: 7,
+      start: 'when_age_is',
+      start_age: 47,
+    })
+    expect(byAge.preview).toBeCloseTo(1000 - 1000 * (1 - 1.07 ** -2) * 0.25, 6)
+    expect(byAge.preview).toBeCloseTo(byAge.engine, 6)
+    // Bought before the plan: held since the plan start, four years.
+    const before = netOf({
+      id: 'inv1',
+      name: 'Fund',
+      balance: 20_000,
+      apy: 7,
+      start: 'at_specific_date',
+      start_year: 2020,
+    })
+    expect(before.preview).toBeCloseTo(1000 - 1000 * (1 - 1.07 ** -4) * 0.25, 6)
+    expect(before.preview).toBeCloseTo(before.engine, 6)
+  })
+
   it('reports zero occurrences for a one-time transfer outside the plan', () => {
     expect(
-      summarizeTransfer({ ...oneTime, transaction_year: 2035 }, makePlan(), undefined),
+      summarizeTransfer({ ...oneTime, transaction_year: 2035 }, summaryPlan(), undefined),
     ).toMatchObject({ occurrences: 0, nominalTotal: 0, realTotal: 0 })
   })
 
   it('counts every month of a never-ending recurring transfer over the plan', () => {
-    expect(summarizeTransfer(recurring, makePlan(), undefined)).toMatchObject({
+    expect(summarizeTransfer(recurring, summaryPlan(), undefined)).toMatchObject({
       occurrences: 72,
       nominalTotal: 72000,
       realTotal: 72000,
@@ -3015,7 +3091,7 @@ describe('summarizeTransfer', () => {
   it('stops counting at an at_specific_date end (inclusive of the end month)', () => {
     const result = summarizeTransfer(
       { ...recurring, end: 'at_specific_date', end_year: 2026, end_month: 6 },
-      makePlan(),
+      summaryPlan(),
       undefined,
     )
     expect(result).toMatchObject({ occurrences: 18, nominalTotal: 18000, realTotal: 18000 })
@@ -3025,7 +3101,7 @@ describe('summarizeTransfer', () => {
     // born 1990 -> age 36 in 2026
     const result = summarizeTransfer(
       { ...recurring, end: 'when_age_is', end_age: 36 },
-      makePlan(),
+      summaryPlan(),
       1990,
     )
     expect(result.occurrences).toBe(24)
@@ -3035,7 +3111,7 @@ describe('summarizeTransfer', () => {
   it('grows the nominal total with inflation while the real total stays flat', () => {
     const result = summarizeTransfer(
       { ...recurring, inflation_adjusted: true },
-      makePlan({ inflation_rate: 0.02 }),
+      summaryPlan({ inflation_rate: 0.02 }),
       undefined,
     )
     expect(result.occurrences).toBe(72)
@@ -3046,7 +3122,7 @@ describe('summarizeTransfer', () => {
 
   it('counts yearly transfers once per plan year', () => {
     expect(
-      summarizeTransfer({ ...recurring, frequency: 'yearly' }, makePlan(), undefined),
+      summarizeTransfer({ ...recurring, frequency: 'yearly' }, summaryPlan(), undefined),
     ).toMatchObject({
       occurrences: 6,
       nominalTotal: 6000,
