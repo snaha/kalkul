@@ -881,7 +881,7 @@ export function transferNetToDestination(
 export interface TransferSummary {
   /** How many times the transfer fires within the plan. */
   occurrences: number
-  /** Sum of the amounts actually moved, after inflation and change over time. */
+  /** Sum of the entered amounts, after inflation and change over time: what arrives before fees. */
   nominalTotal: number
   /** The same sum in today's money (inflation factor stripped). */
   realTotal: number
@@ -1435,14 +1435,14 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       } else {
         // The entered amount is what arrives after the tax, so the source
         // gives up that plus the tax (`grossTransferAmount`).
-        amount = grossTransferAmount(
-          transfer,
-          transferAmountForYear(transfer, year, startYear, birthYear, inflationRate),
-          source,
-          heldYears,
-        )
+        const entered = transferAmountForYear(transfer, year, startYear, birthYear, inflationRate)
+        amount = grossTransferAmount(transfer, entered, source, heldYears)
         if (amount.isZero()) continue
-        if (getBalance(transfer.from_asset_id).lessThan(amount)) {
+        const balance = getBalance(transfer.from_asset_id)
+        // The source holds the amount but not the tax on top: sweep it the
+        // way Max would (it lands less the tax) rather than skip the transfer.
+        if (balance.lessThan(amount) && balance.greaterThanOrEqualTo(entered)) amount = balance
+        if (balance.lessThan(amount)) {
           if (plannedStartFor !== undefined) {
             insufficientFundAssetIdsThisYear.push(plannedStartFor)
             abandonedAssetIds.add(plannedStartFor)

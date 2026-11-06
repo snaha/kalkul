@@ -3040,7 +3040,7 @@ describe('summarizeTransfer', () => {
       deduct_tax: true,
       tax_rate: 25,
     }
-    function netOf(investment: ProfileInvestment) {
+    function grossOf(investment: ProfileInvestment) {
       const profile = makeProfile({
         cash_amount: 100_000,
         investments: [investment],
@@ -3057,7 +3057,7 @@ describe('summarizeTransfer', () => {
       }
     }
     // Bought at 47 (2027), held two years at 7 %: 1 − 1.07^−2 of the gross is gain.
-    const byAge = netOf({
+    const byAge = grossOf({
       id: 'inv1',
       name: 'Fund',
       balance: 20_000,
@@ -3068,7 +3068,7 @@ describe('summarizeTransfer', () => {
     expect(byAge.preview).toBeCloseTo(1000 / (1 - (1 - 1.07 ** -2) * 0.25), 6)
     expect(byAge.preview).toBeCloseTo(byAge.engine, 6)
     // Bought before the plan: held since the plan start, four years.
-    const before = netOf({
+    const before = grossOf({
       id: 'inv1',
       name: 'Fund',
       balance: 20_000,
@@ -3360,6 +3360,34 @@ describe('estimated tax on a transfer out of an investment', () => {
       makeProfile({ cash_amount: 0, investments: doubling, transfers: [sell(2026, false)] }),
     )
     expect(off[1].cash).toBeCloseTo(1000, 6)
+  })
+
+  it('sweeps the source when it holds the amount but not the tax on top', () => {
+    const result = project(
+      makePlan(),
+      makeProfile({
+        cash_amount: 0,
+        investments: doubling,
+        transfers: [{ ...sell(2026), amount: 2000 }],
+      }),
+    )
+    // The fund holds exactly the 2000 entered; the gross would be 2000 / 0.85.
+    // Rather than skip the transfer, it goes the way Max would: 2000 out,
+    // 1700 in, and no insufficient-funds flag.
+    expect(result[1].insufficientFundTransferIds).toEqual([])
+    expect(result[1].investments).toBeCloseTo(0, 6)
+    expect(result[1].cash).toBeCloseTo(1700, 6)
+    // Short of the amount itself, it is still skipped.
+    const short = project(
+      makePlan(),
+      makeProfile({
+        cash_amount: 0,
+        investments: doubling,
+        transfers: [{ ...sell(2026), amount: 2001 }],
+      }),
+    )
+    expect(short[1].insufficientFundTransferIds).toEqual(['t1'])
+    expect(short[1].cash).toBe(0)
   })
 
   it('applies to a Max transfer on whatever the source holds', () => {

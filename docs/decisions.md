@@ -22,7 +22,9 @@ destination receives. The source gives up the amount plus the tax: with gain
 share _g_ and rate _r_, amount / (1 − _g_ · _r_) leaves the source, and the
 tax is _g_ · _r_ of that gross. The insufficient-funds check is against the
 gross. A "Max" transfer still sweeps the whole balance and lands it less the
-tax, as there is nothing to gross up from. Exit and entry fees are unchanged:
+tax, as there is nothing to gross up from. A source that holds the amount but
+not the tax on top is swept the same way rather than skipped, so entering
+exactly the balance still empties it. Exit and entry fees are unchanged:
 they still come off on the way, so with fees the destination receives the
 amount less the fees. The dialog's extra box shows the gross leaving the
 source with the tax and the gain it was applied on; the Figma frames draw it
@@ -31,7 +33,7 @@ as a net figure, which is now the amount itself. (#406 follow-up)
 **Why.** The user thinks in what they will have to spend, and asks the app to
 work out the tax, not the other way round. Grossing up for the fees as well
 would be consistent but changes a rule older than the tax switch, so it is
-left as it is for now.
+left as it is for now; showing what actually arrives with fees on is #413.
 
 ## 2026-11-05 A transfer deducts an estimated tax on its gain
 
