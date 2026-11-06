@@ -29,6 +29,7 @@
   import { timingComplete } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
+  import { seededDownPayment } from '$lib/tangible-asset-form'
   import { getMonthOptions } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
@@ -89,6 +90,8 @@
     value_over_time: ValueOverTime
     value_rate: number | undefined
     property_tax_rate: number | undefined
+    // Tangible asset (financed) only: what the purchase cost in cash.
+    down_payment: number | undefined
     // Tangible asset (financed) + liability share these
     outstanding_balance: number | undefined
     installment_frequency: Frequency
@@ -154,6 +157,7 @@
       value_over_time: 'appreciate',
       value_rate: undefined,
       property_tax_rate: undefined,
+      down_payment: undefined,
       outstanding_balance: undefined,
       installment_frequency: 'monthly',
       annual_rate: undefined,
@@ -195,6 +199,7 @@
         a.outstanding_balance !== undefined && a.outstanding_balance > 0
           ? a.outstanding_balance
           : undefined
+      f.down_payment = seededDownPayment(a)
       f.installment_frequency = a.installment_frequency ?? 'monthly'
       f.annual_rate = a.annual_rate !== undefined && a.annual_rate > 0 ? a.annual_rate : undefined
       f.installment_amount =
@@ -306,6 +311,7 @@
       value: f.value ?? 0,
       status: f.status,
       outstanding_balance: f.status === 'financed' ? (f.outstanding_balance ?? 0) : undefined,
+      down_payment: f.status === 'financed' ? f.down_payment : undefined,
       installment_frequency: f.status === 'financed' ? f.installment_frequency : undefined,
       annual_rate: f.status === 'financed' ? (f.annual_rate ?? 0) : undefined,
       installment_amount: f.status === 'financed' ? (f.installment_amount ?? 0) : undefined,

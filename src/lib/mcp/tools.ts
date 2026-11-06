@@ -101,7 +101,7 @@ export function kalkulTools(app: App = appStore): KalkulTool[] {
     },
     tool(
       'update_profile',
-      "Merge the given fields into the profile, which is the user's financial data: what they have today. Array fields (investments, tangible_assets, liabilities, incomes, expenses, transfers) replace the whole list, so fetch, edit and write back the full array. Never use this while working on a plan: a plan holds its own copy of the data, so use upsert_plan_item and remove_plan_item, which change that plan only. Financial data has no planned timing: every item is already running (start immediately or now, end never, pay-off at term, no exit or sale date, no one-time items); when something starts, ends, is bought or sold belongs to a plan's copy of the item, via upsert_plan_item. Incomes and expenses are recurring and carry frequency, start, end and change_over_time.",
+      "Merge the given fields into the profile, which is the user's financial data: what they have today. Array fields (investments, tangible_assets, liabilities, incomes, expenses, transfers) replace the whole list, so fetch, edit and write back the full array. Never use this while working on a plan: a plan holds its own copy of the data, so use upsert_plan_item and remove_plan_item, which change that plan only. Financial data has no planned timing: every item is already running (start immediately or now, end never, pay-off at term, no exit or sale date, no one-time items); when something starts, ends, is bought or sold belongs to a plan's copy of the item, via upsert_plan_item. Incomes and expenses are recurring and carry frequency, start, end and change_over_time. A financed tangible asset carries outstanding_balance only; down_payment belongs to a plan's copy.",
       profileFieldsSchema.partial(),
       WRITE,
       (args) => {
@@ -145,7 +145,7 @@ export function kalkulTools(app: App = appStore): KalkulTool[] {
     ),
     tool(
       'upsert_plan_item',
-      'Add or change an item in a plan: replaced by id when the plan has it, else added. The change lands on the plan only. Use this, never update_profile, for whatever is changed while working on a plan. Returns the portfolio.',
+      'Add or change an item in a plan: replaced by id when the plan has it, else added. The change lands on the plan only. Use this, never update_profile, for whatever is changed while working on a plan. A financed tangible asset carries down_payment (the cash paid at purchase, shown in the plan dialog) and outstanding_balance (the loan, which the projection uses): keep outstanding_balance at value less down_payment and change the two together, or leave down_payment out and the dialog derives it from the balance. Returns the portfolio.',
       z.object({
         ...planListInput,
         // Not a union of the item schemas: z.union takes the first that parses

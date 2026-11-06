@@ -13,7 +13,12 @@
   import { Checkbox } from '$lib/components/ui/checkbox'
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
-  import { COUNTRY_CURRENCY_MAP, getCountryItems, getLanguageItems } from '$lib/profile-options'
+  import {
+    COUNTRY_CURRENCY_MAP,
+    effectiveLanguage,
+    getCountryItems,
+    getLanguageItems,
+  } from '$lib/profile-options'
   import routes from '$lib/routes'
   import type { Profile } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
@@ -35,7 +40,7 @@
   let birthMonth = $state(p.birthDate ? String(p.birthDate.getMonth()) : '')
   let location = $state(p.location ?? '')
   let currency = $state(p.currency ?? '')
-  let language = $state(p.language ?? 'en')
+  let language = $state(effectiveLanguage(p.language, $locale ?? undefined))
   // Persisted, so navigating Back to this step does not force the user to
   // accept the terms again.
   let termsAccepted = $state(p.terms_accepted === true)

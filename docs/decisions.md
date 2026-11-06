@@ -30,23 +30,82 @@ only estimate it can make without inventing history, and the APY is what the
 user already entered. A per-transfer rate puts the tax where the sale is
 decided, with no global rule to maintain.
 
+## 2026-11-05 Runway is a drawdown the user configures
+
+**Context.** The Runway card divided investable net worth by annual outflows:
+one number, no way to see what it assumed, and nothing a user could change
+(#219). The Figma dialog offers three switches: withdraw from investments,
+include income, sell tangible assets. Under the first and the last a growth
+checkbox appears while the switch is on, and a tax rate on the gain while
+growth is on (frame 1377 shows everything on, frame 1389 the collapsed
+default, revised on 2026-11-03).
+
+**Decision.** Runway is a month-by-month drawdown of today's balances against
+today's recurring outflows: cash first, then investments, then tangible
+assets, as far as the switches allow. Loans run on their own schedule for
+their remaining term, and selling a financed asset settles what it still owes
+on that schedule. Investments grow at their effective APY and assets at their
+own value-over-time rate only when the growth checkbox is on; nothing else
+moves, so the figures are nominal and flat. Tax takes its rate of the gain
+accrued since today, since today's balance is the only cost basis Kalkul has,
+and the two rates are the runway's own. The defaults are the frame's: investments on
+without growth, income and asset sales off, both rates 0. That is close to
+the old ratio, not equal to it: loans are paid by installment over time
+instead of being subtracted up front, and a loan with no installment is never
+paid. Money that never runs out reads "100+ years". Each setting is a flat
+optional field on the profile, the shape `fi_withdrawal_rate` uses, so Apply
+writes only what changed and the MCP `update_profile` sees them as plain
+fields. Projections keep the ratio for their per-year runway. (#391)
+
+**Why.** A drawdown answers the question the card asks, "how long", with the
+loans paid as they fall due rather than netted off today, and it lets each
+switch mean one visible thing. Tax on the gain since today is the only
+estimate that needs no purchase history. Flat fields rather than a nested
+object keep one storage shape for both calculation settings and keep the
+fields-only save rule.
+
 ## 2026-11-05 No capital gains tax rules in Settings
 
 **Context.** The Settings page let the user enter default capital gains tax
 rules by holding period, and a projection taxed the gain share of an
-investment withdrawal at the matching rate. The cost-basis work in #344
-settled on tracking what Kalkul itself knows instead, and the rules were
-left behind (#386).
+investment withdrawal at the matching rate, which needed a cost basis per
+investment. The cost-basis work in #344 concluded that a plan keeps no cost
+basis, and the rules were left behind (#386).
 
-**Decision.** The tax rules and their profile fields are removed. A
-projection charges no capital gains tax on a withdrawal; only the exit and
-entry fees apply. The runway's own tax rates (#391) are unaffected, as they
-never read these rules. (#386)
+**Decision.** The tax rules, their profile fields and the cost-basis tracking
+are removed. A projection charges no capital gains tax on a withdrawal; only
+the exit and entry fees apply. Tax on a transfer's gain is instead an estimate
+the user turns on per transfer, from the investment's APY and the years held
+(#313). The runway's own tax rates (#391) are unaffected, as they never read
+these rules. (#386)
 
-**Why.** Rules the user types by holding period were a second, hand-entered
-tax model beside the one #344 chose, and nothing but the projection's
-withdrawal path read them. Removing them is cheaper than reconciling the
-two, and pre-production data needs no migration.
+**Why.** Rules the user types by holding period need a cost basis to apply
+to, which the plan no longer keeps, and nothing but the projection's
+withdrawal path read them. A per-transfer estimate asks for one rate where it
+is used. Pre-production data needs no migration.
+
+## 2026-11-05 A projection stores a financed asset's down payment
+
+**Context.** The plan dialog showed the down payment as the price less the
+balance owed. A new asset has no balance, so the field filled in with the
+price as it was typed (#263), and every attempt to hold it (#307, #381) had to
+decide per keystroke whether the price or the balance wins, with a different
+answer for a new, an existing, a paid-off and an underwater asset.
+
+**Decision.** A tangible asset in a projection carries `down_payment`. The
+projection's loan is the price less the down payment, recomputed when either
+is edited; nothing fills the down payment in from the price. An asset copied
+from financial data, which knows only the balance owed, opens at the price
+less that balance, so the projection agrees with the dashboard until the user
+types another figure. Financial data does not store a down payment.
+Supersedes the derived field from #228's dialog.
+
+**Why.** The two numbers answer different questions: what was paid in cash,
+and what is owed now. Financial data needs only the second, which comes from a
+statement and amortizes forward. A projection is a scenario rerun from its
+first year, so there the first is an input the user may change, past or
+future, and the second follows from it. Deriving one from the other in the
+dialog was the source of every regression.
 
 ## 2026-11-05 Liabilities include the loans behind financed assets
 

@@ -629,6 +629,10 @@ export const profileTangibleAssetSchema = z
     value: z.number(),
     status: tangibleAssetStatusSchema,
     outstanding_balance: z.number().optional(),
+    // Cash paid at purchase, carried only inside a projection: the plan dialog
+    // asks for it and keeps the balance owed at the price less this. Financial
+    // data knows only the balance owed; `profileSchema` rejects it there.
+    down_payment: z.number().optional(),
     installment_frequency: frequencySchema.optional(),
     annual_rate: z.number().optional(),
     installment_amount: z.number().optional(),
@@ -961,15 +965,18 @@ export const transferSchema = z
 /** The 4% rule: the withdrawal rate the FI number assumes until the user sets one. */
 export const DEFAULT_FI_WITHDRAWAL_RATE = 4
 
+// Mirrors the supported locales in `src/lib/locales/index.ts` — keep the two
+// lists in sync.
+export const languageSchema = z.enum(['en', 'cs'])
+
 export const profileFieldsSchema = z.object({
   name: z.string(),
   email: z.string(),
   birth_date: z.string().optional(),
   location: z.string().optional(),
   currency: z.string().optional(),
-  // UI language preference. Mirrors the supported locales in
-  // `src/lib/locales/index.ts` — keep the two lists in sync.
-  language: z.enum(['en', 'cs']).optional(),
+  // UI language preference.
+  language: languageSchema.optional(),
   // Usage/license terms accepted in the first Get started step. Persisted so
   // navigating Back does not force the user to accept them again.
   terms_accepted: z.boolean().optional(),
@@ -986,6 +993,15 @@ export const profileFieldsSchema = z.object({
   // Percent of the portfolio withdrawn a year behind the Financial independence
   // number (`getFiNumber`); absent means `DEFAULT_FI_WITHDRAWAL_RATE`.
   fi_withdrawal_rate: z.number().positive().max(100).optional(),
+  // The Runway card's drawdown switches (`src/lib/runway.ts`), one flat field
+  // each like `fi_withdrawal_rate`; absent means that switch's default.
+  runway_withdraw_investments: z.boolean().optional(),
+  runway_investment_growth: z.boolean().optional(),
+  runway_investment_tax_rate: z.number().min(0).max(100).optional(),
+  runway_include_income: z.boolean().optional(),
+  runway_sell_tangible_assets: z.boolean().optional(),
+  runway_tangible_asset_growth: z.boolean().optional(),
+  runway_tangible_asset_tax_rate: z.number().min(0).max(100).optional(),
   // Normalized on the way in, so every entry point — a fresh load, a restored
   // backup, cross-tab sync, a store write — hands the rest of the app a sorted,
   // one-per-date list. `.overwrite` rather than `.transform`: it does not change
@@ -1063,6 +1079,14 @@ export const profileSchema = profileFieldsSchema.superRefine((profile, ctx) => {
         })
     })
   }
+  ;(profile.tangible_assets ?? []).forEach((asset, index) => {
+    if (asset.down_payment !== undefined)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['tangible_assets', index, 'down_payment'],
+        message: get(_)('validation.no_down_payment_in_financial_data'),
+      })
+  })
 })
 
 export const portfolioSchema = z.object({

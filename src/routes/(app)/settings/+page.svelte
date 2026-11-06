@@ -20,7 +20,12 @@
   import { Switch } from '$lib/components/ui/switch'
   import downloadBackup from '$lib/download-backup'
   import eraseData from '$lib/erase-data'
-  import { COUNTRY_CURRENCY_MAP, getCountryItems, getLanguageItems } from '$lib/profile-options'
+  import {
+    COUNTRY_CURRENCY_MAP,
+    effectiveLanguage,
+    getCountryItems,
+    getLanguageItems,
+  } from '$lib/profile-options'
   import routes from '$lib/routes'
   import type { Profile } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
@@ -276,7 +281,7 @@
           <Label for="{uid}-language">{$_('page.setup.aboutYou.language')}</Label>
           <SelectField
             id="{uid}-language"
-            value={appStore.profile.language ?? 'en'}
+            value={effectiveLanguage(appStore.profile.language, $locale ?? undefined)}
             items={languageItems}
             onValueChange={(language) => appStore.updateProfile({ language })}
           />

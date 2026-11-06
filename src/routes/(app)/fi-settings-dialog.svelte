@@ -1,8 +1,11 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
+  import ArrowDown from '@lucide/svelte/icons/arrow-down'
+  import Info from '@lucide/svelte/icons/info'
   import X from '@lucide/svelte/icons/x'
 
+  import HelpTooltip from '$lib/components/help-tooltip.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import * as Dialog from '$lib/components/ui/dialog'
@@ -41,10 +44,17 @@
   }
 </script>
 
-{#snippet figure(label: string, value: string)}
+<!-- A figure the dialog reads out: its label, with a tooltip when the frame
+     draws an info icon beside it, over the amount. -->
+{#snippet figure(label: string, value: string, opts: { help?: string; valueClass?: string } = {})}
   <div class="flex flex-1 flex-col">
-    <p class="text-xs text-muted-foreground">{label}</p>
-    <p class="text-lg font-semibold">{value}</p>
+    <div class="flex items-center gap-2">
+      <p class="text-sm font-medium">{label}</p>
+      {#if opts.help}
+        <HelpTooltip text={opts.help} icon={Info} iconClass="size-3" />
+      {/if}
+    </div>
+    <p class={['text-lg', opts.valueClass ?? 'font-bold']}>{value}</p>
   </div>
 {/snippet}
 
@@ -72,40 +82,56 @@
 
       <div class="flex gap-4">
         {@render figure(
-          $_('page.dashboard.finances.fiSettings.annualExpenses'),
+          $_('page.dashboard.finances.fiSettings.livingCost'),
           appStore.formatCurrencyCode(getAnnualOutflowsTotal(profile)),
+          { help: $_('page.dashboard.finances.fiSettings.livingCostHelp') },
         )}
         {@render figure(
           $_('page.dashboard.finances.fiSettings.portfolioValue'),
           appStore.formatCurrencyCode(getInvestableNetWorth(profile)),
+          { help: $_('page.dashboard.finances.fiSettings.portfolioValueHelp') },
         )}
       </div>
 
-      <div class="flex items-end gap-4">
-        <div class="flex flex-1 flex-col gap-2">
+      <div class="flex flex-col gap-2">
+        <div class="flex items-center gap-2">
           <Label for="{uid}-withdrawalRate">
             {$_('page.dashboard.finances.fiSettings.withdrawalRate')}
           </Label>
-          <SuffixedInput
-            id="{uid}-withdrawalRate"
-            value={rate}
-            suffix="%"
-            formatNumber={appStore.formatNumber}
-            onValueChange={(v) => (rate = v)}
+          <HelpTooltip
+            text={$_('page.dashboard.finances.fiSettings.withdrawalRateHelp')}
+            icon={Info}
+            iconClass="size-3"
           />
         </div>
+        <div class="flex items-end gap-4">
+          <div class="flex-1">
+            <SuffixedInput
+              id="{uid}-withdrawalRate"
+              value={rate}
+              suffix="%"
+              formatNumber={appStore.formatNumber}
+              onValueChange={(v) => (rate = v)}
+            />
+          </div>
+          <p class="flex-1 text-xs">
+            {$_('page.dashboard.finances.fiSettings.withdrawalRateDescription')}
+          </p>
+        </div>
+      </div>
+
+      <ArrowDown class="size-6" aria-hidden="true" />
+
+      <div class="flex items-end gap-4">
         {@render figure(
           $_('page.dashboard.finances.fiSettings.fiNumber'),
           fiNumber === undefined ? '—' : appStore.formatCurrencyCode(fiNumber),
+          { valueClass: 'font-semibold' },
         )}
+        <p class="flex-1 text-xs">
+          {$_('page.dashboard.finances.fiSettings.fiNumberDescription')}
+        </p>
       </div>
-      <p class="text-sm">{$_('page.dashboard.finances.fiSettings.withdrawalRateHelp')}</p>
-      <p class="text-xs text-muted-foreground">
-        {$_('page.dashboard.finances.fiSettings.tradeoff')}
-      </p>
-      <p class="text-xs text-muted-foreground">
-        {$_('page.dashboard.finances.fiSettings.portfolioFootnote')}
-      </p>
     </div>
 
     <Dialog.Footer
