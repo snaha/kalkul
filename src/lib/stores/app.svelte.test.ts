@@ -266,6 +266,37 @@ describe('appStore.confirmBalances', () => {
     vi.useRealTimers()
   })
 
+  it('records figures that were not entered as unknown', () => {
+    appStore.updateProfile({
+      cash_amount: 15_000,
+      investments: [{ id: 'inv1', name: 'ETF', balance: 100_000, apy: 10 }],
+      snapshots: [{ ...STALE, investments: [{ id: 'inv1', balance: 100_000 }] }],
+    })
+    const stored = appStore.profile.toJSON()
+
+    appStore.confirmBalances(
+      { cash_amount: 16_000, investments: stored.investments },
+      { cash: true, investmentIds: new Set() },
+    )
+
+    const recorded = appStore.profile.snapshots?.at(-1)
+    expect(recorded?.cash_amount).toBe(16_000)
+    expect(recorded?.investments).toEqual([{ id: 'inv1' }])
+    expect(appStore.profile.investments?.[0].balance).toBeGreaterThan(100_000)
+  })
+
+  it('does not read an unknown baseline figure as a moved balance', () => {
+    appStore.updateProfile({ cash_amount: 15_000, snapshots: [STALE] })
+    appStore.confirmBalances({}, { cash: false, investmentIds: new Set() })
+    const dates = appStore.profile.snapshots?.map((s) => s.date)
+    expect(appStore.profile.snapshots?.at(-1)?.cash_amount).toBeUndefined()
+
+    appStore.updateProfile({ name: 'Renamed' })
+
+    expect(appStore.profile.snapshots?.map((s) => s.date)).toEqual(dates)
+    expect(appStore.profile.snapshots?.at(-1)?.cash_amount).toBeUndefined()
+  })
+
   it('re-dates the baseline to today even when no balance changed', () => {
     appStore.updateProfile({ cash_amount: 15_000, snapshots: [STALE] })
     // Nothing moved, so the plain update left the stale baseline alone.
