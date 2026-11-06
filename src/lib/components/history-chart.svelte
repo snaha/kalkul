@@ -174,8 +174,8 @@
   format: (size: number) => string,
 )}
   <span class="text-muted-foreground">{label}</span>
-  <span class="flex items-center justify-end gap-2 font-medium">
-    {value}
+  <span class="text-right font-medium">{value}</span>
+  <span>
     {#if change !== undefined}
       <ChangeLabel value={change} {format} />
     {/if}
@@ -292,7 +292,9 @@
                 </span>
               {/if}
             </div>
-            <div class="grid grid-cols-[auto_auto] items-center gap-x-6 gap-y-1">
+            <div
+              class="grid grid-cols-[auto_auto_auto] items-center gap-x-6 gap-y-1 [&>span:nth-child(3n)]:-ml-4"
+            >
               {@render row(
                 $_('page.dashboard.finances.history.tooltip.netWorth'),
                 formatAmount(active.netWorth),
