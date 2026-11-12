@@ -135,6 +135,7 @@
             nowLabel={$_('page.history.now')}
             ariaLabel={$_('page.history.chartLabel')}
             onSelect={rows.length > 0 ? openEdit : undefined}
+            onAdd={openAdd}
             class="h-96"
           />
         </div>
