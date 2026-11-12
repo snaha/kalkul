@@ -1,22 +1,41 @@
 <script lang="ts">
-  import { locale } from 'svelte-i18n'
+  import { _, locale } from 'svelte-i18n'
 
   import { daysBetween } from '$lib/@snaha/kalkul-maths'
   import { labelsWithYear, monthTicks, niceAxisBounds } from '$lib/chart-axis'
   import type { HistoryPoint } from '$lib/history-series'
+  import { RUNWAY_CAP_YEARS } from '$lib/runway'
   import { cn, parseDateOnly } from '$lib/utils'
 
   interface Props {
     points: HistoryPoint[]
     /** Y-axis labels — pass appStore.formatCompactCurrency (or similar). */
     formatValue: (value: number) => string
+    /** Tooltip amounts, in full — pass appStore.formatCurrency. */
+    formatAmount: (value: number) => string
+    formatDate: (date: string) => string
+    formatPercent: (value: number, digits: number) => string
+    formatNumber: (value: number) => string
     /** Label for the trailing point, e.g. "Now". */
     nowLabel: string
     ariaLabel: string
+    /** Called with a recorded point's date when its dot is clicked. */
+    onSelect?: (date: string) => void
     class?: string
   }
 
-  let { points, formatValue, nowLabel, ariaLabel, class: className }: Props = $props()
+  let {
+    points,
+    formatValue,
+    formatAmount,
+    formatDate,
+    formatPercent,
+    formatNumber,
+    nowLabel,
+    ariaLabel,
+    onSelect,
+    class: className,
+  }: Props = $props()
 
   // Month names are translations, so the X-axis ticks follow the UI language
   // rather than the profile's number-formatting locale (which the caller's
@@ -35,6 +54,17 @@
     return withYear ? monthWithYear.format(parsed) : shortMonth.format(parsed)
   }
 
+  function formatYears(years: number | undefined): string {
+    if (years === undefined) return '—'
+    if (years === Infinity)
+      return $_('page.dashboard.finances.history.tooltip.yearsCapped', {
+        values: { years: formatNumber(RUNWAY_CAP_YEARS) },
+      })
+    return $_('page.dashboard.finances.history.tooltip.years', {
+      values: { years: formatNumber(Math.round(years * 10) / 10) },
+    })
+  }
+
   // Geometry is computed in real pixels rather than a stretched viewBox so
   // strokes and dots keep their shape at any panel width.
   let plotWidth = $state(0)
@@ -46,6 +76,8 @@
   // Minimum gap between month labels. Wide enough for the leading "Mon YYYY"
   // tick; below it, labels are thinned rather than allowed to overlap.
   const MIN_TICK_SPACING = 56
+  // Gap between a hovered dot and its tooltip.
+  const TOOLTIP_GAP = 12
 
   const bounds = $derived(niceAxisBounds(points.map((p) => p.netWorth)))
 
@@ -100,6 +132,11 @@
     plotted.filter((point, index) => !point.projected || index === plotted.length - 1),
   )
 
+  // The dot under the pointer (or keyboard focus): it gets a vertical guide
+  // and a tooltip with the reading on that date.
+  let activeDate = $state<string | undefined>(undefined)
+  const active = $derived(dots.find((point) => point.date === activeDate))
+
   const actualLine = $derived(actualSegment.length > 1 ? toLine(actualSegment) : '')
   const projectedLine = $derived(projectedSegment.length > 1 ? toLine(projectedSegment) : '')
   const areaPath = $derived(
@@ -129,6 +166,13 @@
   })
 </script>
 
+{#snippet row(label: string, value: string)}
+  <div class="flex items-center gap-2">
+    <span class="min-w-0 flex-1 truncate text-sm">{label}</span>
+    <span class="shrink-0 text-right text-base font-medium">{value}</span>
+  </div>
+{/snippet}
+
 <!-- The top padding leaves room for the topmost Y-axis label, which is centred
      on the first grid line and so sits half a line above the plot. -->
 <div class={cn('flex flex-col gap-2 pt-[6px]', className)}>
@@ -151,8 +195,6 @@
       class="relative min-w-0 flex-1"
       bind:clientWidth={plotWidth}
       bind:clientHeight={plotHeight}
-      role="img"
-      aria-label={ariaLabel}
     >
       <!-- Grid -->
       <div class="absolute inset-0 flex flex-col justify-between">
@@ -162,7 +204,7 @@
       </div>
 
       {#if plotWidth > 0 && plotHeight > 0}
-        <svg class="absolute inset-0 size-full overflow-visible" aria-hidden="true">
+        <svg class="absolute inset-0 size-full overflow-visible" role="img" aria-label={ariaLabel}>
           {#if areaPath}
             <path d={areaPath} class="fill-muted" />
           {/if}
@@ -189,19 +231,74 @@
           {/if}
         </svg>
 
-        {#each dots as point (point.date)}
-          <!-- Recorded points are solid; the projected "now" point is hollow -->
+        {#if active}
           <div
+            class="pointer-events-none absolute inset-y-0 w-px bg-foreground"
+            style:left="{active.x}px"
+          ></div>
+        {/if}
+
+        {#each dots as point (point.date)}
+          <!-- Recorded points are solid; the projected "now" point is hollow.
+               A button, so the tooltip also opens on focus; the pseudo-element
+               widens the hit area past the 8px dot. -->
+          <button
+            type="button"
             class={cn(
               'absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px] border-foreground',
+              "before:absolute before:-inset-2 before:content-['']",
               point.projected ? 'bg-background' : 'bg-foreground',
+              onSelect && !point.projected ? 'cursor-pointer' : 'cursor-default',
             )}
             style:left="{point.x}px"
             style:top="{point.y}px"
             style:width="{DOT_SIZE}px"
             style:height="{DOT_SIZE}px"
-          ></div>
+            aria-label="{formatDate(point.date)}: {formatAmount(point.netWorth)}"
+            onmouseenter={() => (activeDate = point.date)}
+            onmouseleave={() => (activeDate = undefined)}
+            onfocus={() => (activeDate = point.date)}
+            onblur={() => (activeDate = undefined)}
+            onclick={() => {
+              if (!point.projected) onSelect?.(point.date)
+            }}
+          ></button>
         {/each}
+
+        {#if active}
+          <!-- Beside the dot, on whichever side has more room. -->
+          <div
+            class="pointer-events-none absolute z-10 flex w-72 -translate-y-1/2 flex-col gap-2 rounded-lg border bg-popover p-[9px] text-popover-foreground shadow-md"
+            style:top="{active.y}px"
+            style:left={active.x < plotWidth / 2 ? `${active.x + TOOLTIP_GAP}px` : undefined}
+            style:right={active.x < plotWidth / 2
+              ? undefined
+              : `${plotWidth - active.x + TOOLTIP_GAP}px`}
+          >
+            <div class="flex items-center gap-2">
+              <span class="flex-1 text-sm">{formatDate(active.date)}</span>
+              {#if onSelect && !active.projected}
+                <span class="flex-1 text-right text-xs text-muted-foreground">
+                  {$_('page.dashboard.finances.history.tooltip.clickToEdit')}
+                </span>
+              {/if}
+            </div>
+            <div class="flex flex-col whitespace-nowrap">
+              {@render row(
+                $_('page.dashboard.finances.history.tooltip.netWorth'),
+                formatAmount(active.netWorth),
+              )}
+              {@render row(
+                $_('page.dashboard.finances.history.tooltip.runway'),
+                formatYears(active.runwayYears),
+              )}
+              {@render row(
+                $_('page.dashboard.finances.history.tooltip.fi'),
+                active.fiPercent === undefined ? '—' : formatPercent(active.fiPercent, 0),
+              )}
+            </div>
+          </div>
+        {/if}
       {/if}
     </div>
   </div>

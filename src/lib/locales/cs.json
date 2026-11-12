@@ -367,7 +367,15 @@
           "title": "Historie",
           "viewDetails": "Zobrazit detaily",
           "chartLabel": "Čisté jmění v čase",
-          "now": "Nyní"
+          "now": "Nyní",
+          "tooltip": {
+            "netWorth": "Čisté jmění",
+            "runway": "Rezerva",
+            "fi": "Finanční nezávislost",
+            "years": "{years} let",
+            "yearsCapped": "{years}+ let",
+            "clickToEdit": "klikněte pro úpravu"
+          }
         }
       },
       "projections": {

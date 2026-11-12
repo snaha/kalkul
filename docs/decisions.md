@@ -10,6 +10,22 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-06 The History chart tooltip shows the reading on each date
+
+**Context.** #345 adds a tooltip to the History chart's dots (Figma frame
+1360-86910). #292 asks for some reward for updating one's data; showing each
+figure's change since the previous snapshot in this tooltip was tried and
+dropped, since the frame has no room for it.
+
+**Decision.** Hovering (or focusing) a dot draws a vertical guide and shows
+the date, net worth, runway and financial independence on that date, as in
+the frame, with no change labels. On the History page a recorded dot opens
+its snapshot for editing; the dashboard chart has no edit dialog, so it does
+not, which leaves #345 open. #292 stays open.
+
+**Why.** The tooltip follows the design. Savings rate is not in it, following
+the #345 frame.
+
 ## 2026-11-06 An age is reached in the birthday month
 
 **Context.** A cash flow or transfer timed "when your age is N" resolved to

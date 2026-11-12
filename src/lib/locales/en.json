@@ -367,7 +367,15 @@
           "title": "History",
           "viewDetails": "View details",
           "chartLabel": "Net worth over time",
-          "now": "Now"
+          "now": "Now",
+          "tooltip": {
+            "netWorth": "Net worth",
+            "runway": "Runway",
+            "fi": "Financial independence",
+            "years": "{years} years",
+            "yearsCapped": "{years}+ years",
+            "clickToEdit": "click to edit"
+          }
         }
       },
       "projections": {

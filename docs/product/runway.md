@@ -65,6 +65,9 @@ Runway card on the dashboard and its settings dialog.
   investable wealth to outflows (`getYearlyPlanProjection`).
 - The dialog previews the edit live; Apply writes only the fields that changed;
   Reset puts the switches back to the defaults without applying.
+- The History chart's tooltip shows the runway on each recorded date, computed
+  from that date's balances and flows with today's settings, as the FI column
+  uses today's rate.
 
 ## Worked examples
 
@@ -126,3 +129,5 @@ Runway card on the dashboard and its settings dialog.
 - `src/routes/(app)/runway-settings-dialog.svelte`: the dialog
 - `src/routes/(app)/+page@.svelte`: the Runway card
 - `src/lib/plan-projection.ts`: the per-year `runwayYears` ratio in projections
+- `src/lib/history-series.ts`: the runway on each recorded date for the History
+  chart tooltip
