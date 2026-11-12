@@ -3,11 +3,17 @@ import { getCurrentProfile } from '$lib/current-values'
 import { getFiPercent, hasAnyFinancialData } from '$lib/financial-totals'
 import { getRunwayYears } from '$lib/runway'
 import { type Profile, type Snapshot, normalizeSnapshots } from '$lib/schemas'
-import { captureSnapshot, profileAtSnapshot, snapshotNetWorth } from '$lib/snapshots'
+import {
+  type SnapshotTotals,
+  captureSnapshot,
+  profileAtSnapshot,
+  snapshotNetWorth,
+  snapshotTotals,
+} from '$lib/snapshots'
 import { parseDateOnly, toDateOnlyString } from '$lib/utils'
 
 /** The figures the History chart reports for one date. */
-export interface HistoryMetrics {
+export interface HistoryMetrics extends SnapshotTotals {
   netWorth: number
   /** Undefined with nothing to pay; `Infinity` past the runway cap. */
   runwayYears?: number
@@ -37,13 +43,14 @@ const PROJECTED_SAMPLES = 8
 /**
  * The figures as the balances stand on `date`, projected from the last
  * snapshot. Only the last sample of the tail is ever shown, so the others
- * carry the net worth alone, which is all the line needs.
+ * carry the balances alone, which is all the lines need.
  */
-function metricsOn(profile: Profile, date: string, netWorthOnly = false): HistoryMetrics {
+function metricsOn(profile: Profile, date: string, balancesOnly = false): HistoryMetrics {
   const current = getCurrentProfile(profile, parseDateOnly(date))
-  const netWorth = snapshotNetWorth(captureSnapshot(current, date))
-  if (netWorthOnly) return { netWorth }
-  return { netWorth, runwayYears: getRunwayYears(current), fiPercent: getFiPercent(current) }
+  const snapshot = captureSnapshot(current, date)
+  const balances = { netWorth: snapshotNetWorth(snapshot), ...snapshotTotals(snapshot) }
+  if (balancesOnly) return balances
+  return { ...balances, runwayYears: getRunwayYears(current), fiPercent: getFiPercent(current) }
 }
 
 /** The figures as a snapshot recorded them. */
@@ -51,6 +58,7 @@ function metricsOf(profile: Profile, snapshot: Snapshot): HistoryMetrics {
   const then = profileAtSnapshot(profile, snapshot)
   return {
     netWorth: snapshotNetWorth(snapshot),
+    ...snapshotTotals(snapshot),
     runwayYears: getRunwayYears(then),
     fiPercent: getFiPercent(then),
   }
@@ -116,4 +124,52 @@ export function buildHistorySeries(profile: Profile, today: Date): HistoryPoint[
     push(date, metricsOn(profile, date, sample < samples), true)
   }
   return points
+}
+
+/** How far back the History chart looks; `all` shows everything recorded. */
+export type HistoryRange = 'all' | '1m' | '3m' | '6m' | '1y' | '2y'
+
+const RANGE_MONTHS: Record<Exclude<HistoryRange, 'all'>, number> = {
+  '1m': 1,
+  '3m': 3,
+  '6m': 6,
+  '1y': 12,
+  '2y': 24,
+}
+
+/**
+ * The points dated within `range` of `todayDate`, both ends included. The
+ * series always ends on today, so a range is never empty.
+ */
+export function historyInRange(
+  points: HistoryPoint[],
+  range: HistoryRange,
+  todayDate: string,
+): HistoryPoint[] {
+  if (range === 'all') return points
+  const today = parseDateOnly(todayDate)
+  // ponytail: a day the earlier month lacks (31 March less a month) rolls over
+  // into the next one, a few days short of a full month; clamp if it matters.
+  const cutoff = toDateOnlyString(
+    new Date(today.getFullYear(), today.getMonth() - RANGE_MONTHS[range], today.getDate()),
+  )
+  return points.filter((point) => point.date >= cutoff)
+}
+
+/**
+ * How much `value` moved between the first and the last point, as a percentage
+ * of where it started. Undefined when it started at zero, or with no points:
+ * there is nothing to measure a change against.
+ */
+export function historyChangePercent(
+  points: HistoryPoint[],
+  value: (point: HistoryPoint) => number,
+): number | undefined {
+  const first = points[0]
+  const last = points.at(-1)
+  if (!first || !last) return undefined
+  const start = value(first)
+  if (start === 0) return undefined
+  // Against the magnitude, so a negative net worth climbing reads as a gain.
+  return ((value(last) - start) / Math.abs(start)) * 100
 }

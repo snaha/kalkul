@@ -1,14 +1,30 @@
+<script lang="ts" module>
+  /**
+   * What the chart plots: net worth, the assets stacked by category, or one
+   * category on its own.
+   */
+  export type HistoryView =
+    | 'netWorth'
+    | 'breakdown'
+    | 'cash'
+    | 'investments'
+    | 'tangibleAssets'
+    | 'liabilities'
+</script>
+
 <script lang="ts">
   import { _, locale } from 'svelte-i18n'
 
   import { daysBetween } from '$lib/@snaha/kalkul-maths'
   import { labelsWithYear, monthTicks, niceAxisBounds } from '$lib/chart-axis'
+  import { CATEGORY_COLORS } from '$lib/chart-colors'
   import type { HistoryPoint } from '$lib/history-series'
   import { RUNWAY_CAP_YEARS } from '$lib/runway'
   import { cn, parseDateOnly } from '$lib/utils'
 
   interface Props {
     points: HistoryPoint[]
+    view?: HistoryView
     /** Y-axis labels — pass appStore.formatCompactCurrency (or similar). */
     formatValue: (value: number) => string
     /** Tooltip amounts, in full — pass appStore.formatCurrency. */
@@ -31,6 +47,7 @@
 
   let {
     points,
+    view = 'netWorth',
     formatValue,
     formatAmount,
     formatDate,
@@ -85,7 +102,66 @@
   // Gap between a hovered dot and its tooltip.
   const TOOLTIP_GAP = 12
 
-  const bounds = $derived(niceAxisBounds(points.map((p) => p.netWorth)))
+  interface Layer {
+    key: string
+    label: string
+    /** Undefined draws in the foreground colour over a muted fill. */
+    color?: string
+    value: (point: HistoryPoint) => number
+  }
+
+  const layers = $derived.by((): Layer[] => {
+    if (view === 'netWorth')
+      return [
+        {
+          key: 'netWorth',
+          label: $_('page.dashboard.finances.history.tooltip.netWorth'),
+          value: (p) => p.netWorth,
+        },
+      ]
+    const assets: Layer[] = [
+      {
+        key: 'cash',
+        label: $_('page.plan.cash'),
+        color: CATEGORY_COLORS.cash,
+        value: (p) => p.cash,
+      },
+      {
+        key: 'investments',
+        label: $_('page.plan.investments'),
+        color: CATEGORY_COLORS.investments[1],
+        value: (p) => p.investments,
+      },
+      {
+        key: 'tangibleAssets',
+        label: $_('page.plan.tangibleAssets'),
+        color: CATEGORY_COLORS.tangibleAssets[2],
+        value: (p) => p.tangibleAssets,
+      },
+    ]
+    if (view === 'breakdown') return assets
+    const liabilities: Layer = {
+      key: 'liabilities',
+      label: $_('page.plan.liabilities'),
+      color: CATEGORY_COLORS.liabilities[0],
+      value: (p) => p.liabilities,
+    }
+    return [...assets, liabilities].filter((layer) => layer.key === view)
+  })
+  /** Per layer, per point: the value the layer starts from and the one it reaches. */
+  const stacks = $derived.by(() => {
+    const base = points.map(() => 0)
+    return layers.map((layer) =>
+      points.map((point, i) => {
+        const bottom = base[i]
+        const top = bottom + layer.value(point)
+        base[i] = top
+        return { bottom, top }
+      }),
+    )
+  })
+
+  const bounds = $derived(niceAxisBounds(stacks.flat().map((s) => s.top)))
 
   const firstDate = $derived(points[0]?.date ?? '')
   const lastDate = $derived(points.at(-1)?.date ?? '')
@@ -108,48 +184,64 @@
     return span === 0 ? 1 : 1 - (value - bounds.min) / span
   }
 
-  const plotted = $derived(
-    points.map((point) => ({
-      ...point,
-      x: xFraction(point.date) * plotWidth,
-      y: yFraction(point.netWorth) * plotHeight,
-    })),
-  )
-
-  const baselineY = $derived(yFraction(0) * plotHeight)
-
   // The line is split at the last recorded point: everything up to it is drawn
   // solid over a filled area, and the projected tail continues as a bare dashed
   // stroke so an estimate never reads as recorded history.
   const lastActualIndex = $derived.by(() => {
-    const index = plotted.findLastIndex((p) => !p.projected)
+    const index = points.findLastIndex((p) => !p.projected)
     return index === -1 ? 0 : index
   })
-  const actualSegment = $derived(plotted.slice(0, lastActualIndex + 1))
-  const projectedSegment = $derived(plotted.slice(lastActualIndex))
 
-  const toLine = (segment: typeof plotted) =>
+  interface Plotted extends HistoryPoint {
+    id: string
+    layer: Layer
+    x: number
+    y: number
+    /** Where the layer's fill ends: the baseline, or the layer below when stacked. */
+    y0: number
+  }
+
+  const toLine = (segment: Plotted[]) =>
     segment.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
 
-  // Recorded points get a dot each, plus one for "now" at the end of the tail.
-  // The samples in between describe the curve's shape, not moments worth
-  // marking — a dot on each would read as eight more readings than were taken.
-  const dots = $derived(
-    plotted.filter((point, index) => !point.projected || index === plotted.length - 1),
+  const plottedLayers = $derived(
+    layers.map((layer, l) => {
+      const plotted: Plotted[] = points.map((point, i) => ({
+        ...point,
+        id: `${layer.key}:${point.date}`,
+        layer,
+        x: xFraction(point.date) * plotWidth,
+        y: yFraction(stacks[l][i].top) * plotHeight,
+        y0: yFraction(stacks[l][i].bottom) * plotHeight,
+      }))
+      const actual = plotted.slice(0, lastActualIndex + 1)
+      const projected = plotted.slice(lastActualIndex)
+      return {
+        layer,
+        actualLine: actual.length > 1 ? toLine(actual) : '',
+        projectedLine: projected.length > 1 ? toLine(projected) : '',
+        areaPath:
+          actual.length > 1
+            ? `${toLine(actual)} ${actual
+                .toReversed()
+                .map((p) => `L ${p.x} ${p.y0}`)
+                .join(' ')} Z`
+            : '',
+        // Recorded points get a dot each, plus one for "now" at the end of the
+        // tail. The samples in between describe the curve's shape, not moments
+        // worth marking — a dot on each would read as eight more readings than
+        // were taken.
+        dots: plotted.filter((point, i) => !point.projected || i === plotted.length - 1),
+      }
+    }),
   )
+
+  const dots = $derived(plottedLayers.flatMap((layer) => layer.dots))
 
   // The dot under the pointer (or keyboard focus): it gets a vertical guide
   // and a tooltip with the reading on that date.
-  let activeDate = $state<string | undefined>(undefined)
-  const active = $derived(dots.find((point) => point.date === activeDate))
-
-  const actualLine = $derived(actualSegment.length > 1 ? toLine(actualSegment) : '')
-  const projectedLine = $derived(projectedSegment.length > 1 ? toLine(projectedSegment) : '')
-  const areaPath = $derived(
-    actualSegment.length > 1
-      ? `${toLine(actualSegment)} L ${actualSegment.at(-1)?.x} ${baselineY} L ${actualSegment[0].x} ${baselineY} Z`
-      : '',
-  )
+  let activeId = $state<string | undefined>(undefined)
+  const active = $derived(dots.find((point) => point.id === activeId))
 
   const monthLabels = $derived.by(() => {
     const ticks = monthTicks(firstDate, lastDate).map((date) => ({
@@ -172,8 +264,11 @@
   })
 </script>
 
-{#snippet row(label: string, value: string)}
+{#snippet row(label: string, value: string, color?: string)}
   <div class="flex items-center gap-2">
+    {#if color}
+      <span class="size-2 shrink-0 rounded-full" style:background-color={color}></span>
+    {/if}
     <span class="min-w-0 flex-1 truncate text-sm">{label}</span>
     <span class="shrink-0 text-right text-base font-medium">{value}</span>
   </div>
@@ -211,30 +306,36 @@
 
       {#if plotWidth > 0 && plotHeight > 0}
         <svg class="absolute inset-0 size-full overflow-visible" role="img" aria-label={ariaLabel}>
-          {#if areaPath}
-            <path d={areaPath} class="fill-muted" />
-          {/if}
-          {#if actualLine}
-            <path
-              d={actualLine}
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linejoin="round"
-              class="text-foreground"
-            />
-          {/if}
-          {#if projectedLine}
-            <path
-              d={projectedLine}
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-dasharray="4 3"
-              stroke-linejoin="round"
-              class="text-foreground"
-            />
-          {/if}
+          {#each plottedLayers as { layer, areaPath, actualLine, projectedLine } (layer.key)}
+            <g class="text-foreground" style:color={layer.color}>
+              {#if areaPath}
+                {#if layer.color}
+                  <path d={areaPath} fill="currentColor" fill-opacity="0.35" />
+                {:else}
+                  <path d={areaPath} class="fill-muted" />
+                {/if}
+              {/if}
+              {#if actualLine}
+                <path
+                  d={actualLine}
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linejoin="round"
+                />
+              {/if}
+              {#if projectedLine}
+                <path
+                  d={projectedLine}
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-dasharray="4 3"
+                  stroke-linejoin="round"
+                />
+              {/if}
+            </g>
+          {/each}
         </svg>
 
         {#if active}
@@ -244,27 +345,30 @@
           ></div>
         {/if}
 
-        {#each dots as point (point.date)}
+        {#each dots as point (point.id)}
           <!-- Recorded points are solid; the projected "now" point is hollow.
                A button, so the tooltip also opens on focus; the pseudo-element
                widens the hit area past the 8px dot. -->
           <button
             type="button"
             class={cn(
-              'absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px] border-foreground',
+              'absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px] border-current text-foreground',
               "before:absolute before:-inset-2 before:content-['']",
-              point.projected ? 'bg-background' : 'bg-foreground',
+              point.projected ? 'bg-background' : 'bg-current',
               (point.projected ? onAdd : onSelect) ? 'cursor-pointer' : 'cursor-default',
             )}
+            style:color={point.layer.color}
             style:left="{point.x}px"
             style:top="{point.y}px"
             style:width="{DOT_SIZE}px"
             style:height="{DOT_SIZE}px"
-            aria-label="{formatDate(point.date)}: {formatAmount(point.netWorth)}"
-            onmouseenter={() => (activeDate = point.date)}
-            onmouseleave={() => (activeDate = undefined)}
-            onfocus={() => (activeDate = point.date)}
-            onblur={() => (activeDate = undefined)}
+            aria-label="{point.layer.label}, {formatDate(point.date)}: {formatAmount(
+              point.layer.value(point),
+            )}"
+            onmouseenter={() => (activeId = point.id)}
+            onmouseleave={() => (activeId = undefined)}
+            onfocus={() => (activeId = point.id)}
+            onblur={() => (activeId = undefined)}
             onclick={() => {
               if (point.projected) onAdd?.()
               else onSelect?.(point.date)
@@ -293,18 +397,25 @@
               {/if}
             </div>
             <div class="flex flex-col whitespace-nowrap">
+              {#if view !== 'netWorth'}
+                {#each layers as layer (layer.key)}
+                  {@render row(layer.label, formatAmount(layer.value(active)), layer.color)}
+                {/each}
+              {/if}
               {@render row(
                 $_('page.dashboard.finances.history.tooltip.netWorth'),
                 formatAmount(active.netWorth),
               )}
-              {@render row(
-                $_('page.dashboard.finances.history.tooltip.runway'),
-                formatYears(active.runwayYears),
-              )}
-              {@render row(
-                $_('page.dashboard.finances.history.tooltip.fi'),
-                active.fiPercent === undefined ? '—' : formatPercent(active.fiPercent, 0),
-              )}
+              {#if view === 'netWorth'}
+                {@render row(
+                  $_('page.dashboard.finances.history.tooltip.runway'),
+                  formatYears(active.runwayYears),
+                )}
+                {@render row(
+                  $_('page.dashboard.finances.history.tooltip.fi'),
+                  active.fiPercent === undefined ? '—' : formatPercent(active.fiPercent, 0),
+                )}
+              {/if}
             </div>
           </div>
         {/if}

@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'vitest'
 
-import { buildHistorySeries, hasHistoryToShow } from './history-series'
+import {
+  type HistoryPoint,
+  buildHistorySeries,
+  hasHistoryToShow,
+  historyChangePercent,
+  historyInRange,
+} from './history-series'
 import type { Profile, Snapshot } from './schemas'
 
 // Snapshot on 2026-01-01, read on 2026-07-02 — 182 elapsed days.
@@ -28,7 +34,7 @@ describe('buildHistorySeries', () => {
     const series = buildHistorySeries(GROWING, TODAY)
 
     // One recorded point, then the tail: 8 samples ending on today.
-    expect(series[0]).toEqual({ date: '2026-01-01', netWorth: 110_000, projected: false })
+    expect(series[0]).toMatchObject({ date: '2026-01-01', netWorth: 110_000, projected: false })
     expect(series).toHaveLength(9)
     expect(series.slice(1).every((point) => point.projected)).toBe(true)
     expect(series.at(-1)?.date).toBe('2026-07-02')
@@ -117,7 +123,7 @@ describe('buildHistorySeries', () => {
       ],
     }
     const recorded = buildHistorySeries(profile, TODAY).filter((point) => !point.projected)
-    expect(recorded).toEqual([
+    expect(recorded).toMatchObject([
       { date: '2026-01-01', netWorth: 10_000, projected: false },
       { date: '2026-03-01', netWorth: 12_000, projected: false },
     ])
@@ -125,14 +131,14 @@ describe('buildHistorySeries', () => {
 
   test('does not project when the last snapshot is today', () => {
     const profile: Profile = { ...GROWING, snapshots: [{ date: '2026-07-02', cash_amount: 500 }] }
-    expect(buildHistorySeries(profile, TODAY)).toEqual([
+    expect(buildHistorySeries(profile, TODAY)).toMatchObject([
       { date: '2026-07-02', netWorth: 500, projected: false },
     ])
   })
 
   test('returns a single actual point when there are no snapshots yet', () => {
     const { snapshots: _snapshots, ...noHistory } = GROWING
-    expect(buildHistorySeries(noHistory, TODAY)).toEqual([
+    expect(buildHistorySeries(noHistory, TODAY)).toMatchObject([
       { date: '2026-07-02', netWorth: 110_000, projected: false },
     ])
   })
@@ -177,7 +183,7 @@ describe('buildHistorySeries figures', () => {
 
   test('each recorded point carries its net worth, runway and FI', () => {
     const [january, april] = buildHistorySeries(PROFILE, APRIL_FIRST)
-    expect(january).toEqual({
+    expect(january).toMatchObject({
       date: '2026-01-01',
       netWorth: 110_000,
       // 110,000 / 3,000 a month = 36.7 months
@@ -186,7 +192,7 @@ describe('buildHistorySeries figures', () => {
       fiPercent: expect.closeTo(12.22, 2),
       projected: false,
     })
-    expect(april).toEqual({
+    expect(april).toMatchObject({
       date: '2026-04-01',
       netWorth: 117_000,
       // 117,000 / 3,400 a month = 34.4 months
@@ -194,6 +200,24 @@ describe('buildHistorySeries figures', () => {
       // 3,400 × 12 / 4 % = 1,020,000; 117,000 of it
       fiPercent: expect.closeTo(11.47, 2),
       projected: false,
+    })
+  })
+
+  test('each point breaks its net worth down by category, asset debt under liabilities', () => {
+    const snapshot: Snapshot = {
+      date: '2026-04-01',
+      cash_amount: 12_000,
+      investments: [{ id: 'inv1', balance: 105_000 }],
+      tangible_assets: [{ id: 'home', value: 300_000, outstanding_balance: 200_000 }],
+      liabilities: [{ id: 'loan', outstanding_balance: 5_000 }],
+    }
+    const [point] = buildHistorySeries({ ...PROFILE, snapshots: [snapshot] }, APRIL_FIRST)
+    expect(point).toMatchObject({
+      cash: 12_000,
+      investments: 105_000,
+      tangibleAssets: 300_000,
+      liabilities: 205_000,
+      netWorth: 212_000,
     })
   })
 })
@@ -217,5 +241,75 @@ describe('hasHistoryToShow', () => {
   test('is false for a profile with neither', () => {
     expect(hasHistoryToShow(EMPTY)).toBe(false)
     expect(hasHistoryToShow({ ...EMPTY, snapshots: [] })).toBe(false)
+  })
+})
+
+describe('historyInRange', () => {
+  const point = (date: string): HistoryPoint => ({
+    date,
+    netWorth: 0,
+    cash: 0,
+    investments: 0,
+    tangibleAssets: 0,
+    liabilities: 0,
+    projected: false,
+  })
+  const POINTS = [
+    '2024-07-01',
+    '2024-07-02',
+    '2025-07-02',
+    '2026-04-01',
+    '2026-06-02',
+    '2026-07-02',
+  ].map(point)
+  const dates = (range: Parameters<typeof historyInRange>[1]) =>
+    historyInRange(POINTS, range, '2026-07-02').map((p) => p.date)
+
+  test('all keeps every point', () => {
+    expect(dates('all')).toHaveLength(6)
+  })
+
+  test('a range keeps the points back to the same day that many months ago, inclusive', () => {
+    expect(dates('1m')).toEqual(['2026-06-02', '2026-07-02'])
+    expect(dates('3m')).toEqual(['2026-06-02', '2026-07-02'])
+    expect(dates('6m')).toEqual(['2026-04-01', '2026-06-02', '2026-07-02'])
+    expect(dates('1y')).toEqual(['2025-07-02', '2026-04-01', '2026-06-02', '2026-07-02'])
+    expect(dates('2y')).toEqual([
+      '2024-07-02',
+      '2025-07-02',
+      '2026-04-01',
+      '2026-06-02',
+      '2026-07-02',
+    ])
+  })
+})
+
+describe('historyChangePercent', () => {
+  const worth = (netWorth: number): HistoryPoint => ({
+    date: '2026-01-01',
+    netWorth,
+    cash: 0,
+    investments: 0,
+    tangibleAssets: 0,
+    liabilities: 0,
+    projected: false,
+  })
+  const change = (...values: number[]) =>
+    historyChangePercent(values.map(worth), (point) => point.netWorth)
+
+  test('compares the last point with the first', () => {
+    expect(change(100_000, 150_000, 125_000)).toBe(25)
+    expect(change(100_000, 80_000)).toBe(-20)
+    expect(change(100_000, 100_000)).toBe(0)
+    expect(change(100_000)).toBe(0)
+  })
+
+  test('a negative start climbing is a gain', () => {
+    expect(change(-10_000, -5_000)).toBe(50)
+  })
+
+  test('is undefined with nothing to compare against', () => {
+    expect(change(0, 5_000)).toBe(undefined)
+    expect(change()).toBe(undefined)
   })
 })
