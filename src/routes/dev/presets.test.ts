@@ -22,6 +22,14 @@ const span = (snapshots: { date: string }[]): number =>
   snapshots.length > 1 ? daysBetween(snapshots[0].date, snapshots[snapshots.length - 1].date) : 0
 
 describe('dev presets', () => {
+  test('"No finances" starts onboarding from an empty browser, as Get started does', () => {
+    const preset = presets.find((p) => p.name === 'No finances')
+    // An empty name is what makes the dev page clear the data instead of importing it.
+    expect(preset?.data.profile.name).toBe('')
+    expect(preset?.data.portfolios).toEqual([])
+    expect(preset?.startAt).toBe('/profile')
+  })
+
   test('every preset is loadable data', () => {
     for (const preset of presets) {
       // Mirrors what importBackup() does when the preset is applied.
