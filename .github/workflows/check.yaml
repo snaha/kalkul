@@ -42,6 +42,11 @@ jobs:
       - name: Check localization files
         run: pnpm check-locales
 
+      - name: Check the stored data version
+        run: |
+          git fetch --depth=1 origin main:refs/remotes/origin/main
+          pnpm check-data-version
+
       - name: Check dependencies and unused files
         run: pnpm knip
 

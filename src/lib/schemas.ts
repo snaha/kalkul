@@ -1153,6 +1153,7 @@ export const portfolioSchema = z.object({
 })
 
 export const storedDataSchema = z.object({
+  version: z.number().int().positive().optional(),
   lastUpdated: z.number(),
   profile: profileSchema,
   portfolios: z.array(portfolioSchema),

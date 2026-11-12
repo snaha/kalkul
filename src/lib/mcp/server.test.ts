@@ -3,6 +3,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import storageKeys from '$lib/storage-keys'
+import { STORED_DATA_VERSION } from '$lib/stored-data-version'
 import { appStore } from '$lib/stores/app.svelte'
 
 import { createKalkulMcpServer } from './server'
@@ -86,6 +87,7 @@ describe('createKalkulMcpServer', () => {
 
   it('get_data returns the profile and portfolios', async () => {
     expect(json(await call('get_data'))).toEqual({
+      version: STORED_DATA_VERSION,
       profile: { name: 'Jane', email: '' },
       portfolios: [PORTFOLIO],
     })

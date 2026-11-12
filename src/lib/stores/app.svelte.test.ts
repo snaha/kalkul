@@ -7,6 +7,7 @@ import { createPlan } from '$lib/plan-defaults'
 import type { Profile, StoredData } from '$lib/schemas'
 import { buildSnapshotSections, seedSnapshotOn, snapshotFromFields } from '$lib/snapshot-form'
 import storageKeys from '$lib/storage-keys'
+import { NewerBackupError, STORED_DATA_VERSION } from '$lib/stored-data-version'
 import { toDateOnlyString } from '$lib/utils'
 
 import { type DataChange, appStore } from './app.svelte'
@@ -27,16 +28,24 @@ const NOW = new Date(2026, 5, 15, 12, 0, 0)
 const TODAY = toDateOnlyString(NOW)
 
 let backing: Map<string, string>
+// Keys whose writes fail the way a full storage quota fails them.
+let fullFor: (key: string) => boolean
 
 function stubLocalStorage(): void {
   backing = new Map<string, string>()
+  fullFor = () => false
   vi.stubGlobal('localStorage', {
     getItem: (key: string) => (backing.has(key) ? backing.get(key) : undefined),
     setItem: (key: string, value: string) => {
+      if (fullFor(key)) throw new DOMException('Quota exceeded', 'QuotaExceededError')
       backing.set(key, value)
     },
     removeItem: (key: string) => {
       backing.delete(key)
+    },
+    key: (index: number) => [...backing.keys()][index],
+    get length() {
+      return backing.size
     },
   })
 }
@@ -160,6 +169,407 @@ describe('appStore.startSync', () => {
     tab.dispatchEvent(storageEvent(storageKeys.DATA, null))
 
     expect(appStore.profile.name).toBe('Jane Doe')
+  })
+})
+
+describe('appStore loading data it cannot read', () => {
+  const COPY_KEY = `${storageKeys.UNREADABLE_DATA_PREFIX}${NOW.toISOString()}`
+  // Cut off mid-write: not JSON at all.
+  const CORRUPT = '{"lastUpdated":1,"profile":{"name":"Jane'
+  // Valid JSON the schema rejects.
+  const OLD_SHAPE = JSON.stringify({ lastUpdated: 1, clients: [{ name: 'Jane' }] })
+
+  function recoveryKeys(): string[] {
+    return [...backing.keys()].filter((key) => key.startsWith(storageKeys.UNREADABLE_DATA_PREFIX))
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
+    stubLocalStorage()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    appStore.clear()
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+    vi.useRealTimers()
+  })
+
+  it.each([
+    ['corrupt JSON', CORRUPT],
+    ['JSON the schema rejects', OLD_SHAPE],
+  ])('keeps a copy of %s, flags it and opens empty', (_label, raw) => {
+    backing.set(storageKeys.DATA, raw)
+
+    appStore.load()
+
+    expect(appStore.unreadableData).toEqual({ raw, kept: true })
+    expect(backing.get(COPY_KEY)).toBe(raw)
+    expect(backing.get(storageKeys.DATA)).toBe(raw)
+    expect(appStore.profile.name).toBe('')
+    expect(appStore.portfolios).toEqual([])
+    expect(appStore.loading).toBe(false)
+  })
+
+  it('lets the next save replace it, the copy staying intact', () => {
+    backing.set(storageKeys.DATA, CORRUPT)
+    appStore.load()
+
+    appStore.updateProfile({ name: 'Fresh start' })
+
+    expect(JSON.parse(backing.get(storageKeys.DATA) ?? '{}').profile.name).toBe('Fresh start')
+    expect(backing.get(COPY_KEY)).toBe(CORRUPT)
+  })
+
+  it('keeps one copy however many times the same data fails to load', () => {
+    backing.set(storageKeys.DATA, CORRUPT)
+    appStore.load()
+    vi.setSystemTime(new Date(NOW.getTime() + 60_000))
+    appStore.load()
+
+    expect(recoveryKeys()).toEqual([COPY_KEY])
+  })
+
+  it('never overwrites a copy kept earlier of different data', () => {
+    const earlierKey = `${storageKeys.UNREADABLE_DATA_PREFIX}2026-01-01T00:00:00.000Z`
+    backing.set(earlierKey, OLD_SHAPE)
+    backing.set(storageKeys.DATA, CORRUPT)
+
+    appStore.load()
+
+    expect(backing.get(earlierKey)).toBe(OLD_SHAPE)
+    expect(backing.get(COPY_KEY)).toBe(CORRUPT)
+  })
+
+  describe('without room for a copy', () => {
+    beforeEach(() => {
+      fullFor = (key) => key.startsWith(storageKeys.UNREADABLE_DATA_PREFIX)
+      backing.set(storageKeys.DATA, CORRUPT)
+      appStore.load()
+    })
+
+    it('flags the data as not kept', () => {
+      expect(appStore.unreadableData).toEqual({ raw: CORRUPT, kept: false })
+      expect(recoveryKeys()).toEqual([])
+    })
+
+    it('holds saves back so the only copy is not overwritten', () => {
+      appStore.updateProfile({ name: 'Fresh start' })
+      appStore.addPortfolio(
+        createPlan(appStore.profile, {
+          name: 'Plan',
+          start_date: '2026-01-01',
+          end_date: '2060-01-01',
+          inflation_rate: 2,
+        }),
+      )
+
+      expect(backing.get(storageKeys.DATA)).toBe(CORRUPT)
+      expect(appStore.profile.name).toBe('Fresh start')
+    })
+
+    it('saves again once the user has downloaded the data', () => {
+      appStore.markUnreadableDataDownloaded()
+      appStore.updateProfile({ name: 'Fresh start' })
+
+      expect(appStore.unreadableData).toEqual({ raw: CORRUPT, kept: true })
+      expect(JSON.parse(backing.get(storageKeys.DATA) ?? '{}').profile.name).toBe('Fresh start')
+    })
+  })
+
+  it('flags nothing when storage holds no data', () => {
+    appStore.load()
+
+    expect(appStore.unreadableData).toBeUndefined()
+    expect(recoveryKeys()).toEqual([])
+  })
+
+  it('flags nothing for data it can read', () => {
+    backing.set(
+      storageKeys.DATA,
+      JSON.stringify({ lastUpdated: 0, profile: { name: 'Jane', email: '' }, portfolios: [] }),
+    )
+
+    appStore.load()
+
+    expect(appStore.unreadableData).toBeUndefined()
+    expect(appStore.profile.name).toBe('Jane')
+    expect(recoveryKeys()).toEqual([])
+  })
+
+  describe('saved by another tab', () => {
+    const LATER = new Date(NOW.getTime() + 60_000)
+    const LATER_COPY_KEY = `${storageKeys.UNREADABLE_DATA_PREFIX}${LATER.toISOString()}`
+    const READABLE = JSON.stringify({
+      lastUpdated: 2,
+      profile: { name: 'Other tab', email: '' },
+      portfolios: [],
+    })
+    let onStorage: ((event: StorageEvent) => void) | undefined
+    let stopSync: () => void
+
+    // Saves `raw` the way another tab does: to storage, then a storage event.
+    function saveFromOtherTab(raw: string): void {
+      backing.set(storageKeys.DATA, raw)
+      onStorage?.({ key: storageKeys.DATA, newValue: raw } as StorageEvent)
+    }
+
+    beforeEach(() => {
+      vi.stubGlobal('window', {
+        addEventListener: (_type: string, listener: (event: StorageEvent) => void) => {
+          onStorage = listener
+        },
+        removeEventListener: () => {},
+      })
+      appStore.importBackup(
+        JSON.stringify({ profile: { name: 'Jane', email: '' }, portfolios: [] }),
+      )
+      stopSync = appStore.startSync()
+    })
+
+    afterEach(() => {
+      stopSync()
+    })
+
+    it('keeps no copy and flags nothing until this tab saves', () => {
+      saveFromOtherTab(OLD_SHAPE)
+
+      expect(recoveryKeys()).toEqual([])
+      expect(appStore.unreadableData).toBeUndefined()
+      expect(appStore.profile.name).toBe('Jane')
+    })
+
+    it("copies it when this tab's next save overwrites it", () => {
+      saveFromOtherTab(OLD_SHAPE)
+      vi.setSystemTime(LATER)
+
+      appStore.updateProfile({ name: 'Jane Doe' })
+
+      expect(recoveryKeys()).toEqual([LATER_COPY_KEY])
+      expect(backing.get(LATER_COPY_KEY)).toBe(OLD_SHAPE)
+      expect(appStore.unreadableData).toEqual({ raw: OLD_SHAPE, kept: true })
+      expect(JSON.parse(backing.get(storageKeys.DATA) ?? '{}').profile.name).toBe('Jane Doe')
+    })
+
+    it('copies only the latest of several unreadable saves', () => {
+      saveFromOtherTab(OLD_SHAPE)
+      vi.setSystemTime(LATER)
+      saveFromOtherTab(CORRUPT)
+
+      appStore.updateProfile({ name: 'Jane Doe' })
+
+      expect(recoveryKeys()).toEqual([LATER_COPY_KEY])
+      expect(backing.get(LATER_COPY_KEY)).toBe(CORRUPT)
+      expect(appStore.unreadableData).toEqual({ raw: CORRUPT, kept: true })
+    })
+
+    it('copies nothing once a readable save follows', () => {
+      saveFromOtherTab(OLD_SHAPE)
+      saveFromOtherTab(READABLE)
+
+      appStore.updateProfile({ name: 'Jane Doe' })
+
+      expect(recoveryKeys()).toEqual([])
+      expect(appStore.unreadableData).toBeUndefined()
+    })
+
+    it('holds the save back without room for a copy', () => {
+      fullFor = (key) => key.startsWith(storageKeys.UNREADABLE_DATA_PREFIX)
+      saveFromOtherTab(OLD_SHAPE)
+
+      appStore.updateProfile({ name: 'Jane Doe' })
+
+      expect(backing.get(storageKeys.DATA)).toBe(OLD_SHAPE)
+      expect(appStore.unreadableData).toEqual({ raw: OLD_SHAPE, kept: false })
+    })
+
+    it('saves again once another tab erases the data', () => {
+      fullFor = (key) => key.startsWith(storageKeys.UNREADABLE_DATA_PREFIX)
+      saveFromOtherTab(OLD_SHAPE)
+      appStore.updateProfile({ name: 'Jane Doe' })
+
+      backing.delete(storageKeys.DATA)
+      onStorage?.({ key: storageKeys.DATA, newValue: null } as StorageEvent)
+      appStore.updateProfile({ name: 'Fresh start' })
+
+      expect(appStore.unreadableData).toBeUndefined()
+      expect(JSON.parse(backing.get(storageKeys.DATA) ?? '{}').profile.name).toBe('Fresh start')
+    })
+
+    describe('during a demo', () => {
+      const DEMO = { profile: { name: 'Claire', email: '' }, portfolios: [] }
+
+      it('leaves the payload where it is when the demo saves', () => {
+        saveFromOtherTab(CORRUPT)
+        appStore.loadDemo(DEMO, NOW)
+
+        appStore.updateProfile({ cash_amount: 200 })
+
+        expect(recoveryKeys()).toEqual([])
+        expect(backing.get(storageKeys.DATA)).toBe(CORRUPT)
+      })
+
+      it('keeps a copy of the payload on leaving the demo', () => {
+        appStore.loadDemo(DEMO, NOW)
+        saveFromOtherTab(CORRUPT)
+
+        appStore.exitDemo()
+
+        expect(appStore.unreadableData).toEqual({ raw: CORRUPT, kept: true })
+        expect(backing.get(COPY_KEY)).toBe(CORRUPT)
+        expect(appStore.profile.name).toBe('')
+      })
+    })
+  })
+})
+
+describe('appStore stored data version', () => {
+  const NEWER = JSON.stringify({
+    version: STORED_DATA_VERSION + 1,
+    lastUpdated: 2,
+    profile: { name: 'Newer', email: '', fieldFromNewerVersion: 'keep me' },
+    portfolios: [],
+  })
+  const READABLE = JSON.stringify({
+    version: STORED_DATA_VERSION,
+    lastUpdated: 3,
+    profile: { name: 'Same version', email: '' },
+    portfolios: [],
+  })
+  let onStorage: ((event: StorageEvent) => void) | undefined
+  let stopSync: () => void
+
+  function saveFromOtherTab(raw: string): void {
+    backing.set(storageKeys.DATA, raw)
+    onStorage?.({ key: storageKeys.DATA, newValue: raw } as StorageEvent)
+  }
+
+  beforeEach(() => {
+    stubLocalStorage()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.stubGlobal('window', {
+      addEventListener: (_type: string, listener: (event: StorageEvent) => void) => {
+        onStorage = listener
+      },
+      removeEventListener: () => {},
+    })
+    appStore.importBackup(JSON.stringify({ profile: { name: 'Jane', email: '' }, portfolios: [] }))
+    stopSync = appStore.startSync()
+  })
+
+  afterEach(() => {
+    stopSync()
+    appStore.clear()
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it('writes the version with every save', () => {
+    appStore.updateProfile({ name: 'Jane Doe' })
+
+    expect(JSON.parse(backing.get(storageKeys.DATA) ?? '{}').version).toBe(STORED_DATA_VERSION)
+  })
+
+  it('writes the version into backups', () => {
+    expect(JSON.parse(appStore.exportBackup()).version).toBe(STORED_DATA_VERSION)
+  })
+
+  it('reads data saved before versions existed and versions it on the next save', () => {
+    backing.set(
+      storageKeys.DATA,
+      JSON.stringify({ lastUpdated: 1, profile: { name: 'Old', email: '' }, portfolios: [] }),
+    )
+    appStore.load()
+    expect(appStore.profile.name).toBe('Old')
+    expect(appStore.newerDataStored).toBe(false)
+
+    appStore.updateProfile({ cash_amount: 5 })
+
+    expect(JSON.parse(backing.get(storageKeys.DATA) ?? '{}').version).toBe(STORED_DATA_VERSION)
+  })
+
+  it('loads newer data as newer, not as unreadable, and keeps it from the next save', () => {
+    backing.set(storageKeys.DATA, NEWER)
+
+    appStore.load()
+    appStore.updateProfile({ name: 'This tab' })
+
+    expect(appStore.newerDataStored).toBe(true)
+    expect(appStore.unreadableData).toBeUndefined()
+    expect(backing.get(storageKeys.DATA)).toBe(NEWER)
+  })
+
+  it('keeps its state and stops saving when another tab saves newer data', () => {
+    saveFromOtherTab(NEWER)
+    expect(appStore.newerDataStored).toBe(true)
+    expect(appStore.profile.name).toBe('Jane')
+
+    appStore.updateProfile({ name: 'This tab' })
+
+    expect(backing.get(storageKeys.DATA)).toBe(NEWER)
+  })
+
+  it('stops saving even when the storage event never arrived', () => {
+    const changes: DataChange[] = []
+    const stop = appStore.onDataChange((change) => changes.push(change))
+    backing.set(storageKeys.DATA, NEWER)
+
+    appStore.updateProfile({ name: 'This tab' })
+    stop()
+
+    expect(appStore.newerDataStored).toBe(true)
+    expect(backing.get(storageKeys.DATA)).toBe(NEWER)
+    expect(changes).toEqual([])
+  })
+
+  it('keeps no copy of newer data, which nothing overwrites', () => {
+    saveFromOtherTab(NEWER)
+    appStore.updateProfile({ name: 'This tab' })
+
+    const copies = [...backing.keys()].filter((key) =>
+      key.startsWith(storageKeys.UNREADABLE_DATA_PREFIX),
+    )
+    expect(copies).toEqual([])
+  })
+
+  it('saves again once storage no longer holds newer data', () => {
+    saveFromOtherTab(NEWER)
+    saveFromOtherTab(READABLE)
+    expect(appStore.newerDataStored).toBe(false)
+
+    appStore.updateProfile({ cash_amount: 5 })
+
+    expect(JSON.parse(backing.get(storageKeys.DATA) ?? '{}').profile.cash_amount).toBe(5)
+  })
+
+  it('stops flagging newer data once another tab clears it', () => {
+    saveFromOtherTab(NEWER)
+    backing.delete(storageKeys.DATA)
+    onStorage?.({ key: storageKeys.DATA, newValue: null } as StorageEvent)
+
+    expect(appStore.newerDataStored).toBe(false)
+  })
+
+  it('never lets a demo touch newer data', () => {
+    appStore.loadDemo({ profile: { name: 'Claire', email: '' }, portfolios: [] }, NOW)
+    backing.set(storageKeys.DATA, NEWER)
+
+    appStore.updateProfile({ cash_amount: 5 })
+    expect(backing.get(storageKeys.DATA)).toBe(NEWER)
+
+    appStore.exitDemo()
+    expect(appStore.newerDataStored).toBe(true)
+  })
+
+  it('refuses a backup from a newer version and changes nothing', () => {
+    const before = backing.get(storageKeys.DATA)
+
+    expect(() => appStore.importBackup(NEWER)).toThrow(NewerBackupError)
+
+    expect(appStore.profile.name).toBe('Jane')
+    expect(backing.get(storageKeys.DATA)).toBe(before)
   })
 })
 
