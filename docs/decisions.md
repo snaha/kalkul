@@ -10,6 +10,22 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-12 Assets and liabilities share one scale on the plan chart
+
+**Context.** #422: the plan chart scaled assets and liabilities separately,
+each to fill its own area (assets above a baseline fixed at 75% of the
+height, liabilities below it), so a 20 000 EUR loan drew taller than
+286 000 EUR of investments. The 75/25 split came from the first chart
+prototype, built before it had real data.
+
+**Decision.** One scale covers the range from the largest liability to the
+largest asset total, so every bar is proportional to its value. The
+baseline sits where that range puts it: at the bottom when there are no
+liabilities, higher as they grow. Grid lines stay evenly spaced and are
+anchored on the baseline. The plan card thumbnail follows the same rule.
+
+**Supersedes.** The fixed 75/25 split between assets and liabilities.
+
 ## 2026-11-06 The History chart tooltip shows the reading on each date
 
 **Context.** #345 adds a tooltip to the History chart's dots (Figma frame
