@@ -466,10 +466,6 @@
         "sectionEmpty": "Není co zaznamenat — nejdřív přidejte položky ve svých finančních údajích.",
         "confirm": "Potvrdit",
         "resetValues": "Obnovit hodnoty"
-      },
-      "edit": {
-        "title": "Upravit snímek",
-        "description": "Hodnoty zaznamenané k {date}. Uloží se jen ty, které změníte."
       }
     },
     "financialData": {

@@ -466,10 +466,6 @@
         "sectionEmpty": "Nothing to record here — add items in your financial data first.",
         "confirm": "Confirm",
         "resetValues": "Reset values"
-      },
-      "edit": {
-        "title": "Edit snapshot",
-        "description": "The figures recorded on {date}. Only the values you change are saved."
       }
     },
     "financialData": {

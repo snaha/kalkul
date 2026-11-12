@@ -10,26 +10,28 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
-## 2026-11-12 A History chart dot opens a one-column edit of its snapshot
+## 2026-11-12 A History chart dot edits its snapshot, and an edit saves only what was typed
 
 **Context.** #345 asks for a click on a History chart dot to edit that
-snapshot, on the dashboard as well as the History page. The History page
-already had the full snapshot dialog (frame 911-77498), which can also
-re-date a snapshot and writes every field back.
+snapshot, on the dashboard as well as the History page. Frames 1308 (edit)
+and 1309 (add) draw one snapshot dialog for both; the History page already
+used it for its table's Edit and its Add button, and on Confirm it wrote
+every field back, including estimates seeded for items the snapshot never
+recorded.
 
-**Decision.** Clicking a recorded dot, on either chart, opens a dialog shaped
-like Quick update for that snapshot's date: one column with an input for
-every figure the snapshot can hold (cash, investments, each tangible asset's
-value and debt, liabilities, incomes and expenses), seeded from the snapshot.
-The date cannot be changed there. Confirm writes only the figures the user
-typed; everything else in the snapshot stays as recorded, and an item it
-never recorded stays unrecorded unless the user types a figure for it. A
-financed asset's value and debt are one entry, so editing either writes both.
-There is no change column. The History table's Edit keeps the full dialog.
+**Decision.** Clicking a recorded dot, on either chart, opens that dialog in
+edit mode for the dot's snapshot. In edit mode Confirm writes only the
+figures the user typed; everything else in the snapshot stays as recorded,
+and an item it never recorded stays unrecorded unless the user types a
+figure for it. A financed asset's value and debt are one entry, so editing
+either writes both. Adding or duplicating a snapshot still records every
+field. The dialog is at most 1024px tall and 32px clear of the viewport
+edges, as the frames draw it; its title bar and footer stay put and the
+sections scroll between them.
 
-**Why.** A dot is one reading, so the edit is a correction of that reading
-rather than a new snapshot; writing back untouched seeded figures would add
-estimates the user never confirmed.
+**Why.** An edit corrects a reading the user recorded; writing back
+untouched seeded figures would add estimates they never confirmed. A new
+snapshot has nothing recorded yet, so every field is its figure.
 
 ## 2026-11-06 The History chart tooltip shows the reading on each date
 
