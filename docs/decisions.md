@@ -20,7 +20,9 @@ every field back, including estimates seeded for items the snapshot never
 recorded.
 
 **Decision.** Clicking a recorded dot, on either chart, opens that dialog in
-edit mode for the dot's snapshot. In edit mode Confirm writes only the
+edit mode for the dot's snapshot. The projected "now" dot, shown when today
+has no snapshot, opens it in add mode for today, seeded with today's
+estimate as the History page's Add is; its tooltip reads "click to add". In edit mode Confirm writes only the
 figures the user typed; everything else in the snapshot stays as recorded,
 and an item it never recorded stays unrecorded unless the user types a
 figure for it. A financed asset's value and debt are one entry, so editing

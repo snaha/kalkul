@@ -8,6 +8,7 @@
   import type { HistoryPoint } from '$lib/history-series'
   import routes from '$lib/routes'
   import type { Snapshot } from '$lib/schemas'
+  import { seedSnapshotOn } from '$lib/snapshot-form'
   import { appStore } from '$lib/stores/app.svelte'
 
   import SnapshotDialog from './snapshot-dialog.svelte'
@@ -20,19 +21,35 @@
 
   let { points, todayDate }: Props = $props()
 
-  // A dot opens its snapshot for editing; with no snapshot recorded yet there
-  // is nothing to edit, so the chart offers no click.
-  const snapshots = $derived(appStore.profile.toJSON().snapshots ?? [])
+  // A recorded dot opens its snapshot for editing; with no snapshot recorded
+  // yet there is nothing to edit, so the chart offers no click. The projected
+  // "now" dot — today, not yet recorded — offers to add one.
+  const storedProfile = $derived(appStore.profile.toJSON())
+  const snapshots = $derived(storedProfile.snapshots ?? [])
   const takenDates = $derived(snapshots.map((snapshot) => snapshot.date))
-  let editOpen = $state(false)
+  let dialogOpen = $state(false)
+  let dialogMode = $state<'add' | 'edit'>('edit')
   // Placeholder until a dot fills it in.
-  let editSource = $state<Snapshot>({ date: '' })
+  let dialogSource = $state<Snapshot>({ date: '' })
+  let seedOn = $state<((date: string) => Snapshot) | undefined>(undefined)
 
   function openEdit(date: string): void {
     const snapshot = snapshots.find((s) => s.date === date)
     if (!snapshot) return
-    editSource = snapshot
-    editOpen = true
+    dialogMode = 'edit'
+    dialogSource = snapshot
+    seedOn = undefined
+    dialogOpen = true
+  }
+
+  function openAdd(): void {
+    // Seeded with the app's estimate for the date, as the History page's Add
+    // is, and re-seeded if the user picks another day.
+    const seed = (date: string) => seedSnapshotOn(storedProfile, date)
+    dialogMode = 'add'
+    dialogSource = seed(todayDate)
+    seedOn = seed
+    dialogOpen = true
   }
 </script>
 
@@ -53,16 +70,18 @@
     nowLabel={$_('page.dashboard.finances.history.now')}
     ariaLabel={$_('page.dashboard.finances.history.chartLabel')}
     onSelect={snapshots.length > 0 ? openEdit : undefined}
+    onAdd={openAdd}
     class="min-h-0 flex-1"
   />
 </div>
 
 <SnapshotDialog
-  bind:open={editOpen}
-  mode="edit"
-  source={editSource}
-  originalDate={editSource.date}
+  bind:open={dialogOpen}
+  mode={dialogMode}
+  source={dialogSource}
+  originalDate={dialogMode === 'edit' ? dialogSource.date : undefined}
   {takenDates}
   today={todayDate}
+  {seedOn}
   onConfirm={(snapshot, original) => appStore.saveSnapshot(snapshot, original)}
 />
