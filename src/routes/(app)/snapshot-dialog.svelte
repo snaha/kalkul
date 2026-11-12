@@ -172,9 +172,7 @@
 </script>
 
 <Dialog.Root bind:open>
-  <Dialog.Content
-    class="flex max-h-[min(1024px,calc(100dvh-4rem))] flex-col gap-0 p-0 sm:max-w-[576px]"
-  >
+  <Dialog.Content class="flex max-h-[calc(100dvh-4rem)] flex-col gap-0 p-0 sm:max-w-[576px]">
     <Dialog.Header class="p-4">
       <Dialog.Title class="text-base font-normal">
         {mode === 'add' ? $_('page.history.dialog.addTitle') : $_('page.history.dialog.editTitle')}

@@ -25,9 +25,13 @@ figures the user typed; everything else in the snapshot stays as recorded,
 and an item it never recorded stays unrecorded unless the user types a
 figure for it. A financed asset's value and debt are one entry, so editing
 either writes both. Adding or duplicating a snapshot still records every
-field. The dialog is at most 1024px tall and 32px clear of the viewport
-edges, as the frames draw it; its title bar and footer stay put and the
-sections scroll between them.
+field. The dialog grows to the window's height less 32px at the top and the
+bottom; its title bar and footer stay put and the sections scroll between
+them. It edits only what a snapshot records (cash, balances, asset values and
+debts, income and expense amounts) as plain inputs: the frames' collapsible
+item cards, their add buttons and a transfers section are left out, since a
+snapshot holds no item names, settings or transfers. Those are edited in
+financial data.
 
 **Why.** An edit corrects a reading the user recorded; writing back
 untouched seeded figures would add estimates they never confirmed. A new
