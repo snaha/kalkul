@@ -6,11 +6,17 @@
   import HistoryChart, { type HistoryView } from '$lib/components/history-chart.svelte'
   import SelectField, { type SelectFieldItem } from '$lib/components/select-field.svelte'
   import { Button } from '$lib/components/ui/button'
-  import { type HistoryPoint, type HistoryRange, historyInRange } from '$lib/history-series'
+  import {
+    type HistoryPoint,
+    type HistoryRange,
+    historyChangePercent,
+    historyInRange,
+  } from '$lib/history-series'
   import routes from '$lib/routes'
   import type { Snapshot } from '$lib/schemas'
   import { seedSnapshotOn } from '$lib/snapshot-form'
   import { appStore } from '$lib/stores/app.svelte'
+  import { cn } from '$lib/utils'
 
   import SnapshotDialog from './snapshot-dialog.svelte'
 
@@ -49,6 +55,22 @@
     { value: 'liabilities', label: $_('page.plan.liabilities') },
   ])
 
+  // What the selected view plots, summed: the figure the change is measured on.
+  const viewValue: Record<HistoryView, (point: HistoryPoint) => number> = {
+    netWorth: (p) => p.netWorth,
+    breakdown: (p) => p.cash + p.investments + p.tangibleAssets,
+    cash: (p) => p.cash,
+    investments: (p) => p.investments,
+    tangibleAssets: (p) => p.tangibleAssets,
+    liabilities: (p) => p.liabilities,
+  }
+  // Rounded to what the label prints, so a change that reads 0.0% is coloured
+  // as no change.
+  const change = $derived.by(() => {
+    const percent = historyChangePercent(visiblePoints, viewValue[view])
+    return percent === undefined ? undefined : Math.round(percent * 10) / 10
+  })
+
   let dialogOpen = $state(false)
   let dialogMode = $state<'add' | 'edit'>('edit')
   // Placeholder until a dot fills it in.
@@ -77,7 +99,19 @@
 
 <div class="flex min-h-0 flex-1 flex-col gap-4">
   <div class="flex items-center gap-2">
-    <h3 class="flex-1 text-sm font-bold">{$_('page.dashboard.finances.history.title')}</h3>
+    <h3 class="text-sm font-bold">{$_('page.dashboard.finances.history.title')}</h3>
+    <span
+      class={cn(
+        'flex-1 text-sm font-medium',
+        change === undefined || change === 0
+          ? 'text-muted-foreground'
+          : change > 0
+            ? 'text-success'
+            : 'text-destructive',
+      )}
+    >
+      {change === undefined ? '' : appStore.formatPercent(change, 1, true)}
+    </span>
     <SelectField
       bind:value={range}
       items={ranges}

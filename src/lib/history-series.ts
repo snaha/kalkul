@@ -155,3 +155,21 @@ export function historyInRange(
   )
   return points.filter((point) => point.date >= cutoff)
 }
+
+/**
+ * How much `value` moved between the first and the last point, as a percentage
+ * of where it started. Undefined when it started at zero, or with no points:
+ * there is nothing to measure a change against.
+ */
+export function historyChangePercent(
+  points: HistoryPoint[],
+  value: (point: HistoryPoint) => number,
+): number | undefined {
+  const first = points[0]
+  const last = points.at(-1)
+  if (!first || !last) return undefined
+  const start = value(first)
+  if (start === 0) return undefined
+  // Against the magnitude, so a negative net worth climbing reads as a gain.
+  return ((value(last) - start) / Math.abs(start)) * 100
+}

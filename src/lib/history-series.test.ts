@@ -4,6 +4,7 @@ import {
   type HistoryPoint,
   buildHistorySeries,
   hasHistoryToShow,
+  historyChangePercent,
   historyInRange,
 } from './history-series'
 import type { Profile, Snapshot } from './schemas'
@@ -280,5 +281,35 @@ describe('historyInRange', () => {
       '2026-06-02',
       '2026-07-02',
     ])
+  })
+})
+
+describe('historyChangePercent', () => {
+  const worth = (netWorth: number): HistoryPoint => ({
+    date: '2026-01-01',
+    netWorth,
+    cash: 0,
+    investments: 0,
+    tangibleAssets: 0,
+    liabilities: 0,
+    projected: false,
+  })
+  const change = (...values: number[]) =>
+    historyChangePercent(values.map(worth), (point) => point.netWorth)
+
+  test('compares the last point with the first', () => {
+    expect(change(100_000, 150_000, 125_000)).toBe(25)
+    expect(change(100_000, 80_000)).toBe(-20)
+    expect(change(100_000, 100_000)).toBe(0)
+    expect(change(100_000)).toBe(0)
+  })
+
+  test('a negative start climbing is a gain', () => {
+    expect(change(-10_000, -5_000)).toBe(50)
+  })
+
+  test('is undefined with nothing to compare against', () => {
+    expect(change(0, 5_000)).toBe(undefined)
+    expect(change()).toBe(undefined)
   })
 })
