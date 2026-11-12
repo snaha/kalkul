@@ -32,7 +32,10 @@
   const views = $derived<SelectFieldItem<HistoryView>[]>([
     { value: 'netWorth', label: $_('page.dashboard.finances.history.view.netWorth') },
     { value: 'breakdown', label: $_('page.dashboard.finances.history.view.breakdown') },
-    { value: 'individual', label: $_('page.dashboard.finances.history.view.individual') },
+    { value: 'cash', label: $_('page.plan.cash') },
+    { value: 'investments', label: $_('page.plan.investments') },
+    { value: 'tangibleAssets', label: $_('page.plan.tangibleAssets') },
+    { value: 'liabilities', label: $_('page.plan.liabilities') },
   ])
 
   let dialogOpen = $state(false)

@@ -380,8 +380,7 @@
           "view": {
             "label": "Zobrazení grafu",
             "netWorth": "Čisté jmění",
-            "breakdown": "Rozpad aktiv",
-            "individual": "Podle kategorií"
+            "breakdown": "Rozpad aktiv"
           }
         }
       },

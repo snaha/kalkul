@@ -1,9 +1,15 @@
 <script lang="ts" module>
   /**
-   * What the chart plots: net worth as one line, the assets stacked by
-   * category, or every category (liabilities included) as a line of its own.
+   * What the chart plots: net worth, the assets stacked by category, or one
+   * category on its own.
    */
-  export type HistoryView = 'netWorth' | 'breakdown' | 'individual'
+  export type HistoryView =
+    | 'netWorth'
+    | 'breakdown'
+    | 'cash'
+    | 'investments'
+    | 'tangibleAssets'
+    | 'liabilities'
 </script>
 
 <script lang="ts">
@@ -134,20 +140,14 @@
       },
     ]
     if (view === 'breakdown') return assets
-    return [
-      ...assets,
-      {
-        key: 'liabilities',
-        label: $_('page.plan.liabilities'),
-        color: CATEGORY_COLORS.liabilities[0],
-        value: (p) => p.liabilities,
-      },
-    ]
+    const liabilities: Layer = {
+      key: 'liabilities',
+      label: $_('page.plan.liabilities'),
+      color: CATEGORY_COLORS.liabilities[0],
+      value: (p) => p.liabilities,
+    }
+    return [...assets, liabilities].filter((layer) => layer.key === view)
   })
-  // Only the asset breakdown stacks; net worth has nothing to stack on and the
-  // individual view compares the categories from a shared baseline.
-  const stacked = $derived(view === 'breakdown')
-
   /** Per layer, per point: the value the layer starts from and the one it reaches. */
   const stacks = $derived.by(() => {
     const base = points.map(() => 0)
@@ -155,7 +155,7 @@
       points.map((point, i) => {
         const bottom = base[i]
         const top = bottom + layer.value(point)
-        if (stacked) base[i] = top
+        base[i] = top
         return { bottom, top }
       }),
     )
@@ -216,18 +216,17 @@
       }))
       const actual = plotted.slice(0, lastActualIndex + 1)
       const projected = plotted.slice(lastActualIndex)
-      // Lines side by side would hide each other under a fill.
-      const filled = actual.length > 1 && view !== 'individual'
       return {
         layer,
         actualLine: actual.length > 1 ? toLine(actual) : '',
         projectedLine: projected.length > 1 ? toLine(projected) : '',
-        areaPath: filled
-          ? `${toLine(actual)} ${actual
-              .toReversed()
-              .map((p) => `L ${p.x} ${p.y0}`)
-              .join(' ')} Z`
-          : '',
+        areaPath:
+          actual.length > 1
+            ? `${toLine(actual)} ${actual
+                .toReversed()
+                .map((p) => `L ${p.x} ${p.y0}`)
+                .join(' ')} Z`
+            : '',
         // Recorded points get a dot each, plus one for "now" at the end of the
         // tail. The samples in between describe the curve's shape, not moments
         // worth marking — a dot on each would read as eight more readings than

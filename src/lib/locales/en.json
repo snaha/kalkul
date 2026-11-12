@@ -380,8 +380,7 @@
           "view": {
             "label": "Chart view",
             "netWorth": "Net worth",
-            "breakdown": "Assets breakdown",
-            "individual": "By category"
+            "breakdown": "Assets breakdown"
           }
         }
       },
