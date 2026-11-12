@@ -20,8 +20,8 @@
   import { toDateOnlyString } from '$lib/utils'
 
   import QuickUpdateDialog from '../quick-update-dialog.svelte'
+  import SnapshotDialog from '../snapshot-dialog.svelte'
   import StaleDataAlert from '../stale-data-alert.svelte'
-  import SnapshotDialog from './snapshot-dialog.svelte'
   import SnapshotsTable from './snapshots-table.svelte'
 
   // One clock for the whole page, following the calendar past midnight.
@@ -135,6 +135,7 @@
             nowLabel={$_('page.history.now')}
             ariaLabel={$_('page.history.chartLabel')}
             onSelect={rows.length > 0 ? openEdit : undefined}
+            onAdd={openAdd}
             class="h-96"
           />
         </div>

@@ -10,6 +10,35 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-12 A History chart dot edits its snapshot, and an edit saves only what was typed
+
+**Context.** #345 asks for a click on a History chart dot to edit that
+snapshot, on the dashboard as well as the History page. Frames 1308 (edit)
+and 1309 (add) draw one snapshot dialog for both; the History page already
+used it for its table's Edit and its Add button, and on Confirm it wrote
+every field back, including estimates seeded for items the snapshot never
+recorded.
+
+**Decision.** Clicking a recorded dot, on either chart, opens that dialog in
+edit mode for the dot's snapshot. The projected "now" dot, shown when today
+has no snapshot, opens it in add mode for today, seeded with today's
+estimate as the History page's Add is; its tooltip reads "click to add". In edit mode Confirm writes only the
+figures the user typed; everything else in the snapshot stays as recorded,
+and an item it never recorded stays unrecorded unless the user types a
+figure for it. A financed asset's value and debt are one entry, so editing
+either writes both. Adding or duplicating a snapshot still records every
+field. The dialog grows to the window's height less 32px at the top and the
+bottom; its title bar and footer stay put and the sections scroll between
+them. It edits only what a snapshot records (cash, balances, asset values and
+debts, income and expense amounts) as plain inputs: the frames' collapsible
+item cards, their add buttons and a transfers section are left out, since a
+snapshot holds no item names, settings or transfers. Those are edited in
+financial data.
+
+**Why.** An edit corrects a reading the user recorded; writing back
+untouched seeded figures would add estimates they never confirmed. A new
+snapshot has nothing recorded yet, so every field is its figure.
+
 ## 2026-11-06 The History chart tooltip shows the reading on each date
 
 **Context.** #345 adds a tooltip to the History chart's dots (Figma frame
