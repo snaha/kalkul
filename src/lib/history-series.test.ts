@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'vitest'
 
-import { buildHistorySeries, hasHistoryToShow } from './history-series'
+import {
+  type HistoryPoint,
+  buildHistorySeries,
+  hasHistoryToShow,
+  historyInRange,
+} from './history-series'
 import type { Profile, Snapshot } from './schemas'
 
 // Snapshot on 2026-01-01, read on 2026-07-02 — 182 elapsed days.
@@ -235,5 +240,45 @@ describe('hasHistoryToShow', () => {
   test('is false for a profile with neither', () => {
     expect(hasHistoryToShow(EMPTY)).toBe(false)
     expect(hasHistoryToShow({ ...EMPTY, snapshots: [] })).toBe(false)
+  })
+})
+
+describe('historyInRange', () => {
+  const point = (date: string): HistoryPoint => ({
+    date,
+    netWorth: 0,
+    cash: 0,
+    investments: 0,
+    tangibleAssets: 0,
+    liabilities: 0,
+    projected: false,
+  })
+  const POINTS = [
+    '2024-07-01',
+    '2024-07-02',
+    '2025-07-02',
+    '2026-04-01',
+    '2026-06-02',
+    '2026-07-02',
+  ].map(point)
+  const dates = (range: Parameters<typeof historyInRange>[1]) =>
+    historyInRange(POINTS, range, '2026-07-02').map((p) => p.date)
+
+  test('all keeps every point', () => {
+    expect(dates('all')).toHaveLength(6)
+  })
+
+  test('a range keeps the points back to the same day that many months ago, inclusive', () => {
+    expect(dates('1m')).toEqual(['2026-06-02', '2026-07-02'])
+    expect(dates('3m')).toEqual(['2026-06-02', '2026-07-02'])
+    expect(dates('6m')).toEqual(['2026-04-01', '2026-06-02', '2026-07-02'])
+    expect(dates('1y')).toEqual(['2025-07-02', '2026-04-01', '2026-06-02', '2026-07-02'])
+    expect(dates('2y')).toEqual([
+      '2024-07-02',
+      '2025-07-02',
+      '2026-04-01',
+      '2026-06-02',
+      '2026-07-02',
+    ])
   })
 })

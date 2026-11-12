@@ -125,3 +125,33 @@ export function buildHistorySeries(profile: Profile, today: Date): HistoryPoint[
   }
   return points
 }
+
+/** How far back the History chart looks; `all` shows everything recorded. */
+export type HistoryRange = 'all' | '1m' | '3m' | '6m' | '1y' | '2y'
+
+const RANGE_MONTHS: Record<Exclude<HistoryRange, 'all'>, number> = {
+  '1m': 1,
+  '3m': 3,
+  '6m': 6,
+  '1y': 12,
+  '2y': 24,
+}
+
+/**
+ * The points dated within `range` of `todayDate`, both ends included. The
+ * series always ends on today, so a range is never empty.
+ */
+export function historyInRange(
+  points: HistoryPoint[],
+  range: HistoryRange,
+  todayDate: string,
+): HistoryPoint[] {
+  if (range === 'all') return points
+  const today = parseDateOnly(todayDate)
+  // ponytail: a day the earlier month lacks (31 March less a month) rolls over
+  // into the next one, a few days short of a full month; clamp if it matters.
+  const cutoff = toDateOnlyString(
+    new Date(today.getFullYear(), today.getMonth() - RANGE_MONTHS[range], today.getDate()),
+  )
+  return points.filter((point) => point.date >= cutoff)
+}

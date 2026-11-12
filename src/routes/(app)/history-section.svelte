@@ -6,7 +6,7 @@
   import HistoryChart, { type HistoryView } from '$lib/components/history-chart.svelte'
   import SelectField, { type SelectFieldItem } from '$lib/components/select-field.svelte'
   import { Button } from '$lib/components/ui/button'
-  import type { HistoryPoint } from '$lib/history-series'
+  import { type HistoryPoint, type HistoryRange, historyInRange } from '$lib/history-series'
   import routes from '$lib/routes'
   import type { Snapshot } from '$lib/schemas'
   import { seedSnapshotOn } from '$lib/snapshot-form'
@@ -28,6 +28,17 @@
   const storedProfile = $derived(appStore.profile.toJSON())
   const snapshots = $derived(storedProfile.snapshots ?? [])
   const takenDates = $derived(snapshots.map((snapshot) => snapshot.date))
+  let range = $state<HistoryRange>('all')
+  const ranges = $derived<SelectFieldItem<HistoryRange>[]>([
+    { value: 'all', label: $_('page.dashboard.finances.history.range.all') },
+    { value: '1m', label: $_('page.dashboard.finances.history.range.1m') },
+    { value: '3m', label: $_('page.dashboard.finances.history.range.3m') },
+    { value: '6m', label: $_('page.dashboard.finances.history.range.6m') },
+    { value: '1y', label: $_('page.dashboard.finances.history.range.1y') },
+    { value: '2y', label: $_('page.dashboard.finances.history.range.2y') },
+  ])
+  const visiblePoints = $derived(historyInRange(points, range, todayDate))
+
   let view = $state<HistoryView>('netWorth')
   const views = $derived<SelectFieldItem<HistoryView>[]>([
     { value: 'netWorth', label: $_('page.dashboard.finances.history.view.netWorth') },
@@ -68,6 +79,12 @@
   <div class="flex items-center gap-2">
     <h3 class="flex-1 text-sm font-bold">{$_('page.dashboard.finances.history.title')}</h3>
     <SelectField
+      bind:value={range}
+      items={ranges}
+      aria-label={$_('page.dashboard.finances.history.range.label')}
+      class="h-6! w-auto text-xs"
+    />
+    <SelectField
       bind:value={view}
       items={views}
       aria-label={$_('page.dashboard.finances.history.view.label')}
@@ -78,7 +95,7 @@
     </Button>
   </div>
   <HistoryChart
-    {points}
+    points={visiblePoints}
     {view}
     formatValue={appStore.formatCompactCurrency}
     formatAmount={appStore.formatCurrency}

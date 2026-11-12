@@ -381,6 +381,15 @@
             "label": "Chart view",
             "netWorth": "Net worth",
             "breakdown": "Assets breakdown"
+          },
+          "range": {
+            "label": "Time range",
+            "all": "All",
+            "1m": "1m",
+            "3m": "3m",
+            "6m": "6m",
+            "1y": "1y",
+            "2y": "2y"
           }
         }
       },
