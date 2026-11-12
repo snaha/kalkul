@@ -165,6 +165,19 @@ When linking from a bare `<a>` tag (not the `Button` component), the `svelte/no-
    - When there is a Figma specification, the code has to look exactly like that — same field order, same row groupings, same labels, and same conditional visibility rules.
    - Don't reorder rows, merge/split rows, or add/remove fields unless the spec says so.
    - If implementation requires a deviation (e.g. a needed control isn't drawn in the spec), surface the deviation before shipping rather than papering over it.
+   - **A PR whose UI differs from its Figma frame documents every difference:**
+     - The PR description has a "Differences from Figma" section. Each difference gets a screenshot of the implementation, a link to the Figma frame it departs from, and a short explanation of what differs and why.
+     - The same screenshots and explanation go in a comment on the issue that defines the feature or bug, linking back to the PR, so the deviation is visible where the feature was specified.
+     - The PR gets the `design` label (`gh pr edit <n> --add-label design`).
+     - Screenshots live on the orphan `screenshots` branch, which is never merged or deployed, under a folder named after the PR number. Embed them by their raw URL, `https://raw.githubusercontent.com/snaha/kalkul/screenshots/<pr>/<name>.png`. GitHub's API cannot attach images to a PR or issue directly. To add some:
+
+       ```sh
+       git fetch origin screenshots   # skip on the very first use, when the branch does not exist yet
+       git worktree add <dir> screenshots   # first use: git worktree add --orphan -b screenshots <dir>
+       mkdir -p <dir>/<pr> && cp *.png <dir>/<pr>/
+       git -C <dir> add <pr> && git -C <dir> commit -m "chore: screenshots for #<pr>"
+       git -C <dir> push origin screenshots && git worktree remove <dir>
+       ```
 
 6. **Assets (images, SVGs)**
    - Component-used assets live in `src/lib/assets/` and are imported as Vite modules
