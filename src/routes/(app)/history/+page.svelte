@@ -20,6 +20,7 @@
   import { toDateOnlyString } from '$lib/utils'
 
   import QuickUpdateDialog from '../quick-update-dialog.svelte'
+  import SnapshotEditDialog from '../snapshot-edit-dialog.svelte'
   import StaleDataAlert from '../stale-data-alert.svelte'
   import SnapshotDialog from './snapshot-dialog.svelte'
   import SnapshotsTable from './snapshots-table.svelte'
@@ -73,6 +74,17 @@
     snapshotSeedOn = undefined
     snapshotOriginalDate = date
     snapshotOpen = true
+  }
+
+  // A chart dot opens the one-column dialog for its figures; the table's Edit
+  // keeps the full dialog, which can also re-date the snapshot.
+  let chartEditOpen = $state(false)
+  let chartEditDate = $state('')
+
+  function openChartEdit(date: string): void {
+    if (!snapshotOn(date)) return
+    chartEditDate = date
+    chartEditOpen = true
   }
 
   function openDuplicate(date: string): void {
@@ -134,7 +146,7 @@
             formatNumber={appStore.formatNumber}
             nowLabel={$_('page.history.now')}
             ariaLabel={$_('page.history.chartLabel')}
-            onSelect={rows.length > 0 ? openEdit : undefined}
+            onSelect={rows.length > 0 ? openChartEdit : undefined}
             class="h-96"
           />
         </div>
@@ -185,6 +197,8 @@
     lastUpdated={staleSince}
   />
 {/if}
+
+<SnapshotEditDialog bind:open={chartEditOpen} date={chartEditDate} />
 
 <SnapshotDialog
   bind:open={snapshotOpen}

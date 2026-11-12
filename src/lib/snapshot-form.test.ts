@@ -10,6 +10,7 @@ import {
   openingDate,
   seedSnapshotOn,
   snapshotFromFields,
+  snapshotWithEdits,
 } from './snapshot-form'
 
 const PROFILE: Profile = {
@@ -285,6 +286,87 @@ describe('snapshotFromFields', () => {
   test('writes the edited amount and the carried frequency for a cash flow', () => {
     const result = snapshotFromFields(SOURCE, sections, { 'incomes:i1': 5_000 }, '2026-06-01')
     expect(result.incomes).toEqual([{ id: 'i1', amount: 5_000, frequency: 'monthly' }])
+  })
+})
+
+describe('snapshotWithEdits', () => {
+  // An older snapshot that recorded only some of what the profile holds today:
+  // no Card liability and no Living expense yet.
+  const RECORDED: Snapshot = {
+    date: '2026-01-01',
+    cash_amount: 15_000,
+    investments: [{ id: 'inv1', balance: 70_000 }],
+    tangible_assets: [
+      { id: 't1', value: 11_000 },
+      {
+        id: 't2',
+        value: 195_000,
+        outstanding_balance: 104_000,
+        remaining_term: 21,
+        remaining_term_unit: 'years',
+      },
+    ],
+    incomes: [{ id: 'i1', amount: 3_800, frequency: 'monthly' }],
+  }
+  const later = captureSnapshot(PROFILE, '2026-06-01')
+  const profile: Profile = { ...PROFILE, snapshots: [RECORDED, later] }
+  const sections = buildSnapshotSections(profile, RECORDED, RECORDED.date)
+
+  test('leaves the snapshot exactly as it was when nothing is edited', () => {
+    expect(snapshotWithEdits(RECORDED, sections, {})).toEqual(RECORDED)
+  })
+
+  test('a cleared field is not an edit', () => {
+    expect(snapshotWithEdits(RECORDED, sections, { cash: undefined })).toEqual(RECORDED)
+  })
+
+  test('writes only the edited figure', () => {
+    expect(snapshotWithEdits(RECORDED, sections, { 'investments:inv1': 72_500 })).toEqual({
+      ...RECORDED,
+      investments: [{ id: 'inv1', balance: 72_500 }],
+    })
+  })
+
+  test('does not fill in items the snapshot never recorded', () => {
+    const saved = snapshotWithEdits(RECORDED, sections, { cash: 16_000 })
+    expect(saved.liabilities).toBeUndefined()
+    expect(saved.expenses).toBeUndefined()
+    expect(saved.cash_amount).toBe(16_000)
+  })
+
+  test("editing an asset's value keeps its recorded debt and term", () => {
+    const saved = snapshotWithEdits(RECORDED, sections, { 'tangible_assets:t2': 198_000 })
+    expect(saved.tangible_assets).toEqual([
+      { id: 't1', value: 11_000 },
+      {
+        id: 't2',
+        value: 198_000,
+        outstanding_balance: 104_000,
+        remaining_term: 21,
+        remaining_term_unit: 'years',
+      },
+    ])
+  })
+
+  test("editing an asset's debt keeps its recorded value", () => {
+    const saved = snapshotWithEdits(RECORDED, sections, { 'tangible_assets:t2:debt': 103_000 })
+    expect(saved.tangible_assets?.[1]).toEqual({
+      id: 't2',
+      value: 195_000,
+      outstanding_balance: 103_000,
+      remaining_term: 21,
+      remaining_term_unit: 'years',
+    })
+  })
+
+  test('an edit to an item the snapshot never recorded adds it', () => {
+    const saved = snapshotWithEdits(RECORDED, sections, { 'expenses:e1': 900 })
+    expect(saved.expenses).toEqual([{ id: 'e1', amount: 900, frequency: 'monthly' }])
+    expect(saved.incomes).toEqual(RECORDED.incomes)
+  })
+
+  test('typing a zero is an edit', () => {
+    expect(snapshotWithEdits(RECORDED, sections, { cash: 0 }).cash_amount).toBe(0)
   })
 })
 

@@ -9,11 +9,24 @@
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
 
+  import SnapshotEditDialog from './snapshot-edit-dialog.svelte'
+
   interface Props {
     points: HistoryPoint[]
   }
 
   let { points }: Props = $props()
+
+  // A dot opens its snapshot for editing; with no snapshot recorded yet there
+  // is nothing to edit, so the chart offers no click.
+  const hasSnapshots = $derived((appStore.profile.snapshots ?? []).length > 0)
+  let editOpen = $state(false)
+  let editDate = $state('')
+
+  function openEdit(date: string): void {
+    editDate = date
+    editOpen = true
+  }
 </script>
 
 <div class="flex min-h-0 flex-1 flex-col gap-4">
@@ -32,6 +45,9 @@
     formatNumber={appStore.formatNumber}
     nowLabel={$_('page.dashboard.finances.history.now')}
     ariaLabel={$_('page.dashboard.finances.history.chartLabel')}
+    onSelect={hasSnapshots ? openEdit : undefined}
     class="min-h-0 flex-1"
   />
 </div>
+
+<SnapshotEditDialog bind:open={editOpen} date={editDate} />

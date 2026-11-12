@@ -312,3 +312,57 @@ export function openingDate(seeded: string, takenDates: string[], originalDate?:
   if (seeded === originalDate) return seeded
   return takenDates.includes(seeded) ? '' : seeded
 }
+
+/**
+ * `snapshot` with only what the user typed written into it: the History
+ * chart's edit dialog changes the figures it is told to and nothing else.
+ *
+ * Unlike `snapshotFromFields`, a field left alone is not written back, so an
+ * item the snapshot never recorded stays unrecorded rather than taking the
+ * field's seeded figure. An item's fields travel together: editing a financed
+ * asset's value writes its debt beside it, as the snapshot recorded it, since
+ * the two are one entry. Entries keep their place; a newly recorded one is
+ * appended. As in `snapshotFromFields`, a cleared field is not an edit.
+ */
+export function snapshotWithEdits(
+  snapshot: Snapshot,
+  sections: SnapshotSection[],
+  edits: Record<string, number | undefined>,
+): Snapshot {
+  const itemKey = (section: SnapshotSection, field: SnapshotField) =>
+    `${section.id}:${field.itemId}`
+  const editedItems = new Set(
+    sections.flatMap((section) =>
+      section.fields
+        .filter((field) => edits[field.key] !== undefined)
+        .map((field) => itemKey(section, field)),
+    ),
+  )
+  if (editedItems.size === 0) return snapshot
+
+  const touched = sections.map((section) => ({
+    ...section,
+    fields: section.fields.filter((field) => editedItems.has(itemKey(section, field))),
+  }))
+  const patch = snapshotFromFields({ date: snapshot.date }, touched, edits, snapshot.date)
+
+  const merge = <T extends { id: string }>(recorded: T[] | undefined, written: T[] | undefined) => {
+    if (!written?.length) return recorded
+    const writtenById = byId(written)
+    const recordedIds = new Set((recorded ?? []).map((entry) => entry.id))
+    return [
+      ...(recorded ?? []).map((entry) => writtenById.get(entry.id) ?? entry),
+      ...written.filter((entry) => !recordedIds.has(entry.id)),
+    ]
+  }
+
+  return {
+    ...snapshot,
+    cash_amount: patch.cash_amount ?? snapshot.cash_amount,
+    investments: merge(snapshot.investments, patch.investments),
+    tangible_assets: merge(snapshot.tangible_assets, patch.tangible_assets),
+    liabilities: merge(snapshot.liabilities, patch.liabilities),
+    incomes: merge(snapshot.incomes, patch.incomes),
+    expenses: merge(snapshot.expenses, patch.expenses),
+  }
+}

@@ -10,6 +10,27 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-12 A History chart dot opens a one-column edit of its snapshot
+
+**Context.** #345 asks for a click on a History chart dot to edit that
+snapshot, on the dashboard as well as the History page. The History page
+already had the full snapshot dialog (frame 911-77498), which can also
+re-date a snapshot and writes every field back.
+
+**Decision.** Clicking a recorded dot, on either chart, opens a dialog shaped
+like Quick update for that snapshot's date: one column with an input for
+every figure the snapshot can hold (cash, investments, each tangible asset's
+value and debt, liabilities, incomes and expenses), seeded from the snapshot.
+The date cannot be changed there. Confirm writes only the figures the user
+typed; everything else in the snapshot stays as recorded, and an item it
+never recorded stays unrecorded unless the user types a figure for it. A
+financed asset's value and debt are one entry, so editing either writes both.
+There is no change column. The History table's Edit keeps the full dialog.
+
+**Why.** A dot is one reading, so the edit is a correction of that reading
+rather than a new snapshot; writing back untouched seeded figures would add
+estimates the user never confirmed.
+
 ## 2026-11-06 The History chart tooltip shows the reading on each date
 
 **Context.** #345 adds a tooltip to the History chart's dots (Figma frame
