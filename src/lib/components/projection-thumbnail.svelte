@@ -16,8 +16,6 @@
   // card's thumbnail box.
   const WIDTH = 144
   const HEIGHT = 81
-  // Matches BASELINE_RATIO in stacked-bar-chart so the two read alike.
-  const BASELINE_Y = HEIGHT * 0.75
 
   const barWidth = $derived(data.length > 0 ? WIDTH / data.length : 0)
 
@@ -26,14 +24,18 @@
   )
   const maxNegative = $derived(Math.max(...data.map((d) => d.liabilities), 1))
 
+  // Shared scale and data-driven baseline, as in stacked-bar-chart.
+  const pxPerUnit = $derived(HEIGHT / (maxPositive + maxNegative))
+  const baselineY = $derived(maxPositive * pxPerUnit)
+
   const bars = $derived(
     data.map((d, i) => {
-      const scaleUp = (value: number) => (value / maxPositive) * BASELINE_Y
+      const scaleUp = (value: number) => value * pxPerUnit
       const tangibleAssets = scaleUp(d.tangibleAssets)
       const investments = scaleUp(d.investments)
       const cash = scaleUp(d.cash)
-      const liabilities = (d.liabilities / maxNegative) * (HEIGHT - BASELINE_Y)
-      const tangibleY = BASELINE_Y - tangibleAssets
+      const liabilities = scaleUp(d.liabilities)
+      const tangibleY = baselineY - tangibleAssets
       const investmentsY = tangibleY - investments
       return {
         x: i * barWidth,
@@ -53,7 +55,7 @@
           },
           {
             id: 'liabilities',
-            y: BASELINE_Y,
+            y: baselineY,
             height: liabilities,
             color: CATEGORY_COLORS.liabilities[0],
           },
