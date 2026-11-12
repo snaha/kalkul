@@ -376,6 +376,12 @@
             "yearsCapped": "{years}+ let",
             "clickToEdit": "klikněte pro úpravu",
             "clickToAdd": "klikněte pro přidání"
+          },
+          "view": {
+            "label": "Zobrazení grafu",
+            "netWorth": "Čisté jmění",
+            "breakdown": "Rozpad aktiv",
+            "individual": "Podle kategorií"
           }
         }
       },

@@ -91,14 +91,28 @@ function recordedFlows(flows: CashFlow[] | undefined): SnapshotCashFlow[] {
  * drift apart.
  */
 export function snapshotNetWorth(snapshot: SnapshotBalances): number {
-  const assets =
-    (snapshot.cash_amount ?? 0) +
-    (snapshot.investments ?? []).reduce((sum, i) => sum + i.balance, 0) +
-    (snapshot.tangible_assets ?? []).reduce((sum, a) => sum + a.value, 0)
-  const liabilities =
-    (snapshot.liabilities ?? []).reduce((sum, l) => sum + l.outstanding_balance, 0) +
-    (snapshot.tangible_assets ?? []).reduce((sum, a) => sum + (a.outstanding_balance ?? 0), 0)
-  return assets - liabilities
+  const totals = snapshotTotals(snapshot)
+  return totals.cash + totals.investments + totals.tangibleAssets - totals.liabilities
+}
+
+/** A snapshot's balances summed per category. */
+export interface SnapshotTotals {
+  cash: number
+  investments: number
+  tangibleAssets: number
+  /** Every debt, including the debt secured against a financed asset. */
+  liabilities: number
+}
+
+export function snapshotTotals(snapshot: SnapshotBalances): SnapshotTotals {
+  return {
+    cash: snapshot.cash_amount ?? 0,
+    investments: (snapshot.investments ?? []).reduce((sum, i) => sum + i.balance, 0),
+    tangibleAssets: (snapshot.tangible_assets ?? []).reduce((sum, a) => sum + a.value, 0),
+    liabilities:
+      (snapshot.liabilities ?? []).reduce((sum, l) => sum + l.outstanding_balance, 0) +
+      (snapshot.tangible_assets ?? []).reduce((sum, a) => sum + (a.outstanding_balance ?? 0), 0),
+  }
 }
 
 /**

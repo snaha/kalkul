@@ -376,6 +376,12 @@
             "yearsCapped": "{years}+ years",
             "clickToEdit": "click to edit",
             "clickToAdd": "click to add"
+          },
+          "view": {
+            "label": "Chart view",
+            "netWorth": "Net worth",
+            "breakdown": "Assets breakdown",
+            "individual": "By category"
           }
         }
       },

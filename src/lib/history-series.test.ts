@@ -28,7 +28,7 @@ describe('buildHistorySeries', () => {
     const series = buildHistorySeries(GROWING, TODAY)
 
     // One recorded point, then the tail: 8 samples ending on today.
-    expect(series[0]).toEqual({ date: '2026-01-01', netWorth: 110_000, projected: false })
+    expect(series[0]).toMatchObject({ date: '2026-01-01', netWorth: 110_000, projected: false })
     expect(series).toHaveLength(9)
     expect(series.slice(1).every((point) => point.projected)).toBe(true)
     expect(series.at(-1)?.date).toBe('2026-07-02')
@@ -117,7 +117,7 @@ describe('buildHistorySeries', () => {
       ],
     }
     const recorded = buildHistorySeries(profile, TODAY).filter((point) => !point.projected)
-    expect(recorded).toEqual([
+    expect(recorded).toMatchObject([
       { date: '2026-01-01', netWorth: 10_000, projected: false },
       { date: '2026-03-01', netWorth: 12_000, projected: false },
     ])
@@ -125,14 +125,14 @@ describe('buildHistorySeries', () => {
 
   test('does not project when the last snapshot is today', () => {
     const profile: Profile = { ...GROWING, snapshots: [{ date: '2026-07-02', cash_amount: 500 }] }
-    expect(buildHistorySeries(profile, TODAY)).toEqual([
+    expect(buildHistorySeries(profile, TODAY)).toMatchObject([
       { date: '2026-07-02', netWorth: 500, projected: false },
     ])
   })
 
   test('returns a single actual point when there are no snapshots yet', () => {
     const { snapshots: _snapshots, ...noHistory } = GROWING
-    expect(buildHistorySeries(noHistory, TODAY)).toEqual([
+    expect(buildHistorySeries(noHistory, TODAY)).toMatchObject([
       { date: '2026-07-02', netWorth: 110_000, projected: false },
     ])
   })
@@ -177,7 +177,7 @@ describe('buildHistorySeries figures', () => {
 
   test('each recorded point carries its net worth, runway and FI', () => {
     const [january, april] = buildHistorySeries(PROFILE, APRIL_FIRST)
-    expect(january).toEqual({
+    expect(january).toMatchObject({
       date: '2026-01-01',
       netWorth: 110_000,
       // 110,000 / 3,000 a month = 36.7 months
@@ -186,7 +186,7 @@ describe('buildHistorySeries figures', () => {
       fiPercent: expect.closeTo(12.22, 2),
       projected: false,
     })
-    expect(april).toEqual({
+    expect(april).toMatchObject({
       date: '2026-04-01',
       netWorth: 117_000,
       // 117,000 / 3,400 a month = 34.4 months
@@ -194,6 +194,24 @@ describe('buildHistorySeries figures', () => {
       // 3,400 × 12 / 4 % = 1,020,000; 117,000 of it
       fiPercent: expect.closeTo(11.47, 2),
       projected: false,
+    })
+  })
+
+  test('each point breaks its net worth down by category, asset debt under liabilities', () => {
+    const snapshot: Snapshot = {
+      date: '2026-04-01',
+      cash_amount: 12_000,
+      investments: [{ id: 'inv1', balance: 105_000 }],
+      tangible_assets: [{ id: 'home', value: 300_000, outstanding_balance: 200_000 }],
+      liabilities: [{ id: 'loan', outstanding_balance: 5_000 }],
+    }
+    const [point] = buildHistorySeries({ ...PROFILE, snapshots: [snapshot] }, APRIL_FIRST)
+    expect(point).toMatchObject({
+      cash: 12_000,
+      investments: 105_000,
+      tangibleAssets: 300_000,
+      liabilities: 205_000,
+      netWorth: 212_000,
     })
   })
 })

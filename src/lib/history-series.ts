@@ -3,11 +3,17 @@ import { getCurrentProfile } from '$lib/current-values'
 import { getFiPercent, hasAnyFinancialData } from '$lib/financial-totals'
 import { getRunwayYears } from '$lib/runway'
 import { type Profile, type Snapshot, normalizeSnapshots } from '$lib/schemas'
-import { captureSnapshot, profileAtSnapshot, snapshotNetWorth } from '$lib/snapshots'
+import {
+  type SnapshotTotals,
+  captureSnapshot,
+  profileAtSnapshot,
+  snapshotNetWorth,
+  snapshotTotals,
+} from '$lib/snapshots'
 import { parseDateOnly, toDateOnlyString } from '$lib/utils'
 
 /** The figures the History chart reports for one date. */
-export interface HistoryMetrics {
+export interface HistoryMetrics extends SnapshotTotals {
   netWorth: number
   /** Undefined with nothing to pay; `Infinity` past the runway cap. */
   runwayYears?: number
@@ -37,13 +43,14 @@ const PROJECTED_SAMPLES = 8
 /**
  * The figures as the balances stand on `date`, projected from the last
  * snapshot. Only the last sample of the tail is ever shown, so the others
- * carry the net worth alone, which is all the line needs.
+ * carry the balances alone, which is all the lines need.
  */
-function metricsOn(profile: Profile, date: string, netWorthOnly = false): HistoryMetrics {
+function metricsOn(profile: Profile, date: string, balancesOnly = false): HistoryMetrics {
   const current = getCurrentProfile(profile, parseDateOnly(date))
-  const netWorth = snapshotNetWorth(captureSnapshot(current, date))
-  if (netWorthOnly) return { netWorth }
-  return { netWorth, runwayYears: getRunwayYears(current), fiPercent: getFiPercent(current) }
+  const snapshot = captureSnapshot(current, date)
+  const balances = { netWorth: snapshotNetWorth(snapshot), ...snapshotTotals(snapshot) }
+  if (balancesOnly) return balances
+  return { ...balances, runwayYears: getRunwayYears(current), fiPercent: getFiPercent(current) }
 }
 
 /** The figures as a snapshot recorded them. */
@@ -51,6 +58,7 @@ function metricsOf(profile: Profile, snapshot: Snapshot): HistoryMetrics {
   const then = profileAtSnapshot(profile, snapshot)
   return {
     netWorth: snapshotNetWorth(snapshot),
+    ...snapshotTotals(snapshot),
     runwayYears: getRunwayYears(then),
     fiPercent: getFiPercent(then),
   }

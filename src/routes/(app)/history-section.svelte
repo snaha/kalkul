@@ -3,7 +3,8 @@
 
   import { resolve } from '$app/paths'
 
-  import HistoryChart from '$lib/components/history-chart.svelte'
+  import HistoryChart, { type HistoryView } from '$lib/components/history-chart.svelte'
+  import SelectField, { type SelectFieldItem } from '$lib/components/select-field.svelte'
   import { Button } from '$lib/components/ui/button'
   import type { HistoryPoint } from '$lib/history-series'
   import routes from '$lib/routes'
@@ -27,6 +28,13 @@
   const storedProfile = $derived(appStore.profile.toJSON())
   const snapshots = $derived(storedProfile.snapshots ?? [])
   const takenDates = $derived(snapshots.map((snapshot) => snapshot.date))
+  let view = $state<HistoryView>('netWorth')
+  const views = $derived<SelectFieldItem<HistoryView>[]>([
+    { value: 'netWorth', label: $_('page.dashboard.finances.history.view.netWorth') },
+    { value: 'breakdown', label: $_('page.dashboard.finances.history.view.breakdown') },
+    { value: 'individual', label: $_('page.dashboard.finances.history.view.individual') },
+  ])
+
   let dialogOpen = $state(false)
   let dialogMode = $state<'add' | 'edit'>('edit')
   // Placeholder until a dot fills it in.
@@ -56,12 +64,19 @@
 <div class="flex min-h-0 flex-1 flex-col gap-4">
   <div class="flex items-center gap-2">
     <h3 class="flex-1 text-sm font-bold">{$_('page.dashboard.finances.history.title')}</h3>
+    <SelectField
+      bind:value={view}
+      items={views}
+      aria-label={$_('page.dashboard.finances.history.view.label')}
+      class="h-6! w-auto text-xs"
+    />
     <Button variant="outline" size="xs" href={resolve(routes.HISTORY)}>
       {$_('page.dashboard.finances.history.viewDetails')}
     </Button>
   </div>
   <HistoryChart
     {points}
+    {view}
     formatValue={appStore.formatCompactCurrency}
     formatAmount={appStore.formatCurrency}
     formatDate={appStore.formatDateOnly}
