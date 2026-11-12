@@ -67,9 +67,7 @@ Runway card on the dashboard and its settings dialog.
   Reset puts the switches back to the defaults without applying.
 - The History chart's tooltip shows the runway on each recorded date, computed
   from that date's balances and flows with today's settings, as the FI column
-  uses today's rate. The change label beside it is the difference between the
-  two figures as shown, to one decimal; a reading on either side of the
-  100-year cap has no label, since the move has no size.
+  uses today's rate.
 
 ## Worked examples
 

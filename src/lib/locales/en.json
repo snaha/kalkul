@@ -374,8 +374,7 @@
             "fi": "Financial independence",
             "years": "{years} years",
             "yearsCapped": "{years}+ years",
-            "percentagePoints": "{points} pp",
-            "clickToEdit": "Click to edit"
+            "clickToEdit": "click to edit"
           }
         }
       },

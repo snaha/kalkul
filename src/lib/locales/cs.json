@@ -374,8 +374,7 @@
             "fi": "Finanční nezávislost",
             "years": "{years} let",
             "yearsCapped": "{years}+ let",
-            "percentagePoints": "{points} p. b.",
-            "clickToEdit": "Klikněte pro úpravu"
+            "clickToEdit": "klikněte pro úpravu"
           }
         }
       },

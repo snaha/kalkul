@@ -3,7 +3,6 @@
 
   import { daysBetween } from '$lib/@snaha/kalkul-maths'
   import { labelsWithYear, monthTicks, niceAxisBounds } from '$lib/chart-axis'
-  import ChangeLabel from '$lib/components/change-label.svelte'
   import type { HistoryPoint } from '$lib/history-series'
   import { RUNWAY_CAP_YEARS } from '$lib/runway'
   import { cn, parseDateOnly } from '$lib/utils'
@@ -134,7 +133,7 @@
   )
 
   // The dot under the pointer (or keyboard focus): it gets a vertical guide
-  // and a tooltip with the reading and what moved since the one before.
+  // and a tooltip with the reading on that date.
   let activeDate = $state<string | undefined>(undefined)
   const active = $derived(dots.find((point) => point.date === activeDate))
 
@@ -167,19 +166,11 @@
   })
 </script>
 
-{#snippet row(
-  label: string,
-  value: string,
-  change: number | undefined,
-  format: (size: number) => string,
-)}
-  <span class="text-muted-foreground">{label}</span>
-  <span class="text-right font-medium">{value}</span>
-  <span>
-    {#if change !== undefined}
-      <ChangeLabel value={change} {format} />
-    {/if}
-  </span>
+{#snippet row(label: string, value: string)}
+  <div class="flex items-center gap-2">
+    <span class="min-w-0 flex-1 truncate text-sm">{label}</span>
+    <span class="shrink-0 text-right text-base font-medium">{value}</span>
+  </div>
 {/snippet}
 
 <!-- The top padding leaves room for the topmost Y-axis label, which is centred
@@ -277,44 +268,33 @@
         {#if active}
           <!-- Beside the dot, on whichever side has more room. -->
           <div
-            class="pointer-events-none absolute z-10 w-max -translate-y-1/2 rounded-md border bg-background p-3 text-sm shadow-md"
+            class="pointer-events-none absolute z-10 flex w-72 -translate-y-1/2 flex-col gap-2 rounded-lg border bg-popover p-[9px] text-popover-foreground shadow-md"
             style:top="{active.y}px"
             style:left={active.x < plotWidth / 2 ? `${active.x + TOOLTIP_GAP}px` : undefined}
             style:right={active.x < plotWidth / 2
               ? undefined
               : `${plotWidth - active.x + TOOLTIP_GAP}px`}
           >
-            <div class="mb-2 flex items-baseline justify-between gap-6">
-              <span class="font-medium">{formatDate(active.date)}</span>
+            <div class="flex items-center gap-2">
+              <span class="flex-1 text-sm">{formatDate(active.date)}</span>
               {#if onSelect && !active.projected}
-                <span class="text-xs text-muted-foreground">
+                <span class="flex-1 text-right text-xs text-muted-foreground">
                   {$_('page.dashboard.finances.history.tooltip.clickToEdit')}
                 </span>
               {/if}
             </div>
-            <div
-              class="grid grid-cols-[auto_auto_auto] items-center gap-x-6 gap-y-1 [&>span:nth-child(3n)]:-ml-4"
-            >
+            <div class="flex flex-col whitespace-nowrap">
               {@render row(
                 $_('page.dashboard.finances.history.tooltip.netWorth'),
                 formatAmount(active.netWorth),
-                active.change?.netWorth,
-                formatAmount,
               )}
               {@render row(
                 $_('page.dashboard.finances.history.tooltip.runway'),
                 formatYears(active.runwayYears),
-                active.change?.runwayYears,
-                formatYears,
               )}
               {@render row(
                 $_('page.dashboard.finances.history.tooltip.fi'),
                 active.fiPercent === undefined ? '—' : formatPercent(active.fiPercent, 0),
-                active.change?.fiPercent,
-                (points) =>
-                  $_('page.dashboard.finances.history.tooltip.percentagePoints', {
-                    values: { points: formatNumber(points) },
-                  }),
               )}
             </div>
           </div>
