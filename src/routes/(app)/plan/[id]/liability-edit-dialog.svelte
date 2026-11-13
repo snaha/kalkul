@@ -2,8 +2,10 @@
   import { _, locale } from 'svelte-i18n'
 
   import ArrowLeftRight from '@lucide/svelte/icons/arrow-left-right'
+  import FileText from '@lucide/svelte/icons/file-text'
 
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
+  import FormSection from '$lib/components/form-section.svelte'
   import HelpTooltip from '$lib/components/help-tooltip.svelte'
   import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
@@ -13,7 +15,7 @@
   import { Separator } from '$lib/components/ui/separator'
   import { Switch } from '$lib/components/ui/switch'
   import { type LoanPairAnchor, rederiveLoanPair } from '$lib/loan-pair'
-  import { removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
+  import { isImportedPlanItem, removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
   import { planRangeOf, planYearOptions, timingWithinPlan } from '$lib/plan-range'
   import type {
     CashFlowStart,
@@ -37,6 +39,7 @@
   import { getMonthOptions, monthToOption, optionToMonth, yearItemsIncluding } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
+  import LocalOverrideNotice from './local-override-notice.svelte'
 
   interface Props {
     open: boolean
@@ -168,6 +171,7 @@
   })
 
   const isNew = $derived(initial === undefined)
+  const imported = $derived(isImportedPlanItem(plan, 'liabilities', initial?.id))
 
   const listKey = 'liabilities'
 
@@ -246,6 +250,94 @@
   </div>
 {/snippet}
 
+{#snippet advancedRows()}
+  <!-- Pay-off -->
+  <div class="flex items-end gap-2">
+    <div class="flex flex-1 flex-col gap-2">
+      <Label for="{uid}-payOff">{$_('page.plan.payOff')}</Label>
+      <SelectField
+        id="{uid}-payOff"
+        value={form.pay_off}
+        items={payOffItems}
+        onValueChange={(v) => {
+          if (v) form.pay_off = v
+        }}
+      />
+    </div>
+    {#if form.pay_off === 'at_specific_date'}
+      <div class="flex flex-1 items-center gap-2">
+        <SelectField
+          class="max-w-24"
+          placeholder={$_('page.setup.aboutYou.selectYear')}
+          aria-label={$_('page.setup.aboutYou.selectYear')}
+          value={form.pay_off_year !== undefined ? String(form.pay_off_year) : ''}
+          items={yearItems}
+          onValueChange={(v) => {
+            if (v) form.pay_off_year = Number(v)
+          }}
+        />
+        <SelectField
+          placeholder={$_('page.setup.aboutYou.selectMonth')}
+          aria-label={$_('page.setup.aboutYou.selectMonth')}
+          value={form.pay_off_month !== undefined ? monthToOption(form.pay_off_month) : ''}
+          items={months}
+          onValueChange={(v) => {
+            if (v) form.pay_off_month = optionToMonth(v)
+          }}
+        />
+        <HelpTooltip text={$_('page.plan.payOffDescription')} />
+      </div>
+      {#if !timingWithinPlan(range, 'end', 'at_specific_date', form.pay_off_year, undefined)}
+        <p class="text-xs text-destructive">
+          {$_('validation.end_before_plan', { values: { start: String(range.startYear) } })}
+        </p>
+      {/if}
+    {:else}
+      <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">
+        {$_('page.plan.payOffDescription')}
+      </p>
+    {/if}
+  </div>
+
+  <!-- Interest type | Compounding frequency -->
+  <div class="flex items-end gap-2">
+    <div class="flex flex-1 flex-col gap-2">
+      <Label for="{uid}-interestType">{$_('page.plan.interestType')}</Label>
+      <SelectField
+        id="{uid}-interestType"
+        value={form.interest_type}
+        items={interestTypeItems}
+        onValueChange={(v) => {
+          if (v) {
+            form.interest_type = v
+            onLoanInputChange()
+          }
+        }}
+      />
+    </div>
+    {#if form.interest_type === 'compound'}
+      <div class="flex flex-1 flex-col gap-2">
+        <Label for="{uid}-compoundingFrequency">{$_('page.plan.compoundingFrequency')}</Label>
+        <SelectField
+          id="{uid}-compoundingFrequency"
+          value={form.compounding_frequency}
+          items={compoundingFrequencyItems}
+          placeholder={$_('page.plan.compoundingDefault')}
+          onValueChange={(v) => {
+            if (v) {
+              form.compounding_frequency = v
+              onLoanInputChange()
+            }
+          }}
+        />
+      </div>
+    {:else}
+      <div class="flex-1"></div>
+    {/if}
+    <HelpTooltip text={$_('page.plan.interestDescription')} class="mb-2" />
+  </div>
+{/snippet}
+
 <ItemEditDialogShell
   bind:open
   {onOpenChange}
@@ -258,40 +350,17 @@
   onSave={save}
   onDelete={remove}
 >
-  <!-- Label -->
-  <div class="flex flex-col gap-2">
-    <Label for="{uid}-liabilityLabel">{$_('page.plan.liabilityLabel')}</Label>
-    <Input
-      id="{uid}-liabilityLabel"
-      value={form.name}
-      oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
-    />
-  </div>
+  {#if imported}
+    <!-- Figma 1366/1383: existing debt has no start and no principal, only
+         what is owed at the projection's start. -->
+    <LocalOverrideNotice />
 
-  <!-- Start -->
-  <DateAgeSelector
-    mode="start"
-    value={form.start}
-    year={form.start_year}
-    month={form.start_month}
-    age={form.start_age}
-    {range}
-    {months}
-    birthDateSet={appStore.profile.birth_date !== undefined}
-    description={$_('page.plan.liabilityStartDescription')}
-    formatNumber={appStore.formatNumber}
-    onValueChange={(v) => (form.start = v)}
-    onYearChange={(v) => (form.start_year = v)}
-    onMonthChange={(v) => (form.start_month = v)}
-    onAgeChange={(v) => (form.start_age = v)}
-  />
-
-  <!-- Principal -->
-  <div class="flex items-end gap-2">
-    <div class="flex flex-1 flex-col gap-2">
-      <Label for="{uid}-principal">{$_('page.plan.principal')}</Label>
+    <div class="flex flex-col gap-2">
+      <Label for="{uid}-outstandingBalance">
+        {$_('page.setup.liabilities.outstandingBalance')}
+      </Label>
       <SuffixedInput
-        id="{uid}-principal"
+        id="{uid}-outstandingBalance"
         value={form.outstanding_balance}
         suffix={currencyLabel}
         formatNumber={appStore.formatNumber}
@@ -300,11 +369,57 @@
           onLoanInputChange()
         }}
       />
+      <p class="text-xs text-muted-foreground">{$_('page.plan.atProjectionStart')}</p>
     </div>
-    <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">
-      {$_('page.plan.principalDescription')}
-    </p>
-  </div>
+  {:else}
+    <!-- Label -->
+    <div class="flex flex-col gap-2">
+      <Label for="{uid}-liabilityLabel">{$_('page.plan.liabilityLabel')}</Label>
+      <Input
+        id="{uid}-liabilityLabel"
+        value={form.name}
+        oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
+      />
+    </div>
+
+    <!-- Start -->
+    <DateAgeSelector
+      mode="start"
+      value={form.start}
+      year={form.start_year}
+      month={form.start_month}
+      age={form.start_age}
+      {range}
+      {months}
+      birthDateSet={appStore.profile.birth_date !== undefined}
+      description={$_('page.plan.liabilityStartDescription')}
+      formatNumber={appStore.formatNumber}
+      onValueChange={(v) => (form.start = v)}
+      onYearChange={(v) => (form.start_year = v)}
+      onMonthChange={(v) => (form.start_month = v)}
+      onAgeChange={(v) => (form.start_age = v)}
+    />
+
+    <!-- Principal -->
+    <div class="flex items-end gap-2">
+      <div class="flex flex-1 flex-col gap-2">
+        <Label for="{uid}-principal">{$_('page.plan.principal')}</Label>
+        <SuffixedInput
+          id="{uid}-principal"
+          value={form.outstanding_balance}
+          suffix={currencyLabel}
+          formatNumber={appStore.formatNumber}
+          onValueChange={(v) => {
+            form.outstanding_balance = v
+            onLoanInputChange()
+          }}
+        />
+      </div>
+      <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">
+        {$_('page.plan.principalDescription')}
+      </p>
+    </div>
+  {/if}
 
   <!-- Installment frequency | Annual percentage rate -->
   <div class="flex items-end gap-2">
@@ -355,7 +470,9 @@
       <ArrowLeftRight class="size-4" />
     </span>
     <div class="flex flex-1 flex-col gap-2">
-      <Label for="{uid}-term">{$_('page.plan.term')}</Label>
+      <Label for="{uid}-term">
+        {imported ? $_('page.setup.liabilities.remainingTerm') : $_('page.plan.term')}
+      </Label>
       <div class="flex items-center gap-2">
         <SuffixedInput
           id="{uid}-term"
@@ -377,93 +494,13 @@
     </div>
   </div>
 
-  {#if showAdvanced}
+  {#if imported}
+    <FormSection icon={FileText} title={$_('page.plan.payOffAndInterest')}>
+      {@render advancedRows()}
+    </FormSection>
+  {:else if showAdvanced}
     <Separator />
 
-    <!-- Pay-off -->
-    <div class="flex items-end gap-2">
-      <div class="flex flex-1 flex-col gap-2">
-        <Label for="{uid}-payOff">{$_('page.plan.payOff')}</Label>
-        <SelectField
-          id="{uid}-payOff"
-          value={form.pay_off}
-          items={payOffItems}
-          onValueChange={(v) => {
-            if (v) form.pay_off = v
-          }}
-        />
-      </div>
-      {#if form.pay_off === 'at_specific_date'}
-        <div class="flex flex-1 items-center gap-2">
-          <SelectField
-            class="max-w-24"
-            placeholder={$_('page.setup.aboutYou.selectYear')}
-            aria-label={$_('page.setup.aboutYou.selectYear')}
-            value={form.pay_off_year !== undefined ? String(form.pay_off_year) : ''}
-            items={yearItems}
-            onValueChange={(v) => {
-              if (v) form.pay_off_year = Number(v)
-            }}
-          />
-          <SelectField
-            placeholder={$_('page.setup.aboutYou.selectMonth')}
-            aria-label={$_('page.setup.aboutYou.selectMonth')}
-            value={form.pay_off_month !== undefined ? monthToOption(form.pay_off_month) : ''}
-            items={months}
-            onValueChange={(v) => {
-              if (v) form.pay_off_month = optionToMonth(v)
-            }}
-          />
-          <HelpTooltip text={$_('page.plan.payOffDescription')} />
-        </div>
-        {#if !timingWithinPlan(range, 'end', 'at_specific_date', form.pay_off_year, undefined)}
-          <p class="text-xs text-destructive">
-            {$_('validation.end_before_plan', { values: { start: String(range.startYear) } })}
-          </p>
-        {/if}
-      {:else}
-        <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">
-          {$_('page.plan.payOffDescription')}
-        </p>
-      {/if}
-    </div>
-
-    <!-- Interest type | Compounding frequency -->
-    <div class="flex items-end gap-2">
-      <div class="flex flex-1 flex-col gap-2">
-        <Label for="{uid}-interestType">{$_('page.plan.interestType')}</Label>
-        <SelectField
-          id="{uid}-interestType"
-          value={form.interest_type}
-          items={interestTypeItems}
-          onValueChange={(v) => {
-            if (v) {
-              form.interest_type = v
-              onLoanInputChange()
-            }
-          }}
-        />
-      </div>
-      {#if form.interest_type === 'compound'}
-        <div class="flex flex-1 flex-col gap-2">
-          <Label for="{uid}-compoundingFrequency">{$_('page.plan.compoundingFrequency')}</Label>
-          <SelectField
-            id="{uid}-compoundingFrequency"
-            value={form.compounding_frequency}
-            items={compoundingFrequencyItems}
-            placeholder={$_('page.plan.compoundingDefault')}
-            onValueChange={(v) => {
-              if (v) {
-                form.compounding_frequency = v
-                onLoanInputChange()
-              }
-            }}
-          />
-        </div>
-      {:else}
-        <div class="flex-1"></div>
-      {/if}
-      <HelpTooltip text={$_('page.plan.interestDescription')} class="mb-2" />
-    </div>
+    {@render advancedRows()}
   {/if}
 </ItemEditDialogShell>

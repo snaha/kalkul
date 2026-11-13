@@ -1,7 +1,10 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
+  import Percent from '@lucide/svelte/icons/percent'
+
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
+  import FormSection from '$lib/components/form-section.svelte'
   import HelpTooltip from '$lib/components/help-tooltip.svelte'
   import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
@@ -41,6 +44,8 @@
     /** "Current balance" in the setup card, "Initial amount" in the plan dialog. */
     amountLabel: string
     /** Whether the fee fields are revealed. */
+    /** Copied from financial data: already held, so no start or exit, and the fees are a section. */
+    imported?: boolean
     showAdvanced: boolean
     currencyLabel: string
     /** The plan's years; the Start and Exit selectors show only with it. */
@@ -54,6 +59,7 @@
     item = $bindable(),
     idPrefix,
     amountLabel,
+    imported = false,
     showAdvanced,
     currencyLabel,
     range,
@@ -67,7 +73,7 @@
   let exitFeeTypeItems = $derived(getExitFeeTypeItems($_))
 </script>
 
-{#if range}
+{#if range && !imported}
   <DateAgeSelector
     mode="start"
     label={$_('page.plan.investmentStart')}
@@ -121,8 +127,11 @@
     />
   </div>
 </div>
+{#if imported}
+  <p class="-mt-2 text-xs text-muted-foreground">{$_('page.plan.initialBalanceDescription')}</p>
+{/if}
 
-{#if range}
+{#if range && !imported}
   <DateAgeSelector
     mode="end"
     label={$_('page.plan.investmentExit')}
@@ -151,9 +160,7 @@
   />
 {/if}
 
-{#if showAdvanced}
-  <Separator />
-
+{#snippet feeRows()}
   <!-- Total expense ratio -->
   <div class="flex items-end gap-2">
     <div class="flex flex-1 flex-col gap-2">
@@ -225,4 +232,12 @@
     </div>
     <HelpTooltip text={$_('page.plan.exitFeeDescription')} class="mb-2" />
   </div>
+{/snippet}
+
+{#if imported}
+  <FormSection icon={Percent} title={$_('page.plan.fees')}>{@render feeRows()}</FormSection>
+{:else if showAdvanced}
+  <Separator />
+
+  {@render feeRows()}
 {/if}

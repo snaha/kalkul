@@ -19,15 +19,17 @@ export function financedAmount(price: number | undefined, downPayment: number | 
 }
 
 /**
- * The down payment the plan dialog opens an asset at. One the dialog has saved
- * carries its own. One copied from financial data, or written by an MCP tool,
- * has only a balance owed, and the price less that is what has been paid: the
- * projection's loan then agrees with the dashboard until another figure is
- * typed. Owing more than the price reads as nothing paid.
+ * The down payment the plan dialog opens an asset at. An asset imported from
+ * financial data has none: it is already owned, and the dialog edits its
+ * balance owed directly. One the dialog has saved carries its own. One written
+ * by an MCP tool has only a balance owed, and the price less that is what has
+ * been paid. Owing more than the price reads as nothing paid.
  */
 export function seededDownPayment(
   asset: Pick<ProfileTangibleAsset, 'value' | 'status' | 'outstanding_balance' | 'down_payment'>,
+  imported = false,
 ): number | undefined {
+  if (imported) return undefined
   if (asset.down_payment !== undefined) return asset.down_payment
   if (asset.status !== 'financed' || asset.outstanding_balance === undefined) return undefined
   return atLeastZero(asset.value, asset.outstanding_balance)

@@ -1,11 +1,13 @@
 <script lang="ts">
   import { _, locale } from 'svelte-i18n'
 
+  import Calendar from '@lucide/svelte/icons/calendar'
   import CircleHelp from '@lucide/svelte/icons/circle-help'
   import TrendingUp from '@lucide/svelte/icons/trending-up'
 
   import ChangeOverTimeSelector from '$lib/components/change-over-time-selector.svelte'
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
+  import FormSection from '$lib/components/form-section.svelte'
   import InflationAdjustToggle from '$lib/components/inflation-adjust-toggle.svelte'
   import SelectField, { type SelectFieldItem } from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
@@ -13,7 +15,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
   import * as Tooltip from '$lib/components/ui/tooltip'
-  import { removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
+  import { isImportedPlanItem, removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
   import { summarizeTransfer } from '$lib/plan-projection'
   import { planRangeOf, planYearOptions, yearWithinPlan } from '$lib/plan-range'
   import { ageRangeEmpty, sameYearMonthsInverted, timingComplete } from '$lib/schemas'
@@ -32,6 +34,7 @@
   import { getMonthOptions, monthToOption, optionToMonth, yearItemsIncluding } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
+  import LocalOverrideNotice from './local-override-notice.svelte'
 
   interface Props {
     open: boolean
@@ -91,6 +94,7 @@
   })
 
   const isNew = $derived(initial === undefined)
+  const imported = $derived(isImportedPlanItem(plan, 'transfers', initial?.id))
 
   let fromAssetItems = $derived(
     assetOptions.map((opt) => ({
@@ -191,6 +195,55 @@
   })
 </script>
 
+{#snippet timeline()}
+  <DateAgeSelector
+    mode="start"
+    value={form.start}
+    year={form.start_year}
+    month={form.start_month}
+    age={form.start_age}
+    {range}
+    {months}
+    birthDateSet={appStore.profile.birthDate !== undefined}
+    description={$_('page.plan.transferStartDescription')}
+    formatNumber={appStore.formatNumber}
+    onValueChange={(v) => (form.start = v)}
+    onYearChange={(v) => (form.start_year = v)}
+    onMonthChange={(v) => (form.start_month = v)}
+    onAgeChange={(v) => (form.start_age = v)}
+  />
+
+  <DateAgeSelector
+    mode="end"
+    value={form.end}
+    year={form.end_year}
+    month={form.end_month}
+    age={form.end_age}
+    {range}
+    {months}
+    minMonth={endMinMonth(form)}
+    afterAge={form.start === 'when_age_is' ? form.start_age : undefined}
+    birthDateSet={appStore.profile.birthDate !== undefined}
+    neverLabel={$_('page.plan.transferEndNever')}
+    description={$_('page.plan.transferEndDescription')}
+    formatNumber={appStore.formatNumber}
+    onValueChange={(v) => (form.end = v)}
+    onYearChange={(v) => (form.end_year = v)}
+    onMonthChange={(v) => (form.end_month = v)}
+    onAgeChange={(v) => (form.end_age = v)}
+  />
+
+  <ChangeOverTimeSelector
+    value={form.change_over_time}
+    percentage={form.change_percentage}
+    noneLabel={$_('page.plan.transferChangeNone')}
+    changeDescription={$_('page.plan.transferChangeDescription')}
+    formatNumber={appStore.formatNumber}
+    onValueChange={(v) => (form.change_over_time = v)}
+    onPercentageChange={(v) => (form.change_percentage = v)}
+  />
+{/snippet}
+
 <ItemEditDialogShell
   bind:open
   {onOpenChange}
@@ -202,15 +255,18 @@
   onSave={save}
   onDelete={remove}
 >
-  <!-- Label -->
-  <div class="flex flex-col gap-2">
-    <Label for="{uid}-transferName">{$_('page.plan.transferLabelLabel')}</Label>
-    <Input
-      id="{uid}-transferName"
-      value={form.name}
-      oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
-    />
-  </div>
+  {#if imported}
+    <LocalOverrideNotice kind="cashFlow" />
+  {:else}
+    <div class="flex flex-col gap-2">
+      <Label for="{uid}-transferName">{$_('page.plan.transferLabelLabel')}</Label>
+      <Input
+        id="{uid}-transferName"
+        value={form.name}
+        oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
+      />
+    </div>
+  {/if}
 
   <!-- From + To -->
   <div class="flex items-end gap-2">
@@ -373,52 +429,13 @@
   {/if}
 
   {#if form.schedule === 'recurring'}
-    <DateAgeSelector
-      mode="start"
-      value={form.start}
-      year={form.start_year}
-      month={form.start_month}
-      age={form.start_age}
-      {range}
-      {months}
-      birthDateSet={appStore.profile.birthDate !== undefined}
-      description={$_('page.plan.transferStartDescription')}
-      formatNumber={appStore.formatNumber}
-      onValueChange={(v) => (form.start = v)}
-      onYearChange={(v) => (form.start_year = v)}
-      onMonthChange={(v) => (form.start_month = v)}
-      onAgeChange={(v) => (form.start_age = v)}
-    />
-
-    <DateAgeSelector
-      mode="end"
-      value={form.end}
-      year={form.end_year}
-      month={form.end_month}
-      age={form.end_age}
-      {range}
-      {months}
-      minMonth={endMinMonth(form)}
-      afterAge={form.start === 'when_age_is' ? form.start_age : undefined}
-      birthDateSet={appStore.profile.birthDate !== undefined}
-      neverLabel={$_('page.plan.transferEndNever')}
-      description={$_('page.plan.transferEndDescription')}
-      formatNumber={appStore.formatNumber}
-      onValueChange={(v) => (form.end = v)}
-      onYearChange={(v) => (form.end_year = v)}
-      onMonthChange={(v) => (form.end_month = v)}
-      onAgeChange={(v) => (form.end_age = v)}
-    />
-
-    <ChangeOverTimeSelector
-      value={form.change_over_time}
-      percentage={form.change_percentage}
-      noneLabel={$_('page.plan.transferChangeNone')}
-      changeDescription={$_('page.plan.transferChangeDescription')}
-      formatNumber={appStore.formatNumber}
-      onValueChange={(v) => (form.change_over_time = v)}
-      onPercentageChange={(v) => (form.change_percentage = v)}
-    />
+    {#if imported}
+      <FormSection icon={Calendar} title={$_('page.plan.timeline')}
+        >{@render timeline()}</FormSection
+      >
+    {:else}
+      {@render timeline()}
+    {/if}
   {/if}
 
   <!-- Deduct estimated tax (frames 1340, 1344 and 1345): the switch on its

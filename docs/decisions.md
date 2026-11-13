@@ -10,6 +10,31 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-13 An imported item is edited as a local override
+
+**Context.** The plan dialogs showed every item the same fields whether the
+plan added it or it came from financial data. For a financed asset that meant
+a down payment, which since 2026-11-05 was made up for an imported asset as
+the price less the balance owed. The design (Figma frames 1360 to 1366 and
+1380 to 1386) treats the two differently: what the plan adds is planned
+(a purchase, a price, a down payment, a start); what was imported already
+exists, and those fields mean nothing for it.
+
+**Decision.** An item whose id is in its list in the plan's `base` is
+imported. Its dialog shows a "Local override" notice and no name field, and
+keeps the less-used fields in sections that start closed. An imported
+investment has no start or exit; an imported tangible asset no purchase or
+down payment, and its outstanding balance is edited directly, untouched by a
+change of value; an imported liability no start or principal, only the
+outstanding balance. Incomes, expenses and transfers keep their fields, with
+the timing in a Timeline section. An item added in the plan keeps the dialog
+it had.
+
+**Supersedes.** The part of "A projection stores a financed asset's down
+payment" (2026-11-05) that opened an asset copied from financial data at the
+price less the balance owed. That fallback now applies only to an asset an
+MCP tool wrote into a plan without a down payment.
+
 ## 2026-11-12 Assets and liabilities share one scale on the plan chart
 
 **Context.** #422: the plan chart scaled assets and liabilities separately,

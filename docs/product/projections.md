@@ -14,15 +14,16 @@ The dependency is one-way: projections read financial data, they never write it.
 
 ## Vocabulary
 
-| Term in this doc   | UI label                     | Code                                                           |
-| ------------------ | ---------------------------- | -------------------------------------------------------------- |
-| Financial data     | Financial data, Quick update | `Profile`, written through `updateProfile`                     |
-| Projection         | Projection, plan             | `Portfolio`                                                    |
-| Base               | not shown                    | `Portfolio.base`, the financial data the plan was created from |
-| Outdated           | "Financial data has changed" | `isPlanOutdated`                                               |
-| Current projection | Current projection           | `buildCurrentProjectionPlan`, built fresh on every read        |
-| Down payment       | Down payment                 | `down_payment` on a projection's tangible asset                |
-| Birth month        | Date of birth, in Settings   | `Profile.birth_date`, a month and a year                       |
+| Term in this doc   | UI label                     | Code                                                            |
+| ------------------ | ---------------------------- | --------------------------------------------------------------- |
+| Financial data     | Financial data, Quick update | `Profile`, written through `updateProfile`                      |
+| Projection         | Projection, plan             | `Portfolio`                                                     |
+| Base               | not shown                    | `Portfolio.base`, the financial data the plan was created from  |
+| Outdated           | "Financial data has changed" | `isPlanOutdated`                                                |
+| Current projection | Current projection           | `buildCurrentProjectionPlan`, built fresh on every read         |
+| Down payment       | Down payment                 | `down_payment` on a tangible asset added in a projection        |
+| Imported           | "Local override"             | an item whose id is in its list in `base`, `isImportedPlanItem` |
+| Birth month        | Date of birth, in Settings   | `Profile.birth_date`, a month and a year                        |
 
 ## Rules
 
@@ -104,26 +105,53 @@ asset. A loan stays listed at 0 while it is not owed: before a planned
 purchase, after it is paid off or settled by a sale, and when the plan could
 not afford the purchase.
 
-### A financed asset's loan in a projection is its price less the down payment
+### An imported item is edited as a local override
 
-Financial data knows only what is owed on a financed asset today. A projection
-also carries the asset's down payment, the cash paid at purchase, which the
-plan dialog asks for whenever the payment method is Financed. The balance owed
-in the projection is the purchase price less the down payment, recomputed when
+An item the projection was created with is imported; one added in the plan is
+not. The plan dialogs tell them apart by one fact: whether the item's id is in
+its list in `base` (`isImportedPlanItem`), the same fact the engine uses for
+existing debt. An imported item's dialog opens with a "Local override" notice
+(edits stay in this projection; it calls an income, expense or transfer "this
+cash flow" and anything else "this asset"), has no name field, and keeps its less-used
+fields in sections that are closed until the user opens them:
+
+| Item           | Always shown                                                        | Section                                            | Not shown              |
+| -------------- | ------------------------------------------------------------------- | -------------------------------------------------- | ---------------------- |
+| Investment     | Initial balance, Annual return                                      | Fees                                               | Start, Exit            |
+| Tangible asset | Initial value, Status, Outstanding balance when financed            | Financing details (financed), Value & tax, Sale    | Purchase, Down payment |
+| Liability      | Outstanding balance, frequency, rate, Installment ⇄ Remaining term  | Pay-off & interest                                 | Start, Principal       |
+| Income/expense | Schedule, Frequency, Amount, Adjust for inflation, the totals box   | Timeline (Start, End, Change over time), recurring |                        |
+| Transfer       | From, To, Type, Frequency, Amount, Adjust for inflation, totals box | Timeline (Start, End, Change over time), recurring |                        |
+
+Balances and values are as of the projection's start. A field that is not
+shown keeps whatever the item stores. An item added in the plan keeps the
+full dialog, with the name, its start or purchase, and the "Show advanced
+options" switch.
+
+### An asset added in a projection is bought there; an imported one is already owned
+
+**Added in the plan.** The asset is a purchase the plan makes, so the dialog
+asks for the purchase date, the purchase price, the payment method and,
+whenever that is Financed, the down payment: the cash paid at purchase. The
+balance owed is the purchase price less the down payment, recomputed when
 either is edited, and the installment or term follows from it. Nothing fills
 the down payment in from the price: a new asset opens with it empty, so an
 untouched one is financed in full. The user may change it whether the purchase
 is in the past or the future; the projection reruns from its first year either
 way.
 
-When a projection is created from financial data the down payment is not
-known, so the dialog opens such an asset at the price less the balance owed,
-which keeps the projection's loan equal to the dashboard's until the user
-types another figure. An asset owing more than it is worth opens at 0 and
-keeps its balance until its price, down payment or payment method is edited.
-Financial data does not store a down payment: `profileSchema` rejects it, and
-the MCP `update_profile` and `upsert_plan_item` descriptions say which copy
-carries which field.
+**Imported.** The asset is already owned, so there is no purchase and no down
+payment. The dialog opens with a "Local override" notice (edits stay in this
+projection) and shows what financial data knows, as of the projection's
+start: the Initial value, the Status (Fully owned or Financed) and, when
+financed, the Outstanding balance, which is edited directly. Editing the
+value does not change the balance, so an asset owing more than it is worth
+keeps its balance.
+
+An asset an MCP tool wrote into a plan with a balance but no down payment
+opens at the price less the balance owed. Financial data does not store a
+down payment: `profileSchema` rejects it, and the MCP `update_profile` and
+`upsert_plan_item` descriptions say which copy carries which field.
 
 ### An age is reached in the birthday month
 
@@ -175,10 +203,12 @@ rather than papering over it.
 6. **A down payment lives on the projection.** Claire adds a financed car to a
    plan and types a price of 30,000. The down payment stays empty, so the car
    is financed in full. She types 5,000 down: the loan is 25,000 and the
-   installment re-derives. Her house (420,000, 235,000 owed) opens in the
-   same dialog with a 185,000 down payment; changing its price there to
-   430,000 makes the plan's loan 245,000, while Financial data still says
-   235,000 owed.
+   installment re-derives. Her house (420,000, 235,000 owed) came from
+   financial data, so its dialog has no down payment: it shows an initial
+   value of 420,000 and an outstanding balance of 235,000. Changing the value
+   there to 430,000 leaves the plan's loan at 235,000; typing a balance of
+   200,000 makes the plan's loan 200,000 and re-derives the installment,
+   while Financial data still says 235,000 owed.
 
 7. **Every loan is in the breakdown.** A plan holds a standalone loan of
    1,000 paid off at 250 a year, and a house financed with 3,000,000
@@ -198,6 +228,9 @@ rather than papering over it.
 - `createPlan` (`src/lib/plan-defaults.ts`) and `buildCurrentProjectionPlan`
   (`src/lib/current-projection.ts`) take the copy with `snapshotFinancialData`
   (`src/lib/plan-base.ts`), which also holds `isPlanOutdated`.
+- `isImportedPlanItem` (`src/lib/plan-items.ts`) tells an imported item from
+  one added in the plan; `local-override-notice.svelte` and
+  `src/lib/components/form-section.svelte` are the notice and the sections.
 - A plan's items are written through `src/lib/plan-items.ts`: a dialog saves
   an item with `saveEditedPlanItem`, which applies only the fields it changed
   onto the item as stored now; `upsertPlanItem` writes a whole item (the MCP
