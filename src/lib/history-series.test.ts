@@ -215,15 +215,18 @@ describe('buildHistorySeries figures', () => {
     }
     const RECORDED = captureSnapshot(INDEBTED, '2026-04-01')
 
-    test('leaves FI undefined on a point whose expenses were never recorded', () => {
+    test('leaves runway and FI undefined on a point whose expenses were never recorded', () => {
       const { expenses: _expenses, ...unrecorded } = RECORDED
       const [april] = buildHistorySeries({ ...INDEBTED, snapshots: [unrecorded] }, APRIL_FIRST)
+      expect(april.runwayYears).toBeUndefined()
       expect(april.fiPercent).toBeUndefined()
     })
 
-    test('states FI on a point that recorded no expenses as running', () => {
+    test('states runway and FI on a point that recorded no expenses as running', () => {
       const snapshot = { ...RECORDED, expenses: [] }
       const [april] = buildHistorySeries({ ...INDEBTED, snapshots: [snapshot] }, APRIL_FIRST)
+      // 117,000 outlasts the loan's 24 installments of 250
+      expect(april.runwayYears).toBe(Infinity)
       // FI number 250 × 12 / 4 % = 75,000; 117,000 less the 5,000 loan of it
       expect(april.fiPercent).toBeCloseTo(149.33, 2)
     })
