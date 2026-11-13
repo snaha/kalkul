@@ -12,6 +12,13 @@ permissions:
   contents: read
 
 jobs:
+  # An advisory in the lockfile that is not on the accepted list stops the
+  # deploy (audit.yaml).
+  audit:
+    uses: ./.github/workflows/audit.yaml
+    permissions:
+      contents: read
+
   # Installs and builds with a read-only token that is not left in the
   # checkout, so no dependency's install or build script can push.
   build:
@@ -53,7 +60,7 @@ jobs:
   # downloads the build and pushes it.
   deploy:
     runs-on: ubuntu-latest
-    needs: build
+    needs: [audit, build]
     permissions:
       contents: write
     steps:

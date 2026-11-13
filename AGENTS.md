@@ -280,6 +280,8 @@ Non-UI logic is anything a Vitest unit test can exercise without rendering a com
 
 **Dependency versions are exact**: `package.json` names a version (`4.3.6`), never a range (`^4.3.6`, `~4.3.6`). `pnpm-workspace.yaml` sets `savePrefix: ''`, so `pnpm add` already writes it that way. A range lets a fresh resolve pick up a release nobody here chose, which is how a compromised release reaches a project; an exact version moves only in a PR that names it. `pnpm check-versions` enforces it, for `package.json` and for `overrides`.
 
+**Dependency audit**: `pnpm audit` gates the production deploy (`.github/workflows/audit.yaml`) and runs on any PR that changes dependencies. It passes while every advisory it reports is listed under `auditConfig.ignoreGhsas` in `pnpm-workspace.yaml`. For a new advisory, update the package or add an exact `overrides` entry; list it as ignored only when no fix exists in the major in use, with the reason it does not reach what ships. Delete an entry in the PR that clears its advisory, since the audit job also fails on a listed advisory that is no longer reported.
+
 ### Pre-commit Requirements
 
 **IMPORTANT**: Before committing any changes, you MUST run and pass:
