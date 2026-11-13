@@ -32,7 +32,7 @@
 
   const planId = $derived(page.params.id)
   const plan = $derived(appStore.portfolios.find((p) => p.id === planId))
-  const planUrl = $derived(resolve(`${routes.PLAN_VIEW}/${planId ?? ''}`))
+  const planUrl = $derived(resolve(routes.PLAN_VIEW, { id: planId ?? '' }))
 
   interface FormState extends PlanTimelineForm {
     name: string

@@ -1,4 +1,4 @@
-import { createKalkulMcpServer } from '$lib/mcp/server'
+import { createKalkulMcpServer } from '$lib/mcp/mcp-server'
 import { getModelContext, registerWebMcpTools } from '$lib/mcp/web-mcp'
 import { type SyncStatus, WsTransport } from '$lib/mcp/ws-transport'
 import storageKeys from '$lib/storage-keys'

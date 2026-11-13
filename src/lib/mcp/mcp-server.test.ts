@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import storageKeys from '$lib/storage-keys'
 import { appStore } from '$lib/stores/app.svelte'
 
-import { createKalkulMcpServer } from './server'
+import { createKalkulMcpServer } from './mcp-server'
 
 type ToolResult = { content: { type: string; text?: string }[]; isError?: boolean }
 

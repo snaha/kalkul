@@ -1,6 +1,6 @@
 import { init, register } from 'svelte-i18n'
 
-import { browser } from '$app/environment'
+import { browser } from '$app/env'
 
 import storageKeys from '$lib/storage-keys'
 

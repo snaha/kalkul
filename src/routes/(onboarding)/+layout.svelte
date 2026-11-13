@@ -9,7 +9,7 @@
   import { Button } from '$lib/components/ui/button'
   import { Progress } from '$lib/components/ui/progress'
   import { getOnboardingSteps } from '$lib/onboarding-steps'
-  import routes, { routeFromId } from '$lib/routes'
+  import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
 
   let { children } = $props()
@@ -18,7 +18,7 @@
   const totalSteps = $derived(steps.length)
 
   let currentStepIndex = $derived.by(() => {
-    const current = routeFromId(page.route.id)
+    const current = page.route.id
     const idx = steps.findIndex((s) => current === s)
     return Math.max(0, idx)
   })
