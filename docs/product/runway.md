@@ -119,6 +119,9 @@ Runway card on the dashboard and its settings dialog.
 - Property tax on tangible assets is not an outflow here, as it is not in the
   dashboard's cash flow either.
 - Exit fees on investments are ignored on the way out.
+- A recorded date whose expenses were never recorded still gets a runway in the
+  History chart's tooltip, drawn down by its loan installments alone. Whether
+  it should show a dash there, as financial independence does, is not decided.
 
 ## In the code
 
