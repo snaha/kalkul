@@ -278,6 +278,8 @@ Non-UI logic is anything a Vitest unit test can exercise without rendering a com
 - Use `pnpm add [package]` only for runtime dependencies that users need
 - Most packages for development, testing, and build tools should be dev dependencies
 
+**Dependency versions are exact**: `package.json` names a version (`4.3.6`), never a range (`^4.3.6`, `~4.3.6`). `pnpm-workspace.yaml` sets `savePrefix: ''`, so `pnpm add` already writes it that way. A range lets a fresh resolve pick up a release nobody here chose, which is how a compromised release reaches a project; an exact version moves only in a PR that names it.
+
 ### Pre-commit Requirements
 
 **IMPORTANT**: Before committing any changes, you MUST run and pass:

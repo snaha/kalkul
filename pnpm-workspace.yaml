@@ -1,3 +1,7 @@
+# Every dependency is pinned to an exact version (AGENTS.md, "Package Management"): `pnpm add`
+# writes `1.2.3`, never `^1.2.3`, so a compromised release cannot slip in through a range.
+savePrefix: ''
+
 allowBuilds:
   esbuild: true
   es5-ext: false
