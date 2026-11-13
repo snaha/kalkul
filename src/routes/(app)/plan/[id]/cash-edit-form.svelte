@@ -10,6 +10,8 @@
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
 
+  import LocalOverrideNotice from './local-override-notice.svelte'
+
   interface Props {
     plan: PortfolioStore
     onClose: () => void
@@ -47,6 +49,10 @@
 </Dialog.Header>
 
 <div class="flex flex-col gap-4 p-4">
+  <!-- Not drawn in Figma. A plan's cash is always copied from financial data,
+       so it is a local override like any imported item. -->
+  <LocalOverrideNotice />
+
   <div class="flex flex-col gap-2">
     <Label for="{uid}-amount">{$_('page.plan.openingCash')}</Label>
     <SuffixedInput
@@ -56,7 +62,6 @@
       formatNumber={appStore.formatNumber}
       onValueChange={(v) => (amount = v)}
     />
-    <p class="text-xs text-muted-foreground">{$_('page.plan.openingCashHint')}</p>
   </div>
 </div>
 

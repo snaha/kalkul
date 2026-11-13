@@ -10,7 +10,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
   import { rederiveLoanPair } from '$lib/loan-pair'
-  import { removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
+  import { isImportedPlanItem, removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
   import { planRangeOf, timingWithinPlan } from '$lib/plan-range'
   import type {
     CashFlowEnd,
@@ -33,6 +33,7 @@
   import { getMonthOptions } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
+  import LocalOverrideNotice from './local-override-notice.svelte'
 
   export type AssetKind = 'investment' | 'tangibleAsset'
 
@@ -56,6 +57,16 @@
 
   const kind = $derived(target.kind)
   const initial = $derived(target.initial)
+
+  // An asset the projection was created with, as opposed to one added in the
+  // plan: told apart by its id being in `base`, like existing debt.
+  const isImported = (src: AssetTarget): boolean =>
+    isImportedPlanItem(
+      plan,
+      src.kind === 'investment' ? 'investments' : 'tangible_assets',
+      src.initial?.id,
+    )
+  const imported = $derived(isImported(target))
 
   interface FormState {
     id: string
@@ -199,7 +210,7 @@
         a.outstanding_balance !== undefined && a.outstanding_balance > 0
           ? a.outstanding_balance
           : undefined
-      f.down_payment = seededDownPayment(a)
+      f.down_payment = seededDownPayment(a, isImported(src))
       f.installment_frequency = a.installment_frequency ?? 'monthly'
       f.annual_rate = a.annual_rate !== undefined && a.annual_rate > 0 ? a.annual_rate : undefined
       f.installment_amount =
@@ -415,24 +426,30 @@
   newTitle={kind === 'investment'
     ? $_('page.plan.addInvestmentTitle')
     : $_('page.plan.addTangibleAssetTitle')}
-  footer={assetFooter}
+  footer={imported ? undefined : assetFooter}
+  footerClass={imported ? 'bg-muted' : undefined}
   onSave={save}
   onDelete={remove}
 >
   {#if kind === 'investment'}
-    <div class="flex flex-col gap-2">
-      <Label for="{uid}-investmentLabel">{$_('page.plan.investmentLabel')}</Label>
-      <Input
-        id="{uid}-investmentLabel"
-        value={form.name}
-        oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
-      />
-    </div>
+    {#if imported}
+      <LocalOverrideNotice />
+    {:else}
+      <div class="flex flex-col gap-2">
+        <Label for="{uid}-investmentLabel">{$_('page.plan.investmentLabel')}</Label>
+        <Input
+          id="{uid}-investmentLabel"
+          value={form.name}
+          oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
+        />
+      </div>
+    {/if}
 
     <InvestmentFields
       bind:item={form}
       idPrefix={uid}
-      amountLabel={$_('page.plan.initialAmount')}
+      {imported}
+      amountLabel={imported ? $_('page.plan.initialBalance') : $_('page.plan.initialAmount')}
       {showAdvanced}
       {currencyLabel}
       {range}
@@ -441,18 +458,23 @@
       formatNumber={appStore.formatNumber}
     />
   {:else}
-    <div class="flex flex-col gap-2">
-      <Label for="{uid}-tangibleLabel">{$_('page.plan.investmentLabel')}</Label>
-      <Input
-        id="{uid}-tangibleLabel"
-        value={form.name}
-        oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
-      />
-    </div>
+    {#if imported}
+      <LocalOverrideNotice />
+    {:else}
+      <div class="flex flex-col gap-2">
+        <Label for="{uid}-tangibleLabel">{$_('page.plan.investmentLabel')}</Label>
+        <Input
+          id="{uid}-tangibleLabel"
+          value={form.name}
+          oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
+        />
+      </div>
+    {/if}
 
     <TangibleAssetFields
       bind:item={form}
       idPrefix={uid}
+      {imported}
       {showAdvanced}
       {currencyLabel}
       {range}

@@ -93,6 +93,11 @@ describe('seededDownPayment', () => {
     expect(seededDownPayment({ ...financed, value: 90_000, outstanding_balance: 98_000 })).toBe(0)
   })
 
+  it('has none for an asset imported from financial data', () => {
+    expect(seededDownPayment(financed, true)).toBeUndefined()
+    expect(seededDownPayment({ ...financed, down_payment: 10 }, true)).toBeUndefined()
+  })
+
   it('has none for an asset that is not financed or has no loan yet', () => {
     expect(seededDownPayment({ ...financed, status: 'fully_owned' })).toBeUndefined()
     expect(seededDownPayment({ ...financed, outstanding_balance: undefined })).toBeUndefined()

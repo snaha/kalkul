@@ -15,6 +15,19 @@ function list<K extends PlanListKey>(plan: Portfolio, key: K): PlanListItem<K>[]
 }
 
 /** Save an item edited or created inside a plan: replaced in place by id, else appended. */
+/**
+ * The item was copied from financial data when the plan was created, as
+ * opposed to added in the plan: its id is in the plan's `base`. The plan
+ * dialogs show such an item as a local override of what the user has.
+ */
+export function isImportedPlanItem(
+  plan: Portfolio,
+  key: PlanListKey,
+  id: string | undefined,
+): boolean {
+  return plan.base[key].some((it) => it.id === id)
+}
+
 export function upsertPlanItem<K extends PlanListKey>(
   key: K,
   item: PlanListItem<K>,

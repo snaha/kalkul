@@ -2,8 +2,12 @@
   import { _ } from 'svelte-i18n'
 
   import ArrowLeftRight from '@lucide/svelte/icons/arrow-left-right'
+  import Gavel from '@lucide/svelte/icons/gavel'
+  import HandCoins from '@lucide/svelte/icons/hand-coins'
+  import Percent from '@lucide/svelte/icons/percent'
 
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
+  import FormSection from '$lib/components/form-section.svelte'
   import HelpTooltip from '$lib/components/help-tooltip.svelte'
   import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
@@ -25,6 +29,7 @@
     getFrequencyItems,
     getPaymentMethodItems,
     getRemainingTermUnitItems,
+    getTangibleAssetStatusItems,
     getValueOverTimeItems,
   } from '$lib/select-options'
   import { financedAmount } from '$lib/tangible-asset-form'
@@ -62,7 +67,13 @@
     item: TangibleAssetFieldsItem
     /** Namespaces the input ids, since several of these can be on one page. */
     idPrefix: string
-    /** Whether the value/tax fields are revealed. */
+    /**
+     * The asset was copied from financial data when the projection was
+     * created: it is already owned, so there is no purchase and no down
+     * payment, only its value and the balance owed at the projection's start.
+     */
+    imported?: boolean
+    /** Whether the value/tax fields are revealed; an imported asset has a section for them. */
     showAdvanced: boolean
     currencyLabel: string
     /** The plan's years; the Purchase and Sale selectors show only with it. */
@@ -77,6 +88,7 @@
   let {
     item = $bindable(),
     idPrefix,
+    imported = false,
     showAdvanced,
     currencyLabel,
     range,
@@ -87,6 +99,8 @@
   }: Props = $props()
 
   let paymentMethodItems = $derived(getPaymentMethodItems($_))
+
+  let statusItems = $derived(getTangibleAssetStatusItems($_))
 
   let frequencyItems = $derived(getFrequencyItems($_))
 
@@ -108,84 +122,7 @@
   let anchor = $state<LoanPairAnchor>('term')
 </script>
 
-{#if range}
-  <DateAgeSelector
-    mode="start"
-    label={$_('page.plan.purchase')}
-    description={$_('page.plan.purchaseDescription')}
-    value={item.purchase}
-    year={item.purchase_year}
-    month={item.purchase_month}
-    age={item.purchase_age}
-    {range}
-    {months}
-    {birthDateSet}
-    {formatNumber}
-    onValueChange={(v) => {
-      item.purchase = v
-    }}
-    onYearChange={(v) => {
-      item.purchase_year = v
-    }}
-    onMonthChange={(v) => {
-      item.purchase_month = v
-    }}
-    onAgeChange={(v) => {
-      item.purchase_age = v
-    }}
-  />
-{/if}
-
-<div class="flex items-end gap-2">
-  <div class="flex flex-1 flex-col gap-2">
-    <Label for="{idPrefix}-purchasePrice">{$_('page.plan.purchasePrice')}</Label>
-    <SuffixedInput
-      id="{idPrefix}-purchasePrice"
-      value={item.value}
-      suffix={currencyLabel}
-      {formatNumber}
-      onValueChange={(v) => {
-        item.value = v
-        syncFinanced()
-      }}
-    />
-  </div>
-  <div class="flex flex-1 flex-col gap-2">
-    <Label for="{idPrefix}-paymentMethod">{$_('page.plan.paymentMethod')}</Label>
-    <SelectField
-      id="{idPrefix}-paymentMethod"
-      value={item.status}
-      items={paymentMethodItems}
-      onValueChange={(v) => {
-        if (v) item.status = v
-        syncFinanced()
-      }}
-    />
-  </div>
-</div>
-
-{#if item.status === 'financed'}
-  <div class="flex items-end gap-2">
-    <div class="flex flex-1 flex-col gap-2">
-      <Label for="{idPrefix}-downPayment">{$_('page.plan.downPayment')}</Label>
-      <SuffixedInput
-        id="{idPrefix}-downPayment"
-        value={item.down_payment}
-        suffix={currencyLabel}
-        {formatNumber}
-        onValueChange={(v) => {
-          item.down_payment = v
-          syncFinanced()
-        }}
-      />
-    </div>
-    <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">
-      {$_('page.plan.downPaymentDescription', {
-        values: { amount: formatCurrency(item.outstanding_balance ?? 0) },
-      })}
-    </p>
-  </div>
-
+{#snippet financingRows()}
   <div class="flex items-end gap-2">
     <div class="flex flex-1 flex-col gap-2">
       <Label for="{idPrefix}-installmentFrequency">
@@ -262,40 +199,40 @@
       </div>
     </div>
   </div>
-{/if}
+{/snippet}
 
-{#if range}
-  <DateAgeSelector
-    mode="end"
-    label={$_('page.plan.sale')}
-    neverLabel={$_('page.plan.saleNever')}
-    description={$_('page.plan.saleDescription')}
-    value={item.sale}
-    year={item.sale_year}
-    month={item.sale_month}
-    age={item.sale_age}
-    {range}
-    {months}
-    {birthDateSet}
-    {formatNumber}
-    onValueChange={(v) => {
-      item.sale = v
-    }}
-    onYearChange={(v) => {
-      item.sale_year = v
-    }}
-    onMonthChange={(v) => {
-      item.sale_month = v
-    }}
-    onAgeChange={(v) => {
-      item.sale_age = v
-    }}
-  />
-{/if}
+{#snippet saleSelector()}
+  {#if range}
+    <DateAgeSelector
+      mode="end"
+      label={$_('page.plan.plannedSale')}
+      neverLabel={$_('page.plan.saleNever')}
+      description={$_('page.plan.saleDescription')}
+      value={item.sale}
+      year={item.sale_year}
+      month={item.sale_month}
+      age={item.sale_age}
+      {range}
+      {months}
+      {birthDateSet}
+      {formatNumber}
+      onValueChange={(v) => {
+        item.sale = v
+      }}
+      onYearChange={(v) => {
+        item.sale_year = v
+      }}
+      onMonthChange={(v) => {
+        item.sale_month = v
+      }}
+      onAgeChange={(v) => {
+        item.sale_age = v
+      }}
+    />
+  {/if}
+{/snippet}
 
-{#if showAdvanced}
-  <Separator />
-
+{#snippet valueTaxRows()}
   <div class="flex items-end gap-2">
     <div class="flex flex-1 flex-col gap-2">
       <Label for="{idPrefix}-valueOverTime">{$_('page.plan.valueOverTime')}</Label>
@@ -337,4 +274,164 @@
     </div>
     <HelpTooltip text={$_('page.plan.propertyTaxDescription')} class="mb-2" />
   </div>
+{/snippet}
+
+{#if imported}
+  <!-- Figma 1364/1381 (fully owned) and 1365/1382 (financed). -->
+  <div class="flex flex-col gap-2">
+    <div class="flex items-end gap-2">
+      <div class="flex flex-1 flex-col gap-2">
+        <Label for="{idPrefix}-initialValue">{$_('page.plan.initialValue')}</Label>
+        <SuffixedInput
+          id="{idPrefix}-initialValue"
+          value={item.value}
+          suffix={currencyLabel}
+          {formatNumber}
+          onValueChange={(v) => {
+            item.value = v
+          }}
+        />
+      </div>
+      <div class="flex flex-1 flex-col gap-2">
+        <Label for="{idPrefix}-status">{$_('page.setup.tangibleAssets.status')}</Label>
+        <SelectField
+          id="{idPrefix}-status"
+          value={item.status}
+          items={statusItems}
+          onValueChange={(v) => {
+            if (v) item.status = v
+          }}
+        />
+      </div>
+    </div>
+    <p class="text-xs text-muted-foreground">{$_('page.plan.initialValueDescription')}</p>
+  </div>
+
+  {#if item.status === 'financed'}
+    <div class="flex items-end gap-2">
+      <div class="flex flex-1 flex-col gap-2">
+        <Label for="{idPrefix}-outstandingBalance">
+          {$_('page.setup.tangibleAssets.outstandingBalance')}
+        </Label>
+        <SuffixedInput
+          id="{idPrefix}-outstandingBalance"
+          value={item.outstanding_balance}
+          suffix={currencyLabel}
+          {formatNumber}
+          onValueChange={(v) => {
+            item.outstanding_balance = v
+            rederiveLoanPair(item, anchor)
+          }}
+        />
+      </div>
+      <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">
+        {$_('page.plan.outstandingBalanceDescription', {
+          values: { amount: formatCurrency(item.outstanding_balance ?? 0) },
+        })}
+      </p>
+    </div>
+
+    <FormSection icon={HandCoins} title={$_('page.plan.financingDetails')}
+      >{@render financingRows()}</FormSection
+    >
+  {/if}
+
+  <FormSection icon={Percent} title={$_('page.plan.valueAndTax')}
+    >{@render valueTaxRows()}</FormSection
+  >
+
+  {#if range}
+    <FormSection icon={Gavel} title={$_('page.plan.sale')}>{@render saleSelector()}</FormSection>
+  {/if}
+{:else}
+  {#if range}
+    <DateAgeSelector
+      mode="start"
+      label={$_('page.plan.purchase')}
+      description={$_('page.plan.purchaseDescription')}
+      value={item.purchase}
+      year={item.purchase_year}
+      month={item.purchase_month}
+      age={item.purchase_age}
+      {range}
+      {months}
+      {birthDateSet}
+      {formatNumber}
+      onValueChange={(v) => {
+        item.purchase = v
+      }}
+      onYearChange={(v) => {
+        item.purchase_year = v
+      }}
+      onMonthChange={(v) => {
+        item.purchase_month = v
+      }}
+      onAgeChange={(v) => {
+        item.purchase_age = v
+      }}
+    />
+  {/if}
+
+  <div class="flex items-end gap-2">
+    <div class="flex flex-1 flex-col gap-2">
+      <Label for="{idPrefix}-purchasePrice">{$_('page.plan.purchasePrice')}</Label>
+      <SuffixedInput
+        id="{idPrefix}-purchasePrice"
+        value={item.value}
+        suffix={currencyLabel}
+        {formatNumber}
+        onValueChange={(v) => {
+          item.value = v
+          syncFinanced()
+        }}
+      />
+    </div>
+    <div class="flex flex-1 flex-col gap-2">
+      <Label for="{idPrefix}-paymentMethod">{$_('page.plan.paymentMethod')}</Label>
+      <SelectField
+        id="{idPrefix}-paymentMethod"
+        value={item.status}
+        items={paymentMethodItems}
+        onValueChange={(v) => {
+          if (v) item.status = v
+          syncFinanced()
+        }}
+      />
+    </div>
+  </div>
+
+  {#if item.status === 'financed'}
+    <div class="flex items-end gap-2">
+      <div class="flex flex-1 flex-col gap-2">
+        <Label for="{idPrefix}-downPayment">{$_('page.plan.downPayment')}</Label>
+        <SuffixedInput
+          id="{idPrefix}-downPayment"
+          value={item.down_payment}
+          suffix={currencyLabel}
+          {formatNumber}
+          onValueChange={(v) => {
+            item.down_payment = v
+            syncFinanced()
+          }}
+        />
+      </div>
+      <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">
+        {$_('page.plan.downPaymentDescription', {
+          values: { amount: formatCurrency(item.outstanding_balance ?? 0) },
+        })}
+      </p>
+    </div>
+
+    {@render financingRows()}
+  {/if}
+
+  {#if range}
+    {@render saleSelector()}
+  {/if}
+
+  {#if showAdvanced}
+    <Separator />
+
+    {@render valueTaxRows()}
+  {/if}
 {/if}
