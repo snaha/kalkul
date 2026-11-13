@@ -9,7 +9,7 @@ export interface SnapshotRow {
   totalAssets: number
   liabilities: number
   netWorth: number
-  /** Undefined when the recorded day had no outflows to measure against. */
+  /** Undefined when the day's expenses went unrecorded or nothing flowed out. */
   fiPercent: number | undefined
   /** Whether the row may be deleted; see `canDeleteSnapshot`. */
   deletable: boolean
@@ -36,7 +36,7 @@ export function buildSnapshotRows(profile: Profile): SnapshotRow[] {
         totalAssets: getTotalAssets(at),
         liabilities: getLiabilitiesTotal(at),
         netWorth: snapshotNetWorth(snapshot),
-        fiPercent: getFiPercent(at),
+        fiPercent: snapshot.expenses ? getFiPercent(at) : undefined,
         deletable: canDeleteSnapshot(profile, snapshot.date),
       }
     })

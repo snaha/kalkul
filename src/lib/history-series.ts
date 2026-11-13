@@ -9,9 +9,12 @@ import { parseDateOnly, toDateOnlyString } from '$lib/utils'
 /** The figures the History chart reports for one date. */
 export interface HistoryMetrics {
   netWorth: number
-  /** Undefined with nothing to pay; `Infinity` past the runway cap. */
+  /**
+   * Undefined with nothing to pay, or when the day's expenses went unrecorded;
+   * `Infinity` past the runway cap.
+   */
   runwayYears?: number
-  /** Undefined with nothing to pay. */
+  /** Undefined with nothing to pay, or when the day's expenses went unrecorded. */
   fiPercent?: number
 }
 
@@ -48,12 +51,10 @@ function metricsOn(profile: Profile, date: string, netWorthOnly = false): Histor
 
 /** The figures as a snapshot recorded them. */
 function metricsOf(profile: Profile, snapshot: Snapshot): HistoryMetrics {
+  const netWorth = snapshotNetWorth(snapshot)
+  if (!snapshot.expenses) return { netWorth }
   const then = profileAtSnapshot(profile, snapshot)
-  return {
-    netWorth: snapshotNetWorth(snapshot),
-    runwayYears: getRunwayYears(then),
-    fiPercent: getFiPercent(then),
-  }
+  return { netWorth, runwayYears: getRunwayYears(then), fiPercent: getFiPercent(then) }
 }
 
 /**
