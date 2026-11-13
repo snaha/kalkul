@@ -1,0 +1,1 @@
+import{ct as e,et as t,ot as n}from"./0J8Jg4DD.js";function r(){let r=e(!1),i=e(void 0);return{get open(){return t(r)},set open(e){n(r,e,!0),e||n(i,void 0)},get droppedFile(){return t(i)},openPicker(){n(i,void 0),n(r,!0)},openWithFile(e){n(i,e,!0),n(r,!0)},forgetDroppedFile(){n(i,void 0)}}}var i=r();export{i as t};
