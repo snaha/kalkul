@@ -31,6 +31,7 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
+  --color-notice: var(--notice);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -85,6 +86,7 @@
   --sidebar-ring: oklch(0.708 0 0);
   --success: oklch(0.527 0.154 150.069);
   --success-foreground: oklch(0.527 0.154 150.069);
+  --notice: #fcf4d6;
 }
 
 .dark {
@@ -122,6 +124,7 @@
   --sidebar-ring: oklch(0.439 0 0);
   --success: oklch(0.527 0.154 150.069);
   --success-foreground: oklch(0.527 0.154 150.069);
+  --notice: #2e2506;
 }
 
 @layer base {

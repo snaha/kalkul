@@ -95,7 +95,8 @@
       "deleteLiabilityConfirm": "Delete this liability? This cannot be undone.",
       "openingCash": "Cash at the start of this projection",
       "openingCashHint": "Changes here apply to this projection only.",
-      "outdated": "Your financial data has changed since this projection was created.",
+      "outdated": "Your financial data has changed since this projection was created, so the numbers may be out of date.",
+      "outdatedDismiss": "I understand",
       "transferFromLabel": "From",
       "transferToLabel": "To",
       "transferLabelLabel": "Label",
@@ -289,8 +290,9 @@
         "noExpensesHint": "Add your expenses to see this",
         "stale": {
           "title": "Last updated {date}",
-          "description": "All figures projected from your last update — review for more accuracy.",
-          "quickUpdate": "Quick update"
+          "description": "Figures since then are projected. Update for more accuracy.",
+          "quickUpdate": "Quick update",
+          "dismiss": "Dismiss"
         },
         "netWorthCard": {
           "title": "Net worth",

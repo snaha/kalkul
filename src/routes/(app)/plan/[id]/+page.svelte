@@ -51,6 +51,7 @@
     Transfer,
   } from '$lib/schemas'
   import { getFrequencyShortLabel } from '$lib/select-options'
+  import storageKeys from '$lib/storage-keys'
   import { appStore } from '$lib/stores/app.svelte'
   import { trackToday } from '$lib/today.svelte'
   import { cn, notImplemented } from '$lib/utils'
@@ -93,7 +94,23 @@
   // A saved plan is a copy of the financial data of its creation. Once that
   // data moves on, the plan no longer starts from what the user has today;
   // bringing it up to date is a planned feature, so for now the page says so.
-  const outdated = $derived(!readOnly && plan !== undefined && isPlanOutdated(plan, profile))
+  // "I understand" hides the banner on this plan for the rest of the browser
+  // session.
+  // ponytail: keyed by plan only, so data changing again in the same session
+  // does not bring it back; key on a hash of the profile if that matters.
+  let outdatedDismissedFor = $state<string>()
+  const outdatedDismissed = $derived(
+    outdatedDismissedFor === planId ||
+      sessionStorage.getItem(storageKeys.OUTDATED_DISMISSED + planId) === '1',
+  )
+  const outdated = $derived(
+    !readOnly && plan !== undefined && !outdatedDismissed && isPlanOutdated(plan, profile),
+  )
+
+  function dismissOutdated() {
+    outdatedDismissedFor = planId
+    sessionStorage.setItem(storageKeys.OUTDATED_DISMISSED + planId, '1')
+  }
   // Nothing on the Current projection can be edited: every "add" opens the
   // Model changes dialog, which starts a plan to make the change in.
   let modelChangesOpen = $state(false)
@@ -573,7 +590,16 @@
 </script>
 
 {#if plan}
-  <div bind:this={pageContainerRef} class="relative flex flex-1 overflow-hidden">
+  {#if outdated}
+    <div class="flex items-center gap-2 border-b bg-notice p-2.5 text-sm font-medium">
+      <TriangleAlert class="size-6 shrink-0" aria-hidden="true" />
+      <p class="min-w-0 flex-1">{$_('page.plan.outdated')}</p>
+      <Button size="xs" onclick={dismissOutdated}>
+        {$_('page.plan.outdatedDismiss')}
+      </Button>
+    </div>
+  {/if}
+  <div bind:this={pageContainerRef} class="relative flex min-h-0 flex-1 overflow-hidden">
     <!-- Left Panel: Cash flows / Assets -->
     {#if isLeftPanelOpen}
       <div class="flex w-[256px] shrink-0 flex-col gap-2 bg-sidebar p-2">
@@ -740,15 +766,6 @@
           </Button>
         {/if}
       </div>
-
-      {#if outdated}
-        <div
-          class="flex items-center gap-2 border-b bg-muted px-4 py-2 text-sm text-muted-foreground"
-        >
-          <TriangleAlert class="size-4 shrink-0" />
-          {$_('page.plan.outdated')}
-        </div>
-      {/if}
 
       <!-- Chart -->
       <div
