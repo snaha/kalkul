@@ -532,13 +532,13 @@ describe('getYearlyPlanProjection', () => {
     ]
     const profile = makeProfile({ birth_date: '1965-06-01', incomes })
     const result = project(makePlan({ start_date: '2025-01-01', end_date: '2035-01-01' }), profile)
-    // birthYear=1965, start_age=65 → starts at 2030
+    // Born June 1965, so 65 is reached in June 2030: 7 of 12 months that year.
     const before = result.find((r) => r.year === 2029)
     const at = result.find((r) => r.year === 2030)
     const after = result.find((r) => r.year === 2031)
     expect(before?.cash).toBeCloseTo(0, 6)
-    expect(at?.cash).toBeCloseTo(1200, 6)
-    expect(after?.cash).toBeCloseTo(2400, 6)
+    expect(at?.cash).toBeCloseTo(700, 6)
+    expect(after?.cash).toBeCloseTo(1900, 6)
   })
 
   it('honors at_specific_date end on expenses', () => {
@@ -2930,6 +2930,10 @@ describe('getYearlyPlanProjection', () => {
 })
 
 describe('summarizeTransfer', () => {
+  // The preview reads the plan's investments for the tax and the fees.
+  function summaryPlan(overrides: PlanEdits = {}) {
+    return { investments: [], ...makePlan(overrides) }
+  }
   const recurring: Transfer = {
     id: 't1',
     name: 'Monthly',
@@ -2954,7 +2958,7 @@ describe('summarizeTransfer', () => {
   }
 
   it('counts a one-time transfer once at face value without inflation', () => {
-    expect(summarizeTransfer(oneTime, makePlan(), undefined)).toEqual({
+    expect(summarizeTransfer(oneTime, summaryPlan(), undefined)).toMatchObject({
       occurrences: 1,
       nominalTotal: 1000,
       realTotal: 1000,
@@ -2964,7 +2968,7 @@ describe('summarizeTransfer', () => {
   it('scales a one-time inflation-adjusted transfer forward to its transaction year', () => {
     const result = summarizeTransfer(
       { ...oneTime, inflation_adjusted: true },
-      makePlan({ inflation_rate: 0.02 }),
+      summaryPlan({ inflation_rate: 0.02 }),
       undefined,
     )
     expect(result.occurrences).toBe(1)
@@ -2972,14 +2976,118 @@ describe('summarizeTransfer', () => {
     expect(result.realTotal).toBe(1000)
   })
 
+  it('estimates the gain from the source APY and deducts the tax rate from it', () => {
+    const sale: Transfer = {
+      ...oneTime,
+      from_asset_id: 'inv1',
+      to_asset_id: 'cash',
+      transaction_year: 2026,
+      deduct_tax: true,
+      tax_rate: 30,
+    }
+    const plan = summaryPlan({
+      investments: [{ id: 'inv1', name: 'Fund', balance: 1000, apy: 100 }],
+    })
+    // Held a year at 100%: half of what is sold is gain, taxed at 30%. The
+    // 1,000 is what cash receives, so 1000 / (1 − 0.5 × 0.3) leaves the fund.
+    const result = summarizeTransfer(sale, plan, undefined)
+    expect(result).toMatchObject({ occurrences: 1, nominalTotal: 1000, realTotal: 1000 })
+    expect(result.grossTotal).toBeCloseTo(1000 / 0.85, 6)
+    expect(result.gainTotal).toBeCloseTo((1000 / 0.85) * 0.5, 6)
+    expect(result.taxTotal).toBeCloseTo((1000 / 0.85) * 0.15, 6)
+    // Sold from cash there is no gain to estimate.
+    expect(
+      summarizeTransfer({ ...sale, from_asset_id: 'cash', to_asset_id: 'inv1' }, plan, undefined)
+        .taxTotal,
+    ).toBe(0)
+  })
+
+  it('grosses up for the tax only: the fees still come off what arrives', () => {
+    const investments: ProfileInvestment[] = [
+      {
+        id: 'inv1',
+        name: 'Fund',
+        balance: 1000,
+        apy: 100,
+        exit_fee: 2,
+        exit_fee_type: 'percentage',
+      },
+      { id: 'inv2', name: 'Other', balance: 0, apy: 0, entry_fee: 1, entry_fee_type: 'upfront' },
+    ]
+    const sale: Transfer = {
+      ...oneTime,
+      from_asset_id: 'inv1',
+      to_asset_id: 'inv2',
+      transaction_year: 2026,
+      deduct_tax: true,
+      tax_rate: 30,
+    }
+    const years = project(
+      makePlan(),
+      makeProfile({ cash_amount: 0, investments, transfers: [sale] }),
+    )
+    // 1000 / 0.85 leaves the doubled fund; (gross − 2 % exit fee − tax) − 1 % entry fee arrives.
+    const gross = 1000 / 0.85
+    expect(years[1].investments).toBeCloseTo(2000 - gross + (gross * 0.98 - gross * 0.15) * 0.99, 6)
+  })
+
+  it('counts the holding years the way the engine does: by age, and never before the plan', () => {
+    const sale: Transfer = {
+      ...oneTime,
+      from_asset_id: 'inv1',
+      to_asset_id: 'cash',
+      transaction_year: 2029,
+      deduct_tax: true,
+      tax_rate: 25,
+    }
+    function grossOf(investment: ProfileInvestment) {
+      const profile = makeProfile({
+        cash_amount: 100_000,
+        investments: [investment],
+        transfers: [sale],
+        birth_date: '1980-01-01',
+      })
+      const years = project(makePlan(), profile)
+      const preview = summarizeTransfer(sale, planFrom(profile, {}), '1980-01-01')
+      // Cash gets the 1,000 as entered; the fund (grown first) loses the gross.
+      expect(years[4].cash - years[3].cash).toBeCloseTo(1000, 6)
+      return {
+        engine: years[3].investments * 1.07 - years[4].investments,
+        preview: preview.grossTotal,
+      }
+    }
+    // Bought at 47 (2027), held two years at 7 %: 1 − 1.07^−2 of the gross is gain.
+    const byAge = grossOf({
+      id: 'inv1',
+      name: 'Fund',
+      balance: 20_000,
+      apy: 7,
+      start: 'when_age_is',
+      start_age: 47,
+    })
+    expect(byAge.preview).toBeCloseTo(1000 / (1 - (1 - 1.07 ** -2) * 0.25), 6)
+    expect(byAge.preview).toBeCloseTo(byAge.engine, 6)
+    // Bought before the plan: held since the plan start, four years.
+    const before = grossOf({
+      id: 'inv1',
+      name: 'Fund',
+      balance: 20_000,
+      apy: 7,
+      start: 'at_specific_date',
+      start_year: 2020,
+    })
+    expect(before.preview).toBeCloseTo(1000 / (1 - (1 - 1.07 ** -4) * 0.25), 6)
+    expect(before.preview).toBeCloseTo(before.engine, 6)
+  })
+
   it('reports zero occurrences for a one-time transfer outside the plan', () => {
     expect(
-      summarizeTransfer({ ...oneTime, transaction_year: 2035 }, makePlan(), undefined),
-    ).toEqual({ occurrences: 0, nominalTotal: 0, realTotal: 0 })
+      summarizeTransfer({ ...oneTime, transaction_year: 2035 }, summaryPlan(), undefined),
+    ).toMatchObject({ occurrences: 0, nominalTotal: 0, realTotal: 0 })
   })
 
   it('counts every month of a never-ending recurring transfer over the plan', () => {
-    expect(summarizeTransfer(recurring, makePlan(), undefined)).toEqual({
+    expect(summarizeTransfer(recurring, summaryPlan(), undefined)).toMatchObject({
       occurrences: 72,
       nominalTotal: 72000,
       realTotal: 72000,
@@ -2989,27 +3097,27 @@ describe('summarizeTransfer', () => {
   it('stops counting at an at_specific_date end (inclusive of the end month)', () => {
     const result = summarizeTransfer(
       { ...recurring, end: 'at_specific_date', end_year: 2026, end_month: 6 },
-      makePlan(),
+      summaryPlan(),
       undefined,
     )
-    expect(result).toEqual({ occurrences: 18, nominalTotal: 18000, realTotal: 18000 })
+    expect(result).toMatchObject({ occurrences: 18, nominalTotal: 18000, realTotal: 18000 })
   })
 
-  it('stops counting at a when_age_is end when a birth year is given', () => {
-    // born 1990 -> age 36 in 2026
+  it('stops counting at a when_age_is end the month before the birthday', () => {
+    // Born July 1990: 36 in July 2026, so 2025 and January–June 2026 count.
     const result = summarizeTransfer(
       { ...recurring, end: 'when_age_is', end_age: 36 },
-      makePlan(),
-      1990,
+      summaryPlan(),
+      '1990-07-01',
     )
-    expect(result.occurrences).toBe(24)
-    expect(result.nominalTotal).toBe(24000)
+    expect(result.occurrences).toBe(18)
+    expect(result.nominalTotal).toBe(18000)
   })
 
   it('grows the nominal total with inflation while the real total stays flat', () => {
     const result = summarizeTransfer(
       { ...recurring, inflation_adjusted: true },
-      makePlan({ inflation_rate: 0.02 }),
+      summaryPlan({ inflation_rate: 0.02 }),
       undefined,
     )
     expect(result.occurrences).toBe(72)
@@ -3019,13 +3127,13 @@ describe('summarizeTransfer', () => {
   })
 
   it('counts yearly transfers once per plan year', () => {
-    expect(summarizeTransfer({ ...recurring, frequency: 'yearly' }, makePlan(), undefined)).toEqual(
-      {
-        occurrences: 6,
-        nominalTotal: 6000,
-        realTotal: 6000,
-      },
-    )
+    expect(
+      summarizeTransfer({ ...recurring, frequency: 'yearly' }, summaryPlan(), undefined),
+    ).toMatchObject({
+      occurrences: 6,
+      nominalTotal: 6000,
+      realTotal: 6000,
+    })
   })
 })
 
@@ -3091,15 +3199,15 @@ describe('summarizeCashFlow', () => {
     expect(result).toEqual({ occurrences: 18, nominalTotal: 18000, realTotal: 18000 })
   })
 
-  it('stops counting at a when_age_is end when a birth year is given', () => {
-    // born 1990 -> age 36 in 2026
+  it('stops counting at a when_age_is end the month before the birthday', () => {
+    // Born July 1990: 36 in July 2026, so 2025 and January–June 2026 count.
     const result = summarizeCashFlow(
       { ...recurring, end: 'when_age_is', end_age: 36 },
       makePlan(),
-      1990,
+      '1990-07-01',
     )
-    expect(result.occurrences).toBe(24)
-    expect(result.nominalTotal).toBe(24000)
+    expect(result.occurrences).toBe(18)
+    expect(result.nominalTotal).toBe(18000)
   })
 
   it('grows the nominal total with inflation while the real total stays flat', () => {
@@ -3209,6 +3317,168 @@ describe('one-time cash flows in the projection', () => {
     )
     const year2027 = result.find((r) => r.year === 2027)
     expect(year2027?.insufficientFundExpenseIds).toContain('e1')
+  })
+})
+
+describe('estimated tax on a transfer out of an investment', () => {
+  // Investment doubles in year 2 (apy 100 %), so half of any withdrawal is gain.
+  const doubling: ProfileInvestment[] = [{ id: 'i1', name: 'Fund', balance: 1000, apy: 100 }]
+  function sell(year: number, deduct = true): Transfer {
+    return {
+      id: 't1',
+      name: 'Sell',
+      from_asset_id: 'i1',
+      to_asset_id: 'cash',
+      amount: 1000,
+      schedule: 'one_time',
+      transaction_year: year,
+      transaction_month: 1,
+      deduct_tax: deduct,
+      tax_rate: 30,
+    }
+  }
+
+  it('withdraws the amount plus the tax on the gain share estimated by the APY', () => {
+    const result = project(
+      makePlan(),
+      makeProfile({ cash_amount: 0, investments: doubling, transfers: [sell(2026)] }),
+    )
+    // Held a year: 1 − 2^−1 = 50 % gain, taxed at 30 %. Cash gets the 1000 as
+    // entered; the fund loses 1000 / (1 − 0.5 × 0.3) so the tax is covered.
+    expect(result[1].cash).toBeCloseTo(1000, 6)
+    expect(result[1].investments).toBeCloseTo(2000 - 1000 / 0.85, 6)
+  })
+
+  it('charges nothing in the year the plan starts, or without the switch', () => {
+    const atStart = project(
+      makePlan(),
+      makeProfile({ cash_amount: 0, investments: doubling, transfers: [sell(2025)] }),
+    )
+    expect(atStart[0].cash).toBeCloseTo(1000, 6)
+    const off = project(
+      makePlan(),
+      makeProfile({ cash_amount: 0, investments: doubling, transfers: [sell(2026, false)] }),
+    )
+    expect(off[1].cash).toBeCloseTo(1000, 6)
+  })
+
+  it('sweeps the source when it holds the amount but not the tax on top', () => {
+    const result = project(
+      makePlan(),
+      makeProfile({
+        cash_amount: 0,
+        investments: doubling,
+        transfers: [{ ...sell(2026), amount: 2000 }],
+      }),
+    )
+    // The fund holds exactly the 2000 entered; the gross would be 2000 / 0.85.
+    // Rather than skip the transfer, it goes the way Max would: 2000 out,
+    // 1700 in, and no insufficient-funds flag.
+    expect(result[1].insufficientFundTransferIds).toEqual([])
+    expect(result[1].investments).toBeCloseTo(0, 6)
+    expect(result[1].cash).toBeCloseTo(1700, 6)
+    // Short of the amount itself, it is still skipped.
+    const short = project(
+      makePlan(),
+      makeProfile({
+        cash_amount: 0,
+        investments: doubling,
+        transfers: [{ ...sell(2026), amount: 2001 }],
+      }),
+    )
+    expect(short[1].insufficientFundTransferIds).toEqual(['t1'])
+    expect(short[1].cash).toBe(0)
+  })
+
+  it('applies to a Max transfer on whatever the source holds', () => {
+    const result = project(
+      makePlan(),
+      makeProfile({
+        cash_amount: 0,
+        investments: doubling,
+        transfers: [{ ...sell(2026), amount: 0, transfer_all: true }],
+      }),
+    )
+    // 2000 swept, half of it gain: 1000 × 30 % = 300 tax.
+    expect(result[1].cash).toBeCloseTo(1700, 6)
+  })
+})
+
+describe('age-based timing at the birthday month', () => {
+  const salary: Income = {
+    id: 'salary',
+    name: 'Salary',
+    amount: 5000,
+    schedule: 'recurring',
+    frequency: 'monthly',
+    start: 'immediately',
+    end: 'when_age_is',
+    end_age: 60,
+    change_over_time: 'none',
+  }
+  const pension: Income = {
+    ...salary,
+    id: 'pension',
+    name: 'Pension',
+    start: 'when_age_is',
+    start_age: 60,
+    end: 'never',
+  }
+  const plan = { start_date: '2038-01-01', end_date: '2040-12-01' }
+
+  it('hands over from an income ending at an age to one starting at it with no overlap', () => {
+    const profile = makeProfile({ birth_date: '1979-03-01', incomes: [salary, pension] })
+    const years = project(makePlan(plan), profile)
+    // 60 in March 2039: two months of salary, then ten of pension.
+    expect(years[1].cash - years[0].cash).toBeCloseTo(60_000, 6)
+    expect(summarizeCashFlow(salary, makePlan(plan), '1979-03-01').occurrences).toBe(14)
+    expect(summarizeCashFlow(pension, makePlan(plan), '1979-03-01').occurrences).toBe(22)
+  })
+
+  it('hands over between transfers the same way', () => {
+    const drawdown: Transfer = {
+      id: 'draw',
+      name: 'Drawdown',
+      from_asset_id: 'inv1',
+      to_asset_id: 'cash',
+      amount: 5000,
+      schedule: 'recurring',
+      frequency: 'monthly',
+      start: 'immediately',
+      end: 'when_age_is',
+      end_age: 60,
+      change_over_time: 'none',
+    }
+    const years = project(
+      makePlan(plan),
+      makeProfile({
+        birth_date: '1979-03-01',
+        investments: [{ id: 'inv1', name: 'Fund', balance: 1_000_000, apy: 0 }],
+        transfers: [
+          drawdown,
+          {
+            ...drawdown,
+            id: 'bigger',
+            amount: 8000,
+            start: 'when_age_is',
+            start_age: 60,
+            end: 'never',
+          },
+        ],
+      }),
+    )
+    // 60 in March 2039: two months at 5,000, then ten at 8,000.
+    expect(years[1].cash - years[0].cash).toBeCloseTo(90_000, 6)
+    expect(years[0].investments - years[1].investments).toBeCloseTo(90_000, 6)
+  })
+
+  it('ends a flow before the year it would reach the age with a January birthday', () => {
+    const years = project(
+      makePlan(plan),
+      makeProfile({ birth_date: '1979-01-01', incomes: [salary] }),
+    )
+    expect(years[0].cash).toBeCloseTo(60_000, 6)
+    expect(years[1].cash - years[0].cash).toBeCloseTo(0, 6)
   })
 })
 

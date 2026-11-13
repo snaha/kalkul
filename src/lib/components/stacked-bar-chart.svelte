@@ -112,15 +112,8 @@
   const CORNER_RADIUS = 2
   const GRID_LINE_COUNT = 5
 
-  // Calculate the baseline position (where positive/negative values meet)
-  // Baseline is positioned so roughly 25% of chart is for liabilities (below baseline)
-  const BASELINE_RATIO = 0.75
-
   // Derived values
   const chartHeight = $derived(height - PADDING_TOP - PADDING_BOTTOM)
-  const positiveHeight = $derived(chartHeight * BASELINE_RATIO)
-  const negativeHeight = $derived(chartHeight * (1 - BASELINE_RATIO))
-  const baselineY = $derived(PADDING_TOP + positiveHeight)
 
   // Use provided width or calculate minimum based on data
   const minChartWidth = $derived(
@@ -156,9 +149,12 @@
     return max
   })
 
-  // Scale functions
-  const scalePositive = $derived((value: number) => (value / maxPositive) * positiveHeight)
-  const scaleNegative = $derived((value: number) => (value / maxNegative) * negativeHeight)
+  // One scale for assets and liabilities across the whole range, so the
+  // baseline sits wherever the data puts it.
+  const pxPerUnit = $derived(chartHeight / (maxPositive + maxNegative))
+  const baselineY = $derived(PADDING_TOP + maxPositive * pxPerUnit)
+  const scalePositive = $derived((value: number) => value * pxPerUnit)
+  const scaleNegative = $derived((value: number) => value * pxPerUnit)
 
   // Generate bar segments for each data point
   const bars = $derived.by(() => {
@@ -223,15 +219,13 @@
     })
   })
 
-  // Grid lines positions
+  // Evenly spaced grid lines, anchored on the baseline so one always marks zero
   const gridLines = $derived.by(() => {
+    const step = chartHeight / (GRID_LINE_COUNT - 1)
+    const bottom = PADDING_TOP + chartHeight
+    const first = baselineY - Math.floor((baselineY - PADDING_TOP + 0.5) / step) * step
     const lines: number[] = []
-    for (let i = 0; i < GRID_LINE_COUNT; i++) {
-      // Position grid lines evenly across the chart area
-      // One line at baseline (position 3 of 5)
-      const y = PADDING_TOP + (i / (GRID_LINE_COUNT - 1)) * chartHeight
-      lines.push(y)
-    }
+    for (let y = first; y <= bottom + 0.5; y += step) lines.push(y)
     return lines
   })
 

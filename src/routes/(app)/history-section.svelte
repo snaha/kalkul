@@ -26,6 +26,10 @@
   <HistoryChart
     {points}
     formatValue={appStore.formatCompactCurrency}
+    formatAmount={appStore.formatCurrency}
+    formatDate={appStore.formatDateOnly}
+    formatPercent={appStore.formatPercent}
+    formatNumber={appStore.formatNumber}
     nowLabel={$_('page.dashboard.finances.history.now')}
     ariaLabel={$_('page.dashboard.finances.history.chartLabel')}
     class="min-h-0 flex-1"

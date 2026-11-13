@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 
 import { buildHistorySeries, hasHistoryToShow } from './history-series'
-import type { Profile } from './schemas'
+import type { Profile, Snapshot } from './schemas'
 
 // Snapshot on 2026-01-01, read on 2026-07-02 — 182 elapsed days.
 const TODAY = new Date(2026, 6, 2)
@@ -139,6 +139,62 @@ describe('buildHistorySeries', () => {
 
   test('returns nothing for a profile with no financial data', () => {
     expect(buildHistorySeries({ name: '', email: '' }, TODAY)).toEqual([])
+  })
+})
+
+describe('buildHistorySeries figures', () => {
+  const JANUARY: Snapshot = {
+    date: '2026-01-01',
+    cash_amount: 10_000,
+    investments: [{ id: 'inv1', balance: 100_000 }],
+    tangible_assets: [],
+    liabilities: [],
+    incomes: [{ id: 'inc1', amount: 4_000, frequency: 'monthly' }],
+    expenses: [{ id: 'exp1', amount: 3_000, frequency: 'monthly' }],
+  }
+  const APRIL: Snapshot = {
+    ...JANUARY,
+    date: '2026-04-01',
+    cash_amount: 12_000,
+    investments: [{ id: 'inv1', balance: 105_000 }],
+    expenses: [{ id: 'exp1', amount: 3_400, frequency: 'monthly' }],
+  }
+  /** Stored as of April; 0 % APY so nothing moves between readings. */
+  const PROFILE: Profile = {
+    name: 'Alice',
+    email: 'a@example.com',
+    cash_amount: 12_000,
+    investments: [{ id: 'inv1', name: 'ETF', balance: 105_000, apy: 0 }],
+    incomes: [
+      { id: 'inc1', name: 'Salary', amount: 4_000, schedule: 'recurring', frequency: 'monthly' },
+    ],
+    expenses: [
+      { id: 'exp1', name: 'Rent', amount: 3_400, schedule: 'recurring', frequency: 'monthly' },
+    ],
+    snapshots: [JANUARY, APRIL],
+  }
+  const APRIL_FIRST = new Date(2026, 3, 1)
+
+  test('each recorded point carries its net worth, runway and FI', () => {
+    const [january, april] = buildHistorySeries(PROFILE, APRIL_FIRST)
+    expect(january).toEqual({
+      date: '2026-01-01',
+      netWorth: 110_000,
+      // 110,000 / 3,000 a month = 36.7 months
+      runwayYears: expect.closeTo(3.06, 2),
+      // FI number 3,000 × 12 / 4 % = 900,000; cash + investments 110,000 of it
+      fiPercent: expect.closeTo(12.22, 2),
+      projected: false,
+    })
+    expect(april).toEqual({
+      date: '2026-04-01',
+      netWorth: 117_000,
+      // 117,000 / 3,400 a month = 34.4 months
+      runwayYears: expect.closeTo(2.87, 2),
+      // 3,400 × 12 / 4 % = 1,020,000; 117,000 of it
+      fiPercent: expect.closeTo(11.47, 2),
+      projected: false,
+    })
   })
 })
 

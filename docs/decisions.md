@@ -10,6 +10,149 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-12 Assets and liabilities share one scale on the plan chart
+
+**Context.** #422: the plan chart scaled assets and liabilities separately,
+each to fill its own area (assets above a baseline fixed at 75% of the
+height, liabilities below it), so a 20 000 EUR loan drew taller than
+286 000 EUR of investments. The 75/25 split came from the first chart
+prototype, built before it had real data.
+
+**Decision.** One scale covers the range from the largest liability to the
+largest asset total, so every bar is proportional to its value. The
+baseline sits where that range puts it: at the bottom when there are no
+liabilities, higher as they grow. Grid lines stay evenly spaced and are
+anchored on the baseline. The plan card thumbnail follows the same rule.
+
+**Supersedes.** The fixed 75/25 split between assets and liabilities.
+
+## 2026-11-06 The History chart tooltip shows the reading on each date
+
+**Context.** #345 adds a tooltip to the History chart's dots (Figma frame
+1360-86910). #292 asks for some reward for updating one's data; showing each
+figure's change since the previous snapshot in this tooltip was tried and
+dropped, since the frame has no room for it.
+
+**Decision.** Hovering (or focusing) a dot draws a vertical guide and shows
+the date, net worth, runway and financial independence on that date, as in
+the frame, with no change labels. On the History page a recorded dot opens
+its snapshot for editing; the dashboard chart has no edit dialog, so it does
+not, which leaves #345 open. #292 stays open.
+
+**Why.** The tooltip follows the design. Savings rate is not in it, following
+the #345 frame.
+
+## 2026-11-06 An age is reached in the birthday month
+
+**Context.** A cash flow or transfer timed "when your age is N" resolved to
+the whole calendar year the user turns N: one ending at 60 ran through
+December of that year and one starting at 60 ran from its January. A salary
+ending at 60 and a withdrawal starting at 60 therefore both ran for the whole
+year, and the plan showed a year of double income that nothing explained.
+
+**Decision.** An age-based start takes effect in the birthday month of the
+year the age is reached, and an age-based end runs until the month before
+it, so a flow ending at an age and one starting at the same age hand over
+without a gap or an overlap. With a January birthday a flow ending at an age
+has no month left in that year and stops with the previous one. The month
+comes from the profile's birth date, which the user enters as a month and a
+year. This covers incomes, expenses and transfers, whose amounts already
+scale with the months active in a year. A start and an end at the same age
+is therefore an empty range, and the form and the schema reject it, as they
+do a same-year date range that ends before it starts. A planned purchase,
+sale or loan timed by age is still a whole-year event in that year, as it
+was. The rule is stated in `docs/product/projections.md`.
+
+**Why.** "When your age is 60" names a birthday, and the user plans a
+handover at it. Assets and loans are yearly events in the engine, so moving
+them to a month is a separate change with its own cases.
+
+## 2026-11-06 A transfer's amount is what arrives after the tax
+
+**Context.** The 2026-11-05 decision below deducted the estimated tax from
+the transfer's amount, so a 3,000 a month withdrawal taxed on its gain landed
+less than 3,000 in cash, and a plan whose expenses were 3,000 a month ran out
+of cash a few years into retirement with no visible cause in the plan.
+
+**Decision.** The amount of a transfer that deducts tax is what the
+destination receives. The source gives up the amount plus the tax: with gain
+share _g_ and rate _r_, amount / (1 − _g_ · _r_) leaves the source, and the
+tax is _g_ · _r_ of that gross. The insufficient-funds check is against the
+gross. A "Max" transfer still sweeps the whole balance and lands it less the
+tax, as there is nothing to gross up from. A source that holds the amount but
+not the tax on top is swept the same way rather than skipped, so entering
+exactly the balance still empties it. Exit and entry fees are unchanged:
+they still come off on the way, so with fees the destination receives the
+amount less the fees. The dialog's extra box shows the gross leaving the
+source with the tax and the gain it was applied on; the Figma frames draw it
+as a net figure, which is now the amount itself. (#406 follow-up)
+
+**Why.** The user thinks in what they will have to spend, and asks the app to
+work out the tax, not the other way round. Grossing up for the fees as well
+would be consistent but changes a rule older than the tax switch, so it is
+left as it is for now; showing what actually arrives with fees on is #413.
+
+## 2026-11-05 A transfer deducts an estimated tax on its gain
+
+**Context.** With the Settings tax rules gone (#386), nothing in a projection
+modelled the tax on selling an investment. The Figma transfer dialog adds a
+"Deduct estimated tax" switch with a rate, "applied to a rough estimate of the
+gain, based on the investment's APY" (#313).
+
+**Decision.** A transfer may deduct an estimated tax at its own rate from
+what leaves an investment. The gain is estimated from the source's APY and
+the years it has been held in the plan: a balance that grew by (1 + r)^n is
+gain for 1 − (1 + r)^−n of it, so a sale in the plan's first year carries no
+tax. The tax comes off the gross gain share, before the exit fee, and reduces
+what reaches the destination. Cash has no gain, so the switch is only shown
+when the source is an investment. The dialog previews the net transfer, what
+arrives after the tax and the fees, with the tax and the gain it was applied
+on, and counts the holding years exactly as the engine does. (#313)
+
+**Why.** A plan keeps no cost basis, so the gain since the plan start is the
+only estimate it can make without inventing history, and the APY is what the
+user already entered. A per-transfer rate puts the tax where the sale is
+decided, with no global rule to maintain. The estimate is knowingly rough: it
+treats the whole balance as compounding since purchase, so an investment built
+by contributions has its gain overstated (1,000 a year for 30 years at 7 % reads
+as about 87 % gain where the real share is about 70 %), and it uses the gross
+APY while the engine grows the balance at APY less TER and fee drag. The UI
+says "rough estimate" for that reason.
+
+## 2026-11-05 Runway is a drawdown the user configures
+
+**Context.** The Runway card divided investable net worth by annual outflows:
+one number, no way to see what it assumed, and nothing a user could change
+(#219). The Figma dialog offers three switches: withdraw from investments,
+include income, sell tangible assets. Under the first and the last a growth
+checkbox appears while the switch is on, and a tax rate on the gain while
+growth is on (frame 1377 shows everything on, frame 1389 the collapsed
+default, revised on 2026-11-03).
+
+**Decision.** Runway is a month-by-month drawdown of today's balances against
+today's recurring outflows: cash first, then investments, then tangible
+assets, as far as the switches allow. Loans run on their own schedule for
+their remaining term, and selling a financed asset settles what it still owes
+on that schedule. Investments grow at their effective APY and assets at their
+own value-over-time rate only when the growth checkbox is on; nothing else
+moves, so the figures are nominal and flat. Tax takes its rate of the gain
+accrued since today, since today's balance is the only cost basis Kalkul has,
+and the two rates are the runway's own. The defaults are the frame's: investments on
+without growth, income and asset sales off, both rates 0. That is close to
+the old ratio, not equal to it: loans are paid by installment over time
+instead of being subtracted up front, and a loan with no installment is never
+paid. Money that never runs out reads "100+ years". Each setting is a flat
+optional field on the profile, the shape `fi_withdrawal_rate` uses, so Apply
+writes only what changed and the MCP `update_profile` sees them as plain
+fields. Projections keep the ratio for their per-year runway. (#391)
+
+**Why.** A drawdown answers the question the card asks, "how long", with the
+loans paid as they fall due rather than netted off today, and it lets each
+switch mean one visible thing. Tax on the gain since today is the only
+estimate that needs no purchase history. Flat fields rather than a nested
+object keep one storage shape for both calculation settings and keep the
+fields-only save rule.
+
 ## 2026-11-05 A snapshot's unrecorded cash flows stay unrecorded
 
 **Context.** Snapshots saved before cash flows were recorded, a window of about

@@ -12,6 +12,7 @@ import {
   financingToLiability,
   installmentPeriodRate,
 } from '$lib/plan-projection'
+import routes from '$lib/routes'
 import {
   type Portfolio,
   type Profile,
@@ -34,6 +35,8 @@ export interface DevPreset {
    * confirmed now and would hide the very behaviour under test.
    */
   storedAsOf?: Date
+  /** Where loading the preset lands; the dashboard when unset. */
+  startAt?: (typeof routes)['PROFILE']
 }
 
 /**
@@ -395,11 +398,10 @@ export function getDevPresets(today: Date): DevPreset[] {
     },
     {
       name: 'No finances',
-      description: 'Name set, nothing else. Both dashboard panels show their empty state.',
-      data: {
-        profile: { name: 'Jane Doe', email: '', location: 'CZ', currency: 'CZK' },
-        portfolios: [],
-      },
+      description:
+        'Clears all data and opens onboarding, as "Get started" on the landing page does.',
+      data: { profile: { name: '', email: '' }, portfolios: [] },
+      startAt: routes.PROFILE,
     },
     {
       name: 'Tereza, 20 — student, first ETF',

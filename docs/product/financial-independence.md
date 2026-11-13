@@ -23,6 +23,8 @@ dialog, the FI column in History and the per-year FI% of a projection.
   mortgage) is not subtracted from the portfolio; a standalone loan is.
 - The withdrawal rate is above 0 and at most 100. The schema rejects anything
   else and the dialog disables Apply.
+- The rate is a flat optional field on the profile, the shape the runway
+  switches use too (`docs/product/runway.md`).
 - The rate is a setting, not financial data. One rate applies to the card,
   every History row and every year of every projection; a projection does not
   copy it, and History rows use today's rate.
@@ -54,8 +56,6 @@ dialog, the FI column in History and the per-year FI% of a projection.
   code subtracts only loans not secured by an asset, so a mortgage stays out
   with the house that secures it. Whether a mortgage should count is not
   confirmed with the designer.
-- Whether the runway settings (#391) and this rate should share one storage
-  shape on the profile.
 - The #220 thread also raised counting tangible assets in the portfolio value
   and letting the user try a lower living cost. The revised frame has neither,
   so the dialog does not; either needs its own issue if wanted.

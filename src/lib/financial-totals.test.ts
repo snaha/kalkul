@@ -14,7 +14,6 @@ import {
   getLiabilitiesTotal,
   getNetWorth,
   getOverviewSegments,
-  getRunwayYears,
   getSavingsRate,
   getTangibleAssetsTotal,
   getTotalAssets,
@@ -431,9 +430,9 @@ describe('getInvestableNetWorth', () => {
   })
 })
 
-describe('getFiPercent / getRunwayYears', () => {
+describe('getFiPercent', () => {
   // Worked example from docs/planning-reward-features.md:
-  // €40k/yr expenses, €620k investable → FI 62%, runway 15.5 yrs
+  // €40k/yr expenses, €620k investable → FI 62%
   const workedExample: Profile = {
     ...EMPTY_PROFILE,
     cash_amount: 620_000,
@@ -442,7 +441,6 @@ describe('getFiPercent / getRunwayYears', () => {
 
   test('matches the worked example', () => {
     expect(getFiPercent(workedExample)).toBeCloseTo(62, 6)
-    expect(getRunwayYears(workedExample)).toBeCloseTo(15.5, 6)
   })
 
   test('the FI number is the outflows over the withdrawal rate', () => {
@@ -460,7 +458,6 @@ describe('getFiPercent / getRunwayYears', () => {
 
   test('return undefined without expenses', () => {
     expect(getFiPercent({ ...EMPTY_PROFILE, cash_amount: 100 })).toBeUndefined()
-    expect(getRunwayYears({ ...EMPTY_PROFILE, cash_amount: 100 })).toBeUndefined()
   })
 
   test('return undefined when expenses total zero', () => {
@@ -470,7 +467,6 @@ describe('getFiPercent / getRunwayYears', () => {
       expenses: [expense(0, 'monthly')],
     }
     expect(getFiPercent(profile)).toBeUndefined()
-    expect(getRunwayYears(profile)).toBeUndefined()
   })
 
   test('include loan installments in the outflow denominator', () => {
@@ -481,7 +477,6 @@ describe('getFiPercent / getRunwayYears', () => {
       tangible_assets: FINANCED_PROFILE.tangible_assets,
     }
     expect(getFiPercent(withMortgage)).toBeCloseTo((620_000 / (49_480 * 25)) * 100, 6)
-    expect(getRunwayYears(withMortgage)).toBeCloseTo(620_000 / 49_480, 6)
   })
 
   test('clamp to 0 when investable net worth is negative', () => {
@@ -491,7 +486,6 @@ describe('getFiPercent / getRunwayYears', () => {
     }
     expect(getInvestableNetWorth(profile)).toBeLessThan(0)
     expect(getFiPercent(profile)).toBe(0)
-    expect(getRunwayYears(profile)).toBe(0)
   })
 })
 
