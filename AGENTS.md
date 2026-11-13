@@ -278,7 +278,7 @@ Non-UI logic is anything a Vitest unit test can exercise without rendering a com
 - Use `pnpm add [package]` only for runtime dependencies that users need
 - Most packages for development, testing, and build tools should be dev dependencies
 
-**Dependency versions are exact**: `package.json` names a version (`4.3.6`), never a range (`^4.3.6`, `~4.3.6`). `pnpm-workspace.yaml` sets `savePrefix: ''`, so `pnpm add` already writes it that way. A range lets a fresh resolve pick up a release nobody here chose, which is how a compromised release reaches a project; an exact version moves only in a PR that names it.
+**Dependency versions are exact**: `package.json` names a version (`4.3.6`), never a range (`^4.3.6`, `~4.3.6`). `pnpm-workspace.yaml` sets `savePrefix: ''`, so `pnpm add` already writes it that way. A range lets a fresh resolve pick up a release nobody here chose, which is how a compromised release reaches a project; an exact version moves only in a PR that names it. `pnpm check-versions` enforces it, for `package.json` and for `overrides`.
 
 ### Pre-commit Requirements
 
@@ -289,8 +289,9 @@ Non-UI logic is anything a Vitest unit test can exercise without rendering a com
 3. `pnpm check` - Runs Svelte Kit sync and TypeScript type checking
 4. `pnpm knip` - Finds unused files, dependencies, and exports. Runs in two passes: default mode, then `--production` mode, which only follows production entries (routes) so code kept alive solely by its own tests is still reported
 5. `pnpm check-locales` - Checks for missing, unused or duplicate translations
+6. `pnpm check-versions` - Fails on a dependency or override that names a range instead of an exact version
 
-**Quick check**: Use `pnpm check:all` to run all the above checks at once locally. CI (`.github/workflows/check.yaml`) does not call `check:all`; it runs the equivalent checks as individual steps (`pnpm check`, `pnpm lint`, `pnpm check-locales`, `pnpm knip`) and additionally runs `pnpm test:unit`.
+**Quick check**: Use `pnpm check:all` to run all the above checks at once locally. CI (`.github/workflows/check.yaml`) does not call `check:all`; it runs the equivalent checks as individual steps (`pnpm check`, `pnpm lint`, `pnpm check-locales`, `pnpm knip`, `pnpm check-versions`) and additionally runs `pnpm test:unit`.
 
 All commands must pass successfully before committing. This ensures code quality and prevents CI/CD failures.
 

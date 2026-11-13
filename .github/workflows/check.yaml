@@ -50,5 +50,8 @@ jobs:
       - name: Check dependencies and unused files
         run: pnpm knip
 
+      - name: Check dependency versions are exact
+        run: pnpm check-versions
+
       - name: Run tests
         run: pnpm test:unit
