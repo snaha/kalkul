@@ -1,6 +1,14 @@
+# Only GitHub Actions get version updates, to keep the SHA pins in the
+# workflows current: one grouped PR a month. The cooldown keeps a release that
+# is pulled within days of publishing from ever reaching a PR.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: 'weekly'
+      interval: monthly
+    cooldown:
+      default-days: 14
+    groups:
+      actions:
+        patterns: ['*']
