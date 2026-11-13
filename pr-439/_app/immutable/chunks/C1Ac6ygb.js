@@ -1,0 +1,1 @@
+import{J as e,ht as t,pt as n}from"./deLpJv8q.js";function r(){let r=t(!1),i=t(void 0);return{get open(){return e(r)},set open(e){n(r,e,!0),e||n(i,void 0)},get droppedFile(){return e(i)},openPicker(){n(i,void 0),n(r,!0)},openWithFile(e){n(i,e,!0),n(r,!0)},forgetDroppedFile(){n(i,void 0)}}}var i=r();export{i as t};
