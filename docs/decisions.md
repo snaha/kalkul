@@ -10,6 +10,24 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-13 The outdated and Last updated notices can be dismissed for the browser session
+
+**Context.** #369 and #407 redesign the two notices that say figures are not
+current: the outdated bar on a projection and the Last updated alert above the
+dashboard's key indicators. Both become yellow and gain a way to close them
+("I understand", and an x). The frames do not say what closing remembers. In
+#369 David proposed remembering nothing, so the bar would return every time
+the projection is opened.
+
+**Decision.** Closing either notice hides it for as long as the browser stays
+open (`sessionStorage`), and it is back in a new session while it still
+applies. Returning on every page visit would make closing pointless for
+someone moving between the dashboard and a projection; forgetting it for good
+would remove the only hint that the figures on screen are projected or out of
+date. The outdated bar is dismissed per projection. The Last updated alert is
+dismissed for the date it names, so it returns once a newer update has gone
+stale.
+
 ## 2026-11-12 Assets and liabilities share one scale on the plan chart
 
 **Context.** #422: the plan chart scaled assets and liabilities separately,
