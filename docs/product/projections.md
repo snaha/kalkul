@@ -127,7 +127,8 @@ Balances and values are as of the projection's start. A field that is not
 shown keeps whatever the item stores. An imported item is not renamed in a
 projection: its name is the one financial data gives it. An item added in the
 plan keeps the full dialog, with the name, its start or purchase, and the
-"Show advanced options" switch. The exit of an investment and the planned
+"Show advanced options" switch. The cash dialog always shows the notice, since
+a plan's opening cash is always copied from financial data. The exit of an investment and the planned
 sale of a tangible asset are the same field for both.
 
 ### An asset added in a projection is bought there; an imported one is already owned
