@@ -733,7 +733,7 @@
           <Button
             variant="ghost"
             size="icon"
-            href={resolve(`${routes.PLAN_VIEW}/${planId}/settings`)}
+            href={resolve(routes.PLAN_SETTINGS, { id: planId ?? '' })}
             aria-label={$_('page.planSettings.title')}
           >
             <Settings2 class="size-4" />

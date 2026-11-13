@@ -5,7 +5,7 @@
 
   import { Card } from '$lib/components/ui/card'
   import { type FinancialDataRoute, resolveFinancialDataRoute } from '$lib/financial-data-nav'
-  import routes, { routeFromId } from '$lib/routes'
+  import routes from '$lib/routes'
   import { cn } from '$lib/utils'
 
   interface Props {
@@ -31,7 +31,7 @@
 
   // Compare route ids, not pathnames: the pathname carries the base path and
   // stays constant under the hash router, so it never matches the constants.
-  const activeRoute = $derived(routeFromId(page.route.id))
+  const activeRoute = $derived(page.route.id)
   const cardWidth = $derived(variant === 'sidebar' ? 'w-72' : '')
   const itemHeight = $derived(variant === 'sidebar' ? 'h-8' : 'h-10')
 </script>

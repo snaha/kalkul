@@ -1,9 +1,64 @@
+import staticAdapter from '@sveltejs/adapter-static'
 import { sveltekit } from '@sveltejs/kit/vite'
+import { vitePreprocess } from '@sveltejs/vite-plugin-svelte'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vitest/config'
 
+const analytics = !!process.env.VITE_UMAMI_WEBSITE_ID
+
 export default defineConfig({
-  plugins: [tailwindcss(), sveltekit()],
+  plugins: [
+    tailwindcss(),
+    sveltekit({
+      preprocess: vitePreprocess(),
+      // The curated sample profiles double as the dev page's realistic presets,
+      // so they need to be importable from src/ without a ../../.. climb.
+      // SvelteKit 3 generates no `$lib`; its replacement, `#lib`, needs a file
+      // extension on every import, which this repo's import style omits.
+      alias: {
+        $lib: 'src/lib',
+        $examples: 'examples',
+      },
+      router: {
+        type: process.env.VITE_ROUTER as 'pathname' | 'hash' | undefined,
+      },
+      paths: {
+        base: (process.env.VITE_BASE_URL ?? '') as '' | `/${string}`,
+      },
+      adapter: staticAdapter({ fallback: 'index.html' }),
+      // All financial data lives in localStorage on this origin, so any XSS or
+      // compromised dependency could exfiltrate it. GitHub Pages can't set
+      // response headers; kit.csp injects the policy as a <meta> tag into the
+      // SPA fallback page at build time. 'hash' mode allowlists SvelteKit's own
+      // inline init script. 'unsafe-inline' styles are required by Svelte
+      // transitions and the chart library's inline style attributes. The one
+      // remote service allowed is Umami Cloud, and only in a build that enables
+      // analytics (VITE_UMAMI_WEBSITE_ID, see README): the root layout loads its
+      // tracker script from cloud.umami.is, and the script posts page views and
+      // events to gateway.umami.is, its built-in default endpoint.
+      csp: {
+        mode: 'hash',
+        directives: {
+          'default-src': ['self'],
+          'script-src': ['self', ...(analytics ? (['https://cloud.umami.is'] as const) : [])],
+          'style-src': ['self', 'unsafe-inline'],
+          'img-src': ['self', 'data:'],
+          // Loopback websockets only: the optional local AI relay (server/index.ts).
+          // Browsers treat localhost as trustworthy, so even the https production
+          // site can reach a relay running on the user's machine (Chrome, Firefox;
+          // Safari blocks it). A malicious script still cannot reach a remote host.
+          'connect-src': [
+            'self',
+            ...(analytics ? (['https://gateway.umami.is'] as const) : []),
+            'ws://localhost:*',
+            'ws://127.0.0.1:*',
+          ],
+          'object-src': ['none'],
+          'base-uri': ['self'],
+        },
+      },
+    }),
+  ],
   // The dev page imports the sample profiles from `examples/`, which sits
   // outside the roots SvelteKit allows Vite to serve (src, .svelte-kit,
   // node_modules). This only affects local development — in a build the JSON is

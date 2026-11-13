@@ -35,28 +35,28 @@ export function getOnboardingSteps(profile: Profile): AppRoute[] {
 // overload so callers can work with an AppRoute union.
 function resolveAppRoute(route: AppRoute): string {
   switch (route) {
-    case '/':
-      return resolve('/')
-    case '/profile':
-      return resolve('/profile')
-    case '/finances/edit':
-      return resolve('/finances/edit')
-    case '/finances/edit/investments':
-      return resolve('/finances/edit/investments')
-    case '/finances/edit/tangible-assets':
-      return resolve('/finances/edit/tangible-assets')
-    case '/finances/edit/liabilities':
-      return resolve('/finances/edit/liabilities')
-    case '/finances/edit/income':
-      return resolve('/finances/edit/income')
-    case '/finances/edit/expenses':
-      return resolve('/finances/edit/expenses')
-    case '/finances/edit/transfers':
-      return resolve('/finances/edit/transfers')
-    case '/dev':
-      return resolve('/dev')
+    case routes.HOME:
+      return resolve(routes.HOME)
+    case routes.PROFILE:
+      return resolve(routes.PROFILE)
+    case routes.FINANCES_EDIT:
+      return resolve(routes.FINANCES_EDIT)
+    case routes.FINANCES_EDIT_INVESTMENTS:
+      return resolve(routes.FINANCES_EDIT_INVESTMENTS)
+    case routes.FINANCES_EDIT_TANGIBLE_ASSETS:
+      return resolve(routes.FINANCES_EDIT_TANGIBLE_ASSETS)
+    case routes.FINANCES_EDIT_LIABILITIES:
+      return resolve(routes.FINANCES_EDIT_LIABILITIES)
+    case routes.FINANCES_EDIT_INCOME:
+      return resolve(routes.FINANCES_EDIT_INCOME)
+    case routes.FINANCES_EDIT_EXPENSES:
+      return resolve(routes.FINANCES_EDIT_EXPENSES)
+    case routes.FINANCES_EDIT_TRANSFERS:
+      return resolve(routes.FINANCES_EDIT_TRANSFERS)
+    case routes.DEV:
+      return resolve(routes.DEV)
     default:
-      return resolve('/')
+      return resolve(routes.HOME)
   }
 }
 

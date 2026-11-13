@@ -1,7 +1,7 @@
 /**
  * Local relay between an MCP client (e.g. Claude Code over Streamable HTTP)
  * and the Kalkul browser tab, which runs the actual MCP server
- * (src/lib/mcp/server.ts) over a WebSocket. This process holds no data and
+ * (src/lib/mcp/mcp-server.ts) over a WebSocket. This process holds no data and
  * knows nothing about the tools: it forwards JSON-RPC requests to the tab and
  * routes the responses back by id.
  *

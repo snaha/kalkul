@@ -18,12 +18,6 @@ allowBuilds:
 # entries in the same PR.
 auditConfig:
   ignoreGhsas:
-    # SvelteKit, fixed only in 3.x: `setHeaders` on a prerendered page and
-    # `use:enhance` form actions, neither of which a static SPA uses. cookie
-    # 0.6 comes with it and parses no cookie here.
-    - GHSA-27mw-82g8-phjj
-    - GHSA-pfhg-q3qv-9q6r
-    - GHSA-pxg6-pf52-xh8x
     # deepmerge under @sveltejs/vite-plugin-svelte, which merges this repo's
     # own config at build time. No fixed release is published.
     - GHSA-gcqx-w48m-w2h4
