@@ -163,16 +163,18 @@ leaving them absent in storage and falling back at read time.
 **Decision.** Nothing fills them in, in storage or at read time. An omitted list
 means nothing was recorded, as in every other section of a snapshot, and a
 History row without recorded expenses shows a dash for Financial independence,
-in the table and in the chart's tooltip. The snapshot dialog opens such flows at
-zero, and confirming it saves those zeros. This settles #287 differently from
-what it proposed. (#396)
+in the table and in the chart's tooltip, and for the runway in the tooltip. The
+snapshot dialog opens such flows at zero, and confirming it saves those zeros.
+This settles #287 differently from what it proposed. (#396)
 
 **Why.** Browsers that saved since September already hold the filled-in flows,
 and those look exactly like recorded ones, so a read-time fallback could not
 correct them. That leaves only browsers that have not saved since and backups
 from that window, which does not justify a fallback before Kalkul has users to
-keep. Zeros in the dialog are accepted because the case is rare and a zero looks
-wrong on screen.
+keep. The dash is there because financial independence or a runway measured
+without the day's expenses would count loan payments alone as the cost of
+living. Zeros in the dialog are accepted because the case is rare and a zero
+looks wrong on screen.
 
 ## 2026-11-05 No capital gains tax rules in Settings
 
