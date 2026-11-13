@@ -11,7 +11,7 @@ export interface HistoryMetrics {
   netWorth: number
   /** Undefined with nothing to pay; `Infinity` past the runway cap. */
   runwayYears?: number
-  /** Undefined with nothing to pay. */
+  /** Undefined with nothing to pay, or when the day's expenses went unrecorded. */
   fiPercent?: number
 }
 
@@ -52,7 +52,7 @@ function metricsOf(profile: Profile, snapshot: Snapshot): HistoryMetrics {
   return {
     netWorth: snapshotNetWorth(snapshot),
     runwayYears: getRunwayYears(then),
-    fiPercent: getFiPercent(then),
+    fiPercent: snapshot.expenses ? getFiPercent(then) : undefined,
   }
 }
 

@@ -162,9 +162,10 @@ leaving them absent in storage and falling back at read time.
 
 **Decision.** Nothing fills them in, in storage or at read time. An omitted list
 means nothing was recorded, as in every other section of a snapshot, and a
-History row without recorded expenses shows a dash for Financial independence.
-The snapshot dialog opens such flows at zero, and confirming it saves those
-zeros. This settles #287 differently from what it proposed. (#396)
+History row without recorded expenses shows a dash for Financial independence,
+in the table and in the chart's tooltip. The snapshot dialog opens such flows at
+zero, and confirming it saves those zeros. This settles #287 differently from
+what it proposed. (#396)
 
 **Why.** Browsers that saved since September already hold the filled-in flows,
 and those look exactly like recorded ones, so a read-time fallback could not
