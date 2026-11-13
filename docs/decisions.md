@@ -10,6 +10,63 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-12 Assets and liabilities share one scale on the plan chart
+
+**Context.** #422: the plan chart scaled assets and liabilities separately,
+each to fill its own area (assets above a baseline fixed at 75% of the
+height, liabilities below it), so a 20 000 EUR loan drew taller than
+286 000 EUR of investments. The 75/25 split came from the first chart
+prototype, built before it had real data.
+
+**Decision.** One scale covers the range from the largest liability to the
+largest asset total, so every bar is proportional to its value. The
+baseline sits where that range puts it: at the bottom when there are no
+liabilities, higher as they grow. Grid lines stay evenly spaced and are
+anchored on the baseline. The plan card thumbnail follows the same rule.
+
+**Supersedes.** The fixed 75/25 split between assets and liabilities.
+
+## 2026-11-06 The History chart tooltip shows the reading on each date
+
+**Context.** #345 adds a tooltip to the History chart's dots (Figma frame
+1360-86910). #292 asks for some reward for updating one's data; showing each
+figure's change since the previous snapshot in this tooltip was tried and
+dropped, since the frame has no room for it.
+
+**Decision.** Hovering (or focusing) a dot draws a vertical guide and shows
+the date, net worth, runway and financial independence on that date, as in
+the frame, with no change labels. On the History page a recorded dot opens
+its snapshot for editing; the dashboard chart has no edit dialog, so it does
+not, which leaves #345 open. #292 stays open.
+
+**Why.** The tooltip follows the design. Savings rate is not in it, following
+the #345 frame.
+
+## 2026-11-06 An age is reached in the birthday month
+
+**Context.** A cash flow or transfer timed "when your age is N" resolved to
+the whole calendar year the user turns N: one ending at 60 ran through
+December of that year and one starting at 60 ran from its January. A salary
+ending at 60 and a withdrawal starting at 60 therefore both ran for the whole
+year, and the plan showed a year of double income that nothing explained.
+
+**Decision.** An age-based start takes effect in the birthday month of the
+year the age is reached, and an age-based end runs until the month before
+it, so a flow ending at an age and one starting at the same age hand over
+without a gap or an overlap. With a January birthday a flow ending at an age
+has no month left in that year and stops with the previous one. The month
+comes from the profile's birth date, which the user enters as a month and a
+year. This covers incomes, expenses and transfers, whose amounts already
+scale with the months active in a year. A start and an end at the same age
+is therefore an empty range, and the form and the schema reject it, as they
+do a same-year date range that ends before it starts. A planned purchase,
+sale or loan timed by age is still a whole-year event in that year, as it
+was. The rule is stated in `docs/product/projections.md`.
+
+**Why.** "When your age is 60" names a birthday, and the user plans a
+handover at it. Assets and loans are yearly events in the engine, so moving
+them to a month is a separate change with its own cases.
+
 ## 2026-11-06 A transfer's amount is what arrives after the tax
 
 **Context.** The 2026-11-05 decision below deducted the estimated tax from

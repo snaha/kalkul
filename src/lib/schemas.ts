@@ -109,6 +109,13 @@ const cashFlowTemporalRefinement = (
       message: get(_)('validation.end_month_before_start_month'),
     })
   }
+  if (ageRangeEmpty(obj.start, obj.start_age, obj.end, obj.end_age)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['end_age'],
+      message: get(_)('validation.end_age_not_after_start_age'),
+    })
+  }
 }
 
 // A same-year specific-date range whose start month is after its end month is
@@ -131,6 +138,25 @@ export function sameYearMonthsInverted(
     startMonth !== undefined &&
     endMonth !== undefined &&
     startMonth > endMonth
+  )
+}
+
+// A range from an age to the same or an earlier age has no month to run: an
+// age is reached in the birthday month and an age-based end stops before it
+// (docs/product/projections.md). Mirrors the check in cashFlowTemporalRefinement;
+// forms gate saving on it and the end-age field shows why.
+export function ageRangeEmpty(
+  start: string | undefined,
+  startAge: number | undefined,
+  end: string | undefined,
+  endAge: number | undefined,
+): boolean {
+  return (
+    start === 'when_age_is' &&
+    end === 'when_age_is' &&
+    startAge !== undefined &&
+    endAge !== undefined &&
+    endAge <= startAge
   )
 }
 
@@ -274,15 +300,20 @@ export function repairStoredData(data: unknown, today = new Date()): unknown {
     if (Array.isArray(profile.snapshots))
       for (const snapshot of profile.snapshots) repairSnapshot(snapshot, profile)
     const thisMonth = today.getFullYear() * 12 + today.getMonth() + 1
-    const birthYear =
-      typeof profile.birth_date === 'string' ? Number(profile.birth_date.slice(0, 4)) : undefined
-    stripPlannedTiming(profile, thisMonth, birthYear)
+    const birth =
+      typeof profile.birth_date === 'string'
+        ? {
+            year: Number(profile.birth_date.slice(0, 4)),
+            month: Number(profile.birth_date.slice(5, 7)),
+          }
+        : undefined
+    stripPlannedTiming(profile, thisMonth, birth)
     // A plan's base is financial data too: left with timing, `isPlanOutdated`
     // would read the strip as a change the user made.
     if (Array.isArray(data.portfolios))
       for (const plan of data.portfolios)
         if (isRecord(plan) && isRecord(plan.base))
-          stripPlannedTiming(plan.base, thisMonth, birthYear, false)
+          stripPlannedTiming(plan.base, thisMonth, birth, false)
   }
   return data
 }
@@ -295,7 +326,7 @@ export function repairStoredData(data: unknown, today = new Date()): unknown {
 function edgeMonth(
   item: Record<string, unknown>,
   edge: string,
-  birthYear: number | undefined,
+  birth: { year: number; month: number } | undefined,
   isEnd: boolean,
 ): number | undefined {
   const storedMonth = item[`${edge}_month`]
@@ -303,8 +334,9 @@ function edgeMonth(
   const year = item[`${edge}_year`]
   const age = item[`${edge}_age`]
   if (item[edge] === 'at_specific_date' && typeof year === 'number') return year * 12 + month
-  if (item[edge] === 'when_age_is' && birthYear !== undefined && typeof age === 'number')
-    return (birthYear + age) * 12 + (isEnd ? 12 : 1)
+  // An age is reached in the birthday month; an end at an age stops before it.
+  if (item[edge] === 'when_age_is' && birth !== undefined && typeof age === 'number')
+    return (birth.year + age) * 12 + birth.month - (isEnd ? 1 : 0)
   return undefined
 }
 
@@ -319,7 +351,7 @@ function edgeMonth(
 function stripPlannedTiming(
   owner: Record<string, unknown>,
   thisMonth: number,
-  birthYear: number | undefined,
+  birth: { year: number; month: number } | undefined,
   warn = true,
 ): void {
   for (const key of PLAN_LIST_KEYS) {
@@ -329,8 +361,8 @@ function stripPlannedTiming(
       if (!isRecord(item) || plannedTimingField(key, item) === undefined) return true
       const name = String(item.name ?? item.id ?? 'unknown')
       const { start, end, openEnd } = PLANNED_TIMING[key]
-      const startsAt = edgeMonth(item, start, birthYear, false)
-      const endsAt = edgeMonth(item, end, birthYear, true)
+      const startsAt = edgeMonth(item, start, birth, false)
+      const endsAt = edgeMonth(item, end, birth, true)
       const gone =
         item.schedule === 'one_time'
           ? 'was one-time'
@@ -982,7 +1014,12 @@ export const languageSchema = z.enum(['en', 'cs'])
 export const profileFieldsSchema = z.object({
   name: z.string(),
   email: z.string(),
-  birth_date: z.string().optional(),
+  // The month and year the user entered, as YYYY-MM-DD: an age is reached in
+  // the birth month, so the month must be there and in range.
+  birth_date: z
+    .string()
+    .regex(/^\d{4}-(0[1-9]|1[0-2])-\d{2}$/)
+    .optional(),
   location: z.string().optional(),
   currency: z.string().optional(),
   // UI language preference.

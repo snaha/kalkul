@@ -128,8 +128,13 @@
           <HistoryChart
             points={historyPoints}
             formatValue={appStore.formatCompactCurrency}
+            formatAmount={appStore.formatCurrency}
+            formatDate={appStore.formatDateOnly}
+            formatPercent={appStore.formatPercent}
+            formatNumber={appStore.formatNumber}
             nowLabel={$_('page.history.now')}
             ariaLabel={$_('page.history.chartLabel')}
+            onSelect={rows.length > 0 ? openEdit : undefined}
             class="h-96"
           />
         </div>

@@ -57,7 +57,7 @@
     } else {
       appStore.importBackup(JSON.stringify(preset.data))
     }
-    goto(resolve(routes.HOME))
+    goto(resolve(preset.startAt ?? routes.HOME))
   }
 
   function confirmLoadPreset(): void {

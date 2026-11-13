@@ -9,6 +9,8 @@ export interface PlanRange {
   startYear: number
   endYear: number
   birthYear: number | undefined
+  /** 1–12; an age is reached in this month (docs/product/projections.md). */
+  birthMonth: number | undefined
 }
 
 export function planRangeOf(
@@ -19,6 +21,7 @@ export function planRangeOf(
     startYear: Number(plan.start_date.slice(0, 4)),
     endYear: Number(plan.end_date.slice(0, 4)),
     birthYear: birthDate?.getFullYear(),
+    birthMonth: birthDate === undefined ? undefined : birthDate.getMonth() + 1,
   }
 }
 
@@ -56,7 +59,8 @@ function plannedYear(
  * plan's bounds when they move; a specific date stays put, so a value at the
  * edge of the plan is not nudged onto it. A missing value is reported as fine
  * so completeness stays `timingComplete`'s concern. Year precision: the
- * boundary years are accepted whole.
+ * boundary years are accepted whole, except that an end at an age reached in
+ * the plan's first year needs a month before the birthday to run in.
  */
 export function timingWithinPlan(
   range: PlanRange,
@@ -67,7 +71,9 @@ export function timingWithinPlan(
 ): boolean {
   const resolved = plannedYear(range, timing, year, age)
   if (resolved === undefined) return true
-  return mode === 'start' ? resolved <= range.endYear : resolved >= range.startYear
+  if (mode === 'start') return resolved <= range.endYear
+  if (resolved !== range.startYear) return resolved > range.startYear
+  return timing !== 'when_age_is' || (range.birthMonth ?? 1) > 1
 }
 
 /** Whether a one-time date (a transaction, a pay-off) falls inside the plan; outside it never fires. */

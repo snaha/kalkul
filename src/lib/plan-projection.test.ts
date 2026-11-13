@@ -532,13 +532,13 @@ describe('getYearlyPlanProjection', () => {
     ]
     const profile = makeProfile({ birth_date: '1965-06-01', incomes })
     const result = project(makePlan({ start_date: '2025-01-01', end_date: '2035-01-01' }), profile)
-    // birthYear=1965, start_age=65 → starts at 2030
+    // Born June 1965, so 65 is reached in June 2030: 7 of 12 months that year.
     const before = result.find((r) => r.year === 2029)
     const at = result.find((r) => r.year === 2030)
     const after = result.find((r) => r.year === 2031)
     expect(before?.cash).toBeCloseTo(0, 6)
-    expect(at?.cash).toBeCloseTo(1200, 6)
-    expect(after?.cash).toBeCloseTo(2400, 6)
+    expect(at?.cash).toBeCloseTo(700, 6)
+    expect(after?.cash).toBeCloseTo(1900, 6)
   })
 
   it('honors at_specific_date end on expenses', () => {
@@ -3048,7 +3048,7 @@ describe('summarizeTransfer', () => {
         birth_date: '1980-01-01',
       })
       const years = project(makePlan(), profile)
-      const preview = summarizeTransfer(sale, planFrom(profile, {}), 1980)
+      const preview = summarizeTransfer(sale, planFrom(profile, {}), '1980-01-01')
       // Cash gets the 1,000 as entered; the fund (grown first) loses the gross.
       expect(years[4].cash - years[3].cash).toBeCloseTo(1000, 6)
       return {
@@ -3103,15 +3103,15 @@ describe('summarizeTransfer', () => {
     expect(result).toMatchObject({ occurrences: 18, nominalTotal: 18000, realTotal: 18000 })
   })
 
-  it('stops counting at a when_age_is end when a birth year is given', () => {
-    // born 1990 -> age 36 in 2026
+  it('stops counting at a when_age_is end the month before the birthday', () => {
+    // Born July 1990: 36 in July 2026, so 2025 and January–June 2026 count.
     const result = summarizeTransfer(
       { ...recurring, end: 'when_age_is', end_age: 36 },
       summaryPlan(),
-      1990,
+      '1990-07-01',
     )
-    expect(result.occurrences).toBe(24)
-    expect(result.nominalTotal).toBe(24000)
+    expect(result.occurrences).toBe(18)
+    expect(result.nominalTotal).toBe(18000)
   })
 
   it('grows the nominal total with inflation while the real total stays flat', () => {
@@ -3199,15 +3199,15 @@ describe('summarizeCashFlow', () => {
     expect(result).toEqual({ occurrences: 18, nominalTotal: 18000, realTotal: 18000 })
   })
 
-  it('stops counting at a when_age_is end when a birth year is given', () => {
-    // born 1990 -> age 36 in 2026
+  it('stops counting at a when_age_is end the month before the birthday', () => {
+    // Born July 1990: 36 in July 2026, so 2025 and January–June 2026 count.
     const result = summarizeCashFlow(
       { ...recurring, end: 'when_age_is', end_age: 36 },
       makePlan(),
-      1990,
+      '1990-07-01',
     )
-    expect(result.occurrences).toBe(24)
-    expect(result.nominalTotal).toBe(24000)
+    expect(result.occurrences).toBe(18)
+    expect(result.nominalTotal).toBe(18000)
   })
 
   it('grows the nominal total with inflation while the real total stays flat', () => {
@@ -3401,6 +3401,84 @@ describe('estimated tax on a transfer out of an investment', () => {
     )
     // 2000 swept, half of it gain: 1000 × 30 % = 300 tax.
     expect(result[1].cash).toBeCloseTo(1700, 6)
+  })
+})
+
+describe('age-based timing at the birthday month', () => {
+  const salary: Income = {
+    id: 'salary',
+    name: 'Salary',
+    amount: 5000,
+    schedule: 'recurring',
+    frequency: 'monthly',
+    start: 'immediately',
+    end: 'when_age_is',
+    end_age: 60,
+    change_over_time: 'none',
+  }
+  const pension: Income = {
+    ...salary,
+    id: 'pension',
+    name: 'Pension',
+    start: 'when_age_is',
+    start_age: 60,
+    end: 'never',
+  }
+  const plan = { start_date: '2038-01-01', end_date: '2040-12-01' }
+
+  it('hands over from an income ending at an age to one starting at it with no overlap', () => {
+    const profile = makeProfile({ birth_date: '1979-03-01', incomes: [salary, pension] })
+    const years = project(makePlan(plan), profile)
+    // 60 in March 2039: two months of salary, then ten of pension.
+    expect(years[1].cash - years[0].cash).toBeCloseTo(60_000, 6)
+    expect(summarizeCashFlow(salary, makePlan(plan), '1979-03-01').occurrences).toBe(14)
+    expect(summarizeCashFlow(pension, makePlan(plan), '1979-03-01').occurrences).toBe(22)
+  })
+
+  it('hands over between transfers the same way', () => {
+    const drawdown: Transfer = {
+      id: 'draw',
+      name: 'Drawdown',
+      from_asset_id: 'inv1',
+      to_asset_id: 'cash',
+      amount: 5000,
+      schedule: 'recurring',
+      frequency: 'monthly',
+      start: 'immediately',
+      end: 'when_age_is',
+      end_age: 60,
+      change_over_time: 'none',
+    }
+    const years = project(
+      makePlan(plan),
+      makeProfile({
+        birth_date: '1979-03-01',
+        investments: [{ id: 'inv1', name: 'Fund', balance: 1_000_000, apy: 0 }],
+        transfers: [
+          drawdown,
+          {
+            ...drawdown,
+            id: 'bigger',
+            amount: 8000,
+            start: 'when_age_is',
+            start_age: 60,
+            end: 'never',
+          },
+        ],
+      }),
+    )
+    // 60 in March 2039: two months at 5,000, then ten at 8,000.
+    expect(years[1].cash - years[0].cash).toBeCloseTo(90_000, 6)
+    expect(years[0].investments - years[1].investments).toBeCloseTo(90_000, 6)
+  })
+
+  it('ends a flow before the year it would reach the age with a January birthday', () => {
+    const years = project(
+      makePlan(plan),
+      makeProfile({ birth_date: '1979-01-01', incomes: [salary] }),
+    )
+    expect(years[0].cash).toBeCloseTo(60_000, 6)
+    expect(years[1].cash - years[0].cash).toBeCloseTo(0, 6)
   })
 })
 
