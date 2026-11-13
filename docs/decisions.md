@@ -23,7 +23,7 @@ exists, and those fields mean nothing for it.
 **Decision.** An item whose id is in its list in the plan's `base` is
 imported. Its dialog shows a "Local override" notice and no name field, and
 keeps the less-used fields in sections that start closed. An imported
-investment has no start or exit; an imported tangible asset no purchase or
+investment has no start; an imported tangible asset no purchase or
 down payment, and its outstanding balance is edited directly, untouched by a
 change of value; an imported liability no start or principal, only the
 outstanding balance. Incomes, expenses and transfers keep their fields, with

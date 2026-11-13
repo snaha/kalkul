@@ -205,7 +205,7 @@
   {#if range}
     <DateAgeSelector
       mode="end"
-      label={$_('page.plan.sale')}
+      label={$_('page.plan.plannedSale')}
       neverLabel={$_('page.plan.saleNever')}
       description={$_('page.plan.saleDescription')}
       value={item.sale}

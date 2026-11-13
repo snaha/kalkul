@@ -1,6 +1,7 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
+  import LogOut from '@lucide/svelte/icons/log-out'
   import Percent from '@lucide/svelte/icons/percent'
 
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
@@ -44,7 +45,7 @@
     /** "Current balance" in the setup card, "Initial amount" in the plan dialog. */
     amountLabel: string
     /** Whether the fee fields are revealed. */
-    /** Copied from financial data: already held, so no start or exit, and the fees are a section. */
+    /** Copied from financial data: already held, so no start; the fees and the exit are sections. */
     imported?: boolean
     showAdvanced: boolean
     currencyLabel: string
@@ -131,33 +132,39 @@
   <p class="-mt-2 text-xs text-muted-foreground">{$_('page.plan.initialBalanceDescription')}</p>
 {/if}
 
-{#if range && !imported}
-  <DateAgeSelector
-    mode="end"
-    label={$_('page.plan.investmentExit')}
-    neverLabel={$_('page.plan.investmentExitNever')}
-    description={$_('page.plan.investmentExitDescription')}
-    value={item.exit}
-    year={item.exit_year}
-    month={item.exit_month}
-    age={item.exit_age}
-    {range}
-    {months}
-    {birthDateSet}
-    {formatNumber}
-    onValueChange={(v) => {
-      item.exit = v
-    }}
-    onYearChange={(v) => {
-      item.exit_year = v
-    }}
-    onMonthChange={(v) => {
-      item.exit_month = v
-    }}
-    onAgeChange={(v) => {
-      item.exit_age = v
-    }}
-  />
+{#snippet exitSelector()}
+  {#if range}
+    <DateAgeSelector
+      mode="end"
+      label={$_('page.plan.investmentExit')}
+      neverLabel={$_('page.plan.investmentExitNever')}
+      description={$_('page.plan.investmentExitDescription')}
+      value={item.exit}
+      year={item.exit_year}
+      month={item.exit_month}
+      age={item.exit_age}
+      {range}
+      {months}
+      {birthDateSet}
+      {formatNumber}
+      onValueChange={(v) => {
+        item.exit = v
+      }}
+      onYearChange={(v) => {
+        item.exit_year = v
+      }}
+      onMonthChange={(v) => {
+        item.exit_month = v
+      }}
+      onAgeChange={(v) => {
+        item.exit_age = v
+      }}
+    />
+  {/if}
+{/snippet}
+
+{#if !imported}
+  {@render exitSelector()}
 {/if}
 
 {#snippet feeRows()}
@@ -236,6 +243,11 @@
 
 {#if imported}
   <FormSection icon={Percent} title={$_('page.plan.fees')}>{@render feeRows()}</FormSection>
+  {#if range}
+    <FormSection icon={LogOut} title={$_('page.plan.investmentExit')}>
+      {@render exitSelector()}
+    </FormSection>
+  {/if}
 {:else if showAdvanced}
   <Separator />
 

@@ -117,16 +117,18 @@ fields in sections that are closed until the user opens them:
 
 | Item           | Always shown                                                        | Section                                            | Not shown              |
 | -------------- | ------------------------------------------------------------------- | -------------------------------------------------- | ---------------------- |
-| Investment     | Initial balance, Annual return                                      | Fees                                               | Start, Exit            |
+| Investment     | Initial balance, Annual return                                      | Fees, Exit                                         | Start                  |
 | Tangible asset | Initial value, Status, Outstanding balance when financed            | Financing details (financed), Value & tax, Sale    | Purchase, Down payment |
 | Liability      | Outstanding balance, frequency, rate, Installment ⇄ Remaining term  | Pay-off & interest                                 | Start, Principal       |
 | Income/expense | Schedule, Frequency, Amount, Adjust for inflation, the totals box   | Timeline (Start, End, Change over time), recurring |                        |
 | Transfer       | From, To, Type, Frequency, Amount, Adjust for inflation, totals box | Timeline (Start, End, Change over time), recurring |                        |
 
 Balances and values are as of the projection's start. A field that is not
-shown keeps whatever the item stores. An item added in the plan keeps the
-full dialog, with the name, its start or purchase, and the "Show advanced
-options" switch.
+shown keeps whatever the item stores. An imported item is not renamed in a
+projection: its name is the one financial data gives it. An item added in the
+plan keeps the full dialog, with the name, its start or purchase, and the
+"Show advanced options" switch. The exit of an investment and the planned
+sale of a tangible asset are the same field for both.
 
 ### An asset added in a projection is bought there; an imported one is already owned
 
