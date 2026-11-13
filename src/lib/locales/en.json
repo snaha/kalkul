@@ -711,6 +711,7 @@
     }
   },
   "common": {
+    "framed": "Kalkul cannot be shown inside another site.",
     "countries": {
       "czechRepublic": "Czech Republic",
       "hungary": "Hungary",

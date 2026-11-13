@@ -1,11 +1,12 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte'
-  import { locale } from 'svelte-i18n'
+  import { _, locale } from 'svelte-i18n'
 
   import { browser } from '$app/environment'
 
   import { EVENTS, identify, track, trackerLoaded } from '$lib/analytics'
   import BackupFileDrop from '$lib/components/backup-file-drop.svelte'
+  import { isFramed } from '$lib/framed'
   import storageKeys from '$lib/storage-keys'
   import { appStore } from '$lib/stores/app.svelte'
   import { syncStore } from '$lib/stores/sync.svelte'
@@ -33,6 +34,8 @@
     /iPhone|iPad|iPod/.test(navigator.userAgent) &&
     navigator.userAgent.includes('Instagram')
 
+  const framed = browser && isFramed(window)
+
   $effect(() => {
     appStore.browserLocale = $locale ?? undefined
   })
@@ -50,6 +53,7 @@
   })
 
   onMount(() => {
+    if (framed) return
     // Data is loaded synchronously in +layout.ts before render; here we only
     // wire up cross-tab sync, which needs the browser `window`.
     cleanupSync = appStore.startSync()
@@ -86,9 +90,13 @@
   {/if}
 </svelte:head>
 
-{@render children()}
+{#if framed}
+  <p class="p-8 text-center text-sm text-muted-foreground">{$_('common.framed')}</p>
+{:else}
+  {@render children()}
 
-<BackupFileDrop />
+  <BackupFileDrop />
+{/if}
 {#if analyticsEnabled && instagramIos}
   {@render tracker()}
 {/if}

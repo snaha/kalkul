@@ -711,6 +711,7 @@
     }
   },
   "common": {
+    "framed": "Kalkul nelze zobrazit uvnitř jiné stránky.",
     "countries": {
       "czechRepublic": "Česká republika",
       "hungary": "Maďarsko",
