@@ -13,8 +13,8 @@ export default defineConfig({
       preprocess: vitePreprocess(),
       // The curated sample profiles double as the dev page's realistic presets,
       // so they need to be importable from src/ without a ../../.. climb.
-      // SvelteKit 3 generates no `$lib`; its replacement, `#lib`, needs a file
-      // extension on every import, which this repo's import style omits.
+      // SvelteKit 3 generates no `$lib`. Its replacement, `#lib`, is a Node
+      // subpath import, which TypeScript resolves only with a file extension.
       alias: {
         $lib: 'src/lib',
         $examples: 'examples',
