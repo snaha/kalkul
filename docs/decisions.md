@@ -131,6 +131,45 @@ cash and investments alone.
 **Supersedes.** The open question in `financial-independence.md` on whether a
 mortgage counts against the portfolio value.
 
+## 2026-11-17 Saving the newest snapshot writes its cash flows onto the profile
+
+**Context.** #286: the snapshot dialog let the user correct an income or
+expense, but saving only recorded it on the snapshot, so the History table
+moved while the dashboard and projections kept the old figure. Editing the
+newest row had the mirror problem: it opened at the flows it recorded, which
+lag the profile's whenever a flow changed in Financial data, since that
+records no snapshot. #228 had made every snapshot save leave the profile's
+flows alone, because writing them back undid such a raise.
+
+**Decision.** A row that will be the newest once saved opens its cash flows at
+the profile's figures, and saving it records them and writes them onto the
+profile. Every other row opens at, and saves, what it recorded, and leaves the
+profile alone. Deleting a snapshot never touches the profile's flows. So the
+newest snapshot's cash flows are the profile's as of the last save, not
+history: a June row saved after a raise records the raise, and one saved after
+a rent increase records the new rent and moves its Financial independence.
+
+Two narrower write-backs were tried in the PR and dropped. Writing back the
+flows that differ from the previous newest snapshot let Duplicate or a re-dated
+older row put an old salary back over a raise. Writing back only the flows that
+differ from what the dialog opened at fixed that, but such a row then became
+the newest while still recording the old salary, and the newest row re-dated
+behind another kept today's flows under its old date.
+
+**Why.** A field whose save writes onto the profile has to show the value it
+will overwrite. Opened at what June recorded, its salary field would let the
+user correct 4,000 to 4,500 without seeing that the profile is at 5,000, and
+the raise would be lost. Opening at the profile's figures also makes an
+untouched field mean "keep what runs now" on every path to the newest date.
+The cost is that the newest row is not history: it shows what it recorded until
+it is next saved, and then takes the profile's flows even when the save only
+corrected another figure. Keeping the newest row as history, opening at what it
+recorded and writing back only typed fields, stays an open question in
+`docs/product/snapshots.md`.
+
+**Supersedes.** #228's rule that saving a snapshot never writes the profile's
+cash flows. Deleting one still does not.
+
 ## 2026-11-16 An investment has no Exit field
 
 **Context.** The plan dialog let an investment be given an exit date, which
