@@ -10,6 +10,37 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-17 Saving the newest snapshot writes its cash flows onto the profile
+
+**Context.** #286: the snapshot dialog let the user correct an income or
+expense, but saving only recorded it on the snapshot, so the History table
+moved while the dashboard and projections kept the old figure. Editing the
+newest row had the mirror problem: it opened at the flows it recorded, which
+lag the profile's whenever a flow changed in Financial data, since that
+records no snapshot. #228 had made every snapshot save leave the profile's
+flows alone, because writing them back undid such a raise.
+
+**Decision.** A row that will be the newest once saved opens its cash flows at
+the profile's figures, and saving it records them and writes them onto the
+profile. Every other row opens at, and saves, what it recorded, and leaves the
+profile alone. Deleting a snapshot never touches the profile's flows. So the
+newest snapshot's cash flows are the profile's as of the last save, not
+history: a June row saved after a raise records the raise, and its Financial
+independence moves with it.
+
+Two narrower write-backs were tried in the PR and dropped. Writing back the
+flows that differ from the previous newest snapshot, and then the ones that
+differ from what the dialog opened at, both let Duplicate or a re-dated older
+row put an old salary back over a raise. Opening at the profile's figures makes
+an untouched field mean "keep what runs now" on every path to the newest
+date. Keeping the newest row's flows as history, opening at what it recorded
+and writing back only typed fields, was not chosen: the newest row would show
+figures the dashboard no longer runs on, which is the gap #286 reported. It
+stays an open question in `docs/product/snapshots.md`.
+
+**Supersedes.** #228's rule that saving a snapshot never writes the profile's
+cash flows. Deleting one still does not.
+
 ## 2026-11-12 Assets and liabilities share one scale on the plan chart
 
 **Context.** #422: the plan chart scaled assets and liabilities separately,
