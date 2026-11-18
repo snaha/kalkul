@@ -111,6 +111,31 @@ carrying the asset's id as `assetId`. A loan stays listed at 0 while it is not
 owed: before a planned purchase, after it is paid off or settled by a sale, and
 when the plan could not afford the purchase.
 
+### A loan is paid only with cash that is there
+
+Each year cash pays the expenses first and the loans from what is left. A loan
+is due its installments for the year, the rest of its balance in a planned
+pay-off year or when its financed asset is sold, and anything earlier years
+left unpaid. When cash covers everything due, every loan is paid in full. When
+it does not, each loan is paid the same share of what it is due and cash ends
+the year at 0.
+
+The unpaid part stays owed: the debt falls only by money that left cash. It is
+due again in full the next year, with a year of interest at the loan's own
+rate, and every year after until it is paid, including after the loan's term
+or pay-off year has passed. There is no penalty on top.
+
+A year in which a loan was not paid in full lists it in
+`insufficientFundLiabilityIds`: a standalone liability by its id, the loan
+behind a financed asset by `financingLiabilityId` of the asset. The plan page
+marks the loan's row (the asset's row for a financed asset) the way it marks an
+expense or a transfer the plan could not fund, and the year counts towards the
+chart's first-warning marker. The projection carries on past it.
+
+An expense cash could not cover is flagged and dropped; it does not become
+debt. The year's outflows for FI % and the runway count what the loans were
+due, paid or not, as they count the expenses.
+
 ### The left sidebar lists what the plan is made of
 
 The plan page's left sidebar is where a plan's items are added and edited; the
@@ -323,16 +348,23 @@ rather than papering over it.
    none of them doubled. Were Jan born in January, the salary's last month
    would be December 2038. A flow set to run from 45 to 45 is rejected in
    the dialog, since it would have no month to run.
+9. **A loan the plan cannot pay.** A plan carries a loan of 1,000 at 0%,
+   250 a year for four years, with no cash. A salary of 2,000 a year starts in
+   the third year. The first two years pay nothing: the debt stays at 1,000
+   and the loan's row is flagged. The third year pays 750, its own installment
+   and the two missed ones, leaving 250 owed and 1,250 in cash. With 100 in
+   cash instead of none, the first year pays 100 and 900 stays owed. With two
+   loans due 300 and 100 and 200 in cash, they are paid 150 and 50.
 
-9. **A year's cash flow.** A salary of 60,000 a year, rent of 24,000, a house
-   taxed 2,000 a year and a car loan repaid at 500 a month. Income reads
-   +60,000; Expenses −24,000 (rent); Liability installments −6,000 (the car
-   loan); Fees and taxes −2,000 ("House property tax"); Cash flow is +28,000.
-   A transfer of 10,000 from cash to an ETF with no fees shows 10,000 under
-   Transfers and changes none of these. The year after the loan is paid off,
-   Liability installments has no row and Cash flow reads +34,000: the badge
-   shows 21.4% up and its tooltip "+6,000 vs" the year before.
-10. **Fees and taxes.** An ETF of 10,000 at 5% with a 1% TER: its first year
+10. **A year's cash flow.** A salary of 60,000 a year, rent of 24,000, a house
+    taxed 2,000 a year and a car loan repaid at 500 a month. Income reads
+    +60,000; Expenses −24,000 (rent); Liability installments −6,000 (the car
+    loan); Fees and taxes −2,000 ("House property tax"); Cash flow is +28,000.
+    A transfer of 10,000 from cash to an ETF with no fees shows 10,000 under
+    Transfers and changes none of these. The year after the loan is paid off,
+    Liability installments has no row and Cash flow reads +34,000: the badge
+    shows 21.4% up and its tooltip "+6,000 vs" the year before.
+11. **Fees and taxes.** An ETF of 10,000 at 5% with a 1% TER: its first year
     has no fees; the second lists "ETF fees" at 100 and the cash flow is −100.
     Paying 1,000 into an ETF with a 2% upfront entry fee lists "ETF fees" at
     20 in that year. A transfer named "Sell" that takes 1,000 out of an
@@ -372,6 +404,9 @@ rather than papering over it.
   age in its month; `ageRangeEmpty` in `src/lib/schemas.ts` rejects an empty
   range of ages and `timingWithinPlan` in `src/lib/plan-range.ts` an end
   with no month left in the plan.
+- `loanYear` and `settleLoanYear` in `src/lib/plan-projection.ts` say what a
+  loan is due in a year and record what cash paid of it; the settlement step
+  of `getYearlyPlanProjection` splits short cash between the loans.
 - `financedAmount` and `seededDownPayment` in `src/lib/tangible-asset-form.ts`
   hold the down-payment rule; the plan asset dialog is their only caller.
 - The left sidebar is `src/routes/(app)/plan/[id]/plan-items-panel.svelte`,
