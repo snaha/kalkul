@@ -126,6 +126,10 @@ export interface YearlyProjection {
   // attribute the shortfall to all expenses active that year rather than
   // trying to pick one — order would be arbitrary.
   insufficientFundExpenseIds: string[]
+  // IDs of loans the plan could not pay in full this year: a standalone
+  // liability's own id, or `financingLiabilityId` of the asset for the loan
+  // behind a financed tangible asset. The unpaid part stays owed.
+  insufficientFundLiabilityIds: string[]
 }
 
 // Annualized cash flows: a year is 365.25/7 ≈ 52.1775 weeks.
@@ -1752,6 +1756,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       insufficientFundTransferIds: insufficientFundTransferIdsThisYear,
       insufficientFundAssetIds: insufficientFundAssetIdsThisYear,
       insufficientFundExpenseIds: insufficientFundExpenseIdsThisYear,
+      insufficientFundLiabilityIds: [],
     })
   }
 
