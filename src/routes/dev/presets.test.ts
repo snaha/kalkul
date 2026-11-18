@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest'
 import { daysBetween } from '$lib/@snaha/kalkul-maths'
 import { getCurrentProfile } from '$lib/current-values'
 import { getNetWorth, hasAnyFinancialData } from '$lib/financial-totals'
+import { getYearlyPlanProjection } from '$lib/plan-projection'
 import { storedDataSchema } from '$lib/schemas'
 import { captureSnapshot, latestSnapshot, snapshotNetWorth } from '$lib/snapshots'
 import { toDateOnlyString } from '$lib/utils'
@@ -239,5 +240,26 @@ describe('dev presets', () => {
       preset.data.portfolios.flatMap((plan) => plan.transfers),
     )
     expect(transfers.length).toBeGreaterThan(0)
+  })
+
+  test('ships a profile whose projections fall behind on their loans', () => {
+    const nora = presets.find((p) => p.name === 'Nora, 34 — loans the plan cannot pay')
+    const flagged = Object.fromEntries(
+      (nora?.data.portfolios ?? []).map((plan) => {
+        const years = getYearlyPlanProjection(plan, nora?.data.profile ?? { name: '', email: '' })
+        // Expenses are always covered: only the loans fall behind.
+        expect(years.flatMap((y) => y.insufficientFundExpenseIds)).toEqual([])
+        return [
+          plan.id,
+          years.filter((y) => y.insufficientFundLiabilityIds.length > 0).map((y) => y.year),
+        ]
+      }),
+    )
+    expect(flagged).toEqual({
+      'plan-year-off': [2028],
+      'plan-renovation': [2026, 2027, 2028, 2029, 2030, 2031, 2032],
+      'plan-pay-off': [2027],
+      'plan-bike': [],
+    })
   })
 })
