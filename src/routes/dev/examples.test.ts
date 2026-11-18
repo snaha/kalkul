@@ -50,7 +50,8 @@ const unfundedYears = (years: YearlyProjection[]): number[] =>
       (year) =>
         year.insufficientFundTransferIds.length > 0 ||
         year.insufficientFundAssetIds.length > 0 ||
-        year.insufficientFundExpenseIds.length > 0,
+        year.insufficientFundExpenseIds.length > 0 ||
+        year.insufficientFundLiabilityIds.length > 0,
     )
     .map((year) => year.year)
 

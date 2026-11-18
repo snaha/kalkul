@@ -252,9 +252,34 @@ function growthFactor(
   return inflationFactor.mul(changeFactor)
 }
 
-interface LiabilitySchedule {
-  outstandingByYear: Map<number, Decimal>
-  paidByYear: Map<number, Decimal>
+/**
+ * A loan as the projection carries it from year to year. `balance` is what the
+ * schedule still has to collect; `arrears` is what fell due and cash could not
+ * pay, owed on top of it.
+ */
+interface LoanState {
+  liability: ProfileLiability
+  /**
+   * Life span: the loan does not exist before `firstYear`, and `lastYear`
+   * (a planned pay-off, or the sale of the financed asset) calls in whatever
+   * is left. An absent bound is open-ended.
+   */
+  firstYear: number | undefined
+  lastYear: number | undefined
+  balance: Decimal
+  periodsRemaining: number
+  arrears: Decimal
+}
+
+/** What a loan asks of one year, and where its schedule stands afterwards. */
+interface LoanYear {
+  /** Everything due this year: installments, a pay-off, and earlier arrears. */
+  due: Decimal
+  /** The scheduled balance once the year's installments are counted. */
+  balance: Decimal
+  periodsRemaining: number
+  /** False before the loan is taken out: nothing is owed yet. */
+  live: boolean
 }
 
 // Number of times per year interest is added to the balance when the user
@@ -410,7 +435,7 @@ export function termYearsForLoan(
  * count it stands for.
  *
  * Exported so `current-values.ts` counts the same periods the projection does.
- * `simulateLiability` keeps the unrounded count: a term of 18 months on a
+ * `loanYear` keeps the unrounded count: a term of 18 months on a
  * yearly cadence is a genuine 1.5 periods there, cleared by a balloon on the
  * fractional final period.
  */
@@ -424,72 +449,105 @@ export function remainingInstallmentPeriods(liability: ProfileLiability): number
   )
 }
 
-function simulateLiability(
+function openLoan(
   liability: ProfileLiability,
-  startYear: number,
-  endYear: number,
-  /**
-   * Optional life span, used by a tangible asset's financing: the loan does
-   * not exist before the purchase year, and a sale in `lastYear` settles
-   * whatever is still owed out of the proceeds.
-   */
-  window?: { firstYear?: number; lastYear?: number },
-): LiabilitySchedule {
+  firstYear: number | undefined,
+  lastYear: number | undefined,
+): LoanState {
+  return {
+    liability,
+    firstYear,
+    lastYear,
+    balance: new Decimal(liability.outstanding_balance),
+    periodsRemaining: remainingTermPeriods(
+      liability.remaining_term,
+      liability.remaining_term_unit,
+      INSTALLMENT_PERIODS_PER_YEAR[liability.installment_frequency],
+    ),
+    arrears: DECIMAL_0,
+  }
+}
+
+/**
+ * What `loan` is due in `year`. Pure: the caller decides how much of it cash
+ * can pay and records that with `settleLoanYear`.
+ */
+function loanYear(loan: LoanState, year: number): LoanYear {
+  const { liability } = loan
   const periodsPerYear = INSTALLMENT_PERIODS_PER_YEAR[liability.installment_frequency]
-  const installmentPeriodInterestRate = installmentPeriodRate(liability)
+  const periodInterestRate = installmentPeriodRate(liability)
   const installmentAmount = new Decimal(liability.installment_amount)
 
-  let balance = new Decimal(liability.outstanding_balance)
-  let periodsRemaining = remainingTermPeriods(
-    liability.remaining_term,
-    liability.remaining_term_unit,
-    periodsPerYear,
-  )
-
-  const outstandingByYear = new Map<number, Decimal>()
-  const paidByYear = new Map<number, Decimal>()
-
-  for (let year = startYear; year <= endYear; year++) {
-    let paidThisYear = DECIMAL_0
-    // Not taken out yet, or already settled: nothing owed, nothing paid. An
-    // absent bound is open-ended, so a standalone liability with neither a
-    // planned start nor a planned pay-off runs from plan year one for its term.
-    const beforeStart = window?.firstYear !== undefined && year < window.firstYear
-    const afterEnd = window?.lastYear !== undefined && year > window.lastYear
-    if (beforeStart || afterEnd) {
-      outstandingByYear.set(year, DECIMAL_0)
-      paidByYear.set(year, DECIMAL_0)
-      if (afterEnd) balance = DECIMAL_0
-      continue
+  // Not taken out yet: nothing owed, nothing due. A standalone liability with
+  // neither a planned start nor a planned pay-off runs from plan year one for
+  // its term.
+  if (loan.firstYear !== undefined && year < loan.firstYear) {
+    return {
+      due: DECIMAL_0,
+      balance: loan.balance,
+      periodsRemaining: loan.periodsRemaining,
+      live: false,
     }
-    for (let i = 0; i < periodsPerYear; i++) {
-      if (periodsRemaining <= 0 || balance.lessThanOrEqualTo(0)) break
-      const interest = balance.mul(installmentPeriodInterestRate)
-      const grossDue = balance.plus(interest)
-      // Final scheduled installment: pay whatever is owed so the loan reaches
-      // zero at the end of `remaining_term`. Without this balloon, slightly
-      // under-amortizing inputs leave a residual balance that lingers forever.
-      // `<= 1` rather than `=== 1` because the count can be fractional (a
-      // months term with a yearly cadence: 18 months -> 1.5 periods), and a
-      // fractional countdown never lands exactly on 1.
-      const isLastPeriod = periodsRemaining <= 1
-      const payment = isLastPeriod ? grossDue : Decimal.min(installmentAmount, grossDue)
-      balance = grossDue.minus(payment)
-      if (balance.lessThan(0)) balance = DECIMAL_0
-      paidThisYear = paidThisYear.plus(payment)
-      periodsRemaining -= 1
-    }
-    // Selling the asset settles the rest of the loan from the proceeds; for a
-    // standalone liability this is a planned pay-off date.
-    if (window?.lastYear !== undefined && year === window.lastYear && balance.greaterThan(0)) {
-      paidThisYear = paidThisYear.plus(balance)
-      balance = DECIMAL_0
-    }
-    outstandingByYear.set(year, balance)
-    paidByYear.set(year, paidThisYear)
   }
 
-  return { outstandingByYear, paidByYear }
+  // What earlier years left unpaid is due in full, with a year of interest at
+  // the loan's own rate.
+  const arrearsDue = loan.arrears.mul(DECIMAL_1.plus(periodInterestRate).pow(periodsPerYear))
+
+  // Already settled. A loan whose pay-off precedes its start never went live,
+  // so it has no arrears and owes nothing here either.
+  if (loan.lastYear !== undefined && year > loan.lastYear) {
+    return { due: arrearsDue, balance: DECIMAL_0, periodsRemaining: 0, live: true }
+  }
+
+  let balance = loan.balance
+  let periodsRemaining = loan.periodsRemaining
+  let due = arrearsDue
+  for (let i = 0; i < periodsPerYear; i++) {
+    if (periodsRemaining <= 0 || balance.lessThanOrEqualTo(0)) break
+    const interest = balance.mul(periodInterestRate)
+    const grossDue = balance.plus(interest)
+    // Final scheduled installment: pay whatever is owed so the loan reaches
+    // zero at the end of `remaining_term`. Without this balloon, slightly
+    // under-amortizing inputs leave a residual balance that lingers forever.
+    // `<= 1` rather than `=== 1` because the count can be fractional (a
+    // months term with a yearly cadence: 18 months -> 1.5 periods), and a
+    // fractional countdown never lands exactly on 1.
+    const isLastPeriod = periodsRemaining <= 1
+    const payment = isLastPeriod ? grossDue : Decimal.min(installmentAmount, grossDue)
+    balance = grossDue.minus(payment)
+    if (balance.lessThan(0)) balance = DECIMAL_0
+    due = due.plus(payment)
+    periodsRemaining -= 1
+  }
+  // Selling the asset settles the rest of the loan from the proceeds; for a
+  // standalone liability this is a planned pay-off date.
+  if (loan.lastYear !== undefined && year === loan.lastYear && balance.greaterThan(0)) {
+    due = due.plus(balance)
+    balance = DECIMAL_0
+  }
+  return { due, balance, periodsRemaining, live: true }
+}
+
+/**
+ * Records a year in which cash paid `paid` of what the loan was due. The
+ * schedule moves on either way; the unpaid part becomes arrears, so the debt
+ * only ever falls by money that actually left cash (#334).
+ */
+function settleLoanYear(loan: LoanState, year: LoanYear, paid: Decimal): void {
+  loan.balance = year.balance
+  loan.periodsRemaining = year.periodsRemaining
+  loan.arrears = Decimal.max(year.due.minus(paid), DECIMAL_0)
+}
+
+/** What is owed on a loan after `settleLoanYear`: 0 before it is taken out. */
+function loanOutstanding(loan: LoanState, year: LoanYear): Decimal {
+  return year.live ? loan.balance.plus(loan.arrears) : DECIMAL_0
+}
+
+/** The id of the synthetic liability behind a financed tangible asset. */
+export function financingLiabilityId(assetId: string): string {
+  return `tangible-asset-financing-${assetId}`
 }
 
 /**
@@ -508,7 +566,7 @@ export function financingToLiability(asset: ProfileTangibleAsset): ProfileLiabil
   )
     return undefined
   return {
-    id: `tangible-asset-financing-${asset.id}`,
+    id: financingLiabilityId(asset.id),
     name: asset.name,
     outstanding_balance: asset.outstanding_balance,
     installment_frequency: asset.installment_frequency,
@@ -1202,17 +1260,14 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
         x.liability !== undefined,
     )
 
-  const standaloneSchedules = liabilities.map((l) =>
-    simulateLiability(l, startYear, endYear, {
-      firstYear: liabilityStartYear(l, birth),
-      lastYear: liabilityPayOffYear(l),
-    }),
+  const standaloneLoans = liabilities.map((l) =>
+    openLoan(l, liabilityStartYear(l, birth), liabilityPayOffYear(l)),
   )
   // The year each loan the plan takes on pays its principal into cash (#322):
   // that is new money, whereas a liability the plan was created with is debt
   // the user already carries, so that money is already in today's balances,
   // however the plan has edited it since. A start before the plan pays in at
-  // plan start. A planned pay-off before that start means the schedule above
+  // plan start. A planned pay-off before that start means the loan above
   // never goes live, so nothing is borrowed either.
   const fiWithdrawalRate = profile.fi_withdrawal_rate ?? DEFAULT_FI_WITHDRAWAL_RATE
   const currentDebtIds = new Set(plan.base.liabilities.map((l) => l.id))
@@ -1225,19 +1280,11 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     const soFar = borrowedByYear.get(firstYear) ?? DECIMAL_0
     borrowedByYear.set(firstYear, soFar.plus(new Decimal(l.outstanding_balance)))
   }
-  const financedSchedules = tangibleAssetLiabilities.map(({ asset, liability }) => {
+  const financedLoans = tangibleAssetLiabilities.map(({ asset, liability }) => {
     const window = assetWindows.get(asset.id)
     return {
       assetId: asset.id,
-      liability,
-      schedule: simulateLiability(
-        liability,
-        startYear,
-        endYear,
-        window === undefined
-          ? undefined
-          : { firstYear: window.startYear, lastYear: window.exitYear },
-      ),
+      loan: openLoan(liability, window?.startYear, window?.exitYear),
     }
   })
 
@@ -1499,23 +1546,24 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       )
     }
 
-    // 6. Liability schedules (pre-computed for the full range, no state change
-    //    here) and property tax, both settled from post-transfer cash below.
-    //    An abandoned purchase owes nothing and is taxed on nothing.
-    let liabilitiesOutstandingNominal = DECIMAL_0
-    let liabilitiesPaidThisYearNominal = DECIMAL_0
-    function addSchedule(schedule: LiabilitySchedule): void {
-      liabilitiesOutstandingNominal = liabilitiesOutstandingNominal.plus(
-        schedule.outstandingByYear.get(year) ?? DECIMAL_0,
-      )
-      liabilitiesPaidThisYearNominal = liabilitiesPaidThisYearNominal.plus(
-        schedule.paidByYear.get(year) ?? DECIMAL_0,
-      )
-    }
-    for (const schedule of standaloneSchedules) addSchedule(schedule)
-    for (const { assetId, schedule } of financedSchedules) {
-      if (!abandonedAssetIds.has(assetId)) addSchedule(schedule)
-    }
+    // 6. What every loan is due this year, and property tax, both settled
+    //    from post-transfer cash below. An abandoned purchase owes nothing
+    //    and is taxed on nothing.
+    const standaloneYears = standaloneLoans.map((loan) => loanYear(loan, year))
+    const financedYears = financedLoans.map(({ assetId, loan }) =>
+      abandonedAssetIds.has(assetId) ? undefined : loanYear(loan, year),
+    )
+    const loansDue = [
+      ...standaloneLoans.map((loan, i) => ({ loan, due: standaloneYears[i] })),
+      ...financedLoans.flatMap(({ loan }, i) => {
+        const due = financedYears[i]
+        return due === undefined ? [] : [{ loan, due }]
+      }),
+    ]
+    const liabilitiesDueThisYearNominal = loansDue.reduce<Decimal>(
+      (sum, { due }) => sum.plus(due.due),
+      DECIMAL_0,
+    )
     // Property tax is charged on the purchase price — deliberately the flat
     // nominal value, not the inflated or appreciated one — for every year the
     // asset is held, and settled from cash alongside the ordinary expenses.
@@ -1527,18 +1575,38 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     }, DECIMAL_0)
     const expensesThisYearNominal = cashFlowExpensesNominal.plus(propertyTaxThisYearNominal)
 
-    // 7. Settle expenses + liability payments against post-transfer cash.
-    //    If the result would go negative, flag every expense active this
-    //    year. Liabilities are part of the overflow math (they also drain
-    //    cash) but aren't blamed in the sidebar today.
+    // 7. Settle expenses, then loans, against post-transfer cash. Expenses
+    //    come first: if cash cannot cover them, every expense active this
+    //    year is flagged and the shortfall is dropped (it is not modelled as
+    //    debt). Loans are paid from what is left. When that is short, each
+    //    loan gets the same share of what it is due, the rest stays owed as
+    //    arrears, and the loans are flagged (#334).
     const insufficientFundExpenseIdsThisYear: string[] = []
-    const attemptedCashNominal = cashNominal
-      .minus(expensesThisYearNominal)
-      .minus(liabilitiesPaidThisYearNominal)
-    if (attemptedCashNominal.lessThan(0)) {
+    const insufficientFundLiabilityIdsThisYear: string[] = []
+    const cashAfterExpensesNominal = cashNominal.minus(expensesThisYearNominal)
+    if (cashAfterExpensesNominal.lessThan(0)) {
       insufficientFundExpenseIdsThisYear.push(...activeExpenseIdsThisYear)
     }
-    cashNominal = Decimal.max(attemptedCashNominal, DECIMAL_0)
+    const cashForLoansNominal = Decimal.max(cashAfterExpensesNominal, DECIMAL_0)
+    const loansFunded = cashForLoansNominal.greaterThanOrEqualTo(liabilitiesDueThisYearNominal)
+    for (const { loan, due } of loansDue) {
+      const paid = loansFunded
+        ? due.due
+        : due.due.mul(cashForLoansNominal).div(liabilitiesDueThisYearNominal)
+      settleLoanYear(loan, due, paid)
+      if (!loansFunded && due.due.greaterThan(0)) {
+        insufficientFundLiabilityIdsThisYear.push(loan.liability.id)
+      }
+    }
+    cashNominal = loansFunded ? cashForLoansNominal.minus(liabilitiesDueThisYearNominal) : DECIMAL_0
+    const standaloneOutstandingNominal = standaloneLoans.reduce<Decimal>(
+      (sum, loan, i) => sum.plus(loanOutstanding(loan, standaloneYears[i])),
+      DECIMAL_0,
+    )
+    const liabilitiesOutstandingNominal = financedLoans.reduce<Decimal>((sum, { loan }, i) => {
+      const due = financedYears[i]
+      return due === undefined ? sum : sum.plus(loanOutstanding(loan, due))
+    }, standaloneOutstandingNominal)
 
     // 8. Aggregate + deflate.
     const investmentsNominal = Array.from(invBalancesNominal.values()).reduce<Decimal>(
@@ -1590,17 +1658,19 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
         id: liability.id,
         name: liability.name,
         value: clampNonNeg(
-          (standaloneSchedules[i].outstandingByYear.get(year) ?? DECIMAL_0).div(deflationFactor),
+          loanOutstanding(standaloneLoans[i], standaloneYears[i]).div(deflationFactor),
         ),
       })),
-      ...financedSchedules.map(({ assetId, liability, schedule }) => ({
-        id: liability.id,
-        name: liability.name,
-        assetId,
-        value: abandonedAssetIds.has(assetId)
-          ? 0
-          : clampNonNeg((schedule.outstandingByYear.get(year) ?? DECIMAL_0).div(deflationFactor)),
-      })),
+      ...financedLoans.map(({ assetId, loan }, i) => {
+        const due = financedYears[i]
+        return {
+          id: loan.liability.id,
+          name: loan.liability.name,
+          assetId,
+          value:
+            due === undefined ? 0 : clampNonNeg(loanOutstanding(loan, due).div(deflationFactor)),
+        }
+      }),
     ]
 
     // 9. Per-year FI % and runway. FI mirrors the dashboard's getFiPercent in
@@ -1608,14 +1678,11 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     //    to outflows, while the dashboard's Runway card runs the drawdown in
     //    runway.ts (docs/product/runway.md). Investable wealth excludes
     //    tangibles and subtracts only standalone liabilities (a mortgage is
-    //    secured by its asset); outflows include every installment actually
-    //    paid this year. Numerator and denominator are both nominal, so the
-    //    deflator cancels and the ratio is basis-independent.
-    const standaloneOutstandingNominal = standaloneSchedules.reduce<Decimal>(
-      (sum, s) => sum.plus(s.outstandingByYear.get(year) ?? DECIMAL_0),
-      DECIMAL_0,
-    )
-    const outflowsNominal = expensesThisYearNominal.plus(liabilitiesPaidThisYearNominal)
+    //    secured by its asset); outflows include everything the loans were
+    //    due this year, paid or not, as they do the expenses. Numerator and
+    //    denominator are both nominal, so the deflator cancels and the ratio
+    //    is basis-independent.
+    const outflowsNominal = expensesThisYearNominal.plus(liabilitiesDueThisYearNominal)
     const investableNominal = cashNominal
       .plus(investmentsNominal)
       .minus(standaloneOutstandingNominal)
@@ -1647,7 +1714,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       insufficientFundTransferIds: insufficientFundTransferIdsThisYear,
       insufficientFundAssetIds: insufficientFundAssetIdsThisYear,
       insufficientFundExpenseIds: insufficientFundExpenseIdsThisYear,
-      insufficientFundLiabilityIds: [],
+      insufficientFundLiabilityIds: insufficientFundLiabilityIdsThisYear,
     })
   }
 

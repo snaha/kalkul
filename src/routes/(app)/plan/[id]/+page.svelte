@@ -39,7 +39,7 @@
   import { getCurrentProfile } from '$lib/current-values'
   import { DEMO_PLAN_ID } from '$lib/demo'
   import { isPlanOutdated, snapshotFinancialData } from '$lib/plan-base'
-  import { getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
+  import { financingLiabilityId, getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
   import routes from '$lib/routes'
   import type {
     Expense,
@@ -289,6 +289,11 @@
     new Set(projection.flatMap((p) => p.insufficientFundExpenseIds)),
   )
   const failingAssetIds = $derived(new Set(projection.flatMap((p) => p.insufficientFundAssetIds)))
+  // Loans the plan could not pay in full in some year; the loan behind a
+  // financed asset is listed under `financingLiabilityId` of that asset.
+  const failingLiabilityIds = $derived(
+    new Set(projection.flatMap((p) => p.insufficientFundLiabilityIds)),
+  )
 
   // First year with any insufficient-funds warning. The chart marks this year
   // with a destructive triangle so the user can jump to the source of the
@@ -298,7 +303,8 @@
       (p) =>
         p.insufficientFundTransferIds.length > 0 ||
         p.insufficientFundExpenseIds.length > 0 ||
-        p.insufficientFundAssetIds.length > 0,
+        p.insufficientFundAssetIds.length > 0 ||
+        p.insufficientFundLiabilityIds.length > 0,
     )?.year,
   )
 
@@ -418,7 +424,8 @@
           id: a.id,
           name: a.name,
           value: appStore.formatCurrencyCode(a.value),
-          hasInsufficientFunds: failingAssetIds.has(a.id),
+          hasInsufficientFunds:
+            failingAssetIds.has(a.id) || failingLiabilityIds.has(financingLiabilityId(a.id)),
           onClick: () => openAssetEditDialog({ kind: 'tangibleAsset', initial: a }),
         })),
     },
@@ -433,6 +440,7 @@
           name: l.name,
           value: `-${appStore.formatCurrencyCode(l.outstanding_balance)}`,
           valueClass: 'text-destructive',
+          hasInsufficientFunds: failingLiabilityIds.has(l.id),
           onClick: () => openLiabilityEditDialog(l),
         })),
     },

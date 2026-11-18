@@ -32,6 +32,32 @@ cash and investments alone.
 **Supersedes.** The open question in `financial-independence.md` on whether a
 mortgage counts against the portfolio value.
 
+## 2026-11-18 A loan is paid only with cash that is there
+
+**Context.** #334: a projection worked out each loan's whole schedule up
+front and then took the payments out of cash, floored at 0. When cash ran
+short the debt still went down by the full payment, so net worth rose by
+money nobody paid, and nothing was flagged. A planned pay-off and a final
+balloon had the same gap.
+
+**Decision.** Cash pays the expenses first and the loans from what is left.
+When that is short, each loan is paid the same share of what it is due, the
+rest stays owed at the loan's own rate with no penalty, and it is due in
+full every following year until it is paid. The year is flagged on the loan
+like any other insufficient-funds year, and the projection carries on. The
+rule is stated in `docs/product/projections.md`.
+
+**Why.** Expenses first keeps the existing expense warning meaning what it
+did, and living costs come before debt service in a household that is
+short. A proportional split does not depend on the order of the list.
+Carrying on rather than stopping at the first shortfall matches how an
+unaffordable expense or transfer behaves, and shows whether the plan
+recovers. An unpaid expense is still dropped rather than turned into debt;
+that is unchanged here.
+
+**Supersedes.** Blaming every active expense when installments took cash
+below zero.
+
 ## 2026-11-13 The outdated and Last updated notices can be dismissed for the browser session
 
 **Context.** #369 and #407 redesign the two notices that say figures are not
@@ -54,6 +80,7 @@ so it returns once a newer update has gone stale. Closing the Last updated
 alert also puts away its Quick update button, the only one on the dashboard
 and the History page, until the alert returns; the notice is the nudge to
 update, and a user who closes it has declined for now.
+
 
 ## 2026-11-12 Assets and liabilities share one scale on the plan chart
 

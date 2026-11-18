@@ -225,7 +225,7 @@ describe('getYearlyPlanProjection', () => {
         remaining_term: 1,
       },
     ]
-    const result = project(makePlan(), makeProfile({ liabilities }))
+    const result = project(makePlan(), makeProfile({ cash_amount: 1_000_000, liabilities }))
     expect(result[0].liabilities).toBeCloseTo(0, 6)
   })
 
@@ -247,7 +247,7 @@ describe('getYearlyPlanProjection', () => {
         remaining_term: 1,
       },
     ]
-    const result = project(makePlan(), makeProfile({ liabilities }))
+    const result = project(makePlan(), makeProfile({ cash_amount: 1_000_000, liabilities }))
     expect(result[0].liabilities).toBeCloseTo(0, 4)
   })
 
@@ -263,7 +263,7 @@ describe('getYearlyPlanProjection', () => {
         remaining_term: 4,
       },
     ]
-    const result = project(makePlan(), makeProfile({ liabilities }))
+    const result = project(makePlan(), makeProfile({ cash_amount: 1_000_000, liabilities }))
     expect(result[0].liabilities).toBeCloseTo(750, 6)
     expect(result[1].liabilities).toBeCloseTo(500, 6)
     expect(result[2].liabilities).toBeCloseTo(250, 6)
@@ -703,7 +703,7 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const plan = makePlan({ investments: [investments[0]], liabilities: [liabilities[0]] })
-    const result = project(plan, makeProfile({ investments, liabilities }))
+    const result = project(plan, makeProfile({ cash_amount: 1000, investments, liabilities }))
     expect(result[0].investments).toBeCloseTo(100, 6)
     expect(result[0].liabilities).toBeCloseTo(400, 6)
   })
@@ -973,7 +973,7 @@ describe('getYearlyPlanProjection', () => {
         remaining_term: 4,
       },
     ]
-    const result = project(makePlan(), makeProfile({ liabilities }))
+    const result = project(makePlan(), makeProfile({ cash_amount: 1_000_000, liabilities }))
     expect(result[0].liabilitiesByItem).toEqual([{ id: 'l1', name: 'Loan', value: 750 }])
     expect(result[1].liabilitiesByItem[0].value).toBeCloseTo(500, 6)
     expect(result[3].liabilitiesByItem[0].value).toBeCloseTo(0, 6)
@@ -1004,7 +1004,10 @@ describe('getYearlyPlanProjection', () => {
         remaining_term: 4,
       },
     ]
-    const result = project(makePlan(), makeProfile({ tangible_assets, liabilities }))
+    const result = project(
+      makePlan(),
+      makeProfile({ cash_amount: 5_000_000, tangible_assets, liabilities }),
+    )
     expect(result[0].liabilitiesByItem).toEqual([
       { id: 'l1', name: 'Loan', value: 750 },
       { id: 'tangible-asset-financing-t1', name: 'House', value: 2_700_000, assetId: 't1' },
@@ -1711,7 +1714,7 @@ describe('getYearlyPlanProjection', () => {
         remaining_term: 1,
       },
     ]
-    const result = project(makePlan(), makeProfile({ liabilities }))
+    const result = project(makePlan(), makeProfile({ cash_amount: 1_000_000, liabilities }))
     expect(result[0].liabilities).toBeCloseTo(0, 4)
   })
 
@@ -2723,11 +2726,9 @@ describe('getYearlyPlanProjection', () => {
     expect(result[0].insufficientFundExpenseIds.sort()).toEqual(['food', 'rent'])
   })
 
-  it('flags active expenses when liability payments push cash below zero too', () => {
-    // Cash + income covers the expense alone, but a liability payment in the
-    // same year takes cash negative overall. We flag the expense because the
-    // user-visible signal is "cash ran out while this expense was active";
-    // we don't try to apportion blame between expenses and liabilities.
+  it('flags the loan, not the expense, when cash covers the expense but not the installment', () => {
+    // Expenses are paid first, so cash covers this one. What is left cannot
+    // pay the installment: the loan is flagged and the unpaid part stays owed.
     const expenses: Expense[] = [
       {
         id: 'exp1',
@@ -2752,7 +2753,9 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = project(makePlan(), makeProfile({ cash_amount: 200, expenses, liabilities }))
-    expect(result[0].insufficientFundExpenseIds).toEqual(['exp1'])
+    expect(result[0].insufficientFundExpenseIds).toEqual([])
+    expect(result[0].insufficientFundLiabilityIds).toEqual(['l1'])
+    expect(result[0].liabilities).toBeCloseTo(9900, 6)
   })
   it('computes per-year FI percent and runway from investable wealth and outflows', () => {
     const expenses: Expense[] = [
@@ -3565,7 +3568,7 @@ describe('liability start and pay-off', () => {
     ]
     const result = project(
       makePlan({ start_date: '2025-01-01', end_date: '2030-01-01' }),
-      makeProfile({ liabilities }),
+      makeProfile({ cash_amount: 1000, liabilities }),
     )
     expect(result.map((r) => Math.round(r.liabilities))).toEqual([0, 0, 750, 500, 250, 0])
   })
@@ -3598,8 +3601,8 @@ describe('liability start and pay-off', () => {
   })
 
   it('adds nothing to cash for a loan the user already carries', () => {
-    const result = project(plan, makeProfile({ liabilities: [loan] }))
-    expect(result.map((r) => Math.round(r.cash))).toEqual([0, 0, 0, 0, 0, 0])
+    const result = project(plan, makeProfile({ cash_amount: 1000, liabilities: [loan] }))
+    expect(result.map((r) => Math.round(r.cash))).toEqual([750, 500, 250, 0, 0, 0])
     expect(result.map((r) => Math.round(r.liabilities))).toEqual([750, 500, 250, 0, 0, 0])
   })
 
@@ -3608,9 +3611,9 @@ describe('liability start and pay-off', () => {
     // the plan; it is still debt the user has, not new borrowing.
     const result = project(
       { ...plan, liabilities: [{ ...loan, name: 'Renamed', installment_amount: 500 }] },
-      makeProfile({ liabilities: [loan] }),
+      makeProfile({ cash_amount: 1000, liabilities: [loan] }),
     )
-    expect(result.map((r) => Math.round(r.cash))).toEqual([0, 0, 0, 0, 0, 0])
+    expect(result.map((r) => Math.round(r.cash))).toEqual([500, 0, 0, 0, 0, 0])
     expect(result.map((r) => Math.round(r.liabilities))).toEqual([500, 0, 0, 0, 0, 0])
   })
 
@@ -3689,7 +3692,7 @@ describe('liability start and pay-off', () => {
     ]
     const result = project(
       makePlan({ start_date: '2025-01-01', end_date: '2030-01-01' }),
-      makeProfile({ liabilities }),
+      makeProfile({ cash_amount: 1000, liabilities }),
     )
     expect(result.map((r) => Math.round(r.liabilities))).toEqual([750, 500, 0, 0, 0, 0])
   })
