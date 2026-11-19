@@ -6,7 +6,7 @@ import tereza from '$examples/tereza-svobodova-cz-20yo.kalkul.json'
 import { describe, expect, test } from 'vitest'
 
 import { buildCurrentProjectionPlan } from '$lib/current-projection'
-import { type YearlyProjection, getYearlyPlanProjection } from '$lib/plan-projection'
+import { type YearlyProjection, getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
 import { storedDataSchema } from '$lib/schemas'
 
 /**
@@ -21,17 +21,6 @@ import { storedDataSchema } from '$lib/schemas'
 const TODAY = new Date(2026, 7, 12) // 2026-08-12
 
 const SAMPLES = { tereza, bence, peter, claire, jan }
-
-/**
- * Plans that are *meant* to run out, with the first year they do. The landing
- * page's comparison shows one deliberately tight plan so the warning marker and
- * the caption naming that year have something real to point at; pinning the
- * year here stops the copy and the data drifting apart.
- */
-const DELIBERATELY_TIGHT: Record<string, { firstUnfundedYear: number; maxUnfundedYears: number }> =
-  {
-    'plan-2': { firstUnfundedYear: 2030, maxUnfundedYears: 1 },
-  }
 
 /**
  * Examples whose current projection runs out by design, with the first year it
@@ -70,23 +59,16 @@ describe.each(Object.entries(SAMPLES))('example profile: %s', (name, json) => {
     expect(years.filter((year) => year.cash <= 0).map((year) => year.year)).toEqual([])
   })
 
-  test('saved plans pay for every year, bar the deliberately tight one', () => {
+  // The landing page's comparison draws Claire's first plan, so a saved plan
+  // that stops at a loan it cannot pay would show there as a broken card.
+  test('saved plans pay for every year', () => {
     const { profile, portfolios } = parse(json)
 
     for (const plan of portfolios) {
       const years = getYearlyPlanProjection(plan, profile)
       expect(years.length).toBeGreaterThan(0)
-
-      const tight = DELIBERATELY_TIGHT[plan.id]
-      const unfunded = unfundedYears(years)
-      if (!tight) {
-        expect({ [plan.id]: unfunded }).toEqual({ [plan.id]: [] })
-        continue
-      }
-      // Tight on purpose, but only just: one named year the landing points at,
-      // not a plan that never recovers.
-      expect(unfunded[0]).toBe(tight.firstUnfundedYear)
-      expect(unfunded.length).toBeLessThanOrEqual(tight.maxUnfundedYears)
+      expect({ [plan.id]: unfundedYears(years) }).toEqual({ [plan.id]: [] })
+      expect({ [plan.id]: years.at(-1)?.year }).toEqual({ [plan.id]: yearOf(plan.end_date) })
     }
   })
 })
