@@ -19,6 +19,8 @@ dialog, the FI column in History and the per-year FI% of a projection.
 - The FI number is annual outflows × 100 / withdrawal rate. At the default 4%
   that is 25 times the outflows.
 - FI% is the portfolio value over the FI number, as a percentage, clamped at 0. It is undefined, shown as a dash, when outflows are zero.
+- The portfolio value is defined in `net-worth.md`; it is also called
+  investable net worth.
 - Loan installments are outflows. A loan secured by a tangible asset (a
   mortgage) is not subtracted from the portfolio; a standalone loan is.
 - The withdrawal rate is above 0 and at most 100. The schema rejects anything
@@ -53,9 +55,8 @@ dialog, the FI column in History and the per-year FI% of a projection.
   "instalments" spelled "installments" as the app does elsewhere. The
   living-cost one, "expenses plus loan and other liability installments", says
   what the code does. The portfolio one says "minus what you owe", while the
-  code subtracts only loans not secured by an asset, so a mortgage stays out
-  with the house that secures it. Whether a mortgage should count is not
-  confirmed with the designer.
+  portfolio value subtracts only loans not secured by an asset
+  (`net-worth.md`), so the tooltip is looser than the rule.
 - The #220 thread also raised counting tangible assets in the portfolio value
   and letting the user try a lower living cost. The revised frame has neither,
   so the dialog does not; either needs its own issue if wanted.
