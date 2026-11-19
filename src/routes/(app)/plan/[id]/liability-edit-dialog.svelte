@@ -341,9 +341,9 @@
 <ItemEditDialogShell
   bind:open
   {onOpenChange}
+  name={form.name}
   {isNew}
   newTitle={$_('page.setup.liabilities.addLiability')}
-  editTitle={$_('page.plan.editLiabilityTitle')}
   footer={isNew ? newLiabilityFooter : undefined}
   footerClass="bg-muted"
   saveDisabled={!canSave}
@@ -351,22 +351,10 @@
   onDelete={remove}
 >
   {#if imported}
-    <LocalOverrideNotice />
-  {/if}
-
-  <!-- Label -->
-  <div class="flex flex-col gap-2">
-    <Label for="{uid}-liabilityLabel">{$_('page.plan.liabilityLabel')}</Label>
-    <Input
-      id="{uid}-liabilityLabel"
-      value={form.name}
-      oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
-    />
-  </div>
-
-  {#if imported}
     <!-- Figma 1366/1383: existing debt has no start and no principal, only
          what is owed at the projection's start. -->
+    <LocalOverrideNotice />
+
     <div class="flex flex-col gap-2">
       <Label for="{uid}-outstandingBalance">
         {$_('page.setup.liabilities.outstandingBalance')}
@@ -384,6 +372,16 @@
       <p class="text-xs text-muted-foreground">{$_('page.plan.atProjectionStart')}</p>
     </div>
   {:else}
+    <!-- Label -->
+    <div class="flex flex-col gap-2">
+      <Label for="{uid}-liabilityLabel">{$_('page.plan.liabilityLabel')}</Label>
+      <Input
+        id="{uid}-liabilityLabel"
+        value={form.name}
+        oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
+      />
+    </div>
+
     <!-- Start -->
     <DateAgeSelector
       mode="start"

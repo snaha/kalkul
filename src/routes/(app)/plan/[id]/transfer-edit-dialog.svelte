@@ -248,9 +248,9 @@
 <ItemEditDialogShell
   bind:open
   {onOpenChange}
+  name={form.name}
   {isNew}
   newTitle={$_('page.plan.newTransfer')}
-  editTitle={$_('page.plan.editTransfer')}
   saveDisabled={!canSave}
   footerClass="bg-muted"
   onSave={save}
@@ -258,16 +258,16 @@
 >
   {#if imported}
     <LocalOverrideNotice kind="cashFlow" />
+  {:else}
+    <div class="flex flex-col gap-2">
+      <Label for="{uid}-transferName">{$_('page.plan.transferLabelLabel')}</Label>
+      <Input
+        id="{uid}-transferName"
+        value={form.name}
+        oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
+      />
+    </div>
   {/if}
-
-  <div class="flex flex-col gap-2">
-    <Label for="{uid}-transferName">{$_('page.plan.transferLabelLabel')}</Label>
-    <Input
-      id="{uid}-transferName"
-      value={form.name}
-      oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
-    />
-  </div>
 
   <!-- From + To -->
   <div class="flex items-end gap-2">

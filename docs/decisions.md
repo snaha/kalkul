@@ -10,20 +10,6 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
-## 2026-11-19 Every plan dialog has a Label field and an Add or Edit title
-
-**Context.** An imported item's dialog showed its name as the title and had
-no Label field, so the item could not be renamed in a projection, while an
-item added in the plan could.
-
-**Decision.** Every plan item dialog starts with the Label field, after the
-"Local override" notice when there is one, and is titled "Add" or "Edit"
-with the kind ("Edit income"). Renaming an imported item is a local override
-like any other edit: it changes the projection's copy only.
-
-**Supersedes.** "No name field" in "An imported item is edited as a local
-override" (2026-11-13).
-
 ## 2026-11-16 An investment has no Exit field
 
 **Context.** The plan dialog let an investment be given an exit date, which
