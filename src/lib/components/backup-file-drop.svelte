@@ -8,6 +8,7 @@
   import ImportDialog from '$lib/components/import-dialog.svelte'
   import { carriesFiles, pickDroppedBackup } from '$lib/dropped-backup'
   import restoreBackup, { showRestoredBackup } from '$lib/restore-backup'
+  import { NewerBackupError } from '$lib/stored-data-version'
   import { appStore } from '$lib/stores/app.svelte'
   import { importDialogStore } from '$lib/stores/import-dialog.svelte'
 
@@ -100,7 +101,11 @@
       await restoreBackup(file)
     } catch (e) {
       console.error('Failed to import backup', e)
-      alert($_('navbar.import.error'))
+      alert(
+        e instanceof NewerBackupError
+          ? $_('navbar.import.newerVersion')
+          : $_('navbar.import.error'),
+      )
       return
     } finally {
       importing = false

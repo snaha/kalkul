@@ -26,6 +26,7 @@ import {
   withSeededSnapshot,
 } from '$lib/snapshots'
 import storageKeys from '$lib/storage-keys'
+import { NewerBackupError, STORED_DATA_VERSION, isNewerData } from '$lib/stored-data-version'
 import {
   DEFAULT_CURRENCY,
   formatCompactCurrency,
@@ -174,26 +175,96 @@ const DEFAULT_PROFILE: Profile = {
   email: '',
 }
 
-/**
- * Parses stored data, from this tab's storage or another tab's write. Repairs
- * before parsing: data stored before stricter validation rules — or before a
- * snapshot recorded everything it records now — must keep loading, otherwise
- * the whole dataset falls back to the empty default and gets overwritten on
- * the next persist. It also keeps a tab still running an older app version
- * from breaking cross-tab sync with since-invalidated data.
- */
-function parseStoredData(json: string): StoredData {
-  return storedDataSchema.parse(repairStoredData(JSON.parse(json)))
+/** Stored data that failed to parse or validate. */
+interface UnreadableData {
+  /** The stored text exactly as found. */
+  raw: string
+  /**
+   * Whether a copy of `raw` exists, under its own key or downloaded. `persist`
+   * writes nothing while false.
+   */
+  kept: boolean
 }
 
-function loadData(): StoredData {
+function emptyData(): StoredData {
+  return { lastUpdated: 0, profile: { ...DEFAULT_PROFILE }, portfolios: [] }
+}
+
+/**
+ * `raw` as stored data, from this tab's storage or another tab's write, or
+ * undefined when it is not JSON the schema accepts.
+ */
+function readStoredData(raw: string): StoredData | undefined {
+  try {
+    // Repair first so data saved under older rules, or by a tab still running
+    // an older version, still loads.
+    const result = storedDataSchema.safeParse(repairStoredData(JSON.parse(raw)))
+    if (result.success) return result.data
+    console.error('Stored data does not match the schema', result.error)
+  } catch (e) {
+    console.error('Failed to read stored data', e)
+  }
+  return undefined
+}
+
+/** Whether `raw` was saved by a newer version of the app. */
+function isNewerRaw(raw: string): boolean {
+  try {
+    return isNewerData(JSON.parse(raw))
+  } catch {
+    return false
+  }
+}
+
+/** Whether storage holds data saved by a newer version of the app. */
+function storageHoldsNewerData(): boolean {
   try {
     const raw = localStorage.getItem(storageKeys.DATA)
-    if (raw) return parseStoredData(raw)
+    return !!raw && isNewerRaw(raw)
+  } catch (e) {
+    console.error('Failed to read the stored data version', e)
+    return false
+  }
+}
+
+/**
+ * Copies `raw` to a new `UNREADABLE_DATA_PREFIX` key unless an identical copy
+ * exists. False when the write fails.
+ */
+function keepUnreadableCopy(raw: string): boolean {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (
+        key?.startsWith(storageKeys.UNREADABLE_DATA_PREFIX) &&
+        localStorage.getItem(key) === raw
+      ) {
+        return true
+      }
+    }
+    localStorage.setItem(`${storageKeys.UNREADABLE_DATA_PREFIX}${new Date().toISOString()}`, raw)
+    return true
+  } catch (e) {
+    console.error('Failed to keep a copy of the unreadable data', e)
+    return false
+  }
+}
+
+/**
+ * The stored data, or the empty default and why: `unreadable` holds text that
+ * cannot be read, `newer` marks data from a newer version of the app.
+ */
+function loadData(): { data: StoredData; unreadable?: string; newer?: boolean } {
+  let raw: string | undefined
+  try {
+    raw = localStorage.getItem(storageKeys.DATA) ?? undefined
   } catch (e) {
     console.error('Failed to load data from localStorage', e)
   }
-  return { lastUpdated: 0, profile: { ...DEFAULT_PROFILE }, portfolios: [] }
+  if (!raw) return { data: emptyData() }
+  if (isNewerRaw(raw)) return { data: emptyData(), newer: true }
+  const data = readStoredData(raw)
+  return data ? { data } : { data: emptyData(), unreadable: raw }
 }
 
 /**
@@ -214,6 +285,9 @@ function withAppStore() {
   let portfolios = $state<PortfolioStore[]>([])
   let loading = $state(true)
   let lastUpdated = $state(0)
+  let unreadableData = $state<UnreadableData | undefined>(undefined)
+  let unreadableFromOtherTab: string | undefined
+  let newerDataStored = $state(false)
   let dataListeners: ((change: DataChange) => void)[] = []
 
   function emitChange(source: DataChange['source']): void {
@@ -222,7 +296,10 @@ function withAppStore() {
   }
 
   function loadFromStorage(): void {
-    const data = loadData()
+    const { data, unreadable, newer } = loadData()
+    newerDataStored = newer === true
+    if (unreadable === undefined) unreadableData = undefined
+    else setAside(unreadable)
     // Data saved before snapshots existed gets its baseline from the last
     // write. Derived on every load rather than written back, so opening the
     // app never mutates stored data on its own.
@@ -242,6 +319,9 @@ function withAppStore() {
     profile = enrichProfile({ ...DEFAULT_PROFILE })
     portfolios = []
     lastUpdated = 0
+    unreadableData = undefined
+    unreadableFromOtherTab = undefined
+    newerDataStored = false
     loading = false
   }
 
@@ -253,22 +333,36 @@ function withAppStore() {
     if (!demo) track(...args)
   }
 
+  function setAside(raw: string): void {
+    unreadableData = { raw, kept: keepUnreadableCopy(raw) }
+  }
+
   function persist(): void {
     if (demo) return
-    const now = Date.now()
-    const stored: StoredData = {
-      lastUpdated: now,
-      profile: profile.toJSON(),
-      portfolios: portfolios.map((p) => p.toJSON()),
+    newerDataStored = storageHoldsNewerData()
+    if (unreadableFromOtherTab !== undefined) {
+      if (localStorage.getItem(storageKeys.DATA) === unreadableFromOtherTab) {
+        setAside(unreadableFromOtherTab)
+      }
+      unreadableFromOtherTab = undefined
     }
-    try {
-      localStorage.setItem(storageKeys.DATA, JSON.stringify(stored))
-      lastUpdated = now
-      storageErrorStore.clear()
-      emitChange('edit')
-    } catch (e) {
-      console.error('Failed to save data to localStorage', e)
-      storageErrorStore.setError()
+    if (!newerDataStored && unreadableData?.kept !== false) {
+      const now = Date.now()
+      const stored: StoredData = {
+        version: STORED_DATA_VERSION,
+        lastUpdated: now,
+        profile: profile.toJSON(),
+        portfolios: portfolios.map((p) => p.toJSON()),
+      }
+      try {
+        localStorage.setItem(storageKeys.DATA, JSON.stringify(stored))
+        lastUpdated = now
+        storageErrorStore.clear()
+        emitChange('edit')
+      } catch (e) {
+        console.error('Failed to save data to localStorage', e)
+        storageErrorStore.setError()
+      }
     }
     // Trigger reactivity: $state reassignment
     portfolios = [...portfolios]
@@ -386,6 +480,18 @@ function withAppStore() {
     /** Whether the user has set up a profile, as opposed to an empty app. */
     get hasData() {
       return !loading && !!profile.name
+    },
+    /** Stored data the app could not read. */
+    get unreadableData(): UnreadableData | undefined {
+      return unreadableData
+    },
+    /** Whether a newer version of the app saved the stored data; saves are held back meanwhile. */
+    get newerDataStored() {
+      return newerDataStored
+    },
+    /** Marks the unreadable data as kept. */
+    markUnreadableDataDownloaded(): void {
+      if (unreadableData) unreadableData = { ...unreadableData, kept: true }
     },
     clear() {
       demo = false
@@ -513,17 +619,25 @@ function withAppStore() {
           return
         }
 
-        try {
-          const data = parseStoredData(event.newValue)
-          if (data.lastUpdated === lastUpdated) return
-
-          profile = enrichProfile(data.profile)
-          portfolios = enrichAll(data.portfolios)
-          lastUpdated = data.lastUpdated
-          emitChange('other-tab')
-        } catch {
-          // Ignore malformed data from other tabs
+        newerDataStored = isNewerRaw(event.newValue)
+        if (newerDataStored) {
+          unreadableFromOtherTab = undefined
+          return
         }
+
+        const data = readStoredData(event.newValue)
+        if (!data) {
+          // Another tab saved data this version cannot read.
+          unreadableFromOtherTab = event.newValue
+          return
+        }
+        unreadableFromOtherTab = undefined
+        if (data.lastUpdated === lastUpdated) return
+
+        profile = enrichProfile(data.profile)
+        portfolios = enrichAll(data.portfolios)
+        lastUpdated = data.lastUpdated
+        emitChange('other-tab')
       }
 
       window.addEventListener('storage', onStorage)
@@ -546,16 +660,21 @@ function withAppStore() {
 
     exportBackup(): string {
       return JSON.stringify(
-        { profile: profile.toJSON(), portfolios: portfolios.map((p) => p.toJSON()) },
+        {
+          version: STORED_DATA_VERSION,
+          profile: profile.toJSON(),
+          portfolios: portfolios.map((p) => p.toJSON()),
+        },
         undefined,
         2,
       )
     },
 
     importBackup(json: string): void {
-      // Repaired like loadData so backups exported before stricter
-      // validation rules stay restorable.
-      const parsed: unknown = repairStoredData(JSON.parse(json))
+      const backup: unknown = JSON.parse(json)
+      if (isNewerData(backup)) throw new NewerBackupError()
+      // Repaired like readStoredData so older backups still restore.
+      const parsed: unknown = repairStoredData(backup)
       const validated = storedDataSchema.pick({ profile: true, portfolios: true }).parse(parsed)
       // A backup taken before snapshots existed carries no history; treat the
       // restored balances as confirmed now rather than as indefinitely stale.
