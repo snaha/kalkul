@@ -2,6 +2,10 @@
 # writes `1.2.3`, never `^1.2.3`, so a compromised release cannot slip in through a range.
 savePrefix: ''
 
+# pnpm 11 reads non-auth settings from this file, not .npmrc.
+engineStrict: true
+autoInstallPeers: false
+
 allowBuilds:
   esbuild: true
   es5-ext: false
