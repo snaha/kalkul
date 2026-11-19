@@ -26,11 +26,13 @@ The dependency is one-way: projections read financial data, they never write it.
 
 ## Rules
 
-### Financial data is edited in exactly two places
+### Financial data is edited in exactly three places
 
 The Financial data pages (`src/routes/(app)/financial-data/`, plus the
-onboarding editors that share their components) and Quick update
-(`confirmBalances`). Nothing under `src/routes/(app)/plan/` and no
+onboarding editors that share their components), Quick update
+(`confirmBalances`), and the History page (`saveSnapshot`, `deleteSnapshot`),
+where saving the latest snapshot sets the profile's balances and cash flows.
+Nothing under `src/routes/(app)/plan/` and no
 projection-side MCP tool may call `updateProfile`, `confirmBalances` or
 `saveSnapshot`. An ESLint rule in `eslint.config.mjs` rejects profile writes
 under the plan routes.
