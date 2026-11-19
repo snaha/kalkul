@@ -6,7 +6,11 @@ import { type KalkulTool, type ToolAnnotations, type ToolResult, kalkulTools } f
 export type WebMcpTool = {
   name: string
   description: string
-  inputSchema: { type?: string; properties?: Record<string, unknown>; required?: string[] }
+  inputSchema: {
+    type?: string | string[]
+    properties?: Record<string, unknown>
+    required?: string[]
+  }
   annotations: ToolAnnotations
   execute: (args: Record<string, unknown>) => Promise<ToolResult>
 }
