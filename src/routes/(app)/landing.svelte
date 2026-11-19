@@ -147,7 +147,7 @@
         <LandingCompare
           currentBars={projectionBars(currentCompareYears)}
           {currentStats}
-          planBars={projectionBars(planYears)}
+          planBars={projectionBars(planYears, compareEndYear)}
           {planStats}
           {planUnfundedYear}
           planName={savedPlan.name}
