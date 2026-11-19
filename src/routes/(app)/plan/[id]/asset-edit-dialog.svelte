@@ -29,7 +29,7 @@
   import { timingComplete } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
-  import { seededDownPayment } from '$lib/tangible-asset-form'
+  import { seededDownPayment, tangibleAssetComplete } from '$lib/tangible-asset-form'
   import { getMonthOptions } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
@@ -241,6 +241,9 @@
           timingWithinPlan(range, 'start', form.purchase, form.purchase_year, form.purchase_age) &&
           timingWithinPlan(range, 'end', form.sale, form.sale_year, form.sale_age),
   )
+  // An investment may open empty and be fed by transfers; a tangible asset
+  // needs its value, and a financed one what is owed on it.
+  const canSave = $derived(timingWithin && (kind === 'investment' || tangibleAssetComplete(form)))
   // "Show advanced options" disclosure for a liability and for the financing
   // of a financed tangible asset. Auto-expands when the item already carries
   // non-default interest settings so the user can see what's driving the math.
@@ -368,7 +371,7 @@
   <!-- Figma 1320-1330: primary + cancel on the left, and on the right the
        advanced switch when adding or the delete button when editing. -->
   <div class="flex flex-1 items-center gap-2">
-    <Button onclick={save}>
+    <Button disabled={!canSave} onclick={save}>
       {isNew ? $_('page.plan.createItem') : $_('page.plan.saveChanges')}
     </Button>
     <Button variant="secondary" onclick={() => onOpenChange(false)}>
@@ -401,7 +404,7 @@
   {onOpenChange}
   name={form.name}
   {isNew}
-  saveDisabled={!timingWithin}
+  saveDisabled={!canSave}
   badge={kind === 'tangibleAsset' && form.status === 'financed' && !isNew
     ? $_('page.setup.tangibleAssets.financed')
     : undefined}

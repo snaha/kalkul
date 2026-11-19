@@ -35,6 +35,20 @@ export function seededDownPayment(
   return atLeastZero(asset.value, asset.outstanding_balance)
 }
 
+/**
+ * Whether the plan dialog may save the asset: it has a value, and a financed
+ * one a balance owed. Without them it would be stored as worth, or owing, 0.
+ */
+export function tangibleAssetComplete(asset: {
+  value: number | undefined
+  status: TangibleAssetStatus
+  outstanding_balance: number | undefined
+}): boolean {
+  return (
+    (asset.value ?? 0) > 0 && (asset.status !== 'financed' || (asset.outstanding_balance ?? 0) > 0)
+  )
+}
+
 /** Editable shape of a tangible asset on the financial-data card. */
 export interface TangibleAssetUI {
   id: string

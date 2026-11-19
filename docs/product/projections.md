@@ -123,6 +123,10 @@ fields in sections that are closed until the user opens them:
 | Income/expense | Schedule, Frequency, Amount, Adjust for inflation, the totals box   | Timeline (Start, End, Change over time), recurring |                        |
 | Transfer       | From, To, Type, Frequency, Amount, Adjust for inflation, totals box | Timeline (Start, End, Change over time), recurring |                        |
 
+A dialog cannot be saved while a value it needs is missing: an amount for an income, expense or
+transfer, a value for a tangible asset, and a balance owed for a liability or a financed asset. An
+investment may be saved empty, to be fed by transfers, and cash may be 0.
+
 Balances and values are as of the projection's start. A field that is not
 shown keeps whatever the item stores. An imported item is not renamed in a
 projection: its name is the one financial data gives it. An item added in the

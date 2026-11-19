@@ -175,7 +175,8 @@
     </span>
     <div class="flex flex-1 flex-col gap-2">
       <Label for="{idPrefix}-term">{$_('page.plan.term')}</Label>
-      <!-- Figma 1382/1383: the number and its unit share the half equally. -->
+      <!-- Figma 1382: the number and its unit share the half equally, and the
+           unit reads in lowercase ("years", "months"). -->
       <div class="grid grid-cols-2 gap-2">
         <SuffixedInput
           id="{idPrefix}-term"
@@ -189,6 +190,8 @@
         />
         <SelectField
           id="{idPrefix}-termUnit"
+          class="lowercase"
+          contentClass="lowercase"
           value={item.remaining_term_unit}
           items={remainingTermUnitItems}
           onValueChange={(v) => {

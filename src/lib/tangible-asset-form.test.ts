@@ -4,6 +4,7 @@ import {
   type TangibleAssetUI,
   financedAmount,
   seededDownPayment,
+  tangibleAssetComplete,
   toStoredTangibleAsset,
 } from '$lib/tangible-asset-form'
 
@@ -101,5 +102,20 @@ describe('seededDownPayment', () => {
   it('has none for an asset that is not financed or has no loan yet', () => {
     expect(seededDownPayment({ ...financed, status: 'fully_owned' })).toBeUndefined()
     expect(seededDownPayment({ ...financed, outstanding_balance: undefined })).toBeUndefined()
+  })
+})
+
+describe('tangibleAssetComplete', () => {
+  it('needs a value', () => {
+    expect(tangibleAssetComplete({ ...base, value: undefined })).toBe(false)
+    expect(tangibleAssetComplete({ ...base, value: 0 })).toBe(false)
+    expect(tangibleAssetComplete({ ...base, value: 1000 })).toBe(true)
+  })
+
+  it('needs a balance owed when financed', () => {
+    const financed = { ...base, status: 'financed' as const }
+    expect(tangibleAssetComplete({ ...financed, outstanding_balance: undefined })).toBe(false)
+    expect(tangibleAssetComplete({ ...financed, outstanding_balance: 0 })).toBe(false)
+    expect(tangibleAssetComplete({ ...financed, outstanding_balance: 600 })).toBe(true)
   })
 })
