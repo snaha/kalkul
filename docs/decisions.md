@@ -10,6 +10,27 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-19 Today's cash pays exactly what each loan's schedule paid
+
+**Context.** #374: the figures carried forward from the last snapshot to
+today computed the two sides of a loan separately. The debt came down by the
+whole installments that fell due, with the last scheduled one settling the
+rest; cash was charged the installment as a yearly rate. A final balloon
+cleared the debt without leaving cash, so net worth rose by it, and a loan
+paid off partway kept costing cash to the end of the window.
+
+**Decision.** Cash pays the sum of the payments each loan's schedule made
+since the snapshot, the final balloon included, for standalone loans and
+financed assets alike. Income and expenses still accrue as a rate. A loan
+therefore costs cash in whole installments: nothing for a part-elapsed
+period.
+
+**Not decided.** When cash cannot cover the payments it stops at 0 and the
+loans are still paid down in full; a plan in the same position stops or
+flags the year. The second half of #374 stays open.
+
+**Supersedes.** Nothing written; the engine charged debt service as a rate.
+
 ## 2026-11-13 The outdated and Last updated notices can be dismissed for the browser session
 
 **Context.** #369 and #407 redesign the two notices that say figures are not
