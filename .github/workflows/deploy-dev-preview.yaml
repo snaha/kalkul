@@ -18,9 +18,9 @@ jobs:
   deploy-preview:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         if: github.event.action != 'closed'
         name: Install pnpm
         with:
@@ -28,7 +28,7 @@ jobs:
 
       - name: Set up Node.js
         if: github.event.action != 'closed'
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 24
           cache: 'pnpm'
@@ -42,7 +42,7 @@ jobs:
         run: VITE_ROUTER=hash VITE_BASE_URL="/pr-${{ github.event.number }}" pnpm build
 
       - name: Deploy PR preview
-        uses: rossjrw/pr-preview-action@v1
+        uses: rossjrw/pr-preview-action@873417d2df72380da1f3978378fb58560bcde976 # v1.8.2
         with:
           source-dir: ./build
           umbrella-dir: /
