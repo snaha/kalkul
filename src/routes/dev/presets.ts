@@ -151,7 +151,7 @@ function liquidTotal(profile: Profile): number {
 /**
  * The yearly change this profile's own projection produces in its liquid
  * balances — investments compounding at their effective APY, cash accruing what
- * income leaves after expenses and debt service.
+ * income leaves after expenses and the loan installments that fall due.
  *
  * History is wound back at exactly this rate so the recorded line runs into the
  * projected tail without a kink. The dashboard continues the chart with this
@@ -166,7 +166,10 @@ function impliedLiquidGrowth(profile: Profile, today: Date, fallback = 0.06): nu
     ...profile,
     snapshots: [captureSnapshot(profile, toDateOnlyString(today))],
   }
-  const aYearOn = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate())
+  // A day past the anniversary: the carry-forward counts whole installment
+  // periods of a 365.25-day year, so the twelfth monthly installment lands on
+  // day 366, and a year's growth should hold all twelve.
+  const aYearOn = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate() + 1)
   const growth = liquidTotal(getCurrentProfile(seeded, aYearOn)) / current - 1
   // A shrinking profile is fine to draw; a factor at or below zero is not.
   return Math.max(growth, -0.5)
