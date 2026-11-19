@@ -4,6 +4,7 @@ import { snapshotFinancialData } from './plan-base'
 import {
   getYearlyPlanProjection,
   installmentAmountForLoan,
+  projectionStopYear,
   summarizeCashFlow,
   summarizeTransfer,
   termYearsForLoan,
@@ -225,7 +226,7 @@ describe('getYearlyPlanProjection', () => {
         remaining_term: 1,
       },
     ]
-    const result = project(makePlan(), makeProfile({ liabilities }))
+    const result = project(makePlan(), makeProfile({ cash_amount: 1_000_000, liabilities }))
     expect(result[0].liabilities).toBeCloseTo(0, 6)
   })
 
@@ -247,7 +248,7 @@ describe('getYearlyPlanProjection', () => {
         remaining_term: 1,
       },
     ]
-    const result = project(makePlan(), makeProfile({ liabilities }))
+    const result = project(makePlan(), makeProfile({ cash_amount: 1_000_000, liabilities }))
     expect(result[0].liabilities).toBeCloseTo(0, 4)
   })
 
@@ -263,7 +264,7 @@ describe('getYearlyPlanProjection', () => {
         remaining_term: 4,
       },
     ]
-    const result = project(makePlan(), makeProfile({ liabilities }))
+    const result = project(makePlan(), makeProfile({ cash_amount: 1_000_000, liabilities }))
     expect(result[0].liabilities).toBeCloseTo(750, 6)
     expect(result[1].liabilities).toBeCloseTo(500, 6)
     expect(result[2].liabilities).toBeCloseTo(250, 6)
@@ -703,7 +704,7 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const plan = makePlan({ investments: [investments[0]], liabilities: [liabilities[0]] })
-    const result = project(plan, makeProfile({ investments, liabilities }))
+    const result = project(plan, makeProfile({ cash_amount: 1000, investments, liabilities }))
     expect(result[0].investments).toBeCloseTo(100, 6)
     expect(result[0].liabilities).toBeCloseTo(400, 6)
   })
@@ -973,7 +974,7 @@ describe('getYearlyPlanProjection', () => {
         remaining_term: 4,
       },
     ]
-    const result = project(makePlan(), makeProfile({ liabilities }))
+    const result = project(makePlan(), makeProfile({ cash_amount: 1_000_000, liabilities }))
     expect(result[0].liabilitiesByItem).toEqual([{ id: 'l1', name: 'Loan', value: 750 }])
     expect(result[1].liabilitiesByItem[0].value).toBeCloseTo(500, 6)
     expect(result[3].liabilitiesByItem[0].value).toBeCloseTo(0, 6)
@@ -1004,7 +1005,10 @@ describe('getYearlyPlanProjection', () => {
         remaining_term: 4,
       },
     ]
-    const result = project(makePlan(), makeProfile({ tangible_assets, liabilities }))
+    const result = project(
+      makePlan(),
+      makeProfile({ cash_amount: 5_000_000, tangible_assets, liabilities }),
+    )
     expect(result[0].liabilitiesByItem).toEqual([
       { id: 'l1', name: 'Loan', value: 750 },
       { id: 'tangible-asset-financing-t1', name: 'House', value: 2_700_000, assetId: 't1' },
@@ -1711,7 +1715,7 @@ describe('getYearlyPlanProjection', () => {
         remaining_term: 1,
       },
     ]
-    const result = project(makePlan(), makeProfile({ liabilities }))
+    const result = project(makePlan(), makeProfile({ cash_amount: 1_000_000, liabilities }))
     expect(result[0].liabilities).toBeCloseTo(0, 4)
   })
 
@@ -2723,11 +2727,9 @@ describe('getYearlyPlanProjection', () => {
     expect(result[0].insufficientFundExpenseIds.sort()).toEqual(['food', 'rent'])
   })
 
-  it('flags active expenses when liability payments push cash below zero too', () => {
-    // Cash + income covers the expense alone, but a liability payment in the
-    // same year takes cash negative overall. We flag the expense because the
-    // user-visible signal is "cash ran out while this expense was active";
-    // we don't try to apportion blame between expenses and liabilities.
+  it('flags the loan, not the expense, when cash covers the expense but not the installment', () => {
+    // Expenses are paid first, so cash covers this one. What is left cannot
+    // pay the installment: the loan is flagged and the unpaid part stays owed.
     const expenses: Expense[] = [
       {
         id: 'exp1',
@@ -2752,7 +2754,9 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = project(makePlan(), makeProfile({ cash_amount: 200, expenses, liabilities }))
-    expect(result[0].insufficientFundExpenseIds).toEqual(['exp1'])
+    expect(result[0].insufficientFundExpenseIds).toEqual([])
+    expect(result[0].insufficientFundLiabilityIds).toEqual(['l1'])
+    expect(result[0].liabilities).toBeCloseTo(9900, 6)
   })
   it('computes per-year FI percent and runway from investable wealth and outflows', () => {
     const expenses: Expense[] = [
@@ -3565,7 +3569,7 @@ describe('liability start and pay-off', () => {
     ]
     const result = project(
       makePlan({ start_date: '2025-01-01', end_date: '2030-01-01' }),
-      makeProfile({ liabilities }),
+      makeProfile({ cash_amount: 1000, liabilities }),
     )
     expect(result.map((r) => Math.round(r.liabilities))).toEqual([0, 0, 750, 500, 250, 0])
   })
@@ -3598,8 +3602,8 @@ describe('liability start and pay-off', () => {
   })
 
   it('adds nothing to cash for a loan the user already carries', () => {
-    const result = project(plan, makeProfile({ liabilities: [loan] }))
-    expect(result.map((r) => Math.round(r.cash))).toEqual([0, 0, 0, 0, 0, 0])
+    const result = project(plan, makeProfile({ cash_amount: 1000, liabilities: [loan] }))
+    expect(result.map((r) => Math.round(r.cash))).toEqual([750, 500, 250, 0, 0, 0])
     expect(result.map((r) => Math.round(r.liabilities))).toEqual([750, 500, 250, 0, 0, 0])
   })
 
@@ -3608,9 +3612,9 @@ describe('liability start and pay-off', () => {
     // the plan; it is still debt the user has, not new borrowing.
     const result = project(
       { ...plan, liabilities: [{ ...loan, name: 'Renamed', installment_amount: 500 }] },
-      makeProfile({ liabilities: [loan] }),
+      makeProfile({ cash_amount: 1000, liabilities: [loan] }),
     )
-    expect(result.map((r) => Math.round(r.cash))).toEqual([0, 0, 0, 0, 0, 0])
+    expect(result.map((r) => Math.round(r.cash))).toEqual([500, 0, 0, 0, 0, 0])
     expect(result.map((r) => Math.round(r.liabilities))).toEqual([500, 0, 0, 0, 0, 0])
   })
 
@@ -3689,7 +3693,7 @@ describe('liability start and pay-off', () => {
     ]
     const result = project(
       makePlan({ start_date: '2025-01-01', end_date: '2030-01-01' }),
-      makeProfile({ liabilities }),
+      makeProfile({ cash_amount: 1000, liabilities }),
     )
     expect(result.map((r) => Math.round(r.liabilities))).toEqual([750, 500, 0, 0, 0, 0])
   })
@@ -3743,5 +3747,146 @@ describe('loan installment / term derivation', () => {
         installment_amount: 10,
       }),
     ).toBeUndefined()
+  })
+})
+
+describe('installments the plan cannot afford (#334)', () => {
+  /** 1,000 at 0 %, 250 a year for four years. */
+  const loan: ProfileLiability = {
+    id: 'l1',
+    name: 'Loan',
+    outstanding_balance: 1000,
+    installment_frequency: 'yearly',
+    annual_rate: 0,
+    installment_amount: 250,
+    remaining_term: 4,
+  }
+  const years = (result: ReturnType<typeof project>) => result.map((r) => r.year)
+
+  it('stops in the year there is no cash to pay a loan', () => {
+    const result = project(makePlan(), makeProfile({ liabilities: [loan] }))
+    expect(years(result)).toEqual([2025])
+    expect(result[0].liabilities).toBe(1000)
+    expect(result[0].netWorth).toBe(-1000)
+    expect(result[0].insufficientFundLiabilityIds).toEqual(['l1'])
+    expect(projectionStopYear(result)).toBe(2025)
+  })
+
+  it('runs to the end when cash covers every installment', () => {
+    const result = project(makePlan(), makeProfile({ cash_amount: 1000, liabilities: [loan] }))
+    expect(years(result)).toEqual([2025, 2026, 2027, 2028, 2029, 2030])
+    expect(result.map((r) => Math.round(r.liabilities))).toEqual([750, 500, 250, 0, 0, 0])
+    expect(result.flatMap((r) => r.insufficientFundLiabilityIds)).toEqual([])
+    expect(projectionStopYear(result)).toBeUndefined()
+  })
+
+  it('runs until the first year that falls short and stops there', () => {
+    const result = project(makePlan(), makeProfile({ cash_amount: 600, liabilities: [loan] }))
+    expect(years(result)).toEqual([2025, 2026, 2027])
+    expect(result.map((r) => r.cash)).toEqual([350, 100, 0])
+    // 2027 pays the 100 that is there; 150 of its installment stays owed.
+    expect(result.map((r) => r.liabilities)).toEqual([750, 500, 400])
+    expect(result.map((r) => r.insufficientFundLiabilityIds)).toEqual([[], [], ['l1']])
+    expect(projectionStopYear(result)).toBe(2027)
+  })
+
+  it('stops even when later income would have caught up', () => {
+    const incomes: Income[] = [
+      {
+        id: 'i1',
+        name: 'Salary',
+        amount: 2000,
+        schedule: 'recurring',
+        frequency: 'yearly',
+        start: 'at_specific_date',
+        start_year: 2027,
+        start_month: 1,
+        end: 'never',
+      },
+    ]
+    const result = project(makePlan(), makeProfile({ liabilities: [loan], incomes }))
+    expect(years(result)).toEqual([2025])
+  })
+
+  it('stops at a planned pay-off cash cannot settle', () => {
+    const liabilities: ProfileLiability[] = [
+      { ...loan, pay_off: 'at_specific_date', pay_off_year: 2026, pay_off_month: 6 },
+    ]
+    const result = project(makePlan(), makeProfile({ cash_amount: 400, liabilities }))
+    // 2025 pays 250. 2026 is due 250 and the 500 left; 150 is there.
+    expect(years(result)).toEqual([2025, 2026])
+    expect(result.map((r) => r.liabilities)).toEqual([750, 600])
+    expect(result[1].insufficientFundLiabilityIds).toEqual(['l1'])
+  })
+
+  it('pays expenses first and blames the loan, not the expense it left unpaid behind', () => {
+    // The plan borrows 1,000 and spends it the same year: the expense is
+    // covered, the first installment is not.
+    const expenses: Expense[] = [
+      {
+        id: 'e1',
+        name: 'Kitchen',
+        amount: 1000,
+        schedule: 'one_time',
+        transaction_year: 2025,
+        transaction_month: 1,
+      },
+    ]
+    const result = project(makePlan({ liabilities: [loan], expenses }), makeProfile())
+    expect(years(result)).toEqual([2025])
+    expect(result[0].cash).toBe(0)
+    expect(result[0].liabilities).toBe(1000)
+    expect(result[0].insufficientFundExpenseIds).toEqual([])
+    expect(result[0].insufficientFundLiabilityIds).toEqual(['l1'])
+  })
+
+  it('does not stop for an expense the plan cannot pay', () => {
+    const expenses: Expense[] = [
+      {
+        id: 'e1',
+        name: 'Kitchen',
+        amount: 1000,
+        schedule: 'one_time',
+        transaction_year: 2025,
+        transaction_month: 1,
+      },
+    ]
+    const result = project(makePlan({ expenses }), makeProfile())
+    expect(years(result)).toEqual([2025, 2026, 2027, 2028, 2029, 2030])
+    expect(result[0].insufficientFundExpenseIds).toEqual(['e1'])
+    expect(projectionStopYear(result)).toBeUndefined()
+  })
+
+  it('splits short cash between loans in proportion to what each is due', () => {
+    const liabilities: ProfileLiability[] = [
+      { ...loan, id: 'a', name: 'A', installment_amount: 300 },
+      { ...loan, id: 'b', name: 'B', installment_amount: 100 },
+    ]
+    const result = project(makePlan(), makeProfile({ cash_amount: 200, liabilities }))
+    expect(years(result)).toEqual([2025])
+    expect(result[0].liabilitiesByItem.map((l) => l.value)).toEqual([850, 950])
+    expect(result[0].cash).toBe(0)
+    expect(result[0].insufficientFundLiabilityIds).toEqual(['a', 'b'])
+  })
+
+  it('stops for the loan behind a financed asset and flags it', () => {
+    const tangible_assets: ProfileTangibleAsset[] = [
+      {
+        id: 't1',
+        name: 'House',
+        value: 5000,
+        status: 'financed',
+        outstanding_balance: 1000,
+        installment_frequency: 'yearly',
+        annual_rate: 0,
+        installment_amount: 250,
+        remaining_term: 4,
+      },
+    ]
+    const result = project(makePlan(), makeProfile({ tangible_assets }))
+    expect(years(result)).toEqual([2025])
+    expect(result[0].liabilities).toBe(1000)
+    expect(result[0].netWorth).toBe(4000)
+    expect(result[0].insufficientFundLiabilityIds).toEqual(['tangible-asset-financing-t1'])
   })
 })

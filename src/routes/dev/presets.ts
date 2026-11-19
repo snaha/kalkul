@@ -14,6 +14,7 @@ import {
 } from '$lib/plan-projection'
 import routes from '$lib/routes'
 import {
+  type Expense,
   type Portfolio,
   type Profile,
   type ProfileLiability,
@@ -375,6 +376,200 @@ const UNDERWATER: Profile = {
 }
 
 /**
+ * A household whose loans fit its budget with little to spare: a financed car
+ * and a personal loan take 7,020 of the 8,400 a year left after rent and
+ * living costs. Each of its projections bends that a different way, to show
+ * what a projection does when a loan cannot be paid (#334).
+ */
+const TIGHT_ON_LOANS: Profile = {
+  name: 'Nora Lambert',
+  email: '',
+  birth_date: '1992-03-14',
+  location: 'FR',
+  currency: 'EUR',
+  cash_amount: 2_000,
+  has_tangible_assets: true,
+  tangible_assets: [
+    {
+      id: 'ta-1',
+      name: 'Car',
+      value: 18_000,
+      status: 'financed',
+      outstanding_balance: 15_000,
+      installment_frequency: 'monthly',
+      annual_rate: 5,
+      installment_amount: 285,
+      remaining_term: 5,
+    },
+  ],
+  has_liabilities: true,
+  liabilities: [
+    {
+      id: 'li-1',
+      name: 'Personal loan',
+      outstanding_balance: 12_000,
+      installment_frequency: 'monthly',
+      annual_rate: 9,
+      installment_amount: 300,
+      remaining_term: 4,
+    },
+  ],
+  incomes: [
+    {
+      id: 'inc-1',
+      name: 'Salary',
+      amount: 3_100,
+      schedule: 'recurring',
+      frequency: 'monthly',
+      start: 'immediately',
+      end: 'never',
+      change_over_time: 'none',
+    },
+  ],
+  expenses: [
+    {
+      id: 'exp-1',
+      name: 'Rent',
+      amount: 1_400,
+      schedule: 'recurring',
+      frequency: 'monthly',
+      start: 'immediately',
+      end: 'never',
+      change_over_time: 'none',
+    },
+    {
+      id: 'exp-2',
+      name: 'Living costs',
+      amount: 1_000,
+      schedule: 'recurring',
+      frequency: 'monthly',
+      start: 'immediately',
+      end: 'never',
+      change_over_time: 'none',
+    },
+  ],
+}
+
+/** Nora's projections: three that stop at a loan they cannot pay, and one that works. */
+function tightOnLoansPlans(today: Date): Portfolio[] {
+  const year = today.getFullYear()
+  const month = today.getMonth() + 1
+  const base = (id: string, name: string, notes: string): Portfolio =>
+    plan(today, TIGHT_ON_LOANS, id, name, notes, 12, 0)
+  const [salary] = TIGHT_ON_LOANS.incomes ?? []
+  const [personalLoan] = TIGHT_ON_LOANS.liabilities ?? []
+  const oneTime = (id: string, name: string, amount: number): Expense => ({
+    id,
+    name,
+    amount,
+    schedule: 'one_time',
+    transaction_year: year,
+    transaction_month: month,
+  })
+
+  // A year of freelancing that covers the bills but not the loans: the
+  // projection stops in that year.
+  const yearOff = base(
+    'plan-year-off',
+    `A year off in ${year + 2}`,
+    'Freelance income covers rent and living costs, not the loans. The projection stops that year.',
+  )
+  // Borrowed money spent the year it arrives, with an installment the budget
+  // has no room for: the projection stops in its first year.
+  const renovation = base(
+    'plan-renovation',
+    'Renovate on credit',
+    'A 25,000 loan spent at once. The installments do not fit, so the projection stops in year one.',
+  )
+  // A planned pay-off cash cannot settle in full: the projection stops in the
+  // pay-off year.
+  const payOff = base(
+    'plan-pay-off',
+    `Clear the personal loan in ${year + 1}`,
+    'The pay-off is more than cash holds that year, so the projection stops there.',
+  )
+  // The same idea at a size the budget can carry: no warning anywhere.
+  const bike = base(
+    'plan-bike',
+    'A small loan for a bike',
+    'A 3,000 loan the budget can carry. The projection runs to its end.',
+  )
+
+  return [
+    {
+      ...yearOff,
+      incomes: [
+        { ...salary, end: 'at_specific_date', end_year: year + 1, end_month: 12 },
+        {
+          id: 'inc-freelance',
+          name: 'Freelance work',
+          amount: 2_400,
+          schedule: 'recurring',
+          frequency: 'monthly',
+          start: 'at_specific_date',
+          start_year: year + 2,
+          start_month: 1,
+          end: 'at_specific_date',
+          end_year: year + 2,
+          end_month: 12,
+          change_over_time: 'none',
+        },
+        {
+          id: 'inc-new-job',
+          name: 'New job',
+          amount: 3_400,
+          schedule: 'recurring',
+          frequency: 'monthly',
+          start: 'at_specific_date',
+          start_year: year + 3,
+          start_month: 1,
+          end: 'never',
+          change_over_time: 'none',
+        },
+      ],
+    },
+    {
+      ...renovation,
+      liabilities: [
+        ...renovation.liabilities,
+        {
+          id: 'li-renovation',
+          name: 'Renovation loan',
+          outstanding_balance: 25_000,
+          installment_frequency: 'monthly',
+          annual_rate: 7,
+          installment_amount: 500,
+          remaining_term: 5,
+        },
+      ],
+      expenses: [...renovation.expenses, oneTime('exp-renovation', 'Renovation', 25_000)],
+    },
+    {
+      ...payOff,
+      liabilities: [
+        { ...personalLoan, pay_off: 'at_specific_date', pay_off_year: year + 1, pay_off_month: 6 },
+      ],
+    },
+    {
+      ...bike,
+      liabilities: [
+        ...bike.liabilities,
+        {
+          id: 'li-bike',
+          name: 'Bike loan',
+          outstanding_balance: 3_000,
+          installment_frequency: 'monthly',
+          annual_rate: 6,
+          installment_amount: 100,
+          remaining_term: 3,
+        },
+      ],
+      expenses: [...bike.expenses, oneTime('exp-bike', 'Cargo bike', 3_000)],
+    },
+  ]
+}
+
+/**
  * Scenarios for exercising the app by hand. The realistic ones are the shipped
  * sample profiles, each given a distinct dashboard state on top (fresh, stale,
  * long history, several projections); the rest are deliberately synthetic
@@ -505,6 +700,15 @@ export function getDevPresets(today: Date): DevPreset[] {
       data: {
         profile: withHistory(UNDERWATER, today, 14, { latestMonthsAgo: 2 }),
         portfolios: [],
+      },
+    },
+    {
+      name: 'Nora, 34 — loans the plan cannot pay',
+      description:
+        'A financed car and a personal loan that only just fit the budget. Four projections: a year off that falls behind and recovers, a renovation loan that is behind for seven years, a pay-off cash cannot settle, and a small loan that works. Warning rows under Liabilities and Tangible assets, and the first-warning marker on the chart.',
+      data: {
+        profile: withHistory(TIGHT_ON_LOANS, today, 10, { latestMonthsAgo: 1 }),
+        portfolios: tightOnLoansPlans(today),
       },
     },
     {
