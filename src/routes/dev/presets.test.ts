@@ -97,7 +97,9 @@ describe('dev presets', () => {
           (1 / years) -
         1
 
-      const aYearOn = new Date(TODAY.getFullYear() + 1, TODAY.getMonth(), TODAY.getDate())
+      // A day past the anniversary, as `impliedLiquidGrowth` measures it: the
+      // twelfth monthly installment lands on day 366.
+      const aYearOn = new Date(TODAY.getFullYear() + 1, TODAY.getMonth(), TODAY.getDate() + 1)
       const projected =
         getNetWorth(
           getCurrentProfile(

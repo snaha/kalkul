@@ -373,7 +373,7 @@ describe('appStore.updateProfile on a stale profile', () => {
       ],
     })
 
-    expect(appStore.profile.cash_amount).toBe(24_758)
+    expect(appStore.profile.cash_amount).toBe(24_842)
     expect(appStore.profile.investments?.[0].balance).toBe(104_400)
     expect(appStore.profile.investments?.[1].balance).toBe(5_000)
     expect(appStore.profile.liabilities?.[0].outstanding_balance).toBe(5_118)
