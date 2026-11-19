@@ -82,7 +82,6 @@ alert also puts away its Quick update button, the only one on the dashboard
 and the History page, until the alert returns; the notice is the nudge to
 update, and a user who closes it has declined for now.
 
-
 ## 2026-11-12 Assets and liabilities share one scale on the plan chart
 
 **Context.** #422: the plan chart scaled assets and liabilities separately,
