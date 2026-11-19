@@ -450,7 +450,7 @@ const TIGHT_ON_LOANS: Profile = {
   ],
 }
 
-/** Nora's projections: three ways to fall behind on a loan, and one that works. */
+/** Nora's projections: three that stop at a loan they cannot pay, and one that works. */
 function tightOnLoansPlans(today: Date): Portfolio[] {
   const year = today.getFullYear()
   const month = today.getMonth() + 1
@@ -467,32 +467,32 @@ function tightOnLoansPlans(today: Date): Portfolio[] {
     transaction_month: month,
   })
 
-  // A year of freelancing that covers the bills but not the loans: both fall
-  // behind for that year and are caught up from the next salary.
+  // A year of freelancing that covers the bills but not the loans: the
+  // projection stops in that year.
   const yearOff = base(
     'plan-year-off',
     `A year off in ${year + 2}`,
-    'Freelance income covers rent and living costs, not the loans. Recovers the year after.',
+    'Freelance income covers rent and living costs, not the loans. The projection stops that year.',
   )
   // Borrowed money spent the year it arrives, with an installment the budget
-  // has no room for: the debt grows until the other loans are paid off.
+  // has no room for: the projection stops in its first year.
   const renovation = base(
     'plan-renovation',
     'Renovate on credit',
-    'A 25,000 loan spent at once. The installments do not fit until the other loans are paid off.',
+    'A 25,000 loan spent at once. The installments do not fit, so the projection stops in year one.',
   )
-  // A planned pay-off cash cannot settle in full: the rest stays owed and is
-  // cleared the year after.
+  // A planned pay-off cash cannot settle in full: the projection stops in the
+  // pay-off year.
   const payOff = base(
     'plan-pay-off',
     `Clear the personal loan in ${year + 1}`,
-    'The pay-off is more than cash holds that year. The rest is paid the year after.',
+    'The pay-off is more than cash holds that year, so the projection stops there.',
   )
   // The same idea at a size the budget can carry: no warning anywhere.
   const bike = base(
     'plan-bike',
     'A small loan for a bike',
-    'A 3,000 loan the budget can carry. Nothing is flagged.',
+    'A 3,000 loan the budget can carry. The projection runs to its end.',
   )
 
   return [

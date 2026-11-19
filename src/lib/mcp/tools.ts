@@ -174,7 +174,7 @@ export function kalkulTools(app: App = appStore): KalkulTool[] {
     ),
     tool(
       'get_projection',
-      'Yearly projection of a portfolio computed by the app (net worth, cash, investments, ...)',
+      'Yearly projection of a portfolio computed by the app (net worth, cash, investments, ...). It ends early in the year cash cannot pay a loan: that last year lists the loans in insufficientFundLiabilityIds.',
       z.object({ portfolio_id: z.string() }),
       READ_ONLY,
       ({ portfolio_id }) =>

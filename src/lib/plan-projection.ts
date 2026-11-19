@@ -98,7 +98,9 @@ export interface YearlyProjection {
   insufficientFundExpenseIds: string[]
   // IDs of loans the plan could not pay in full this year: a standalone
   // liability's own id, or `financingLiabilityId` of the asset for the loan
-  // behind a financed tangible asset. The unpaid part stays owed.
+  // behind a financed tangible asset. The unpaid part stays owed, and the
+  // projection ends with this year (`projectionStopYear`), so only the last
+  // year can carry any.
   insufficientFundLiabilityIds: string[]
 }
 
@@ -254,8 +256,9 @@ function growthFactor(
 
 /**
  * A loan as the projection carries it from year to year. `balance` is what the
- * schedule still has to collect; `arrears` is what fell due and cash could not
- * pay, owed on top of it.
+ * schedule still has to collect; `unpaid` is what fell due in the year cash
+ * could not pay it, owed on top. The projection stops in that year, so
+ * `unpaid` is never carried into another one.
  */
 interface LoanState {
   liability: ProfileLiability
@@ -268,12 +271,12 @@ interface LoanState {
   lastYear: number | undefined
   balance: Decimal
   periodsRemaining: number
-  arrears: Decimal
+  unpaid: Decimal
 }
 
 /** What a loan asks of one year, and where its schedule stands afterwards. */
 interface LoanYear {
-  /** Everything due this year: installments, a pay-off, and earlier arrears. */
+  /** Everything due this year: installments and a pay-off. */
   due: Decimal
   /** The scheduled balance once the year's installments are counted. */
   balance: Decimal
@@ -464,7 +467,7 @@ function openLoan(
       liability.remaining_term_unit,
       INSTALLMENT_PERIODS_PER_YEAR[liability.installment_frequency],
     ),
-    arrears: DECIMAL_0,
+    unpaid: DECIMAL_0,
   }
 }
 
@@ -490,19 +493,14 @@ function loanYear(loan: LoanState, year: number): LoanYear {
     }
   }
 
-  // What earlier years left unpaid is due in full, with a year of interest at
-  // the loan's own rate.
-  const arrearsDue = loan.arrears.mul(DECIMAL_1.plus(periodInterestRate).pow(periodsPerYear))
-
-  // Already settled. A loan whose pay-off precedes its start never went live,
-  // so it has no arrears and owes nothing here either.
+  // Already settled.
   if (loan.lastYear !== undefined && year > loan.lastYear) {
-    return { due: arrearsDue, balance: DECIMAL_0, periodsRemaining: 0, live: true }
+    return { due: DECIMAL_0, balance: DECIMAL_0, periodsRemaining: 0, live: true }
   }
 
   let balance = loan.balance
   let periodsRemaining = loan.periodsRemaining
-  let due = arrearsDue
+  let due = DECIMAL_0
   for (let i = 0; i < periodsPerYear; i++) {
     if (periodsRemaining <= 0 || balance.lessThanOrEqualTo(0)) break
     const interest = balance.mul(periodInterestRate)
@@ -531,18 +529,18 @@ function loanYear(loan: LoanState, year: number): LoanYear {
 
 /**
  * Records a year in which cash paid `paid` of what the loan was due. The
- * schedule moves on either way; the unpaid part becomes arrears, so the debt
- * only ever falls by money that actually left cash (#334).
+ * unpaid part stays owed, so the debt only ever falls by money that actually
+ * left cash (#334).
  */
 function settleLoanYear(loan: LoanState, year: LoanYear, paid: Decimal): void {
   loan.balance = year.balance
   loan.periodsRemaining = year.periodsRemaining
-  loan.arrears = Decimal.max(year.due.minus(paid), DECIMAL_0)
+  loan.unpaid = Decimal.max(year.due.minus(paid), DECIMAL_0)
 }
 
 /** What is owed on a loan after `settleLoanYear`: 0 before it is taken out. */
 function loanOutstanding(loan: LoanState, year: LoanYear): Decimal {
-  return year.live ? loan.balance.plus(loan.arrears) : DECIMAL_0
+  return year.live ? loan.balance.plus(loan.unpaid) : DECIMAL_0
 }
 
 /** The id of the synthetic liability behind a financed tangible asset. */
@@ -1579,8 +1577,8 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     //    come first: if cash cannot cover them, every expense active this
     //    year is flagged and the shortfall is dropped (it is not modelled as
     //    debt). Loans are paid from what is left. When that is short, each
-    //    loan gets the same share of what it is due, the rest stays owed as
-    //    arrears, and the loans are flagged (#334).
+    //    loan gets the same share of what it is due, the rest stays owed,
+    //    the loans are flagged and the projection ends with this year (#334).
     const insufficientFundExpenseIdsThisYear: string[] = []
     const insufficientFundLiabilityIdsThisYear: string[] = []
     const cashAfterExpensesNominal = cashNominal.minus(expensesThisYearNominal)
@@ -1716,7 +1714,21 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       insufficientFundExpenseIds: insufficientFundExpenseIdsThisYear,
       insufficientFundLiabilityIds: insufficientFundLiabilityIdsThisYear,
     })
+
+    // A loan that cannot be paid ends the projection: what would follow
+    // (default, refinancing, a forced sale) is not something to guess at.
+    if (!loansFunded) break
   }
 
   return projection
+}
+
+/**
+ * The year a projection stopped because cash could not pay a loan, undefined
+ * when it ran to the plan's end. That year is the projection's last and names
+ * the loans in `insufficientFundLiabilityIds`.
+ */
+export function projectionStopYear(projection: YearlyProjection[]): number | undefined {
+  const last = projection.at(-1)
+  return last && last.insufficientFundLiabilityIds.length > 0 ? last.year : undefined
 }
