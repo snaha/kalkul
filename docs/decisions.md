@@ -10,6 +10,28 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-19 A loan without a term is paid until nothing is owed
+
+**Context.** #457: the liability dialog saves a loan with an installment and
+an empty term, stored as a term of 0, for instance when the installment does
+not cover the interest and no term can be derived from it. The projection
+read a term of 0 as "no installments left": the principal landed in cash and
+the debt stayed at its full balance for the whole plan. The alternative was
+to require a term on every loan with a balance.
+
+**Decision.** The term stays optional. A loan with an installment and no term
+is paid by its installments until nothing is owed; if the installment does
+not cover the interest, the debt grows. Requiring a term was rejected because
+a term of 0 is also what Quick update and the history write when they know
+only a balance, and because the runway already treats such a loan this way.
+The dashboard's carried-forward balances follow the same rule.
+
+**Not decided.** A loan with neither a term nor an installment stays at the
+balance entered and accrues no interest, as before.
+
+**Supersedes.** Nothing written; the engine's unstated reading of a term of 0
+as a finished loan.
+
 ## 2026-11-13 The outdated and Last updated notices can be dismissed for the browser session
 
 **Context.** #369 and #407 redesign the two notices that say figures are not
