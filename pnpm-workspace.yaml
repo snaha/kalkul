@@ -5,3 +5,27 @@ savePrefix: ''
 allowBuilds:
   esbuild: true
   es5-ext: false
+
+# What `pnpm audit` still reports, each accepted for the reason beside it. The
+# audit gates the production deploy (.github/workflows/audit.yaml), so an
+# advisory missing from this list stops it: update or override the package, or
+# add the advisory here with why it does not reach what ships. The audit job
+# fails on an entry that is no longer reported, so a fix taken deletes its
+# entries in the same PR.
+auditConfig:
+  ignoreGhsas:
+    # SvelteKit, fixed only in 3.x: `setHeaders` on a prerendered page and
+    # `use:enhance` form actions, neither of which a static SPA uses. cookie
+    # 0.6 comes with it and parses no cookie here.
+    - GHSA-27mw-82g8-phjj
+    - GHSA-pfhg-q3qv-9q6r
+    - GHSA-pxg6-pf52-xh8x
+    # deepmerge under @sveltejs/vite-plugin-svelte, which merges this repo's
+    # own config at build time. No fixed release is published.
+    - GHSA-gcqx-w48m-w2h4
+    # esbuild 0.19 under svelte-i18n, used only by its CLI, which nothing here
+    # runs. The advisory is about esbuild's dev server.
+    - GHSA-67mh-4wv8-2f99
+    # minimatch 10 under eslint: lint tooling, fed only this repo's own globs.
+    # Fixed only in 11.
+    - GHSA-g3hv-75wg-m249
