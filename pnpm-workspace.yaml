@@ -18,9 +18,6 @@ allowBuilds:
 # entries in the same PR.
 auditConfig:
   ignoreGhsas:
-    # deepmerge under @sveltejs/vite-plugin-svelte, which merges this repo's
-    # own config at build time. No fixed release is published.
-    - GHSA-gcqx-w48m-w2h4
     # esbuild 0.19 under svelte-i18n, used only by its CLI, which nothing here
     # runs. The advisory is about esbuild's dev server.
     - GHSA-67mh-4wv8-2f99
