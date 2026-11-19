@@ -95,7 +95,8 @@
       "deleteLiabilityConfirm": "Smazat tento závazek? Akci nelze vrátit zpět.",
       "openingCash": "Hotovost na začátku této projekce",
       "openingCashHint": "Změny zde platí jen pro tuto projekci.",
-      "outdated": "Vaše finanční data se od vytvoření této projekce změnila.",
+      "outdated": "Vaše finanční data se od vytvoření této projekce změnila, takže čísla nemusí být aktuální.",
+      "outdatedDismiss": "Rozumím",
       "transferFromLabel": "Odkud",
       "transferToLabel": "Kam",
       "transferLabelLabel": "Popisek",
@@ -289,8 +290,9 @@
         "noExpensesHint": "Přidejte své výdaje, abyste viděli tento údaj",
         "stale": {
           "title": "Naposledy aktualizováno {date}",
-          "description": "Všechny údaje jsou odhadnuté od poslední aktualizace — zkontrolujte je pro větší přesnost.",
-          "quickUpdate": "Rychlá aktualizace"
+          "description": "Údaje od té doby jsou odhadnuté. Aktualizujte je pro větší přesnost.",
+          "quickUpdate": "Rychlá aktualizace",
+          "dismiss": "Zavřít"
         },
         "netWorthCard": {
           "title": "Čisté jmění",
