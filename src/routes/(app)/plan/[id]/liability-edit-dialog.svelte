@@ -473,12 +473,12 @@
       <Label for="{uid}-term">
         {imported ? $_('page.setup.liabilities.remainingTerm') : $_('page.plan.term')}
       </Label>
-      <div class="flex items-center gap-2">
+      <!-- Figma 1382/1383: the number and its unit share the half equally. -->
+      <div class="grid grid-cols-2 gap-2">
         <SuffixedInput
           id="{uid}-term"
           value={form.remaining_term}
           formatNumber={appStore.formatNumber}
-          class="w-24"
           onValueChange={onTermChange}
         />
         <SelectField

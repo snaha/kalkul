@@ -1,7 +1,6 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import LogOut from '@lucide/svelte/icons/log-out'
   import Percent from '@lucide/svelte/icons/percent'
 
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
@@ -12,7 +11,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
   import { type PlanRange } from '$lib/plan-range'
-  import type { CashFlowEnd, CashFlowStart, EntryFeeType, ExitFeeType } from '$lib/schemas'
+  import type { CashFlowStart, EntryFeeType, ExitFeeType } from '$lib/schemas'
   import { getEntryFeeTypeItems, getExitFeeTypeItems } from '$lib/select-options'
 
   /**
@@ -31,10 +30,6 @@
     start_year: number | undefined
     start_month: number | undefined
     start_age: number | undefined
-    exit: CashFlowEnd
-    exit_year: number | undefined
-    exit_month: number | undefined
-    exit_age: number | undefined
   }
 
   interface Props {
@@ -45,11 +40,11 @@
     /** "Current balance" in the setup card, "Initial amount" in the plan dialog. */
     amountLabel: string
     /** Whether the fee fields are revealed. */
-    /** Copied from financial data: already held, so no start; the fees and the exit are sections. */
+    /** Copied from financial data: already held, so no start; the fees are a section. */
     imported?: boolean
     showAdvanced: boolean
     currencyLabel: string
-    /** The plan's years; the Start and Exit selectors show only with it. */
+    /** The plan's years; the Start selector shows only with it. */
     range?: PlanRange
     months?: { value: string; label: string }[]
     birthDateSet?: boolean
@@ -132,41 +127,6 @@
   <p class="-mt-2 text-xs text-muted-foreground">{$_('page.plan.initialBalanceDescription')}</p>
 {/if}
 
-{#snippet exitSelector()}
-  {#if range}
-    <DateAgeSelector
-      mode="end"
-      label={$_('page.plan.investmentExit')}
-      neverLabel={$_('page.plan.investmentExitNever')}
-      description={$_('page.plan.investmentExitDescription')}
-      value={item.exit}
-      year={item.exit_year}
-      month={item.exit_month}
-      age={item.exit_age}
-      {range}
-      {months}
-      {birthDateSet}
-      {formatNumber}
-      onValueChange={(v) => {
-        item.exit = v
-      }}
-      onYearChange={(v) => {
-        item.exit_year = v
-      }}
-      onMonthChange={(v) => {
-        item.exit_month = v
-      }}
-      onAgeChange={(v) => {
-        item.exit_age = v
-      }}
-    />
-  {/if}
-{/snippet}
-
-{#if !imported}
-  {@render exitSelector()}
-{/if}
-
 {#snippet feeRows()}
   <!-- Total expense ratio -->
   <div class="flex items-end gap-2">
@@ -243,11 +203,6 @@
 
 {#if imported}
   <FormSection icon={Percent} title={$_('page.plan.fees')}>{@render feeRows()}</FormSection>
-  {#if range}
-    <FormSection icon={LogOut} title={$_('page.plan.investmentExit')}>
-      {@render exitSelector()}
-    </FormSection>
-  {/if}
 {:else if showAdvanced}
   <Separator />
 

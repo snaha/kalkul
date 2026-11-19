@@ -23,7 +23,7 @@
     footer?: Snippet
     /** Extra footer classes, e.g. the muted background some Figma footers have. */
     footerClass?: string
-    /** Optional label shown next to the title, e.g. "Financed". */
+    /** Optional label shown right beside the title, e.g. "Financed". */
     badge?: string
     saveDisabled?: boolean
     onSave: () => void
@@ -57,12 +57,15 @@
 <Dialog.Root bind:open {onOpenChange}>
   <Dialog.Content showCloseButton={false} class="gap-0 p-0 sm:max-w-xl">
     <Dialog.Header class="flex flex-row items-center gap-1 border-b p-4 pe-3">
-      <Dialog.Title class="flex-1 truncate text-lg font-semibold">
-        {isNew && newTitle ? newTitle : name}
-      </Dialog.Title>
-      {#if badge}
-        <Badge variant="secondary" class="shrink-0">{badge}</Badge>
-      {/if}
+      <!-- The badge sits right beside the title (Figma 1382), not at the far right. -->
+      <div class="flex min-w-0 flex-1 items-center gap-2">
+        <Dialog.Title class="truncate text-base font-medium">
+          {isNew && newTitle ? newTitle : name}
+        </Dialog.Title>
+        {#if badge}
+          <Badge variant="secondary" class="shrink-0">{badge}</Badge>
+        {/if}
+      </div>
       <Button variant="ghost" size="icon" onclick={close} aria-label={$_('page.plan.closeDialog')}>
         <X class="size-4" />
       </Button>

@@ -175,12 +175,12 @@
     </span>
     <div class="flex flex-1 flex-col gap-2">
       <Label for="{idPrefix}-term">{$_('page.plan.term')}</Label>
-      <div class="flex items-center gap-2">
+      <!-- Figma 1382/1383: the number and its unit share the half equally. -->
+      <div class="grid grid-cols-2 gap-2">
         <SuffixedInput
           id="{idPrefix}-term"
           value={item.remaining_term}
           {formatNumber}
-          class="w-24"
           onValueChange={(v) => {
             item.remaining_term = v
             anchor = 'term'

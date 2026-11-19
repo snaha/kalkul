@@ -39,7 +39,7 @@
 </script>
 
 <Dialog.Header class="flex flex-row items-center gap-1 border-b p-4 pe-3">
-  <Dialog.Title class="flex-1 truncate text-lg font-semibold">
+  <Dialog.Title class="flex-1 truncate text-base font-medium">
     {$_('page.plan.cashItem')}
   </Dialog.Title>
 
@@ -49,8 +49,8 @@
 </Dialog.Header>
 
 <div class="flex flex-col gap-4 p-4">
-  <!-- Not drawn in Figma. A plan's cash is always copied from financial data,
-       so it is a local override like any imported item. -->
+  <!-- Figma 1541:33061. A plan's cash is always copied from financial data, so
+       it is a local override like any imported item. -->
   <LocalOverrideNotice />
 
   <div class="flex flex-col gap-2">
@@ -65,7 +65,8 @@
   </div>
 </div>
 
-<Dialog.Footer class="flex flex-row justify-end gap-2 border-t p-4">
-  <Button variant="secondary" onclick={onClose}>{$_('page.plan.cancel')}</Button>
+<!-- Figma "Edit footer": Save then Cancel, on the left. -->
+<Dialog.Footer class="flex flex-row gap-2 border-t bg-muted p-4 sm:justify-start">
   <Button onclick={save}>{$_('page.plan.saveChanges')}</Button>
+  <Button variant="outline" onclick={onClose}>{$_('page.plan.cancel')}</Button>
 </Dialog.Footer>

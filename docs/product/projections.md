@@ -117,7 +117,7 @@ fields in sections that are closed until the user opens them:
 
 | Item           | Always shown                                                        | Section                                            | Not shown              |
 | -------------- | ------------------------------------------------------------------- | -------------------------------------------------- | ---------------------- |
-| Investment     | Initial balance, Annual return                                      | Fees, Exit                                         | Start                  |
+| Investment     | Initial balance, Annual return                                      | Fees                                               | Start                  |
 | Tangible asset | Initial value, Status, Outstanding balance when financed            | Financing details (financed), Value & tax, Sale    | Purchase, Down payment |
 | Liability      | Outstanding balance, frequency, rate, Installment ⇄ Remaining term  | Pay-off & interest                                 | Start, Principal       |
 | Income/expense | Schedule, Frequency, Amount, Adjust for inflation, the totals box   | Timeline (Start, End, Change over time), recurring |                        |
@@ -128,8 +128,9 @@ shown keeps whatever the item stores. An imported item is not renamed in a
 projection: its name is the one financial data gives it. An item added in the
 plan keeps the full dialog, with the name, its start or purchase, and the
 "Show advanced options" switch. The cash dialog always shows the notice, since
-a plan's opening cash is always copied from financial data. The exit of an investment and the planned
-sale of a tangible asset are the same field for both.
+a plan's opening cash is always copied from financial data. The planned sale of a tangible asset is
+the same field for both. An investment has no exit in any dialog: money leaves it through a transfer,
+whose "Max" amount empties it.
 
 ### An asset added in a projection is bought there; an imported one is already owned
 

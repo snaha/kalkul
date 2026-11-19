@@ -13,6 +13,7 @@
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
+  import { Separator } from '$lib/components/ui/separator'
   import { Switch } from '$lib/components/ui/switch'
   import * as Tooltip from '$lib/components/ui/tooltip'
   import { isImportedPlanItem, removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
@@ -442,6 +443,8 @@
        own row after the timing, and the rate with its note once it is on.
        Only an investment has a gain to tax, so cash gets no switch. -->
   {#if sourceApy !== undefined}
+    <!-- Frame 1386: a line sets the switch apart from the Timeline section. -->
+    {#if imported}<Separator />{/if}
     <label class="flex cursor-pointer items-center gap-2">
       <Switch checked={form.deduct_tax} onCheckedChange={(v) => (form.deduct_tax = v === true)} />
       <span class="text-sm font-medium">{$_('page.plan.deductTax')}</span>

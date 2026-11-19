@@ -83,10 +83,6 @@
     start_year: number | undefined
     start_month: number | undefined
     start_age: number | undefined
-    exit: CashFlowEnd
-    exit_year: number | undefined
-    exit_month: number | undefined
-    exit_age: number | undefined
     // Tangible asset
     value: number | undefined
     status: TangibleAssetStatus
@@ -151,10 +147,6 @@
       start_year: undefined,
       start_month: undefined,
       start_age: undefined,
-      exit: 'never',
-      exit_year: undefined,
-      exit_month: undefined,
-      exit_age: undefined,
       value: undefined,
       status: 'fully_owned',
       purchase: 'immediately',
@@ -198,10 +190,6 @@
       f.start_year = inv.start_year
       f.start_month = inv.start_month
       f.start_age = inv.start_age
-      f.exit = inv.exit ?? 'never'
-      f.exit_year = inv.exit_year
-      f.exit_month = inv.exit_month
-      f.exit_age = inv.exit_age
     } else if (src.kind === 'tangibleAsset') {
       const a = src.initial
       f.value = a.value > 0 ? a.value : undefined
@@ -247,9 +235,7 @@
   const timingWithin = $derived(
     kind === 'investment'
       ? timingComplete(form.start, form.start_year, form.start_month, form.start_age) &&
-          timingComplete(form.exit, form.exit_year, form.exit_month, form.exit_age) &&
-          timingWithinPlan(range, 'start', form.start, form.start_year, form.start_age) &&
-          timingWithinPlan(range, 'end', form.exit, form.exit_year, form.exit_age)
+          timingWithinPlan(range, 'start', form.start, form.start_year, form.start_age)
       : timingComplete(form.purchase, form.purchase_year, form.purchase_month, form.purchase_age) &&
           timingComplete(form.sale, form.sale_year, form.sale_month, form.sale_age) &&
           timingWithinPlan(range, 'start', form.purchase, form.purchase_year, form.purchase_age) &&
@@ -308,10 +294,6 @@
       start_year: f.start !== 'immediately' ? f.start_year : undefined,
       start_month: f.start !== 'immediately' ? f.start_month : undefined,
       start_age: f.start !== 'immediately' ? f.start_age : undefined,
-      exit: f.exit !== 'never' ? f.exit : undefined,
-      exit_year: f.exit !== 'never' ? f.exit_year : undefined,
-      exit_month: f.exit !== 'never' ? f.exit_month : undefined,
-      exit_age: f.exit !== 'never' ? f.exit_age : undefined,
     }
   }
 

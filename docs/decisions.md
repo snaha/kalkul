@@ -10,6 +10,22 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-16 An investment has no Exit field
+
+**Context.** The plan dialog let an investment be given an exit date, which
+sold the whole balance into cash. A one-time transfer with the "Max" amount
+now does the same and says where the money goes, so the field was a second
+way to do one thing. Agreed with design in the review of #430; frame 1380
+draws only Fees.
+
+**Decision.** No investment dialog has an Exit field or section, in a
+projection or in financial data. Saving an investment from the plan dialog
+drops an exit it stored. The `exit` fields are still read by the schema and
+the engine; removing them is a follow-up.
+
+**Supersedes.** The Exit section "An imported item is edited as a local
+override" (2026-11-13) gave an imported investment.
+
 ## 2026-11-13 An imported item is edited as a local override
 
 **Context.** The plan dialogs showed every item the same fields whether the
