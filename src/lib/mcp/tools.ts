@@ -34,7 +34,7 @@ const DESTRUCTIVE: ToolAnnotations = { readOnlyHint: false, destructiveHint: tru
 
 /**
  * A tool definition shared by both surfaces: the in-browser MCP server
- * (src/lib/mcp/server.ts, reached through the local relay) and WebMCP
+ * (src/lib/mcp/mcp-server.ts, reached through the local relay) and WebMCP
  * (src/lib/mcp/web-mcp.ts, reached by agents running in the browser).
  * `execute` validates its input with `inputSchema` itself, so each surface
  * only has to forward raw arguments.

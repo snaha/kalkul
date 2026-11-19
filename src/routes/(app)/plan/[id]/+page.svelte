@@ -38,7 +38,7 @@
   import { CURRENT_PROJECTION_ID, buildCurrentProjectionPlan } from '$lib/current-projection'
   import { getCurrentProfile } from '$lib/current-values'
   import { DEMO_PLAN_ID } from '$lib/demo'
-  import { isPlanOutdated } from '$lib/plan-base'
+  import { isPlanOutdated, snapshotFinancialData } from '$lib/plan-base'
   import { getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
   import routes from '$lib/routes'
   import type {
@@ -51,6 +51,8 @@
     Transfer,
   } from '$lib/schemas'
   import { getFrequencyShortLabel } from '$lib/select-options'
+  import { dismiss, isDismissed } from '$lib/session-dismissal'
+  import storageKeys from '$lib/storage-keys'
   import { appStore } from '$lib/stores/app.svelte'
   import { trackToday } from '$lib/today.svelte'
   import { cn, notImplemented } from '$lib/utils'
@@ -93,7 +95,24 @@
   // A saved plan is a copy of the financial data of its creation. Once that
   // data moves on, the plan no longer starts from what the user has today;
   // bringing it up to date is a planned feature, so for now the page says so.
-  const outdated = $derived(!readOnly && plan !== undefined && isPlanOutdated(plan, profile))
+  // "I understand" hides the bar on this plan for the rest of the browser
+  // session, and only for the financial data it was closed on: when that
+  // changes again the plan is further out of date and the bar is back.
+  const outdatedKey = $derived(storageKeys.OUTDATED_DISMISSED + planId)
+  const financialDataState = $derived(JSON.stringify(snapshotFinancialData(profile)))
+  let outdatedDismissals = $state(0)
+  const outdatedDismissed = $derived.by(() => {
+    void outdatedDismissals
+    return isDismissed(outdatedKey, financialDataState)
+  })
+  const outdated = $derived(
+    !readOnly && plan !== undefined && !outdatedDismissed && isPlanOutdated(plan, profile),
+  )
+
+  function dismissOutdated() {
+    dismiss(outdatedKey, financialDataState)
+    outdatedDismissals += 1
+  }
   // Nothing on the Current projection can be edited: every "add" opens the
   // Model changes dialog, which starts a plan to make the change in.
   let modelChangesOpen = $state(false)
@@ -573,7 +592,16 @@
 </script>
 
 {#if plan}
-  <div bind:this={pageContainerRef} class="relative flex flex-1 overflow-hidden">
+  {#if outdated}
+    <div role="status" class="flex items-center gap-2 border-b bg-notice p-2.5 text-sm font-medium">
+      <TriangleAlert class="size-6 shrink-0" aria-hidden="true" />
+      <p class="min-w-0 flex-1">{$_('page.plan.outdated')}</p>
+      <Button size="xs" onclick={dismissOutdated}>
+        {$_('page.plan.outdatedDismiss')}
+      </Button>
+    </div>
+  {/if}
+  <div bind:this={pageContainerRef} class="relative flex min-h-0 flex-1 overflow-hidden">
     <!-- Left Panel: Cash flows / Assets -->
     {#if isLeftPanelOpen}
       <div class="flex w-[256px] shrink-0 flex-col gap-2 bg-sidebar p-2">
@@ -733,22 +761,13 @@
           <Button
             variant="ghost"
             size="icon"
-            href={resolve(`${routes.PLAN_VIEW}/${planId}/settings`)}
+            href={resolve(routes.PLAN_SETTINGS, { id: planId ?? '' })}
             aria-label={$_('page.planSettings.title')}
           >
             <Settings2 class="size-4" />
           </Button>
         {/if}
       </div>
-
-      {#if outdated}
-        <div
-          class="flex items-center gap-2 border-b bg-muted px-4 py-2 text-sm text-muted-foreground"
-        >
-          <TriangleAlert class="size-4 shrink-0" />
-          {$_('page.plan.outdated')}
-        </div>
-      {/if}
 
       <!-- Chart -->
       <div

@@ -434,6 +434,11 @@ function withAppStore() {
       const loc = getFormattingLocale(profile.location, browserLocale)
       return parseDateOnly(dateOnly).toLocaleDateString(loc)
     },
+    /** Same, spelled with a short month name ("27 Apr 2026"). */
+    formatDateOnlyMedium(dateOnly: string) {
+      const loc = getFormattingLocale(profile.location, browserLocale)
+      return parseDateOnly(dateOnly).toLocaleDateString(loc, { dateStyle: 'medium' })
+    },
     formatPercent(value: number, digits = 1, signed = false) {
       const loc = getFormattingLocale(profile.location, browserLocale)
       return formatPercent(value, digits, loc, signed)

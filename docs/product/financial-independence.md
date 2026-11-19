@@ -56,7 +56,7 @@ dialog, the FI column in History and the per-year FI% of a projection.
   living-cost one, "expenses plus loan and other liability installments", says
   what the code does. The portfolio one says "minus what you owe", while the
   portfolio value subtracts only loans not secured by an asset
-  (`net-worth.md`), so the tooltip is looser than the rule.
+  (`net-worth.md`). That one is a copy bug, not an open question: #469.
 - The #220 thread also raised counting tangible assets in the portfolio value
   and letting the user try a lower living cost. The revised frame has neither,
   so the dialog does not; either needs its own issue if wanted.

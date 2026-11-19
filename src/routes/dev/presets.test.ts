@@ -27,7 +27,7 @@ describe('dev presets', () => {
     // An empty name is what makes the dev page clear the data instead of importing it.
     expect(preset?.data.profile.name).toBe('')
     expect(preset?.data.portfolios).toEqual([])
-    expect(preset?.startAt).toBe('/profile')
+    expect(preset?.startAt).toBe('/(onboarding)/profile')
   })
 
   test('every preset is loadable data', () => {

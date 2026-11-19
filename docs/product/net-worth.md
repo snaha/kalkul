@@ -9,10 +9,13 @@ counts, and where each is used.
 | ----------------------- | -------------------------------------------------------------- | ----------------------------------------------------------- |
 | Net worth               | `getNetWorth`, `snapshotNetWorth`, `YearlyProjection.netWorth` | Cash, investments and tangible assets minus every liability |
 | Current portfolio value | `getInvestableNetWorth`                                        | Cash plus investments minus loans not secured by an asset   |
+| Investable net worth    | `getInvestableNetWorth`; not a UI label                        | The portfolio value, under the name the code gives it       |
 | Liquid net worth        | `liquidNetWorth` on the projection page                        | Cash plus investments minus every liability                 |
 
-Portfolio value is also called investable net worth; the code uses that name.
-A loan secured by an asset is the financing of a tangible asset, such as a
+Investable net worth is the part of net worth that can be invested or drawn
+on: cash plus investments minus loans not secured by an asset. It is the same
+figure as the portfolio value. The UI says "portfolio value"; the code says
+investable net worth. A loan secured by an asset is the financing of a tangible asset, such as a
 mortgage. A standalone loan is any other liability.
 
 ## Rules
@@ -31,6 +34,8 @@ mortgage. A standalone loan is any other liability.
 - Liquid net worth is net worth minus the tangible assets: cash plus
   investments minus every liability, secured or not. It is shown only among a
   projection's key figures.
+- Investable net worth and portfolio value are one figure with two names, never
+  two numbers.
 - Portfolio value and liquid net worth differ by exactly the loans secured by
   tangible assets. Without a financed asset they are equal.
 - The dashboard's Runway card uses none of the three: it is a month-by-month

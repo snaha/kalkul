@@ -48,7 +48,7 @@
     track(EVENTS.LANDING_TRY_DEMO, { persona: persona.id })
     startDemo(persona, today)
     open = false
-    await goto(resolve(`${routes.PLAN_VIEW}/${DEMO_PLAN_ID}`))
+    await goto(resolve(routes.PLAN_VIEW, { id: DEMO_PLAN_ID }))
   }
 
   async function startWithOwnData(): Promise<void> {

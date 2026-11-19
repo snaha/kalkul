@@ -21,7 +21,7 @@ mortgage counts against the portfolio.
 liability. Portfolio value, also called investable net worth, is cash plus
 investments minus loans not secured by an asset, and is what FI % is measured
 on. Liquid net worth is cash plus investments minus every liability, and
-stays a key figure of a projection. The code already computes all three this
+stays a key figure of a projection for now. The code already computes all three this
 way, so nothing changes in the app; `docs/product/net-worth.md` states them.
 
 **Why.** A mortgage belongs with the house it financed: counting the debt
@@ -31,6 +31,29 @@ cash and investments alone.
 
 **Supersedes.** The open question in `financial-independence.md` on whether a
 mortgage counts against the portfolio value.
+
+## 2026-11-13 The outdated and Last updated notices can be dismissed for the browser session
+
+**Context.** #369 and #407 redesign the two notices that say figures are not
+current: the outdated bar on a projection and the Last updated alert above the
+dashboard's key indicators. Both become yellow and gain a way to close them
+("I understand", and an x). The frames do not say what closing remembers. In
+#369 David proposed remembering nothing, so the bar would return every time
+the projection is opened.
+
+**Decision.** Closing either notice hides it for as long as the browser stays
+open (`sessionStorage`), and it is back in a new session while it still
+applies. Returning on every page visit would make closing pointless for
+someone moving between the dashboard and a projection; forgetting it for good
+would remove the only hint that the figures on screen are projected or out of
+date. Each is dismissed for the state it was closed in, so it returns in the
+same session once that state moves on: the outdated bar per projection and
+for the financial data of that moment, so a further change to financial data
+brings it back; the Last updated alert for the date it names on that profile,
+so it returns once a newer update has gone stale. Closing the Last updated
+alert also puts away its Quick update button, the only one on the dashboard
+and the History page, until the alert returns; the notice is the nudge to
+update, and a user who closes it has declined for now.
 
 ## 2026-11-12 Assets and liabilities share one scale on the plan chart
 

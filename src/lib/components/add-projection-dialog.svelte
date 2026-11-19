@@ -87,7 +87,7 @@
       ),
     )
     close()
-    goto(resolve(`${routes.PLAN_VIEW}/${id}`))
+    goto(resolve(routes.PLAN_VIEW, { id }))
   }
 </script>
 
