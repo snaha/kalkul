@@ -38,7 +38,7 @@
   import { CURRENT_PROJECTION_ID, buildCurrentProjectionPlan } from '$lib/current-projection'
   import { getCurrentProfile } from '$lib/current-values'
   import { DEMO_PLAN_ID } from '$lib/demo'
-  import { isPlanOutdated } from '$lib/plan-base'
+  import { isPlanOutdated, snapshotFinancialData } from '$lib/plan-base'
   import { getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
   import routes from '$lib/routes'
   import type {
@@ -51,6 +51,7 @@
     Transfer,
   } from '$lib/schemas'
   import { getFrequencyShortLabel } from '$lib/select-options'
+  import { dismiss, isDismissed } from '$lib/session-dismissal'
   import storageKeys from '$lib/storage-keys'
   import { appStore } from '$lib/stores/app.svelte'
   import { trackToday } from '$lib/today.svelte'
@@ -94,22 +95,23 @@
   // A saved plan is a copy of the financial data of its creation. Once that
   // data moves on, the plan no longer starts from what the user has today;
   // bringing it up to date is a planned feature, so for now the page says so.
-  // "I understand" hides the banner on this plan for the rest of the browser
-  // session.
-  // ponytail: keyed by plan only, so data changing again in the same session
-  // does not bring it back; key on a hash of the profile if that matters.
-  let outdatedDismissedFor = $state<string>()
-  const outdatedDismissed = $derived(
-    outdatedDismissedFor === planId ||
-      sessionStorage.getItem(storageKeys.OUTDATED_DISMISSED + planId) === '1',
-  )
+  // "I understand" hides the bar on this plan for the rest of the browser
+  // session, and only for the financial data it was closed on: when that
+  // changes again the plan is further out of date and the bar is back.
+  const outdatedKey = $derived(storageKeys.OUTDATED_DISMISSED + planId)
+  const financialDataState = $derived(JSON.stringify(snapshotFinancialData(profile)))
+  let outdatedDismissals = $state(0)
+  const outdatedDismissed = $derived.by(() => {
+    void outdatedDismissals
+    return isDismissed(outdatedKey, financialDataState)
+  })
   const outdated = $derived(
     !readOnly && plan !== undefined && !outdatedDismissed && isPlanOutdated(plan, profile),
   )
 
   function dismissOutdated() {
-    outdatedDismissedFor = planId
-    sessionStorage.setItem(storageKeys.OUTDATED_DISMISSED + planId, '1')
+    dismiss(outdatedKey, financialDataState)
+    outdatedDismissals += 1
   }
   // Nothing on the Current projection can be edited: every "add" opens the
   // Model changes dialog, which starts a plan to make the change in.
@@ -591,7 +593,7 @@
 
 {#if plan}
   {#if outdated}
-    <div class="flex items-center gap-2 border-b bg-notice p-2.5 text-sm font-medium">
+    <div role="status" class="flex items-center gap-2 border-b bg-notice p-2.5 text-sm font-medium">
       <TriangleAlert class="size-6 shrink-0" aria-hidden="true" />
       <p class="min-w-0 flex-1">{$_('page.plan.outdated')}</p>
       <Button size="xs" onclick={dismissOutdated}>

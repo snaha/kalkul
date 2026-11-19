@@ -24,9 +24,14 @@ open (`sessionStorage`), and it is back in a new session while it still
 applies. Returning on every page visit would make closing pointless for
 someone moving between the dashboard and a projection; forgetting it for good
 would remove the only hint that the figures on screen are projected or out of
-date. The outdated bar is dismissed per projection. The Last updated alert is
-dismissed for the date it names, so it returns once a newer update has gone
-stale.
+date. Each is dismissed for the state it was closed in, so it returns in the
+same session once that state moves on: the outdated bar per projection and
+for the financial data of that moment, so a further change to financial data
+brings it back; the Last updated alert for the date it names on that profile,
+so it returns once a newer update has gone stale. Closing the Last updated
+alert also puts away its Quick update button, the only one on the dashboard
+and the History page, until the alert returns; the notice is the nudge to
+update, and a user who closes it has declined for now.
 
 ## 2026-11-12 Assets and liabilities share one scale on the plan chart
 

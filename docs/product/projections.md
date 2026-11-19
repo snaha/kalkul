@@ -61,8 +61,9 @@ data so the plan page can say the projection is outdated.
 The plan page says so in a yellow bar across the top, under the navbar: "Your
 financial data has changed since this projection was created, so the numbers
 may be out of date." Its "I understand" button hides the bar on that
-projection for the rest of the browser session (`sessionStorage`); it is back
-in a new session for as long as the projection is outdated.
+projection for the rest of the browser session (`sessionStorage`). It is back
+when financial data changes again, and in a new session for as long as the
+projection is outdated.
 
 Bringing a projection up to date with current financial data is a planned
 feature, not built yet. When it comes, `base` is the common ancestor of the

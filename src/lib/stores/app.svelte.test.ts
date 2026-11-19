@@ -1086,3 +1086,19 @@ describe('appStore.onDataChange', () => {
     expect(changes).toEqual([])
   })
 })
+
+describe('formatDateOnlyMedium', () => {
+  afterEach(() => {
+    appStore.browserLocale = undefined
+  })
+
+  it('spells the month with a short name', () => {
+    appStore.browserLocale = 'en-GB'
+    expect(appStore.formatDateOnlyMedium('2026-04-27')).toBe('27 Apr 2026')
+  })
+
+  it('follows the locale where it writes dates in numbers', () => {
+    appStore.browserLocale = 'cs-CZ'
+    expect(appStore.formatDateOnlyMedium('2026-09-01')).toBe('1. 9. 2026')
+  })
+})

@@ -25,8 +25,8 @@ export default {
   WEB_MCP: 'kalkul-web-mcp',
   /** localStorage — random anonymous id handed to Umami so a returning browser counts once. */
   ANALYTICS_ID: 'kalkul-analytics-id',
-  /** sessionStorage — snapshot date the dashboard's Last updated alert was dismissed for. */
+  /** sessionStorage — snapshot date and profile the Last updated alert was dismissed for. */
   STALE_DISMISSED: 'kalkul-stale-dismissed',
-  /** sessionStorage — prefix, followed by a plan id: '1' once that plan's outdated bar was dismissed. */
+  /** sessionStorage — prefix, followed by a plan id: the financial data that plan's outdated bar was dismissed on. */
   OUTDATED_DISMISSED: 'kalkul-outdated-dismissed:',
 } as const
