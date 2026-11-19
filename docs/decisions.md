@@ -153,6 +153,29 @@ estimate that needs no purchase history. Flat fields rather than a nested
 object keep one storage shape for both calculation settings and keep the
 fields-only save rule.
 
+## 2026-11-05 A snapshot's unrecorded cash flows stay unrecorded
+
+**Context.** Snapshots saved before cash flows were recorded, a window of about
+four days in September, were filled from the profile's current flows on load,
+and the next save stored those as if recorded on that date. #287 proposed
+leaving them absent in storage and falling back at read time.
+
+**Decision.** Nothing fills them in, in storage or at read time. An omitted list
+means nothing was recorded, as in every other section of a snapshot, and a
+History row without recorded expenses shows a dash for Financial independence,
+in the table and in the chart's tooltip, and for the runway in the tooltip. The
+snapshot dialog opens such flows at zero, and confirming it saves those zeros.
+This settles #287 differently from what it proposed. (#396)
+
+**Why.** Browsers that saved since September already hold the filled-in flows,
+and those look exactly like recorded ones, so a read-time fallback could not
+correct them. That leaves only browsers that have not saved since and backups
+from that window, which does not justify a fallback before Kalkul has users to
+keep. The dash is there because financial independence or a runway measured
+without the day's expenses would count loan payments alone as the cost of
+living. Zeros in the dialog are accepted because the case is rare and a zero
+looks wrong on screen.
+
 ## 2026-11-05 No capital gains tax rules in Settings
 
 **Context.** The Settings page let the user enter default capital gains tax

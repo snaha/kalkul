@@ -143,11 +143,9 @@ describe('buildSnapshotSections', () => {
   })
 
   test('opens a cash flow the snapshot has no entry for at zero', () => {
-    // One meaning for an omission everywhere: nothing recorded. Snapshots
-    // stored before cash flows were recorded are filled in from the profile at
-    // the load boundary (`repairStoredData`), so they never reach the dialog
-    // empty. The frequency still comes from the profile — a field opening at
-    // zero has to carry some cadence in its suffix.
+    // One meaning for an omission everywhere: nothing recorded. The frequency
+    // still comes from the profile — a field opening at zero has to carry some
+    // cadence in its suffix.
     //
     // This holds on the newest snapshot's own date too, where the estimate runs
     // on the profile's flows: a salary entered since records nothing, and an

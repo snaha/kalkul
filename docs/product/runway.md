@@ -67,7 +67,7 @@ Runway card on the dashboard and its settings dialog.
   Reset puts the switches back to the defaults without applying.
 - The History chart's tooltip shows the runway on each recorded date, computed
   from that date's balances and flows with today's settings, as the FI column
-  uses today's rate.
+  uses today's rate. A date whose expenses were never recorded shows a dash.
 
 ## Worked examples
 

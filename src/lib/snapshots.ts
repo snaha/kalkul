@@ -344,9 +344,7 @@ const MISSING_CASH_FLOW = {
  * own debt.
  *
  * Every section reads an omission the same way: nothing was recorded, so
- * nothing counts. Snapshots written before cash flows were recorded are filled
- * in from the profile at the load boundary (`repairStoredData` in
- * `schemas.ts`), so by the time one reaches here undefined has one meaning.
+ * nothing counts.
  */
 export function profileAtSnapshot(profile: Profile, snapshot: Snapshot): Profile {
   const investments = byId(profile.investments)
