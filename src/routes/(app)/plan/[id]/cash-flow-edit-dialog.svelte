@@ -210,13 +210,9 @@
 <ItemEditDialogShell
   bind:open
   {onOpenChange}
-  name={form.name}
   {isNew}
-  newTitle={isNew
-    ? kind === 'income'
-      ? $_('page.plan.newIncome')
-      : $_('page.plan.newExpense')
-    : undefined}
+  newTitle={kind === 'income' ? $_('page.plan.newIncome') : $_('page.plan.newExpense')}
+  editTitle={kind === 'income' ? $_('page.plan.editIncome') : $_('page.plan.editExpense')}
   saveDisabled={!canSave}
   footerClass="bg-muted"
   onSave={save}
@@ -224,16 +220,16 @@
 >
   {#if imported}
     <LocalOverrideNotice kind="cashFlow" />
-  {:else}
-    <div class="flex flex-col gap-2">
-      <Label for="{uid}-cashFlowName">{$_('page.plan.cashFlowLabelLabel')}</Label>
-      <Input
-        id="{uid}-cashFlowName"
-        value={form.name}
-        oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
-      />
-    </div>
   {/if}
+
+  <div class="flex flex-col gap-2">
+    <Label for="{uid}-cashFlowName">{$_('page.plan.cashFlowLabelLabel')}</Label>
+    <Input
+      id="{uid}-cashFlowName"
+      value={form.name}
+      oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
+    />
+  </div>
 
   <!-- Type + (one-time) Date / (recurring) Frequency -->
   <div class="flex items-end gap-2">

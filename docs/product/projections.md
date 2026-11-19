@@ -112,8 +112,9 @@ not. The plan dialogs tell them apart by one fact: whether the item's id is in
 its list in `base` (`isImportedPlanItem`), the same fact the engine uses for
 existing debt. An imported item's dialog opens with a "Local override" notice
 (edits stay in this projection; it calls an income, expense or transfer "this
-cash flow" and anything else "this asset"), has no name field, and keeps its less-used
-fields in sections that are closed until the user opens them:
+cash flow" and anything else "this asset"), and keeps its less-used fields in sections that are
+closed until the user opens them. Every dialog is titled by what it does ("Add income", "Edit
+income") and starts with a Label field holding the item's name:
 
 | Item           | Always shown                                                        | Section                                            | Not shown              |
 | -------------- | ------------------------------------------------------------------- | -------------------------------------------------- | ---------------------- |
@@ -128,9 +129,9 @@ transfer, a value for a tangible asset, and a balance owed for a liability or a 
 investment may be saved empty, to be fed by transfers, and cash may be 0.
 
 Balances and values are as of the projection's start. A field that is not
-shown keeps whatever the item stores. An imported item is not renamed in a
-projection: its name is the one financial data gives it. An item added in the
-plan keeps the full dialog, with the name, its start or purchase, and the
+shown keeps whatever the item stores. Renaming an imported item renames it in this projection only,
+like any other edit there. An item added in the
+plan keeps the full dialog, with its start or purchase and the
 "Show advanced options" switch. The cash dialog always shows the notice, since
 a plan's opening cash is always copied from financial data. The planned sale of a tangible asset is
 the same field for both. An investment has no exit in any dialog: money leaves it through a transfer,

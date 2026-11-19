@@ -402,7 +402,6 @@
 <ItemEditDialogShell
   bind:open
   {onOpenChange}
-  name={form.name}
   {isNew}
   saveDisabled={!canSave}
   badge={kind === 'tangibleAsset' && form.status === 'financed' && !isNew
@@ -411,6 +410,9 @@
   newTitle={kind === 'investment'
     ? $_('page.plan.addInvestmentTitle')
     : $_('page.plan.addTangibleAssetTitle')}
+  editTitle={kind === 'investment'
+    ? $_('page.plan.editInvestmentTitle')
+    : $_('page.plan.editTangibleAssetTitle')}
   footer={imported ? undefined : assetFooter}
   footerClass={imported ? 'bg-muted' : undefined}
   onSave={save}
@@ -419,16 +421,16 @@
   {#if kind === 'investment'}
     {#if imported}
       <LocalOverrideNotice />
-    {:else}
-      <div class="flex flex-col gap-2">
-        <Label for="{uid}-investmentLabel">{$_('page.plan.investmentLabel')}</Label>
-        <Input
-          id="{uid}-investmentLabel"
-          value={form.name}
-          oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
-        />
-      </div>
     {/if}
+
+    <div class="flex flex-col gap-2">
+      <Label for="{uid}-investmentLabel">{$_('page.plan.investmentLabel')}</Label>
+      <Input
+        id="{uid}-investmentLabel"
+        value={form.name}
+        oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
+      />
+    </div>
 
     <InvestmentFields
       bind:item={form}
@@ -445,16 +447,16 @@
   {:else}
     {#if imported}
       <LocalOverrideNotice />
-    {:else}
-      <div class="flex flex-col gap-2">
-        <Label for="{uid}-tangibleLabel">{$_('page.plan.investmentLabel')}</Label>
-        <Input
-          id="{uid}-tangibleLabel"
-          value={form.name}
-          oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
-        />
-      </div>
     {/if}
+
+    <div class="flex flex-col gap-2">
+      <Label for="{uid}-tangibleLabel">{$_('page.plan.investmentLabel')}</Label>
+      <Input
+        id="{uid}-tangibleLabel"
+        value={form.name}
+        oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
+      />
+    </div>
 
     <TangibleAssetFields
       bind:item={form}

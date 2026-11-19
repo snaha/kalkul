@@ -13,12 +13,12 @@
   interface Props {
     open: boolean
     onOpenChange: (open: boolean) => void
-    /** Current item name, shown as the dialog title. */
-    name: string
     /** New items get the Create footer, without the delete button. */
     isNew: boolean
-    /** Title shown in place of the name while isNew. */
-    newTitle?: string
+    /** "Add investment" and the like, shown while isNew. */
+    newTitle: string
+    /** "Edit investment" and the like. The name is edited in the Label field. */
+    editTitle: string
     /** Replaces the default footer when given. */
     footer?: Snippet
     /** Extra footer classes, e.g. the muted background some Figma footers have. */
@@ -34,9 +34,9 @@
   let {
     open = $bindable(),
     onOpenChange,
-    name,
     isNew,
     newTitle,
+    editTitle,
     footer,
     footerClass,
     badge,
@@ -60,7 +60,7 @@
       <!-- The badge sits right beside the title (Figma 1382), not at the far right. -->
       <div class="flex min-w-0 flex-1 items-center gap-2">
         <Dialog.Title class="truncate text-base font-medium">
-          {isNew && newTitle ? newTitle : name}
+          {isNew ? newTitle : editTitle}
         </Dialog.Title>
         {#if badge}
           <Badge variant="secondary" class="shrink-0">{badge}</Badge>
