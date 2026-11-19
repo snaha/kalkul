@@ -26,7 +26,6 @@ const config: KnipConfig = {
   project: ['src/**/*!', 'scripts/**', 'server/**'],
   paths: {
     '$app/*': ['node_modules/@sveltejs/kit/src/runtime/app/*'],
-    '$env/*': ['.svelte-kit/ambient.d.ts'],
     '$lib/*': ['src/lib/*'],
     '$examples/*': ['examples/*'],
   },

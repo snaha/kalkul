@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { util } from 'zod/v4/core'
 
 // The MCP SDK builds its object schemas on import, before ours.
-import '$lib/mcp/server'
+import '$lib/mcp/mcp-server'
 import '$lib/schemas'
 
 describe('zod config', () => {
