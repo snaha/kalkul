@@ -43,8 +43,7 @@
           a.installment_amount !== undefined && a.installment_amount > 0
             ? a.installment_amount
             : undefined,
-        remaining_term:
-          a.remaining_term !== undefined && a.remaining_term > 0 ? a.remaining_term : undefined,
+        remaining_term: a.remaining_term,
         remaining_term_unit: a.remaining_term_unit ?? 'years',
         interest_type: a.interest_type,
         compounding_frequency: a.compounding_frequency,

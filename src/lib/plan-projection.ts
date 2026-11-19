@@ -336,8 +336,8 @@ export interface LoanTerms {
   outstanding_balance: number
   installment_frequency: Frequency
   annual_rate: number
-  /** Term in years. */
-  remaining_term: number
+  /** Term in years; absent when the loan has no scheduled end. */
+  remaining_term?: number
   interest_type?: InterestType
   compounding_frequency?: CompoundingFrequency
 }
@@ -351,7 +351,7 @@ export interface LoanTerms {
  */
 export function installmentAmountForLoan(loan: LoanTerms): number | undefined {
   const principal = new Decimal(loan.outstanding_balance)
-  const periods = new Decimal(loan.remaining_term).mul(
+  const periods = new Decimal(loan.remaining_term ?? 0).mul(
     INSTALLMENT_PERIODS_PER_YEAR[loan.installment_frequency],
   )
   if (principal.lessThanOrEqualTo(0) || periods.lessThanOrEqualTo(0)) return undefined
@@ -411,6 +411,7 @@ export function termYearsForLoan(
  * fractional final period.
  */
 export function remainingInstallmentPeriods(liability: ProfileLiability): number {
+  if (liability.remaining_term === undefined) return Infinity
   return Math.round(
     remainingTermPeriods(
       liability.remaining_term,
@@ -418,18 +419,6 @@ export function remainingInstallmentPeriods(liability: ProfileLiability): number
       INSTALLMENT_PERIODS_PER_YEAR[liability.installment_frequency],
     ),
   )
-}
-
-/**
- * Whether a loan has no scheduled end: it has no term. The dialogs store an
- * empty term as 0. Such a loan adds its interest and takes its installment off
- * each period for as long as anything is owed, so with no installment, or one
- * below the interest, it grows.
- *
- * Exported so `current-values.ts` carries such a loan forward the same way.
- */
-export function hasOpenTerm(liability: Pick<ProfileLiability, 'remaining_term'>): boolean {
-  return !(liability.remaining_term > 0)
 }
 
 function simulateLiability(
@@ -450,9 +439,14 @@ function simulateLiability(
   let balance = new Decimal(liability.outstanding_balance)
   // A loan without a term has no scheduled end: it is paid until nothing is
   // owed (#457), and with no installment either it only accrues its interest.
-  let periodsRemaining = hasOpenTerm(liability)
-    ? Infinity
-    : remainingTermPeriods(liability.remaining_term, liability.remaining_term_unit, periodsPerYear)
+  let periodsRemaining =
+    liability.remaining_term === undefined
+      ? Infinity
+      : remainingTermPeriods(
+          liability.remaining_term,
+          liability.remaining_term_unit,
+          periodsPerYear,
+        )
 
   const outstandingByYear = new Map<number, Decimal>()
   const paidByYear = new Map<number, Decimal>()
@@ -511,8 +505,7 @@ export function financingToLiability(asset: ProfileTangibleAsset): ProfileLiabil
     asset.outstanding_balance === undefined ||
     asset.installment_frequency === undefined ||
     asset.annual_rate === undefined ||
-    asset.installment_amount === undefined ||
-    asset.remaining_term === undefined
+    asset.installment_amount === undefined
   )
     return undefined
   return {

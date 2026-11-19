@@ -14,7 +14,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
   import { createListEditor } from '$lib/list-editor.svelte'
-  import { rederiveLoanPair } from '$lib/loan-pair'
+  import { enteredTerm, rederiveLoanPair } from '$lib/loan-pair'
   import type {
     CompoundingFrequency,
     Frequency,
@@ -63,7 +63,7 @@
       installment_frequency: l.installment_frequency,
       annual_rate: l.annual_rate > 0 ? l.annual_rate : undefined,
       installment_amount: l.installment_amount > 0 ? l.installment_amount : undefined,
-      remaining_term: l.remaining_term > 0 ? l.remaining_term : undefined,
+      remaining_term: l.remaining_term,
       remaining_term_unit: l.remaining_term_unit ?? 'years',
       // Legacy rows omit interest_type (the engine compounds at the installment
       // frequency); a stored compounding frequency means they were compound,
@@ -103,7 +103,7 @@
       installment_frequency: l.installment_frequency,
       annual_rate: l.annual_rate ?? 0,
       installment_amount: l.installment_amount ?? 0,
-      remaining_term: l.remaining_term ?? 0,
+      remaining_term: enteredTerm(l.remaining_term),
       remaining_term_unit: l.remaining_term_unit,
       // Compound interest requires a cadence (enforced by the schema);
       // 'simple' has none, so any stale frequency is dropped.

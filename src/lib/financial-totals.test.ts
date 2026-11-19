@@ -508,7 +508,6 @@ describe('hasAnyFinancialData', () => {
           installment_frequency: 'monthly',
           annual_rate: 0,
           installment_amount: 0,
-          remaining_term: 0,
         },
       ],
     }
@@ -549,7 +548,6 @@ describe('hasAnyFinancialData', () => {
           installment_frequency: 'monthly',
           annual_rate: 0,
           installment_amount: 0,
-          remaining_term: 0,
         },
       ],
     }

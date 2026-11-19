@@ -9,7 +9,7 @@
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
-  import { rederiveLoanPair } from '$lib/loan-pair'
+  import { enteredTerm, rederiveLoanPair } from '$lib/loan-pair'
   import { removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
   import { planRangeOf, timingWithinPlan } from '$lib/plan-range'
   import type {
@@ -206,8 +206,7 @@
         a.installment_amount !== undefined && a.installment_amount > 0
           ? a.installment_amount
           : undefined
-      f.remaining_term =
-        a.remaining_term !== undefined && a.remaining_term > 0 ? a.remaining_term : undefined
+      f.remaining_term = a.remaining_term
       f.remaining_term_unit = a.remaining_term_unit ?? 'years'
       f.interest_type = a.interest_type ?? 'compound'
       f.compounding_frequency = a.compounding_frequency
@@ -315,7 +314,7 @@
       installment_frequency: f.status === 'financed' ? f.installment_frequency : undefined,
       annual_rate: f.status === 'financed' ? (f.annual_rate ?? 0) : undefined,
       installment_amount: f.status === 'financed' ? (f.installment_amount ?? 0) : undefined,
-      remaining_term: f.status === 'financed' ? (f.remaining_term ?? 0) : undefined,
+      remaining_term: f.status === 'financed' ? enteredTerm(f.remaining_term) : undefined,
       remaining_term_unit: f.status === 'financed' ? f.remaining_term_unit : undefined,
       // Defaults collapse to undefined: no planned timing is the norm.
       purchase: f.purchase !== 'immediately' ? f.purchase : undefined,
