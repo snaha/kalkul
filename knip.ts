@@ -31,6 +31,12 @@ const config: KnipConfig = {
     '$examples/*': ['examples/*'],
   },
   ignore: ['scripts/test-locales-examples.svelte'],
+  // The shadcn-svelte CLI generates each ui/*/index.ts barrel with every part
+  // and alias of the component. Unused ones stay, so the files match what the
+  // CLI writes; an unused file under ui/ is still reported.
+  ignoreIssues: {
+    'src/lib/components/ui/**/index.ts': ['exports', 'types'],
+  },
   ignoreExportsUsedInFile: true,
 }
 
