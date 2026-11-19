@@ -267,8 +267,9 @@ function amortizeLoan(liability: ProfileLiability, yearFraction: Decimal): Amort
   const periodsPerYear = INSTALLMENT_PERIODS_PER_YEAR[liability.installment_frequency]
   const periodRate = installmentPeriodRate(liability)
   const installment = new Decimal(liability.installment_amount)
-  // A loan with an installment and no term is paid until nothing is owed, as
-  // in the projection; its term stays empty.
+  // A loan with no term is paid until nothing is owed, or only accrues its
+  // interest when it has no installment, as in the projection; its term stays
+  // empty.
   const openTerm = hasOpenTerm(liability)
   let periodsRemaining = openTerm ? Infinity : remainingInstallmentPeriods(liability)
   // Never pay past the end of the loan's own term.

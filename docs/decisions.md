@@ -140,15 +140,19 @@ read a term of 0 as "no installments left": the principal landed in cash and
 the debt stayed at its full balance for the whole plan. The alternative was
 to require a term on every loan with a balance.
 
-**Decision.** The term stays optional. A loan with an installment and no term
-is paid by its installments until nothing is owed; if the installment does
-not cover the interest, the debt grows. Requiring a term was rejected because
-a term of 0 is also what Quick update and the history write when they know
-only a balance, and because the runway already treats such a loan this way.
-The dashboard's carried-forward balances follow the same rule.
+**Decision.** The term stays optional. A loan without a term is paid by its
+installments until nothing is owed; if the installment does not cover the
+interest, the debt grows. A loan with no installment either accrues its whole
+interest, since leaving it flat would ignore the rate the user entered while
+the two neighbouring cases (a term with no installment, an installment below
+the interest) both charge it; it is repaid by a planned pay-off date or a
+term. Requiring a term was rejected because a term of 0 is also what Quick
+update and the history write when they know only a balance (at 0%, so those
+stay flat), and because the runway already pays a termless loan by its
+installments. The dashboard's carried-forward balances follow the same rule.
 
-**Not decided.** A loan with neither a term nor an installment stays at the
-balance entered and accrues no interest, as before.
+**Not decided.** The runway still leaves a loan with no installment at the
+balance entered, as `docs/product/runway.md` states.
 
 **Supersedes.** Nothing written; the engine's unstated reading of a term of 0
 as a finished loan.

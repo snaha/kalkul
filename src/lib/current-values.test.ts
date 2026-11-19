@@ -184,6 +184,17 @@ describe('getCurrentProfile', () => {
     expect(carried.remaining_term).toBe(0)
   })
 
+  test('adds the interest to a liability with no term and no installment', () => {
+    // Nothing is paid, so five months of interest at 5 % a year are owed on top.
+    const profile: Profile = {
+      ...PROFILE,
+      liabilities: [{ ...PROFILE.liabilities![0], remaining_term: 0, installment_amount: 0 }],
+    }
+    const carried = getCurrentProfile(profile, TODAY).liabilities![0]
+    expect(carried.outstanding_balance).toBe(6_126)
+    expect(carried.remaining_term).toBe(0)
+  })
+
   test('floors a liability that pays off inside the window at zero', () => {
     const profile: Profile = {
       ...PROFILE,

@@ -3732,14 +3732,35 @@ describe('a loan without a term (#457)', () => {
     expect(result.slice(0, 3).map((r) => Math.round(r.liabilities))).toEqual([1040, 1084, 1132])
   })
 
-  it('stays as it is when it has no installment either', () => {
+  // No installment either: nothing is ever paid, so the interest is added to
+  // what is owed. 10 % a year on 1,000: 1,100, then 1,210, then 1,331.
+  const unpaid: ProfileLiability = { ...loan, annual_rate: 10, installment_amount: 0 }
+
+  it('accrues its interest when it has no installment either', () => {
+    const result = project({ ...plan, liabilities: [unpaid] }, makeProfile())
+    expect(result.map((r) => Math.round(r.liabilities))).toEqual([
+      1100, 1210, 1331, 1464, 1611, 1772,
+    ])
+    expect(result.map((r) => Math.round(r.cash))).toEqual([1000, 1000, 1000, 1000, 1000, 1000])
+  })
+
+  it('stays as entered with no installment and no interest', () => {
     const result = project(
-      { ...plan, liabilities: [{ ...loan, annual_rate: 10, installment_amount: 0 }] },
+      { ...plan, liabilities: [{ ...loan, installment_amount: 0 }] },
       makeProfile(),
     )
     expect(result.map((r) => Math.round(r.liabilities))).toEqual([
       1000, 1000, 1000, 1000, 1000, 1000,
     ])
+  })
+
+  it('is repaid with its interest at a planned pay-off', () => {
+    const liabilities: ProfileLiability[] = [
+      { ...unpaid, pay_off: 'at_specific_date', pay_off_year: 2027, pay_off_month: 12 },
+    ]
+    const result = project({ ...plan, liabilities }, makeProfile({ cash_amount: 1000 }))
+    expect(result.map((r) => Math.round(r.liabilities))).toEqual([1100, 1210, 0, 0, 0, 0])
+    expect(result.map((r) => Math.round(r.cash))).toEqual([2000, 2000, 669, 669, 669, 669])
   })
 
   it('is paid down on a financed asset too', () => {
