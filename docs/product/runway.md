@@ -62,7 +62,7 @@ Runway card on the dashboard and its settings dialog.
 - The settings are flat fields on the profile, one per switch, absent meaning
   the default. They are settings, not financial data: a projection does not
   copy them, and the per-year runway in a projection keeps its ratio of
-  investable wealth to outflows (`getYearlyPlanProjection`).
+  portfolio value (`net-worth.md`) to outflows (`getYearlyPlanProjection`).
 - The dialog previews the edit live; Apply writes only the fields that changed;
   Reset puts the switches back to the defaults without applying.
 - The History chart's tooltip shows the runway on each recorded date, computed

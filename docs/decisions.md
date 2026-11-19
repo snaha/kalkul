@@ -10,6 +10,28 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-19 Net worth, portfolio value and liquid net worth are three figures
+
+**Context.** The app had three wealth totals and no stated definition for
+them: the code said "investable net worth", the FI dialog "portfolio value",
+the projection page "liquid net worth", and the FI doc left open whether a
+mortgage counts against the portfolio.
+
+**Decision.** Net worth is cash, investments and tangible assets minus every
+liability. Portfolio value, also called investable net worth, is cash plus
+investments minus loans not secured by an asset, and is what FI % is measured
+on. Liquid net worth is cash plus investments minus every liability, and
+stays a key figure of a projection for now. The code already computes all three this
+way, so nothing changes in the app; `docs/product/net-worth.md` states them.
+
+**Why.** A mortgage belongs with the house it financed: counting the debt
+while leaving the house out would put most homeowners at FI 0 %. Liquid net
+worth keeps the stricter view, what is left if every debt were paid from
+cash and investments alone.
+
+**Supersedes.** The open question in `financial-independence.md` on whether a
+mortgage counts against the portfolio value.
+
 ## 2026-11-13 The outdated and Last updated notices can be dismissed for the browser session
 
 **Context.** #369 and #407 redesign the two notices that say figures are not
