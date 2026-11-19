@@ -7,10 +7,14 @@ name: Dependency audit
 # that is no longer reported.
 #
 # Called by deploy-prod.yaml before a production deploy. PR previews are not
-# gated. On a pull request it runs only when dependencies change.
+# gated. On a pull request it runs only when dependencies change. It also runs
+# every Monday, so a new advisory shows up on its own rather than in the middle
+# of an unrelated deploy.
 on:
   workflow_call:
   workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'
   pull_request:
     paths:
       - 'pnpm-lock.yaml'
