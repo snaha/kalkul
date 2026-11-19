@@ -114,8 +114,9 @@ not afford the purchase.
 ### A loan without a term is paid until nothing is owed
 
 A loan's term is optional. With a term, the loan runs for that many
-installments and the last one settles whatever is left. Without one (stored as
-`remaining_term: 0`), the loan has no scheduled end: each period adds the
+installments and the last one settles whatever is left. Without one
+(`remaining_term` is absent; a stored term is always positive), the loan has
+no scheduled end: each period adds the
 interest and takes the installment off, until nothing is owed, and the last
 installment is only what is left. If the installment does not cover the
 interest, the debt grows for as long as the projection runs. With no
@@ -243,9 +244,11 @@ rather than papering over it.
   age in its month; `ageRangeEmpty` in `src/lib/schemas.ts` rejects an empty
   range of ages and `timingWithinPlan` in `src/lib/plan-range.ts` an end
   with no month left in the plan.
-- `hasOpenTerm` in `src/lib/plan-projection.ts` says when a loan has no
-  scheduled end; `simulateLiability` there and `amortizeLoan` in
-  `src/lib/current-values.ts` both follow it.
+- `loanTermSchema` in `src/lib/schemas.ts` types the term: positive or
+  absent. `simulateLiability` in `src/lib/plan-projection.ts` and
+  `amortizeLoan` in `src/lib/current-values.ts` run a loan without one
+  open-ended, and `enteredTerm` in `src/lib/loan-pair.ts` is how a form field
+  becomes a stored term.
 - `financedAmount` and `seededDownPayment` in `src/lib/tangible-asset-form.ts`
   hold the down-payment rule; the plan asset dialog is their only caller.
 - The engine is `src/lib/plan-projection.ts`; the MCP tools in

@@ -151,8 +151,8 @@ function loanOf(l: ProfileLiability, assetId?: string): Loan | undefined {
   const periodsPerMonth = new Decimal(INSTALLMENT_PERIODS_PER_YEAR[l.installment_frequency]).div(
     DECIMAL_12,
   )
-  const months =
-    l.remaining_term_unit === 'months' ? l.remaining_term : l.remaining_term * MONTHS_PER_YEAR
+  const term = l.remaining_term ?? 0
+  const months = l.remaining_term_unit === 'months' ? term : term * MONTHS_PER_YEAR
   // A loan with no installment is never paid, but it is still owed, so a sale
   // of its asset settles the balance as it stands.
   const scheduled = l.installment_amount > 0

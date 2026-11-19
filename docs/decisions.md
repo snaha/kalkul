@@ -10,6 +10,26 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-19 "No term" is an absent term, never 0
+
+**Context.** A loan without a term was stored as `remaining_term: 0`, and six
+forms converted an empty field to 0 and back. The same 0 also meant "this
+loan has run out its term" in the figures carried forward to today, and a
+financed asset was required to have a term at all.
+
+**Decision.** A stored term is positive or absent, on liabilities, financed
+assets and snapshot entries; absent means the loan has no scheduled end. A
+financed asset no longer needs a term. A loan that has run out its term is
+carried forward with no term and nothing owed. Stored data holding a term of
+0 is repaired on load by dropping it.
+
+In a snapshot entry an absent term already meant "not recorded, the loan's
+own term stands". It now also covers "recorded as having no term": rewinding
+to such a snapshot uses the loan's current term, which differs only if a term
+was added since. A separate marker was judged not worth the format.
+
+**Supersedes.** The 0 in the entry below; the rule there is unchanged.
+
 ## 2026-11-19 A loan without a term is paid until nothing is owed
 
 **Context.** #457: the liability dialog saves a loan with an installment and

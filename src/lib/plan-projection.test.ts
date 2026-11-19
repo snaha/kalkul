@@ -3696,7 +3696,7 @@ describe('liability start and pay-off', () => {
 })
 
 describe('a loan without a term (#457)', () => {
-  // 1,000 at 0 %, 250 a year, no term: the dialog stores an empty term as 0.
+  // 1,000 at 0 %, 250 a year, and no term.
   const loan: ProfileLiability = {
     id: 'l1',
     name: 'Loan',
@@ -3704,7 +3704,6 @@ describe('a loan without a term (#457)', () => {
     installment_frequency: 'yearly',
     annual_rate: 0,
     installment_amount: 250,
-    remaining_term: 0,
   }
   const plan = makePlan({ start_date: '2025-01-01', end_date: '2030-01-01' })
 
@@ -3774,7 +3773,6 @@ describe('a loan without a term (#457)', () => {
         installment_frequency: 'yearly',
         annual_rate: 0,
         installment_amount: 250,
-        remaining_term: 0,
       },
     ]
     const result = project(plan, makeProfile({ cash_amount: 1000, tangible_assets }))
@@ -3802,7 +3800,6 @@ describe('loan installment / term derivation', () => {
     expect(
       termYearsForLoan({
         ...base,
-        remaining_term: 0,
         installment_amount: payment as number,
       }),
     ).toBeCloseTo(1, 3)
@@ -3827,7 +3824,6 @@ describe('loan installment / term derivation', () => {
         outstanding_balance: 12000,
         installment_frequency: 'monthly',
         annual_rate: 6,
-        remaining_term: 0,
         installment_amount: 10,
       }),
     ).toBeUndefined()

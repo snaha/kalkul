@@ -12,7 +12,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
   import { Switch } from '$lib/components/ui/switch'
-  import { type LoanPairAnchor, rederiveLoanPair } from '$lib/loan-pair'
+  import { type LoanPairAnchor, enteredTerm, rederiveLoanPair } from '$lib/loan-pair'
   import { removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
   import { planRangeOf, planYearOptions, timingWithinPlan } from '$lib/plan-range'
   import type {
@@ -107,7 +107,7 @@
     f.installment_frequency = src.installment_frequency
     f.annual_rate = src.annual_rate > 0 ? src.annual_rate : undefined
     f.installment_amount = src.installment_amount > 0 ? src.installment_amount : undefined
-    f.remaining_term = src.remaining_term > 0 ? src.remaining_term : undefined
+    f.remaining_term = src.remaining_term
     f.remaining_term_unit = src.remaining_term_unit ?? 'years'
     f.start = src.start ?? 'immediately'
     f.start_year = src.start_year
@@ -132,7 +132,7 @@
       installment_frequency: f.installment_frequency,
       annual_rate: f.annual_rate ?? 0,
       installment_amount: f.installment_amount ?? 0,
-      remaining_term: f.remaining_term ?? 0,
+      remaining_term: enteredTerm(f.remaining_term),
       remaining_term_unit: f.remaining_term_unit,
       // 'immediately' is the engine default, so it collapses to undefined.
       ...(f.start !== 'immediately'

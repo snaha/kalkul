@@ -30,6 +30,10 @@ export const tangibleAssetStatusSchema = z.enum(['fully_owned', 'financed'])
 // stored data stays valid without a migration.
 export const remainingTermUnitSchema = z.enum(['years', 'months'])
 
+// How long a loan still runs, in `remaining_term_unit`. Absent means the loan
+// has no scheduled end (docs/product/projections.md); a term is never 0.
+const loanTermSchema = z.number().positive().optional()
+
 export const planStartTypeSchema = z.enum(['now', 'at_specific_date'])
 
 export const planEndTypeSchema = z.enum(['when_age_is', 'at_specific_date'])
@@ -212,6 +216,24 @@ function repairZeroMonths(item: unknown): void {
 }
 
 /**
+ * Drops a loan term stored as 0 or less. "No term" used to be written as 0 and
+ * is now an absent term, which is all `loanTermSchema` accepts besides a
+ * positive one.
+ */
+function repairLoanTerms(owner: unknown): void {
+  if (!isRecord(owner)) return
+  for (const key of ['liabilities', 'tangible_assets']) {
+    const loans = owner[key]
+    if (!Array.isArray(loans)) continue
+    for (const loan of loans) {
+      if (!isRecord(loan)) continue
+      const term = loan.remaining_term
+      if (typeof term === 'number' && !(term > 0)) delete loan.remaining_term
+    }
+  }
+}
+
+/**
  * Fills in the cash flows a stored snapshot predates, from the profile's
  * current ones — the best estimate available for a date nothing was recorded
  * for.
@@ -255,7 +277,7 @@ function repairSnapshot(snapshot: unknown, profile: Record<string, unknown>): vo
  * make `loadData()` fall back to the empty default profile and overwrite the
  * user's entire dataset on the next persist.
  *
- * Five repairs today. Data persisted before the same-year month-order rule
+ * Six repairs today. Data persisted before the same-year month-order rule
  * existed may hold a cash flow whose start month is after its end month, which
  * `storedDataSchema` now rejects; the two months are swapped, so both
  * user-entered values survive and the flow spans the range the user visibly
@@ -264,8 +286,9 @@ function repairSnapshot(snapshot: unknown, profile: Record<string, unknown>): vo
  * timing month stored as 0 by the old zero-based selector becomes January
  * (`repairZeroMonths`). A transfer stored with an empty endpoint, from before
  * the schema required both (#305), is dropped. A plan without a `base` gets
- * its copy of financial data (`materializePlans`). And snapshots are filled in
- * as `repairSnapshot` describes.
+ * its copy of financial data (`materializePlans`). Snapshots are filled in
+ * as `repairSnapshot` describes. And a loan term stored as 0 is dropped
+ * (`repairLoanTerms`).
  */
 export function repairStoredData(data: unknown, today = new Date()): unknown {
   if (!isRecord(data)) return data
@@ -282,6 +305,10 @@ export function repairStoredData(data: unknown, today = new Date()): unknown {
       const items = owner[key]
       if (Array.isArray(items)) for (const item of items) repairZeroMonths(item)
     }
+    // A plan's base and every snapshot hold loans as well.
+    repairLoanTerms(owner)
+    repairLoanTerms(owner.base)
+    if (Array.isArray(owner.snapshots)) owner.snapshots.forEach(repairLoanTerms)
   }
   if (isRecord(profile)) {
     // Transfers stored before endpoint ids were required (#305): an unfinished
@@ -668,7 +695,7 @@ export const profileTangibleAssetSchema = z
     installment_frequency: frequencySchema.optional(),
     annual_rate: z.number().optional(),
     installment_amount: z.number().optional(),
-    remaining_term: z.number().optional(),
+    remaining_term: loanTermSchema,
     remaining_term_unit: remainingTermUnitSchema.optional(),
     // Advanced options for the financing, which is simulated as a synthetic
     // liability. Defaults preserve the existing behaviour when omitted:
@@ -731,12 +758,6 @@ export const profileTangibleAssetSchema = z
           path: ['installment_amount'],
           message: get(_)('validation.required_when_financed'),
         })
-      if (obj.remaining_term === undefined)
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['remaining_term'],
-          message: get(_)('validation.required_when_financed'),
-        })
     }
   })
 
@@ -748,7 +769,7 @@ export const profileLiabilitySchema = z
     installment_frequency: frequencySchema,
     annual_rate: z.number(),
     installment_amount: z.number(),
-    remaining_term: z.number(),
+    remaining_term: loanTermSchema,
     remaining_term_unit: remainingTermUnitSchema.optional(),
     // Planned timing. An absent start means the loan runs from the plan's first
     // year (the pre-timing behaviour); a future start defers it until then.
@@ -847,7 +868,7 @@ export const snapshotSchema = z.object({
         id: z.string(),
         value: z.number(),
         outstanding_balance: z.number().optional(),
-        remaining_term: z.number().optional(),
+        remaining_term: loanTermSchema,
         remaining_term_unit: remainingTermUnitSchema.optional(),
       }),
     )
@@ -857,7 +878,7 @@ export const snapshotSchema = z.object({
       z.object({
         id: z.string(),
         outstanding_balance: z.number(),
-        remaining_term: z.number().optional(),
+        remaining_term: loanTermSchema,
         remaining_term_unit: remainingTermUnitSchema.optional(),
       }),
     )

@@ -282,12 +282,13 @@ const withRecordedValue = (
     outstanding_balance: entry.outstanding_balance,
     // The terms are descriptive and stay on the profile — unless the asset has
     // been paid off since, which the financial-data form records by clearing
-    // them. The schema requires terms on a financed asset, so the blanks are
-    // filled with the least that can be said: no interest, no installment.
+    // them. The schema requires a rate and an installment on a financed asset
+    // (the term may be absent), so the blanks are filled with the least that
+    // can be said: no interest, no installment.
     installment_frequency: item.installment_frequency ?? 'monthly',
     annual_rate: item.annual_rate ?? 0,
     installment_amount: item.installment_amount ?? 0,
-    remaining_term: entry.remaining_term ?? item.remaining_term ?? 0,
+    remaining_term: entry.remaining_term ?? item.remaining_term,
   }
 }
 
@@ -316,7 +317,6 @@ const MISSING_LIABILITY = {
   installment_frequency: 'monthly',
   annual_rate: 0,
   installment_amount: 0,
-  remaining_term: 0,
 } as const
 const MISSING_CASH_FLOW = {
   name: '',
