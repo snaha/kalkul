@@ -1,0 +1,1 @@
+import{lt as e,st as t,tt as n}from"./D2epjhbI.js";function r(){let r=e(!1),i=e(void 0);return{get open(){return n(r)},set open(e){t(r,e,!0),e||t(i,void 0)},get droppedFile(){return n(i)},openPicker(){t(i,void 0),t(r,!0)},openWithFile(e){t(i,e,!0),t(r,!0)},forgetDroppedFile(){t(i,void 0)}}}var i=r();export{i as t};
