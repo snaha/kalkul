@@ -111,6 +111,26 @@ asset. A loan stays listed at 0 while it is not owed: before a planned
 purchase, after it is paid off or settled by a sale, and when the plan could
 not afford the purchase.
 
+### A loan without a term is paid until nothing is owed
+
+A loan's term is optional. With a term, the loan runs for that many
+installments and the last one settles whatever is left. Without one (stored as
+`remaining_term: 0`), the loan has no scheduled end: each period adds the
+interest and takes the installment off, until nothing is owed, and the last
+installment is only what is left. If the installment does not cover the
+interest, the debt grows for as long as the projection runs. With no
+installment at all nothing is paid and the whole interest is added each
+period; at 0% such a loan stays at the balance entered.
+
+A loan that is never paid down is repaid by giving it an end: a planned
+pay-off date in a plan, which settles what is owed then, interest included, or
+a term, whose last installment does the same.
+
+The same holds for the loan behind a financed asset, and for the balances
+carried forward to today on the dashboard. The runway is the exception: a loan
+with no installment is not paid there and its balance does not move
+(`runway.md`).
+
 ### A financed asset's loan in a projection is its price less the down payment
 
 Financial data knows only what is owed on a financed asset today. A projection
@@ -199,6 +219,14 @@ rather than papering over it.
    none of them doubled. Were Jan born in January, the salary's last month
    would be December 2038. A flow set to run from 45 to 45 is rejected in
    the dialog, since it would have no month to run.
+9. **A loan without a term.** A plan takes on 1,000 at 0% with 250 a year and
+   the term left empty. It owes 750, 500, 250 and then nothing, exactly as
+   with a term of four years. At 400 a year it owes 600, 200 and then nothing:
+   the third installment is the 200 that is left. At 10% interest with 60 a
+   year, the interest of 100 is more than the installment, and it owes 1,040,
+   then 1,084, then 1,132. At 10% with no installment it owes 1,100, then
+   1,210, then 1,331; with a pay-off planned for the third year, that year
+   takes 1,331 out of cash and nothing is owed afterwards.
 
 ## Where this lives in the code
 
@@ -215,6 +243,9 @@ rather than papering over it.
   age in its month; `ageRangeEmpty` in `src/lib/schemas.ts` rejects an empty
   range of ages and `timingWithinPlan` in `src/lib/plan-range.ts` an end
   with no month left in the plan.
+- `hasOpenTerm` in `src/lib/plan-projection.ts` says when a loan has no
+  scheduled end; `simulateLiability` there and `amortizeLoan` in
+  `src/lib/current-values.ts` both follow it.
 - `financedAmount` and `seededDownPayment` in `src/lib/tangible-asset-form.ts`
   hold the down-payment rule; the plan asset dialog is their only caller.
 - The engine is `src/lib/plan-projection.ts`; the MCP tools in

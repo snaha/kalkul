@@ -3695,6 +3695,94 @@ describe('liability start and pay-off', () => {
   })
 })
 
+describe('a loan without a term (#457)', () => {
+  // 1,000 at 0 %, 250 a year, no term: the dialog stores an empty term as 0.
+  const loan: ProfileLiability = {
+    id: 'l1',
+    name: 'Loan',
+    outstanding_balance: 1000,
+    installment_frequency: 'yearly',
+    annual_rate: 0,
+    installment_amount: 250,
+    remaining_term: 0,
+  }
+  const plan = makePlan({ start_date: '2025-01-01', end_date: '2030-01-01' })
+
+  it('is paid down by its installments until nothing is owed', () => {
+    const result = project({ ...plan, liabilities: [loan] }, makeProfile())
+    expect(result.map((r) => Math.round(r.liabilities))).toEqual([750, 500, 250, 0, 0, 0])
+    expect(result.map((r) => Math.round(r.cash))).toEqual([750, 500, 250, 0, 0, 0])
+  })
+
+  it('pays only what is left in its last installment', () => {
+    const result = project(
+      { ...plan, liabilities: [{ ...loan, installment_amount: 400 }] },
+      makeProfile(),
+    )
+    expect(result.map((r) => Math.round(r.liabilities))).toEqual([600, 200, 0, 0, 0, 0])
+    expect(result.map((r) => Math.round(r.cash))).toEqual([600, 200, 0, 0, 0, 0])
+  })
+
+  it('grows when the installment does not cover the interest', () => {
+    // 10 % of 1,000 is 100 a year; 60 is paid, so 40 is added each year.
+    const result = project(
+      { ...plan, liabilities: [{ ...loan, annual_rate: 10, installment_amount: 60 }] },
+      makeProfile({ cash_amount: 1000 }),
+    )
+    expect(result.slice(0, 3).map((r) => Math.round(r.liabilities))).toEqual([1040, 1084, 1132])
+  })
+
+  // No installment either: nothing is ever paid, so the interest is added to
+  // what is owed. 10 % a year on 1,000: 1,100, then 1,210, then 1,331.
+  const unpaid: ProfileLiability = { ...loan, annual_rate: 10, installment_amount: 0 }
+
+  it('accrues its interest when it has no installment either', () => {
+    const result = project({ ...plan, liabilities: [unpaid] }, makeProfile())
+    expect(result.map((r) => Math.round(r.liabilities))).toEqual([
+      1100, 1210, 1331, 1464, 1611, 1772,
+    ])
+    expect(result.map((r) => Math.round(r.cash))).toEqual([1000, 1000, 1000, 1000, 1000, 1000])
+  })
+
+  it('stays as entered with no installment and no interest', () => {
+    const result = project(
+      { ...plan, liabilities: [{ ...loan, installment_amount: 0 }] },
+      makeProfile(),
+    )
+    expect(result.map((r) => Math.round(r.liabilities))).toEqual([
+      1000, 1000, 1000, 1000, 1000, 1000,
+    ])
+  })
+
+  it('is repaid with its interest at a planned pay-off', () => {
+    const liabilities: ProfileLiability[] = [
+      { ...unpaid, pay_off: 'at_specific_date', pay_off_year: 2027, pay_off_month: 12 },
+    ]
+    const result = project({ ...plan, liabilities }, makeProfile({ cash_amount: 1000 }))
+    expect(result.map((r) => Math.round(r.liabilities))).toEqual([1100, 1210, 0, 0, 0, 0])
+    expect(result.map((r) => Math.round(r.cash))).toEqual([2000, 2000, 669, 669, 669, 669])
+  })
+
+  it('is paid down on a financed asset too', () => {
+    const tangible_assets: ProfileTangibleAsset[] = [
+      {
+        id: 't1',
+        name: 'Car',
+        value: 1000,
+        status: 'financed',
+        outstanding_balance: 1000,
+        installment_frequency: 'yearly',
+        annual_rate: 0,
+        installment_amount: 250,
+        remaining_term: 0,
+      },
+    ]
+    const result = project(plan, makeProfile({ cash_amount: 1000, tangible_assets }))
+    expect(result.map((r) => Math.round(r.liabilities))).toEqual([750, 500, 250, 0, 0, 0])
+    expect(result.map((r) => Math.round(r.cash))).toEqual([750, 500, 250, 0, 0, 0])
+  })
+})
+
 describe('loan installment / term derivation', () => {
   const base = {
     outstanding_balance: 12000,

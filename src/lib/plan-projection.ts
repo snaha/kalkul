@@ -420,6 +420,18 @@ export function remainingInstallmentPeriods(liability: ProfileLiability): number
   )
 }
 
+/**
+ * Whether a loan has no scheduled end: it has no term. The dialogs store an
+ * empty term as 0. Such a loan adds its interest and takes its installment off
+ * each period for as long as anything is owed, so with no installment, or one
+ * below the interest, it grows.
+ *
+ * Exported so `current-values.ts` carries such a loan forward the same way.
+ */
+export function hasOpenTerm(liability: Pick<ProfileLiability, 'remaining_term'>): boolean {
+  return !(liability.remaining_term > 0)
+}
+
 function simulateLiability(
   liability: ProfileLiability,
   startYear: number,
@@ -436,11 +448,11 @@ function simulateLiability(
   const installmentAmount = new Decimal(liability.installment_amount)
 
   let balance = new Decimal(liability.outstanding_balance)
-  let periodsRemaining = remainingTermPeriods(
-    liability.remaining_term,
-    liability.remaining_term_unit,
-    periodsPerYear,
-  )
+  // A loan without a term has no scheduled end: it is paid until nothing is
+  // owed (#457), and with no installment either it only accrues its interest.
+  let periodsRemaining = hasOpenTerm(liability)
+    ? Infinity
+    : remainingTermPeriods(liability.remaining_term, liability.remaining_term_unit, periodsPerYear)
 
   const outstandingByYear = new Map<number, Decimal>()
   const paidByYear = new Map<number, Decimal>()
