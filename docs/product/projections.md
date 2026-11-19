@@ -111,30 +111,36 @@ carrying the asset's id as `assetId`. A loan stays listed at 0 while it is not
 owed: before a planned purchase, after it is paid off or settled by a sale, and
 when the plan could not afford the purchase.
 
-### A loan is paid only with cash that is there
+### A projection stops at a loan it cannot pay
 
 Each year cash pays the expenses first and the loans from what is left. A loan
-is due its installments for the year, the rest of its balance in a planned
-pay-off year or when its financed asset is sold, and anything earlier years
-left unpaid. When cash covers everything due, every loan is paid in full. When
-it does not, each loan is paid the same share of what it is due and cash ends
-the year at 0.
+is due its installments for the year, and the rest of its balance in a planned
+pay-off year or when its financed asset is sold. When cash covers everything
+due, every loan is paid in full and the projection goes on to the next year.
 
-The unpaid part stays owed: the debt falls only by money that left cash. It is
-due again in full the next year, with a year of interest at the loan's own
-rate, and every year after until it is paid, including after the loan's term
-or pay-off year has passed. There is no penalty on top.
+When it does not, the projection ends with that year. Nothing is projected
+after it: what follows a missed loan payment (a default, a refinancing, a
+forced sale) is not something the engine guesses at, and later income does not
+bring the projection back. `getYearlyPlanProjection` returns the years up to
+and including that one, and `projectionStopYear` reads the year off the result.
 
-A year in which a loan was not paid in full lists it in
+The last year shows where the plan stood when it failed: each loan is paid the
+same share of what it was due, cash ends at 0, and the unpaid part stays owed,
+so the debt falls only by money that left cash. The year lists the loans in
 `insufficientFundLiabilityIds`: a standalone liability by its id, the loan
-behind a financed asset by `financingLiabilityId` of the asset. The plan page
-marks the loan's row (the asset's row for a financed asset) the way it marks an
-expense or a transfer the plan could not fund, and the year counts towards the
-chart's first-warning marker. The projection carries on past it.
+behind a financed asset by `financingLiabilityId` of the asset.
 
-An expense cash could not cover is flagged and dropped; it does not become
-debt. The year's outflows for FI % and the runway count what the loans were
-due, paid or not, as they count the expenses.
+The plan page says so above the chart, naming the year and the loans. The
+chart keeps the plan's whole time span and leaves the years after the stop
+empty, the year carries the chart's warning marker, and no later year can be
+selected. The loan's row (the asset's row for a financed asset) is marked the
+way an expense or a transfer the plan could not fund is. The dashboard's
+projection cards show the same gap.
+
+Only a loan stops a projection. An expense cash could not cover is flagged and
+dropped; it does not become debt and the projection carries on. The stop
+year's outflows for FI % and the runway count what the loans were due, paid or
+not, as they count the expenses.
 
 ### The left sidebar lists what the plan is made of
 
@@ -348,13 +354,15 @@ rather than papering over it.
    none of them doubled. Were Jan born in January, the salary's last month
    would be December 2038. A flow set to run from 45 to 45 is rejected in
    the dialog, since it would have no month to run.
-9. **A loan the plan cannot pay.** A plan carries a loan of 1,000 at 0%,
-   250 a year for four years, with no cash. A salary of 2,000 a year starts in
-   the third year. The first two years pay nothing: the debt stays at 1,000
-   and the loan's row is flagged. The third year pays 750, its own installment
-   and the two missed ones, leaving 250 owed and 1,250 in cash. With 100 in
-   cash instead of none, the first year pays 100 and 900 stays owed. With two
-   loans due 300 and 100 and 200 in cash, they are paid 150 and 50.
+9. **A loan the plan cannot pay.** A plan runs from 2025 to 2030 and carries
+   a loan of 1,000 at 0%, 250 a year for four years, with 600 in cash and no
+   income. 2025 and 2026 pay 250 each, leaving 500 owed and 100 in cash. 2027
+   is due 250 and has 100: it pays the 100, 400 stays owed, and the projection
+   stops in 2027. The chart shows three bars and three empty years, and the
+   page says the projection stops in 2027 because there is not enough cash to
+   pay the loan. A salary starting in 2028 changes nothing. With two loans due
+   300 and 100 and 200 in cash in the first year, they are paid 150 and 50
+   and the projection is that one year.
 
 10. **A year's cash flow.** A salary of 60,000 a year, rent of 24,000, a house
     taxed 2,000 a year and a car loan repaid at 500 a month. Income reads
@@ -406,7 +414,10 @@ rather than papering over it.
   with no month left in the plan.
 - `loanYear` and `settleLoanYear` in `src/lib/plan-projection.ts` say what a
   loan is due in a year and record what cash paid of it; the settlement step
-  of `getYearlyPlanProjection` splits short cash between the loans.
+  of `getYearlyPlanProjection` splits short cash between the loans and ends
+  the projection, and `projectionStopYear` reports the year.
+  `projectionBars` (`src/lib/projection-bars.ts`) pads the chart to the plan's
+  end.
 - `financedAmount` and `seededDownPayment` in `src/lib/tangible-asset-form.ts`
   hold the down-payment rule; the plan asset dialog is their only caller.
 - The left sidebar is `src/routes/(app)/plan/[id]/plan-items-panel.svelte`,

@@ -4,6 +4,7 @@ import { snapshotFinancialData } from './plan-base'
 import {
   getYearlyPlanProjection,
   installmentAmountForLoan,
+  projectionStopYear,
   summarizeCashFlow,
   summarizeTransfer,
   termYearsForLoan,
@@ -4007,46 +4008,62 @@ describe('installments the plan cannot afford (#334)', () => {
     installment_amount: 250,
     remaining_term: 4,
   }
-  const flaggedYears = (result: ReturnType<typeof project>) =>
-    result.filter((r) => r.insufficientFundLiabilityIds.length > 0).map((r) => r.year)
+  const years = (result: ReturnType<typeof project>) => result.map((r) => r.year)
 
-  it('keeps the debt owed when there is no cash to pay it', () => {
+  it('stops in the year there is no cash to pay a loan', () => {
     const result = project(makePlan(), makeProfile({ liabilities: [loan] }))
-    expect(result.map((r) => Math.round(r.liabilities))).toEqual([
-      1000, 1000, 1000, 1000, 1000, 1000,
-    ])
-    expect(result.map((r) => Math.round(r.netWorth))).toEqual([
-      -1000, -1000, -1000, -1000, -1000, -1000,
-    ])
-    // Still owed after the term has run out, so still flagged.
-    expect(flaggedYears(result)).toEqual([2025, 2026, 2027, 2028, 2029, 2030])
+    expect(years(result)).toEqual([2025])
+    expect(result[0].liabilities).toBe(1000)
+    expect(result[0].netWorth).toBe(-1000)
     expect(result[0].insufficientFundLiabilityIds).toEqual(['l1'])
+    expect(projectionStopYear(result)).toBe(2025)
   })
 
-  it('flags nothing when cash covers every installment', () => {
+  it('runs to the end when cash covers every installment', () => {
     const result = project(makePlan(), makeProfile({ cash_amount: 1000, liabilities: [loan] }))
+    expect(years(result)).toEqual([2025, 2026, 2027, 2028, 2029, 2030])
     expect(result.map((r) => Math.round(r.liabilities))).toEqual([750, 500, 250, 0, 0, 0])
-    expect(flaggedYears(result)).toEqual([])
+    expect(result.flatMap((r) => r.insufficientFundLiabilityIds)).toEqual([])
+    expect(projectionStopYear(result)).toBeUndefined()
   })
 
-  it('pays what cash there is and keeps the rest owed', () => {
-    const result = project(makePlan(), makeProfile({ cash_amount: 100, liabilities: [loan] }))
-    expect(result[0].liabilities).toBeCloseTo(900, 6)
-    expect(result[0].cash).toBe(0)
-    expect(result[0].netWorth).toBeCloseTo(-900, 6)
-    expect(result[0].insufficientFundLiabilityIds).toEqual(['l1'])
+  it('runs until the first year that falls short and stops there', () => {
+    const result = project(makePlan(), makeProfile({ cash_amount: 600, liabilities: [loan] }))
+    expect(years(result)).toEqual([2025, 2026, 2027])
+    expect(result.map((r) => r.cash)).toEqual([350, 100, 0])
+    // 2027 pays the 100 that is there; 150 of its installment stays owed.
+    expect(result.map((r) => r.liabilities)).toEqual([750, 500, 400])
+    expect(result.map((r) => r.insufficientFundLiabilityIds)).toEqual([[], [], ['l1']])
+    expect(projectionStopYear(result)).toBe(2027)
   })
 
-  it('keeps a planned pay-off owed when cash cannot settle it', () => {
-    const liabilities: ProfileLiability[] = [
-      { ...loan, pay_off: 'at_specific_date', pay_off_year: 2025, pay_off_month: 6 },
+  it('stops even when later income would have caught up', () => {
+    const incomes: Income[] = [
+      {
+        id: 'i1',
+        name: 'Salary',
+        amount: 2000,
+        schedule: 'recurring',
+        frequency: 'yearly',
+        start: 'at_specific_date',
+        start_year: 2027,
+        start_month: 1,
+        end: 'never',
+      },
     ]
-    const result = project(makePlan(), makeProfile({ liabilities }))
-    expect(result.map((r) => Math.round(r.liabilities))).toEqual([
-      1000, 1000, 1000, 1000, 1000, 1000,
-    ])
-    expect(Math.round(result[0].netWorth)).toBe(-1000)
-    expect(flaggedYears(result)).toEqual([2025, 2026, 2027, 2028, 2029, 2030])
+    const result = project(makePlan(), makeProfile({ liabilities: [loan], incomes }))
+    expect(years(result)).toEqual([2025])
+  })
+
+  it('stops at a planned pay-off cash cannot settle', () => {
+    const liabilities: ProfileLiability[] = [
+      { ...loan, pay_off: 'at_specific_date', pay_off_year: 2026, pay_off_month: 6 },
+    ]
+    const result = project(makePlan(), makeProfile({ cash_amount: 400, liabilities }))
+    // 2025 pays 250. 2026 is due 250 and the 500 left; 150 is there.
+    expect(years(result)).toEqual([2025, 2026])
+    expect(result.map((r) => r.liabilities)).toEqual([750, 600])
+    expect(result[1].insufficientFundLiabilityIds).toEqual(['l1'])
   })
 
   it('pays expenses first and blames the loan, not the expense it left unpaid behind', () => {
@@ -4063,49 +4080,28 @@ describe('installments the plan cannot afford (#334)', () => {
       },
     ]
     const result = project(makePlan({ liabilities: [loan], expenses }), makeProfile())
+    expect(years(result)).toEqual([2025])
     expect(result[0].cash).toBe(0)
-    expect(result[0].liabilities).toBeCloseTo(1000, 6)
-    expect(result[0].netWorth).toBeCloseTo(-1000, 6)
+    expect(result[0].liabilities).toBe(1000)
     expect(result[0].insufficientFundExpenseIds).toEqual([])
     expect(result[0].insufficientFundLiabilityIds).toEqual(['l1'])
   })
 
-  it('catches up on missed installments once income arrives', () => {
-    const incomes: Income[] = [
+  it('does not stop for an expense the plan cannot pay', () => {
+    const expenses: Expense[] = [
       {
-        id: 'i1',
-        name: 'Salary',
-        amount: 2000,
-        schedule: 'recurring',
-        frequency: 'yearly',
-        start: 'at_specific_date',
-        start_year: 2027,
-        start_month: 1,
-        end: 'never',
+        id: 'e1',
+        name: 'Kitchen',
+        amount: 1000,
+        schedule: 'one_time',
+        transaction_year: 2025,
+        transaction_month: 1,
       },
     ]
-    const result = project(makePlan(), makeProfile({ liabilities: [loan], incomes }))
-    // 2027 pays its own installment and the two missed ones.
-    expect(result.map((r) => Math.round(r.liabilities))).toEqual([1000, 1000, 250, 0, 0, 0])
-    expect(result.map((r) => Math.round(r.cash))).toEqual([0, 0, 1250, 3000, 5000, 7000])
-    expect(flaggedYears(result)).toEqual([2025, 2026])
-  })
-
-  it("charges the loan's own interest on what was missed", () => {
-    // Interest-only at 10 %: each missed 100 joins the debt and bears interest.
-    const liabilities: ProfileLiability[] = [
-      {
-        ...loan,
-        annual_rate: 10,
-        interest_type: 'simple',
-        installment_amount: 100,
-        remaining_term: 10,
-      },
-    ]
-    const result = project(makePlan(), makeProfile({ liabilities }))
-    expect(result[0].liabilities).toBeCloseTo(1100, 6)
-    expect(result[1].liabilities).toBeCloseTo(1210, 6)
-    expect(result[2].liabilities).toBeCloseTo(1331, 6)
+    const result = project(makePlan({ expenses }), makeProfile())
+    expect(years(result)).toEqual([2025, 2026, 2027, 2028, 2029, 2030])
+    expect(result[0].insufficientFundExpenseIds).toEqual(['e1'])
+    expect(projectionStopYear(result)).toBeUndefined()
   })
 
   it('splits short cash between loans in proportion to what each is due', () => {
@@ -4114,12 +4110,13 @@ describe('installments the plan cannot afford (#334)', () => {
       { ...loan, id: 'b', name: 'B', installment_amount: 100 },
     ]
     const result = project(makePlan(), makeProfile({ cash_amount: 200, liabilities }))
+    expect(years(result)).toEqual([2025])
     expect(result[0].liabilitiesByItem.map((l) => l.value)).toEqual([850, 950])
     expect(result[0].cash).toBe(0)
     expect(result[0].insufficientFundLiabilityIds).toEqual(['a', 'b'])
   })
 
-  it('keeps the loan behind a financed asset owed and flags it', () => {
+  it('stops for the loan behind a financed asset and flags it', () => {
     const tangible_assets: ProfileTangibleAsset[] = [
       {
         id: 't1',
@@ -4134,8 +4131,9 @@ describe('installments the plan cannot afford (#334)', () => {
       },
     ]
     const result = project(makePlan(), makeProfile({ tangible_assets }))
-    expect(result[0].liabilities).toBeCloseTo(1000, 6)
-    expect(result[0].netWorth).toBeCloseTo(4000, 6)
+    expect(years(result)).toEqual([2025])
+    expect(result[0].liabilities).toBe(1000)
+    expect(result[0].netWorth).toBe(4000)
     expect(result[0].insufficientFundLiabilityIds).toEqual(['tangible-asset-financing-t1'])
   })
 })

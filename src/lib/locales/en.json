@@ -102,6 +102,7 @@
       "openingCash": "Cash at the start of this projection",
       "outdated": "Your financial data has changed since this projection was created, so the numbers may be out of date.",
       "outdatedDismiss": "I understand",
+      "stopped": "The projection stops in {year}: there is not enough cash to pay {loans}.",
       "transferFromLabel": "From",
       "transferToLabel": "To",
       "transferLabelLabel": "Label",
