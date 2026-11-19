@@ -114,14 +114,22 @@ not afford the purchase.
 ### A loan without a term is paid until nothing is owed
 
 A loan's term is optional. With a term, the loan runs for that many
-installments and the last one settles whatever is left. With an installment
-and no term (stored as `remaining_term: 0`), the loan has no scheduled end:
-each period adds the interest and takes the installment off, until nothing is
-owed, and the last installment is only what is left. If the installment does
-not cover the interest, the debt grows for as long as the projection runs. A
-loan with neither a term nor an installment is not paid and stays at the
-balance entered. The same holds for the loan behind a financed asset, and for
-the balances carried forward to today on the dashboard.
+installments and the last one settles whatever is left. Without one (stored as
+`remaining_term: 0`), the loan has no scheduled end: each period adds the
+interest and takes the installment off, until nothing is owed, and the last
+installment is only what is left. If the installment does not cover the
+interest, the debt grows for as long as the projection runs. With no
+installment at all nothing is paid and the whole interest is added each
+period; at 0% such a loan stays at the balance entered.
+
+A loan that is never paid down is repaid by giving it an end: a planned
+pay-off date in a plan, which settles what is owed then, interest included, or
+a term, whose last installment does the same.
+
+The same holds for the loan behind a financed asset, and for the balances
+carried forward to today on the dashboard. The runway is the exception: a loan
+with no installment is not paid there and its balance does not move
+(`runway.md`).
 
 ### A financed asset's loan in a projection is its price less the down payment
 
@@ -216,7 +224,9 @@ rather than papering over it.
    with a term of four years. At 400 a year it owes 600, 200 and then nothing:
    the third installment is the 200 that is left. At 10% interest with 60 a
    year, the interest of 100 is more than the installment, and it owes 1,040,
-   then 1,084, then 1,132.
+   then 1,084, then 1,132. At 10% with no installment it owes 1,100, then
+   1,210, then 1,331; with a pay-off planned for the third year, that year
+   takes 1,331 out of cash and nothing is owed afterwards.
 
 ## Where this lives in the code
 
