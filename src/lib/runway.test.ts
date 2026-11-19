@@ -61,7 +61,6 @@ describe('getRunwayYears', () => {
       installment_frequency: 'monthly',
       annual_rate: 0,
       installment_amount: 0,
-      remaining_term: 0,
     }
     expect(getRunwayYears({ ...BASE, cash_amount: 100, liabilities: [unpaid] })).toBeUndefined()
   })
@@ -345,7 +344,6 @@ describe('getRunwayYears', () => {
           installment_frequency: 'monthly',
           annual_rate: 5,
           installment_amount: 0,
-          remaining_term: 0,
         },
       ],
       expenses: [expense(1_000)],

@@ -293,6 +293,93 @@ describe('profileSchema birth date', () => {
   })
 })
 
+describe('repairStoredData: a loan term stored as 0', () => {
+  // "No term" used to be stored as 0; it is now an absent term.
+  const loan = {
+    id: 'liab-1',
+    name: 'Loan',
+    outstanding_balance: 1000,
+    installment_frequency: 'monthly',
+    annual_rate: 0,
+    installment_amount: 100,
+    remaining_term: 0,
+  }
+  const flat = {
+    id: 'asset-1',
+    name: 'Flat',
+    value: 5000,
+    status: 'financed',
+    outstanding_balance: 1000,
+    installment_frequency: 'monthly',
+    annual_rate: 0,
+    installment_amount: 100,
+    remaining_term: 0,
+  }
+  const financialData = () => ({
+    cash_amount: 0,
+    investments: [],
+    incomes: [],
+    expenses: [],
+    transfers: [],
+    liabilities: [{ ...loan }],
+    tangible_assets: [{ ...flat }],
+  })
+
+  it('drops it from financial data, plans, their bases and snapshots', () => {
+    const stored = {
+      lastUpdated: 1,
+      profile: {
+        name: 'Test',
+        email: '',
+        ...financialData(),
+        snapshots: [
+          {
+            date: '2026-01-01',
+            liabilities: [{ id: 'liab-1', outstanding_balance: 1000, remaining_term: 0 }],
+            tangible_assets: [
+              { id: 'asset-1', value: 5000, outstanding_balance: 1000, remaining_term: 0 },
+            ],
+            incomes: [],
+            expenses: [],
+          },
+        ],
+      },
+      portfolios: [
+        {
+          id: 'portfolio-1',
+          name: 'Plan',
+          start_date: '2026-01-01',
+          end_date: '2060-01-01',
+          inflation_rate: 2,
+          ...financialData(),
+          base: financialData(),
+        },
+      ],
+    }
+    const repaired = storedDataSchema.parse(repairStoredData(stored))
+    const plan = repaired.portfolios[0]
+    const snapshot = repaired.profile.snapshots?.[0]
+    expect(repaired.profile.liabilities?.[0].remaining_term).toBeUndefined()
+    expect(repaired.profile.tangible_assets?.[0].remaining_term).toBeUndefined()
+    expect(plan.liabilities?.[0].remaining_term).toBeUndefined()
+    expect(plan.tangible_assets?.[0].remaining_term).toBeUndefined()
+    expect(plan.base.liabilities?.[0].remaining_term).toBeUndefined()
+    expect(plan.base.tangible_assets?.[0].remaining_term).toBeUndefined()
+    expect(snapshot?.liabilities?.[0].remaining_term).toBeUndefined()
+    expect(snapshot?.tangible_assets?.[0].remaining_term).toBeUndefined()
+  })
+
+  it('leaves a real term alone', () => {
+    const stored = {
+      lastUpdated: 1,
+      profile: { name: 'Test', email: '', liabilities: [{ ...loan, remaining_term: 4 }] },
+      portfolios: [],
+    }
+    const repaired = storedDataSchema.parse(repairStoredData(stored))
+    expect(repaired.profile.liabilities?.[0].remaining_term).toBe(4)
+  })
+})
+
 describe('repairStoredData: inverted cash-flow months', () => {
   function storedWithInverted() {
     return {
@@ -487,7 +574,6 @@ describe('profileTangibleAssetSchema financed refinement', () => {
     'installment_frequency',
     'annual_rate',
     'installment_amount',
-    'remaining_term',
   ] as const
 
   for (const field of requiredWhenFinanced) {
@@ -500,6 +586,19 @@ describe('profileTangibleAssetSchema financed refinement', () => {
       }
     })
   }
+
+  it('accepts a financed asset without a term', () => {
+    const { remaining_term: _omitted, ...withoutTerm } = financed
+    expect(profileTangibleAssetSchema.safeParse(withoutTerm).success).toBe(true)
+  })
+
+  it('rejects a term of 0 on a financed asset', () => {
+    const result = profileTangibleAssetSchema.safeParse({ ...financed, remaining_term: 0 })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((i) => i.path)).toContainEqual(['remaining_term'])
+    }
+  })
 })
 
 describe('transferSchema refinement', () => {
@@ -770,6 +869,21 @@ describe('profileLiabilitySchema timing', () => {
 
   it('accepts a liability with no planned timing', () => {
     expect(profileLiabilitySchema.safeParse(base).success).toBe(true)
+  })
+
+  it('accepts a liability without a term', () => {
+    const { remaining_term: _omitted, ...withoutTerm } = base
+    expect(profileLiabilitySchema.safeParse(withoutTerm).success).toBe(true)
+  })
+
+  it('rejects a term of 0 or less', () => {
+    for (const remaining_term of [0, -1]) {
+      const result = profileLiabilitySchema.safeParse({ ...base, remaining_term })
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error.issues.map((i) => i.path)).toContainEqual(['remaining_term'])
+      }
+    }
   })
 
   it('requires a year and month when starting at a specific date', () => {
