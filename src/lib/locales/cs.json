@@ -42,7 +42,7 @@
       "notFound": "Projekce nenalezena",
       "backToHome": "Zpět domů",
       "toggleSidebar": "Zobrazit nebo skrýt postranní panel",
-      "hideDetailsPanel": "Skrýt panel s podrobnostmi (znovu ho otevřete kliknutím na rok v grafu)",
+      "toggleDetailsPanel": "Zobrazit nebo skrýt panel s podrobnostmi",
       "cashFlows": "Peněžní toky",
       "assets": "Aktiva",
       "searchCashFlows": "Hledat peněžní toky",

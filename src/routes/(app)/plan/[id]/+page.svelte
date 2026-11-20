@@ -711,8 +711,8 @@
     <!-- Center Panel: Chart area (placeholder) -->
     <div class="flex min-h-0 flex-1 flex-col overflow-hidden border-l">
       <!-- Header with icons -->
-      <div class="flex items-center justify-between px-4 py-4">
-        <div class="flex items-center gap-4">
+      <div class="flex items-center gap-2 p-4">
+        <div class="flex min-w-0 flex-1 items-center gap-2">
           <Button
             variant="ghost"
             size="icon"
@@ -722,7 +722,6 @@
           >
             <PanelLeft class="size-4" />
           </Button>
-          <Separator orientation="vertical" class="!h-8" />
           {#if isDemoPlan}
             <Button
               variant="ghost"
@@ -767,6 +766,16 @@
             <Settings2 class="size-4" />
           </Button>
         {/if}
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={$_('page.plan.toggleDetailsPanel')}
+          title={$_('page.plan.toggleDetailsPanel')}
+          aria-pressed={isPanelOpen}
+          onclick={() => (isPanelOpen = !isPanelOpen)}
+        >
+          <PanelRight class="size-4" />
+        </Button>
       </div>
 
       <!-- Chart -->
@@ -816,39 +825,23 @@
 
     <!-- Right Panel: Details inspector -->
     {#if isPanelOpen}
-      <div class="flex w-[320px] shrink-0 flex-col overflow-hidden border-l">
+      <div class="flex w-[384px] shrink-0 flex-col overflow-hidden border-l">
         <!-- Header section -->
-        <div class="flex shrink-0 flex-col gap-4 p-4">
-          <!-- Year + close button row -->
-          <div class="flex items-center justify-between">
-            <p class="text-lg font-bold">{selectedYear}</p>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label={$_('page.plan.hideDetailsPanel')}
-              title={$_('page.plan.hideDetailsPanel')}
-              onclick={() => (isPanelOpen = false)}
-            >
-              <PanelRight class="size-4" />
-            </Button>
-          </div>
-
-          <!-- Age slider field -->
-          <div class="flex flex-col">
+        <div class="flex shrink-0 flex-col gap-2 p-4">
+          <div class="flex items-center gap-4">
+            <p class="min-w-0 flex-1 text-lg font-bold">{selectedYear}</p>
             {#if currentAge !== undefined}
-              <p class="text-sm font-medium">
-                {$_('page.plan.age', { values: { age: currentAge } })}
-              </p>
+              <p class="text-sm">{$_('page.plan.age', { values: { age: currentAge } })}</p>
             {/if}
-            <Slider
-              type="single"
-              class="mt-3"
-              bind:value={selectedYear}
-              min={startYear}
-              max={endYear}
-              step={1}
-            />
           </div>
+          <Slider
+            type="single"
+            class="py-1"
+            bind:value={selectedYear}
+            min={startYear}
+            max={endYear}
+            step={1}
+          />
         </div>
 
         <!-- Content section -->
