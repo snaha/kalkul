@@ -52,9 +52,10 @@
     flush?: boolean
   }
 
-  // Which sections and groups are open, by id. It lives across year changes,
+  // Which sections and groups are open, by id; Net worth starts open, the
+  // rest closed. It lives across year changes,
   // so stepping through the years keeps the same rows in view.
-  let open = $state<Record<string, boolean>>({})
+  let open = $state<Record<string, boolean>>({ netWorth: true })
   // The change badge whose tooltip is open, toggled by a tap as well as hover.
   let openBadge = $state<string | undefined>(undefined)
 
@@ -320,7 +321,7 @@
   </div>
 
   {#if year}
-    <div class="flex flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto p-2">
+    <div class="flex flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto p-2 pb-4">
       {@render section(
         'netWorth',
         $_('page.plan.netWorth'),

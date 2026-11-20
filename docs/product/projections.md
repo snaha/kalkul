@@ -149,7 +149,8 @@ chart's terms: real, deflated to the plan's first year.
   percent of that year's magnitude, and the amount of the change in a tooltip
   ("+12,000 EUR vs 2029"), on hover or tap. There is no badge in the plan's
   first year, or when the year before was 0.
-- The sections start closed. What is open stays open as the year changes.
+- Net worth starts open and the other two sections closed. What is open stays
+  open as the year changes.
 
 ### A financed asset's loan in a projection is its price less the down payment
 
