@@ -221,7 +221,7 @@
       </CollapsibleTrigger>
       <CollapsibleContent>
         <ul
-          class="relative flex flex-col gap-1 py-0.5 pl-6 before:absolute before:inset-y-0 before:left-4 before:border-l"
+          class="relative flex flex-col gap-1 py-0.5 pl-6 before:absolute before:inset-y-0 before:left-4 before:border-l before:border-sidebar-border"
         >
           {#each g.rows as row (row.id)}
             <li
