@@ -103,13 +103,54 @@ debt pays nothing in, however the plan has edited it since.
 ### The liabilities breakdown lists every loan
 
 A projection's per-year liabilities breakdown (`liabilitiesByItem`, the plan
-page's "Liabilities balance" and the MCP `get_projection` output) lists every
+page's Liabilities rows and the MCP `get_projection` output) lists every
 liability, so its rows add up to the liabilities total. That includes the loan
-behind each financed tangible asset: one row per asset, named after it,
-carrying the asset's id as `assetId` and marked in the sidebar as tied to the
-asset. A loan stays listed at 0 while it is not owed: before a planned
-purchase, after it is paid off or settled by a sale, and when the plan could
-not afford the purchase.
+behind each financed tangible asset: one row per asset, named after it and
+carrying the asset's id as `assetId`. A loan stays listed at 0 while it is not
+owed: before a planned purchase, after it is paid off or settled by a sale, and
+when the plan could not afford the purchase.
+
+### The right sidebar shows one year in three sections
+
+The plan page's right sidebar describes the selected year. It opens on the
+current year, clamped to the plan's range, and the year moves with the slider,
+the previous and next buttons, or a click on a bar. Every amount is in the
+chart's terms: real, deflated to the plan's first year.
+
+| UI label       | Field / code                                        | Meaning                                                       |
+| -------------- | --------------------------------------------------- | ------------------------------------------------------------- |
+| Net worth      | `netWorth`                                          | As in `net-worth.md`                                          |
+| Cash flow      | `cashFlow`                                          | What the year's flows add to or take from cash                |
+| Income         | `totalIncome`, `incomesByItem`                      | The incomes that fire in the year                             |
+| Expense        | `totalExpenses + totalInstallments` and their items | Expenses, property tax and loan installments paid in the year |
+| Transfers      | `transfersByItem`                                   | What left the source of each of the plan's transfers          |
+| FIRE portfolio | `portfolioValue`                                    | The portfolio value of `net-worth.md`                         |
+| Runway         | `runwayYears`                                       | Portfolio value over the year's outflows                      |
+
+- Net worth lists cash, investments, tangible assets and liabilities, the last
+  three opening to one row per item. The rows add up to the headline.
+- Cash flow is income less everything that drains cash in the year: the
+  expenses, the property tax and the loan installments. Money a new loan pays
+  into cash is not income and is not counted; neither are transfers, which
+  only move money between the plan's own balances.
+- The Expense rows are the expenses first, then the property tax of each taxed
+  asset, then the installments of each loan, named after the loan. They look
+  alike for now and add up to the Expense row.
+- Only what is active in the year is listed among the cash flows: an income or
+  expense outside its dates, a paid-off loan and a sold asset have no row.
+- Transfers shows what left each source, before fees and tax. A transfer
+  skipped for lack of funds shows 0. The planned buy and sell of an asset are
+  not transfers the user entered and are not listed.
+- FIRE portfolio is the portfolio value, the figure the dashboard's financial
+  independence is measured on, with the year's FI % and runway under it. The
+  runway is capped at "100+ years" like the dashboard's, and both read as a
+  dash in a year without outflows.
+- Each headline carries a badge with its change against the year before as a
+  percent of that year's magnitude, and the amount of the change in a tooltip
+  ("+12,000 EUR vs 2029"), on hover or tap. There is no badge in the plan's
+  first year, or when the year before was 0.
+- Net worth starts open and the other two sections closed. What is open stays
+  open as the year changes.
 
 ### A financed asset's loan in a projection is its price less the down payment
 
@@ -200,6 +241,23 @@ rather than papering over it.
    would be December 2038. A flow set to run from 45 to 45 is rejected in
    the dialog, since it would have no month to run.
 
+9. **A year's cash flow.** A salary of 60,000 a year, rent of 24,000, a house
+   taxed 2,000 a year and a car loan repaid at 500 a month. Income reads
+   +60,000; Expense reads −32,000 and opens to rent 24,000, the house's
+   property tax 2,000 and the car loan 6,000; Cash flow is +28,000. A transfer
+   of 10,000 from cash to an ETF shows 10,000 under Transfers and changes none
+   of the three. The year after the loan is paid off, its row is gone, Expense
+   reads −26,000 and Cash flow +34,000: the badge shows 21.4% up and its
+   tooltip "+6,000 vs" the year before.
+
+## Open questions
+
+- The Figma frames for the right sidebar show a "Missing funds" panel that
+  replaces the sections once the projection has stopped at its first error.
+  The engine does not stop at an error today; that is #67.
+- Whether a row of the right sidebar opens its item, or focuses the chart on
+  it, is not decided (#320).
+
 ## Where this lives in the code
 
 - `createPlan` (`src/lib/plan-defaults.ts`) and `buildCurrentProjectionPlan`
@@ -217,6 +275,8 @@ rather than papering over it.
   with no month left in the plan.
 - `financedAmount` and `seededDownPayment` in `src/lib/tangible-asset-form.ts`
   hold the down-payment rule; the plan asset dialog is their only caller.
+- The right sidebar is `src/routes/(app)/plan/[id]/plan-details-panel.svelte`;
+  the badge's change is `yearChange` in `src/lib/year-change.ts`.
 - The engine is `src/lib/plan-projection.ts`; the MCP tools in
   `src/lib/mcp/tools.ts` expose the same helpers, and their descriptions state
   the same rules. Keep them in sync with this doc.
