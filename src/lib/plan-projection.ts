@@ -85,6 +85,9 @@ export interface YearlyProjection {
   propertyTaxByItem: YearlyProjectionItem[]
   installmentsByItem: YearlyProjectionItem[]
   totalInstallments: number
+  // The year's cash flow: income less expenses, property tax and installments
+  // (docs/product/projections.md). Transfers stay out of it.
+  cashFlow: number
   // The plan's own transfers active in the year, each with the amount that
   // left its source: 0 when the transfer was skipped for lack of funds. The
   // planned buy and sell of an asset are not transfers the user entered and
@@ -1709,6 +1712,9 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
         value: real(paid),
       })),
       totalInstallments: real(liabilitiesPaidThisYearNominal),
+      cashFlow: real(
+        incomesThisYearNominal.minus(expensesThisYearNominal).minus(liabilitiesPaidThisYearNominal),
+      ),
       transfersByItem: plan.transfers.flatMap((transfer) => {
         const moved = transferMovedNominal.get(transfer.id)
         return moved ? [{ id: transfer.id, name: transfer.name, value: real(moved) }] : []

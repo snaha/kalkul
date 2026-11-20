@@ -70,9 +70,6 @@
     value > 0 ? 'text-success' : value < 0 ? 'text-destructive' : undefined
 
   const sum = (rows: { value: number }[]) => rows.reduce((total, row) => total + row.value, 0)
-  // Income less everything that drains cash: expenses, property tax and the
-  // loan installments (docs/product/projections.md).
-  const cashFlowOf = (p: YearlyProjection) => p.totalIncome - p.totalExpenses - p.totalInstallments
 
   const netWorthGroups = $derived<Group[]>(
     year
@@ -127,7 +124,7 @@
             valueClass:
               year.totalExpenses + year.totalInstallments > 0 ? 'text-destructive' : undefined,
             // Expenses first, then what the assets and loans cost. The ids are
-            // prefixed: a financed asset is taxed and repaid under one id.
+            // prefixed so a tax or installment row never shares one with an expense.
             rows: [
               ...year.expensesByItem.map((i) => ({ ...i, value: outflow(i.value) })),
               ...year.propertyTaxByItem.map((i) => ({
@@ -333,9 +330,9 @@
       {@render section(
         'cashFlow',
         $_('page.plan.details.cashFlow'),
-        inflow(cashFlowOf(year)),
-        toneOf(cashFlowOf(year)),
-        yearChange(cashFlowOf(year), previous && cashFlowOf(previous)),
+        inflow(year.cashFlow),
+        toneOf(year.cashFlow),
+        yearChange(year.cashFlow, previous?.cashFlow),
         cashFlowGroups,
       )}
       {@render section(

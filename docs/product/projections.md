@@ -120,7 +120,7 @@ chart's terms: real, deflated to the plan's first year.
 | UI label       | Field / code                                        | Meaning                                                       |
 | -------------- | --------------------------------------------------- | ------------------------------------------------------------- |
 | Net worth      | `netWorth`                                          | As in `net-worth.md`                                          |
-| Cash flow      | `totalIncome − totalExpenses − totalInstallments`   | What the year's flows add to or take from cash                |
+| Cash flow      | `cashFlow`                                          | What the year's flows add to or take from cash                |
 | Income         | `totalIncome`, `incomesByItem`                      | The incomes that fire in the year                             |
 | Expense        | `totalExpenses + totalInstallments` and their items | Expenses, property tax and loan installments paid in the year |
 | Transfers      | `transfersByItem`                                   | What left the source of each of the plan's transfers          |

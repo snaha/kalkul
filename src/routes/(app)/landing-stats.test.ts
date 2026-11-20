@@ -27,6 +27,7 @@ function year(
     propertyTaxByItem: [],
     installmentsByItem: [],
     totalInstallments: 0,
+    cashFlow: 0,
     transfersByItem: [],
     portfolioValue: 0,
     insufficientFundTransferIds: [],

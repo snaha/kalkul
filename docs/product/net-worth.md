@@ -35,9 +35,9 @@ mortgage. A standalone loan is any other liability.
   portfolio" in the right sidebar (`projections.md`).
 - Investable net worth and portfolio value are one figure with two names, never
   two numbers.
-- Liquid net worth, cash plus investments minus every liability, is no longer
-  shown anywhere: the portfolio value took its place on the projection page.
-- The dashboard's Runway card uses none of the three: it is a month-by-month
+- Liquid net worth, cash plus investments minus every liability, is not shown
+  anywhere.
+- The dashboard's Runway card uses neither total: it is a month-by-month
   drawdown of the balances (`runway.md`).
 
 ## Worked examples

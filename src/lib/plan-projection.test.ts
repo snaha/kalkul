@@ -3879,16 +3879,14 @@ describe('per-item cash flows and portfolio value of a year', () => {
         ],
       }),
     )
-    const cashFlow = (i: number) =>
-      result[i].totalIncome - result[i].totalExpenses - result[i].totalInstallments
     expect(result[0].totalIncome).toBeCloseTo(60_000, 6)
     expect(result[0].totalExpenses).toBeCloseTo(26_000, 6)
     expect(result[0].totalInstallments).toBeCloseTo(6000, 6)
-    expect(cashFlow(0)).toBeCloseTo(28_000, 6)
+    expect(result[0].cashFlow).toBeCloseTo(28_000, 6)
     expect(result[0].transfersByItem).toEqual([{ id: 'tr1', name: 'Invest', value: 10_000 }])
     // The loan is paid off: its row is gone and the cash flow is 6,000 up.
     expect(result[1].installmentsByItem).toEqual([])
-    expect(cashFlow(1)).toBeCloseTo(34_000, 6)
+    expect(result[1].cashFlow).toBeCloseTo(34_000, 6)
   })
 
   it('reports the portfolio value: cash plus investments minus standalone loans', () => {
