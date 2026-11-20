@@ -4,6 +4,7 @@ import {
   type TangibleAssetUI,
   financedAmount,
   seededDownPayment,
+  tangibleAssetComplete,
   toStoredTangibleAsset,
 } from '$lib/tangible-asset-form'
 
@@ -93,8 +94,41 @@ describe('seededDownPayment', () => {
     expect(seededDownPayment({ ...financed, value: 90_000, outstanding_balance: 98_000 })).toBe(0)
   })
 
+  it('has none for an asset imported from financial data', () => {
+    expect(seededDownPayment(financed, true)).toBeUndefined()
+    expect(seededDownPayment({ ...financed, down_payment: 10 }, true)).toBeUndefined()
+  })
+
   it('has none for an asset that is not financed or has no loan yet', () => {
     expect(seededDownPayment({ ...financed, status: 'fully_owned' })).toBeUndefined()
     expect(seededDownPayment({ ...financed, outstanding_balance: undefined })).toBeUndefined()
+  })
+})
+
+describe('tangibleAssetComplete', () => {
+  it('needs a value', () => {
+    expect(tangibleAssetComplete({ ...base, value: undefined })).toBe(false)
+    expect(tangibleAssetComplete({ ...base, value: 0 })).toBe(false)
+    expect(tangibleAssetComplete({ ...base, value: 1000 })).toBe(true)
+  })
+
+  it('needs a balance owed when financed', () => {
+    const financed = { ...base, status: 'financed' as const, remaining_term: 10 }
+    expect(tangibleAssetComplete({ ...financed, outstanding_balance: undefined })).toBe(false)
+    expect(tangibleAssetComplete({ ...financed, outstanding_balance: 0 })).toBe(false)
+    expect(tangibleAssetComplete({ ...financed, outstanding_balance: 600 })).toBe(true)
+  })
+
+  // Without either the engine would never repay the loan.
+  it('needs a term or an installment when financed', () => {
+    const financed = { ...base, status: 'financed' as const, outstanding_balance: 600 }
+    const none = { installment_amount: undefined, remaining_term: undefined }
+    expect(tangibleAssetComplete({ ...financed, ...none })).toBe(false)
+    expect(tangibleAssetComplete({ ...financed, installment_amount: 0, remaining_term: 0 })).toBe(
+      false,
+    )
+    expect(tangibleAssetComplete({ ...financed, ...none, installment_amount: 50 })).toBe(true)
+    expect(tangibleAssetComplete({ ...financed, ...none, remaining_term: 1 })).toBe(true)
+    expect(tangibleAssetComplete({ ...base, ...none, value: 1000 })).toBe(true)
   })
 })

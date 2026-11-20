@@ -19,18 +19,40 @@ export function financedAmount(price: number | undefined, downPayment: number | 
 }
 
 /**
- * The down payment the plan dialog opens an asset at. One the dialog has saved
- * carries its own. One copied from financial data, or written by an MCP tool,
- * has only a balance owed, and the price less that is what has been paid: the
- * projection's loan then agrees with the dashboard until another figure is
- * typed. Owing more than the price reads as nothing paid.
+ * The down payment the plan dialog opens an asset at. An asset imported from
+ * financial data has none: it is already owned, and the dialog edits its
+ * balance owed directly. One the dialog has saved carries its own. One written
+ * by an MCP tool has only a balance owed, and the price less that is what has
+ * been paid. Owing more than the price reads as nothing paid.
  */
 export function seededDownPayment(
   asset: Pick<ProfileTangibleAsset, 'value' | 'status' | 'outstanding_balance' | 'down_payment'>,
+  imported = false,
 ): number | undefined {
+  if (imported) return undefined
   if (asset.down_payment !== undefined) return asset.down_payment
   if (asset.status !== 'financed' || asset.outstanding_balance === undefined) return undefined
   return atLeastZero(asset.value, asset.outstanding_balance)
+}
+
+/**
+ * Whether the plan dialog may save the asset: it has a value, and a financed
+ * one a balance owed and a term or an installment. Without them it would be
+ * stored as worth, or owing, 0, or with a loan the engine never repays.
+ */
+export function tangibleAssetComplete(asset: {
+  value: number | undefined
+  status: TangibleAssetStatus
+  outstanding_balance: number | undefined
+  installment_amount: number | undefined
+  remaining_term: number | undefined
+}): boolean {
+  if ((asset.value ?? 0) <= 0) return false
+  if (asset.status !== 'financed') return true
+  return (
+    (asset.outstanding_balance ?? 0) > 0 &&
+    ((asset.installment_amount ?? 0) > 0 || (asset.remaining_term ?? 0) > 0)
+  )
 }
 
 /** Editable shape of a tangible asset on the financial-data card. */

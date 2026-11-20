@@ -4,7 +4,12 @@ import { emptyPlanData } from '$lib/plan-base'
 import type { Portfolio, ProfileInvestment, ProfileLiability } from '$lib/schemas'
 import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
 
-import { removePlanItem, saveEditedPlanItem, upsertPlanItem } from './plan-items'
+import {
+  isImportedPlanItem,
+  removePlanItem,
+  saveEditedPlanItem,
+  upsertPlanItem,
+} from './plan-items'
 
 function inv(id: string, name = id): ProfileInvestment {
   return { id, name, balance: 100, apy: 5 }
@@ -28,6 +33,23 @@ function makePlan(overrides: Partial<Portfolio> = {}): PortfolioStore {
     toJSON: () => state,
   }) as unknown as PortfolioStore
 }
+
+describe('isImportedPlanItem', () => {
+  const plan = makePlan({
+    investments: [inv('a'), inv('b')],
+    base: { ...emptyPlanData(), investments: [inv('a')] },
+  })
+
+  it('is true for an item the plan was created with', () => {
+    expect(isImportedPlanItem(plan, 'investments', 'a')).toBe(true)
+  })
+
+  it('is false for an item added in the plan, in another list, or not saved yet', () => {
+    expect(isImportedPlanItem(plan, 'investments', 'b')).toBe(false)
+    expect(isImportedPlanItem(plan, 'liabilities', 'a')).toBe(false)
+    expect(isImportedPlanItem(plan, 'investments', undefined)).toBe(false)
+  })
+})
 
 describe('upsertPlanItem', () => {
   it('appends an item the plan does not have', () => {
@@ -65,6 +87,14 @@ describe('saveEditedPlanItem', () => {
     const plan = makePlan({ investments: [{ ...opened, apy: 7 }, inv('i2')] })
     saveEditedPlanItem('investments', { ...opened, name: 'renamed' }, opened, plan)
     expect(plan.investments).toEqual([{ ...opened, name: 'renamed', apy: 7 }, inv('i2')])
+  })
+
+  it('drops a stored field the dialog no longer writes, like an investment exit', () => {
+    const opened: ProfileInvestment = { ...inv('i1'), exit: 'at_specific_date', exit_year: 2030 }
+    const plan = makePlan({ investments: [opened] })
+    // The investment dialog has no Exit field, so what it saves carries none.
+    saveEditedPlanItem('investments', { ...inv('i1'), balance: 200 }, opened, plan)
+    expect(plan.investments).toEqual([{ ...inv('i1'), balance: 200 }])
   })
 
   it('writes a field the dialog normalised together with the edited one that belongs to it', () => {

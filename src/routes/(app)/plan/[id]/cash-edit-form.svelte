@@ -10,6 +10,8 @@
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
 
+  import LocalOverrideNotice from './local-override-notice.svelte'
+
   interface Props {
     plan: PortfolioStore
     onClose: () => void
@@ -37,7 +39,7 @@
 </script>
 
 <Dialog.Header class="flex flex-row items-center gap-1 border-b p-4 pe-3">
-  <Dialog.Title class="flex-1 truncate text-lg font-semibold">
+  <Dialog.Title class="flex-1 truncate text-base font-medium">
     {$_('page.plan.cashItem')}
   </Dialog.Title>
 
@@ -47,6 +49,10 @@
 </Dialog.Header>
 
 <div class="flex flex-col gap-4 p-4">
+  <!-- Figma 1541:33061. A plan's cash is always copied from financial data, so
+       it is a local override like any imported item. -->
+  <LocalOverrideNotice />
+
   <div class="flex flex-col gap-2">
     <Label for="{uid}-amount">{$_('page.plan.openingCash')}</Label>
     <SuffixedInput
@@ -56,11 +62,11 @@
       formatNumber={appStore.formatNumber}
       onValueChange={(v) => (amount = v)}
     />
-    <p class="text-xs text-muted-foreground">{$_('page.plan.openingCashHint')}</p>
   </div>
 </div>
 
-<Dialog.Footer class="flex flex-row justify-end gap-2 border-t p-4">
-  <Button variant="secondary" onclick={onClose}>{$_('page.plan.cancel')}</Button>
+<!-- Figma "Edit footer": Save then Cancel, on the left. -->
+<Dialog.Footer class="flex flex-row gap-2 border-t bg-muted p-4 sm:justify-start">
   <Button onclick={save}>{$_('page.plan.saveChanges')}</Button>
+  <Button variant="outline" onclick={onClose}>{$_('page.plan.cancel')}</Button>
 </Dialog.Footer>

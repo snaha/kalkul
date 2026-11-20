@@ -145,7 +145,7 @@ export function kalkulTools(app: App = appStore): KalkulTool[] {
     ),
     tool(
       'upsert_plan_item',
-      'Add or change an item in a plan: replaced by id when the plan has it, else added. The change lands on the plan only. Use this, never update_profile, for whatever is changed while working on a plan. A financed tangible asset carries down_payment (the cash paid at purchase, shown in the plan dialog) and outstanding_balance (the loan, which the projection uses): keep outstanding_balance at value less down_payment and change the two together, or leave down_payment out and the dialog derives it from the balance. Returns the portfolio.',
+      'Add or change an item in a plan: replaced by id when the plan has it, else added. The change lands on the plan only. Use this, never update_profile, for whatever is changed while working on a plan. A financed tangible asset carries outstanding_balance (the loan, which the projection uses). One added in the plan also carries down_payment (the cash paid at purchase, shown in the plan dialog): keep outstanding_balance at value less down_payment and change the two together, or leave down_payment out and the dialog derives it from the balance. One the plan was created with has no down_payment: change its outstanding_balance alone. Returns the portfolio.',
       z.object({
         ...planListInput,
         // Not a union of the item schemas: z.union takes the first that parses

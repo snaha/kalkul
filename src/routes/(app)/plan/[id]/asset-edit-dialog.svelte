@@ -10,7 +10,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Switch } from '$lib/components/ui/switch'
   import { rederiveLoanPair } from '$lib/loan-pair'
-  import { removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
+  import { isImportedPlanItem, removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
   import { planRangeOf, timingWithinPlan } from '$lib/plan-range'
   import type {
     CashFlowEnd,
@@ -29,10 +29,11 @@
   import { timingComplete } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
-  import { seededDownPayment } from '$lib/tangible-asset-form'
+  import { seededDownPayment, tangibleAssetComplete } from '$lib/tangible-asset-form'
   import { getMonthOptions } from '$lib/utils'
 
   import ItemEditDialogShell from './item-edit-dialog-shell.svelte'
+  import LocalOverrideNotice from './local-override-notice.svelte'
 
   export type AssetKind = 'investment' | 'tangibleAsset'
 
@@ -57,6 +58,16 @@
   const kind = $derived(target.kind)
   const initial = $derived(target.initial)
 
+  // An asset the projection was created with, as opposed to one added in the
+  // plan: told apart by its id being in `base`, like existing debt.
+  const isImported = (src: AssetTarget): boolean =>
+    isImportedPlanItem(
+      plan,
+      src.kind === 'investment' ? 'investments' : 'tangible_assets',
+      src.initial?.id,
+    )
+  const imported = $derived(isImported(target))
+
   interface FormState {
     id: string
     name: string
@@ -72,10 +83,6 @@
     start_year: number | undefined
     start_month: number | undefined
     start_age: number | undefined
-    exit: CashFlowEnd
-    exit_year: number | undefined
-    exit_month: number | undefined
-    exit_age: number | undefined
     // Tangible asset
     value: number | undefined
     status: TangibleAssetStatus
@@ -140,10 +147,6 @@
       start_year: undefined,
       start_month: undefined,
       start_age: undefined,
-      exit: 'never',
-      exit_year: undefined,
-      exit_month: undefined,
-      exit_age: undefined,
       value: undefined,
       status: 'fully_owned',
       purchase: 'immediately',
@@ -187,10 +190,6 @@
       f.start_year = inv.start_year
       f.start_month = inv.start_month
       f.start_age = inv.start_age
-      f.exit = inv.exit ?? 'never'
-      f.exit_year = inv.exit_year
-      f.exit_month = inv.exit_month
-      f.exit_age = inv.exit_age
     } else if (src.kind === 'tangibleAsset') {
       const a = src.initial
       f.value = a.value > 0 ? a.value : undefined
@@ -199,7 +198,7 @@
         a.outstanding_balance !== undefined && a.outstanding_balance > 0
           ? a.outstanding_balance
           : undefined
-      f.down_payment = seededDownPayment(a)
+      f.down_payment = seededDownPayment(a, isImported(src))
       f.installment_frequency = a.installment_frequency ?? 'monthly'
       f.annual_rate = a.annual_rate !== undefined && a.annual_rate > 0 ? a.annual_rate : undefined
       f.installment_amount =
@@ -236,14 +235,15 @@
   const timingWithin = $derived(
     kind === 'investment'
       ? timingComplete(form.start, form.start_year, form.start_month, form.start_age) &&
-          timingComplete(form.exit, form.exit_year, form.exit_month, form.exit_age) &&
-          timingWithinPlan(range, 'start', form.start, form.start_year, form.start_age) &&
-          timingWithinPlan(range, 'end', form.exit, form.exit_year, form.exit_age)
+          timingWithinPlan(range, 'start', form.start, form.start_year, form.start_age)
       : timingComplete(form.purchase, form.purchase_year, form.purchase_month, form.purchase_age) &&
           timingComplete(form.sale, form.sale_year, form.sale_month, form.sale_age) &&
           timingWithinPlan(range, 'start', form.purchase, form.purchase_year, form.purchase_age) &&
           timingWithinPlan(range, 'end', form.sale, form.sale_year, form.sale_age),
   )
+  // An investment may open empty and be fed by transfers; a tangible asset
+  // needs its value, and a financed one what is owed on it.
+  const canSave = $derived(timingWithin && (kind === 'investment' || tangibleAssetComplete(form)))
   // "Show advanced options" disclosure for a liability and for the financing
   // of a financed tangible asset. Auto-expands when the item already carries
   // non-default interest settings so the user can see what's driving the math.
@@ -297,10 +297,6 @@
       start_year: f.start !== 'immediately' ? f.start_year : undefined,
       start_month: f.start !== 'immediately' ? f.start_month : undefined,
       start_age: f.start !== 'immediately' ? f.start_age : undefined,
-      exit: f.exit !== 'never' ? f.exit : undefined,
-      exit_year: f.exit !== 'never' ? f.exit_year : undefined,
-      exit_month: f.exit !== 'never' ? f.exit_month : undefined,
-      exit_age: f.exit !== 'never' ? f.exit_age : undefined,
     }
   }
 
@@ -375,7 +371,7 @@
   <!-- Figma 1320-1330: primary + cancel on the left, and on the right the
        advanced switch when adding or the delete button when editing. -->
   <div class="flex flex-1 items-center gap-2">
-    <Button onclick={save}>
+    <Button disabled={!canSave} onclick={save}>
       {isNew ? $_('page.plan.createItem') : $_('page.plan.saveChanges')}
     </Button>
     <Button variant="secondary" onclick={() => onOpenChange(false)}>
@@ -408,31 +404,37 @@
   {onOpenChange}
   name={form.name}
   {isNew}
-  saveDisabled={!timingWithin}
+  saveDisabled={!canSave}
   badge={kind === 'tangibleAsset' && form.status === 'financed' && !isNew
     ? $_('page.setup.tangibleAssets.financed')
     : undefined}
   newTitle={kind === 'investment'
     ? $_('page.plan.addInvestmentTitle')
     : $_('page.plan.addTangibleAssetTitle')}
-  footer={assetFooter}
+  footer={imported ? undefined : assetFooter}
+  footerClass={imported ? 'bg-muted' : undefined}
   onSave={save}
   onDelete={remove}
 >
   {#if kind === 'investment'}
-    <div class="flex flex-col gap-2">
-      <Label for="{uid}-investmentLabel">{$_('page.plan.investmentLabel')}</Label>
-      <Input
-        id="{uid}-investmentLabel"
-        value={form.name}
-        oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
-      />
-    </div>
+    {#if imported}
+      <LocalOverrideNotice />
+    {:else}
+      <div class="flex flex-col gap-2">
+        <Label for="{uid}-investmentLabel">{$_('page.plan.investmentLabel')}</Label>
+        <Input
+          id="{uid}-investmentLabel"
+          value={form.name}
+          oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
+        />
+      </div>
+    {/if}
 
     <InvestmentFields
       bind:item={form}
       idPrefix={uid}
-      amountLabel={$_('page.plan.initialAmount')}
+      {imported}
+      amountLabel={imported ? $_('page.plan.initialBalance') : $_('page.plan.initialAmount')}
       {showAdvanced}
       {currencyLabel}
       {range}
@@ -441,18 +443,23 @@
       formatNumber={appStore.formatNumber}
     />
   {:else}
-    <div class="flex flex-col gap-2">
-      <Label for="{uid}-tangibleLabel">{$_('page.plan.investmentLabel')}</Label>
-      <Input
-        id="{uid}-tangibleLabel"
-        value={form.name}
-        oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
-      />
-    </div>
+    {#if imported}
+      <LocalOverrideNotice />
+    {:else}
+      <div class="flex flex-col gap-2">
+        <Label for="{uid}-tangibleLabel">{$_('page.plan.investmentLabel')}</Label>
+        <Input
+          id="{uid}-tangibleLabel"
+          value={form.name}
+          oninput={(e) => (form.name = (e.target as HTMLInputElement).value)}
+        />
+      </div>
+    {/if}
 
     <TangibleAssetFields
       bind:item={form}
       idPrefix={uid}
+      {imported}
       {showAdvanced}
       {currencyLabel}
       {range}

@@ -9,13 +9,7 @@
   import InvestmentFields from '$lib/components/investment-fields.svelte'
   import { Button } from '$lib/components/ui/button'
   import { createListEditor } from '$lib/list-editor.svelte'
-  import type {
-    CashFlowEnd,
-    CashFlowStart,
-    EntryFeeType,
-    ExitFeeType,
-    ProfileInvestment,
-  } from '$lib/schemas'
+  import type { CashFlowStart, EntryFeeType, ExitFeeType, ProfileInvestment } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
 
   interface InvestmentUI {
@@ -34,10 +28,6 @@
     start_year: number | undefined
     start_month: number | undefined
     start_age: number | undefined
-    exit: CashFlowEnd
-    exit_year: number | undefined
-    exit_month: number | undefined
-    exit_age: number | undefined
     // UI-only: whether the fee fields are revealed, toggled from the card menu.
     showAdvanced: boolean
     editing: boolean
@@ -65,10 +55,6 @@
       start_year: undefined,
       start_month: undefined,
       start_age: undefined,
-      exit: 'never',
-      exit_year: undefined,
-      exit_month: undefined,
-      exit_age: undefined,
       // Reveal the fees when the investment already has some, so values set in
       // the plan dialog are not hidden here.
       showAdvanced:
@@ -91,10 +77,6 @@
       start_year: undefined,
       start_month: undefined,
       start_age: undefined,
-      exit: 'never',
-      exit_year: undefined,
-      exit_month: undefined,
-      exit_age: undefined,
       showAdvanced: false,
       editing: true,
     }),

@@ -10,6 +10,25 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-20 A section opens on what it would hide; a financed asset needs a term or an installment
+
+**Context.** In the review of #430: the sections of an imported item's dialog
+always started closed, so the dialog could open with Save disabled and the
+reason out of sight, or with a stored value that drives the projection unseen.
+An imported asset switched to Financed could also be saved with only a balance
+owed, a loan the engine never repays, because the term and installment sat in
+a closed section.
+
+**Decision.** A section starts open when it holds a stored value that is not
+the default, or an empty one that keeps the dialog from being saved; otherwise
+closed, and the user may close or open it either way. A financed tangible
+asset cannot be saved from the plan dialog without a term or an installment.
+An asset added in the plan whose down payment covers the whole price says so
+beside the down payment, where Save was disabled without a reason.
+
+**Supersedes.** "Sections that start closed" in "An imported item is edited as
+a local override" (2026-11-13).
+
 ## 2026-11-20 The projection's right sidebar shows net worth, cash flow and the FIRE portfolio
 
 **Context.** #320 redesigns the right sidebar of the projection page into
@@ -60,6 +79,47 @@ cash and investments alone.
 
 **Supersedes.** The open question in `financial-independence.md` on whether a
 mortgage counts against the portfolio value.
+
+## 2026-11-16 An investment has no Exit field
+
+**Context.** The plan dialog let an investment be given an exit date, which
+sold the whole balance into cash. A one-time transfer with the "Max" amount
+now does the same and says where the money goes, so the field was a second
+way to do one thing. Agreed with design in the review of #430; frame 1380
+draws only Fees.
+
+**Decision.** No investment dialog has an Exit field or section, in a
+projection or in financial data. Saving an investment from the plan dialog
+drops an exit it stored. The `exit` fields are still read by the schema and
+the engine; removing them is a follow-up.
+
+**Supersedes.** The Exit section "An imported item is edited as a local
+override" (2026-11-13) gave an imported investment.
+
+## 2026-11-13 An imported item is edited as a local override
+
+**Context.** The plan dialogs showed every item the same fields whether the
+plan added it or it came from financial data. For a financed asset that meant
+a down payment, which since 2026-11-05 was made up for an imported asset as
+the price less the balance owed. The design (Figma frames 1360 to 1366 and
+1380 to 1386) treats the two differently: what the plan adds is planned
+(a purchase, a price, a down payment, a start); what was imported already
+exists, and those fields mean nothing for it.
+
+**Decision.** An item whose id is in its list in the plan's `base` is
+imported. Its dialog shows a "Local override" notice and no name field, and
+keeps the less-used fields in sections that start closed. An imported
+investment has no start; an imported tangible asset no purchase or
+down payment, and its outstanding balance is edited directly, untouched by a
+change of value; an imported liability no start or principal, only the
+outstanding balance. Incomes, expenses and transfers keep their fields, with
+the timing in a Timeline section. An item added in the plan keeps the dialog
+it had.
+
+**Supersedes.** The part of "A projection stores a financed asset's down
+payment" (2026-11-05) that opened an asset copied from financial data at the
+price less the balance owed. That fallback now applies only to an asset an
+MCP tool wrote into a plan without a down payment.
 
 ## 2026-11-13 The outdated and Last updated notices can be dismissed for the browser session
 
