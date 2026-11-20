@@ -110,6 +110,29 @@ carrying the asset's id as `assetId`. A loan stays listed at 0 while it is not
 owed: before a planned purchase, after it is paid off or settled by a sale, and
 when the plan could not afford the purchase.
 
+### The left sidebar lists what the plan is made of
+
+The plan page's left sidebar is where a plan's items are added and edited; the
+right sidebar is where their figures are read. It has two sections, Cash flows
+(Transfers, Income, Expenses) and Assets (Cash, Investments, Tangible assets,
+Liabilities), with no tabs and no search.
+
+- A section's Add button opens the type picker. The + on a group, shown on
+  hover or focus and always on a touch screen, adds an item of that type
+  directly, skipping the picker. A group with no items still shows, so its
+  first item can be added.
+- A click on an item opens its edit dialog. Cash is a single row that opens
+  the plan's opening cash balance.
+- A cash flow shows the amount as entered: a rate for a recurring one
+  ("1,000 EUR/m"), the bare amount for a one-time one, "Max" for a transfer of
+  the whole balance. An icon marks an amount that follows inflation.
+- An asset shows its name only. The entered value is just where the plan
+  starts; the value in the selected year is in the right sidebar.
+- An item that runs short of funds in any year of the plan is marked in red.
+- On the Current projection nothing can be edited: the items open nothing and
+  every add offers to start a plan instead.
+- Both sections start open and their groups closed.
+
 ### The right sidebar shows one year in three sections
 
 The plan page's right sidebar describes the selected year. It opens on the
@@ -252,9 +275,10 @@ rather than papering over it.
 
 ## Open questions
 
-- The Figma frames for the right sidebar show a "Missing funds" panel that
-  replaces the sections once the projection has stopped at its first error.
-  The engine does not stop at an error today; that is #67.
+- The Figma frames for both sidebars show a "Missing funds" message once the
+  projection has stopped at its first error: a panel that replaces the
+  sections on the right, a summary above the sections on the left. The engine
+  does not stop at an error today; that is #67.
 - Whether a row of the right sidebar opens its item, or focuses the chart on
   it, is not decided (#320).
 
@@ -275,6 +299,8 @@ rather than papering over it.
   with no month left in the plan.
 - `financedAmount` and `seededDownPayment` in `src/lib/tangible-asset-form.ts`
   hold the down-payment rule; the plan asset dialog is their only caller.
+- The left sidebar is `src/routes/(app)/plan/[id]/plan-items-panel.svelte`,
+  fed by `itemSections` in the page beside it.
 - The right sidebar is `src/routes/(app)/plan/[id]/plan-details-panel.svelte`;
   the badge's change is `yearChange` in `src/lib/year-change.ts`.
 - The engine is `src/lib/plan-projection.ts`; the MCP tools in
