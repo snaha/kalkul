@@ -89,6 +89,14 @@ describe('saveEditedPlanItem', () => {
     expect(plan.investments).toEqual([{ ...opened, name: 'renamed', apy: 7 }, inv('i2')])
   })
 
+  it('drops a stored field the dialog no longer writes, like an investment exit', () => {
+    const opened: ProfileInvestment = { ...inv('i1'), exit: 'at_specific_date', exit_year: 2030 }
+    const plan = makePlan({ investments: [opened] })
+    // The investment dialog has no Exit field, so what it saves carries none.
+    saveEditedPlanItem('investments', { ...inv('i1'), balance: 200 }, opened, plan)
+    expect(plan.investments).toEqual([{ ...inv('i1'), balance: 200 }])
+  })
+
   it('writes a field the dialog normalised together with the edited one that belongs to it', () => {
     // Legacy data stores the term in months; the dialog shows and saves years.
     const opened: ProfileLiability = {

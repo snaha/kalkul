@@ -326,9 +326,15 @@
 
   {#if form.schedule === 'recurring'}
     {#if imported}
-      <FormSection icon={Calendar} title={$_('page.plan.timeline')}
-        >{@render timeline()}</FormSection
+      <FormSection
+        icon={Calendar}
+        title={$_('page.plan.timeline')}
+        open={form.start !== 'immediately' ||
+          form.end !== 'never' ||
+          form.change_over_time !== 'none'}
       >
+        {@render timeline()}
+      </FormSection>
     {:else}
       {@render timeline()}
     {/if}

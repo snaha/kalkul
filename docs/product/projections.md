@@ -161,7 +161,10 @@ its list in `base` (`isImportedPlanItem`), the same fact the engine uses for
 existing debt. An imported item's dialog opens with a "Local override" notice
 (edits stay in this projection; it calls an income, expense or transfer "this
 cash flow" and anything else "this asset"), has no name field, and keeps its less-used
-fields in sections that are closed until the user opens them:
+fields in sections. A section starts closed unless it holds a stored value that is not the default
+(a fee, a value rate or property tax, a planned sale, a pay-off date or compound interest, a start,
+end or change over time) or an empty one that keeps the dialog from being saved (a financed asset
+with neither a term nor an installment):
 
 | Item           | Always shown                                                        | Section                                            | Not shown              |
 | -------------- | ------------------------------------------------------------------- | -------------------------------------------------- | ---------------------- |
@@ -172,7 +175,9 @@ fields in sections that are closed until the user opens them:
 | Transfer       | From, To, Type, Frequency, Amount, Adjust for inflation, totals box | Timeline (Start, End, Change over time), recurring |                        |
 
 A dialog cannot be saved while a value it needs is missing: an amount for an income, expense or
-transfer, a value for a tangible asset, and a balance owed for a liability or a financed asset. An
+transfer, a value for a tangible asset, and a balance owed for a liability or a financed asset. A
+financed asset also needs a term or an installment, since a loan with neither is never repaid; one
+added in the plan whose down payment covers the whole price says so beside the down payment. An
 investment may be saved empty, to be fed by transfers, and cash may be 0.
 
 Balances and values are as of the projection's start. A field that is not

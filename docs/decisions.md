@@ -10,6 +10,25 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-20 A section opens on what it would hide; a financed asset needs a term or an installment
+
+**Context.** In the review of #430: the sections of an imported item's dialog
+always started closed, so the dialog could open with Save disabled and the
+reason out of sight, or with a stored value that drives the projection unseen.
+An imported asset switched to Financed could also be saved with only a balance
+owed, a loan the engine never repays, because the term and installment sat in
+a closed section.
+
+**Decision.** A section starts open when it holds a stored value that is not
+the default, or an empty one that keeps the dialog from being saved; otherwise
+closed, and the user may close or open it either way. A financed tangible
+asset cannot be saved from the plan dialog without a term or an installment.
+An asset added in the plan whose down payment covers the whole price says so
+beside the down payment, where Save was disabled without a reason.
+
+**Supersedes.** "Sections that start closed" in "An imported item is edited as
+a local override" (2026-11-13).
+
 ## 2026-11-20 The projection's right sidebar shows net worth, cash flow and the FIRE portfolio
 
 **Context.** #320 redesigns the right sidebar of the projection page into

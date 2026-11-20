@@ -113,9 +113,22 @@ describe('tangibleAssetComplete', () => {
   })
 
   it('needs a balance owed when financed', () => {
-    const financed = { ...base, status: 'financed' as const }
+    const financed = { ...base, status: 'financed' as const, remaining_term: 10 }
     expect(tangibleAssetComplete({ ...financed, outstanding_balance: undefined })).toBe(false)
     expect(tangibleAssetComplete({ ...financed, outstanding_balance: 0 })).toBe(false)
     expect(tangibleAssetComplete({ ...financed, outstanding_balance: 600 })).toBe(true)
+  })
+
+  // Without either the engine would never repay the loan.
+  it('needs a term or an installment when financed', () => {
+    const financed = { ...base, status: 'financed' as const, outstanding_balance: 600 }
+    const none = { installment_amount: undefined, remaining_term: undefined }
+    expect(tangibleAssetComplete({ ...financed, ...none })).toBe(false)
+    expect(tangibleAssetComplete({ ...financed, installment_amount: 0, remaining_term: 0 })).toBe(
+      false,
+    )
+    expect(tangibleAssetComplete({ ...financed, ...none, installment_amount: 50 })).toBe(true)
+    expect(tangibleAssetComplete({ ...financed, ...none, remaining_term: 1 })).toBe(true)
+    expect(tangibleAssetComplete({ ...base, ...none, value: 1000 })).toBe(true)
   })
 })

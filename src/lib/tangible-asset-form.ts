@@ -37,15 +37,21 @@ export function seededDownPayment(
 
 /**
  * Whether the plan dialog may save the asset: it has a value, and a financed
- * one a balance owed. Without them it would be stored as worth, or owing, 0.
+ * one a balance owed and a term or an installment. Without them it would be
+ * stored as worth, or owing, 0, or with a loan the engine never repays.
  */
 export function tangibleAssetComplete(asset: {
   value: number | undefined
   status: TangibleAssetStatus
   outstanding_balance: number | undefined
+  installment_amount: number | undefined
+  remaining_term: number | undefined
 }): boolean {
+  if ((asset.value ?? 0) <= 0) return false
+  if (asset.status !== 'financed') return true
   return (
-    (asset.value ?? 0) > 0 && (asset.status !== 'financed' || (asset.outstanding_balance ?? 0) > 0)
+    (asset.outstanding_balance ?? 0) > 0 &&
+    ((asset.installment_amount ?? 0) > 0 || (asset.remaining_term ?? 0) > 0)
   )
 }
 

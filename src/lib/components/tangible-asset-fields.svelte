@@ -334,17 +334,25 @@
       </p>
     </div>
 
-    <FormSection icon={HandCoins} title={$_('page.plan.financingDetails')}
-      >{@render financingRows()}</FormSection
+    <!-- Open while the loan has neither a term nor an installment: Save
+         waits for one of them. -->
+    <FormSection
+      icon={HandCoins}
+      title={$_('page.plan.financingDetails')}
+      open={!item.installment_amount && !item.remaining_term}
     >
+      {@render financingRows()}
+    </FormSection>
   {/if}
 
-  <FormSection icon={Percent} title={$_('page.plan.valueAndTax')}
-    >{@render valueTaxRows()}</FormSection
-  >
+  <FormSection icon={Percent} title={$_('page.plan.valueAndTax')} open={showAdvanced}>
+    {@render valueTaxRows()}
+  </FormSection>
 
   {#if range}
-    <FormSection icon={Gavel} title={$_('page.plan.sale')}>{@render saleSelector()}</FormSection>
+    <FormSection icon={Gavel} title={$_('page.plan.sale')} open={item.sale !== 'never'}>
+      {@render saleSelector()}
+    </FormSection>
   {/if}
 {:else}
   {#if range}
@@ -418,11 +426,18 @@
           }}
         />
       </div>
-      <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">
-        {$_('page.plan.downPaymentDescription', {
-          values: { amount: formatCurrency(item.outstanding_balance ?? 0) },
-        })}
-      </p>
+      {#if item.value && !item.outstanding_balance}
+        <!-- Nothing is left to finance, and Save waits for a balance owed. -->
+        <p class="flex min-h-8 flex-1 items-center text-xs text-destructive">
+          {$_('page.plan.downPaymentCoversPrice')}
+        </p>
+      {:else}
+        <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">
+          {$_('page.plan.downPaymentDescription', {
+            values: { amount: formatCurrency(item.outstanding_balance ?? 0) },
+          })}
+        </p>
+      {/if}
     </div>
 
     {@render financingRows()}

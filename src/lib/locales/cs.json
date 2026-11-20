@@ -139,6 +139,7 @@
       "paymentFinanced": "Financováno",
       "downPayment": "Akontace",
       "downPaymentDescription": "Částka zaplacená předem — zbývajících {amount} bude financováno.",
+      "downPaymentCoversPrice": "Akontace pokrývá celou cenu. Snižte ji, nebo zvolte platbu jednorázově.",
       "term": "Doba splácení",
       "sale": "Prodej",
       "saleNever": "Ponechat — bez plánovaného prodeje",

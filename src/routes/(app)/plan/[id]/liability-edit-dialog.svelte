@@ -495,7 +495,11 @@
   </div>
 
   {#if imported}
-    <FormSection icon={FileText} title={$_('page.plan.payOffAndInterest')}>
+    <FormSection
+      icon={FileText}
+      title={$_('page.plan.payOffAndInterest')}
+      open={form.pay_off !== 'at_term' || form.interest_type !== 'simple'}
+    >
       {@render advancedRows()}
     </FormSection>
   {:else if showAdvanced}

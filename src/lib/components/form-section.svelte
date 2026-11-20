@@ -14,15 +14,27 @@
   interface Props {
     icon: Component<{ class?: string }>
     title: string
+    /**
+     * Opens the section when it holds something the user must see: a stored
+     * value that is not the default, or an empty one that keeps Save disabled.
+     * The user may still close it.
+     */
+    open?: boolean
     children: Snippet
   }
 
-  let { icon: Icon, title, children }: Props = $props()
+  let { icon: Icon, title, open = false, children }: Props = $props()
+
+  let isOpen = $state(false)
+  $effect.pre(() => {
+    if (open) isOpen = true
+  })
 </script>
 
 <!-- Figma "Subsection title" (1247:41685): a separator, then the icon and
-     title with the expand/collapse chevrons. Closed until the user opens it. -->
-<Collapsible class="flex flex-col gap-4">
+     title with the expand/collapse chevrons. Closed until the user opens it,
+     unless `open` says there is something to see. -->
+<Collapsible bind:open={isOpen} class="flex flex-col gap-4">
   <Separator />
   <CollapsibleTrigger class="group flex w-full items-center justify-between">
     <span class="flex items-center gap-2 text-sm font-medium text-muted-foreground uppercase">
