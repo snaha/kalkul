@@ -73,7 +73,27 @@ export interface YearlyProjection {
   tangibleAssetsByItem: YearlyProjectionItem[]
   liabilitiesByItem: YearlyProjectionItem[]
   totalIncome: number
+  // Expenses plus property tax. Loan installments are apart, in
+  // `totalInstallments`.
   totalExpenses: number
+  // What the year's cash flow is made of, in the same real terms as the
+  // totals. Only what is active in the year is listed: the incomes and
+  // expenses that fire, the property tax of each taxed asset held, and the
+  // installments paid on each loan (named like `liabilitiesByItem`).
+  incomesByItem: YearlyProjectionItem[]
+  expensesByItem: YearlyProjectionItem[]
+  propertyTaxByItem: YearlyProjectionItem[]
+  installmentsByItem: YearlyProjectionItem[]
+  totalInstallments: number
+  // The plan's own transfers active in the year, each with the amount that
+  // left its source: 0 when the transfer was skipped for lack of funds. The
+  // planned buy and sell of an asset are not transfers the user entered and
+  // stay out.
+  transfersByItem: YearlyProjectionItem[]
+  // Portfolio value, also called investable net worth: cash plus investments
+  // minus the loans not secured by an asset (docs/product/net-worth.md). It is
+  // what `fiPercent` and `runwayYears` are measured on.
+  portfolioValue: number
   // Progress toward financial independence in this year: investable wealth
   // (cash + investments − standalone liabilities outstanding) as a percent of
   // the FI number: this year's outflows (living expenses + loan installments)
@@ -1061,9 +1081,10 @@ function accumulateCashFlows<T extends ScheduledCashFlow & { id: string }>(
   birth: Birth | undefined,
   inflationRate: Decimal,
   getAmount: (item: T) => Decimal,
-): { total: Decimal; activeIds: string[] } {
+): { total: Decimal; activeIds: string[]; amounts: { item: T; amount: Decimal }[] } {
   let total = DECIMAL_0
   const activeIds: string[] = []
+  const amounts: { item: T; amount: Decimal }[] = []
   for (const item of items) {
     if (item.schedule === 'one_time') {
       if (year !== item.transaction_year) continue
@@ -1074,12 +1095,19 @@ function accumulateCashFlows<T extends ScheduledCashFlow & { id: string }>(
       if (year < itemStart || year > itemEnd) continue
       if (activeMonthFraction(temporal, year, itemStart, itemEnd, birth).isZero()) continue
     }
-    total = total.plus(
-      cashFlowAmountForYear(item, getAmount(item), year, planStartYear, birth, inflationRate),
+    const amount = cashFlowAmountForYear(
+      item,
+      getAmount(item),
+      year,
+      planStartYear,
+      birth,
+      inflationRate,
     )
+    total = total.plus(amount)
     activeIds.push(item.id)
+    amounts.push({ item, amount })
   }
-  return { total, activeIds }
+  return { total, activeIds, amounts }
 }
 
 /**
@@ -1349,23 +1377,26 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     }
 
     // 2. Income / expense accumulation (see accumulateCashFlows).
-    const incomesThisYearNominal = accumulateCashFlows(
+    const { total: incomesThisYearNominal, amounts: incomeAmountsNominal } = accumulateCashFlows(
       incomes,
       year,
       startYear,
       birth,
       inflationRate,
       (income) => new Decimal(income.amount),
-    ).total
-    const { total: cashFlowExpensesNominal, activeIds: activeExpenseIdsThisYear } =
-      accumulateCashFlows(
-        expenses,
-        year,
-        startYear,
-        birth,
-        inflationRate,
-        (expense) => new Decimal(expense.amount),
-      )
+    )
+    const {
+      total: cashFlowExpensesNominal,
+      activeIds: activeExpenseIdsThisYear,
+      amounts: expenseAmountsNominal,
+    } = accumulateCashFlows(
+      expenses,
+      year,
+      startYear,
+      birth,
+      inflationRate,
+      (expense) => new Decimal(expense.amount),
+    )
     // 3. Apply income to cash up front, then run transfers, then settle
     //    expenses + liability payments. Doing transfers before the cash check
     //    is what lets a transfer-into-cash (e.g. drawing from an investment
@@ -1421,6 +1452,8 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
 
     const insufficientFundTransferIdsThisYear: string[] = []
     const insufficientFundAssetIdsThisYear: string[] = []
+    // What left the source of each of the plan's own transfers this year.
+    const transferMovedNominal = new Map<string, Decimal>()
     for (const transfer of planTransfers) {
       if (!isTransferActiveThisYear(transfer, year, startYear, birth)) continue
       // The synthetic buy is what makes its asset active, so it is exempt
@@ -1432,6 +1465,9 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       }
       const source = investmentsById.get(transfer.from_asset_id)
       const heldYears = year - (assetWindows.get(transfer.from_asset_id)?.startYear ?? startYear)
+      if (plannedStartFor === undefined && !isPlannedSell(transfer)) {
+        transferMovedNominal.set(transfer.id, DECIMAL_0)
+      }
       let amount: Decimal
       if (transfer.transfer_all) {
         // "Max" mode: take whatever the source has at execution time. If the
@@ -1466,6 +1502,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       // Source loses the full `amount`; the destination receives what is left
       // after the fees and the estimated tax (`transferNetToDestination`).
       withdraw(transfer.from_asset_id, amount)
+      if (transferMovedNominal.has(transfer.id)) transferMovedNominal.set(transfer.id, amount)
       deposit(
         transfer.to_asset_id,
         transferNetToDestination(
@@ -1500,27 +1537,45 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     //    An abandoned purchase owes nothing and is taxed on nothing.
     let liabilitiesOutstandingNominal = DECIMAL_0
     let liabilitiesPaidThisYearNominal = DECIMAL_0
-    function addSchedule(schedule: LiabilitySchedule): void {
+    const installmentsNominal: { item: YearlyProjectionItem; paid: Decimal }[] = []
+    function addSchedule(
+      schedule: LiabilitySchedule,
+      liability: ProfileLiability,
+      assetId?: string,
+    ): void {
       liabilitiesOutstandingNominal = liabilitiesOutstandingNominal.plus(
         schedule.outstandingByYear.get(year) ?? DECIMAL_0,
       )
-      liabilitiesPaidThisYearNominal = liabilitiesPaidThisYearNominal.plus(
-        schedule.paidByYear.get(year) ?? DECIMAL_0,
-      )
+      const paid = schedule.paidByYear.get(year) ?? DECIMAL_0
+      liabilitiesPaidThisYearNominal = liabilitiesPaidThisYearNominal.plus(paid)
+      if (paid.greaterThan(0)) {
+        installmentsNominal.push({
+          item: { id: liability.id, name: liability.name, value: 0, ...(assetId && { assetId }) },
+          paid,
+        })
+      }
     }
-    for (const schedule of standaloneSchedules) addSchedule(schedule)
-    for (const { assetId, schedule } of financedSchedules) {
-      if (!abandonedAssetIds.has(assetId)) addSchedule(schedule)
+    standaloneSchedules.forEach((schedule, i) => addSchedule(schedule, liabilities[i]))
+    for (const { assetId, liability, schedule } of financedSchedules) {
+      if (!abandonedAssetIds.has(assetId)) addSchedule(schedule, liability, assetId)
     }
     // Property tax is charged on the purchase price — deliberately the flat
     // nominal value, not the inflated or appreciated one — for every year the
     // asset is held, and settled from cash alongside the ordinary expenses.
-    const propertyTaxThisYearNominal = tangibleAssets.reduce<Decimal>((sum, asset) => {
-      if (!asset.property_tax_rate || abandonedAssetIds.has(asset.id)) return sum
+    const propertyTaxNominal: { asset: ProfileTangibleAsset; tax: Decimal }[] = []
+    for (const asset of tangibleAssets) {
+      if (!asset.property_tax_rate || abandonedAssetIds.has(asset.id)) continue
       const window = assetWindows.get(asset.id)
-      if (window && (year < window.startYear || year > window.exitYear)) return sum
-      return sum.plus(new Decimal(asset.value).mul(new Decimal(asset.property_tax_rate).div(100)))
-    }, DECIMAL_0)
+      if (window && (year < window.startYear || year > window.exitYear)) continue
+      propertyTaxNominal.push({
+        asset,
+        tax: new Decimal(asset.value).mul(new Decimal(asset.property_tax_rate).div(100)),
+      })
+    }
+    const propertyTaxThisYearNominal = propertyTaxNominal.reduce<Decimal>(
+      (sum, { tax }) => sum.plus(tax),
+      DECIMAL_0,
+    )
     const expensesThisYearNominal = cashFlowExpensesNominal.plus(propertyTaxThisYearNominal)
 
     // 7. Settle expenses + liability payments against post-transfer cash.
@@ -1626,6 +1681,12 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       runwayYears = Math.max(0, investableNominal.div(outflowsNominal).toNumber())
     }
 
+    const real = (nominal: Decimal): number => nominal.div(deflationFactor).toNumber()
+    const flowItems = (
+      amounts: { item: { id: string; name: string }; amount: Decimal }[],
+    ): YearlyProjectionItem[] =>
+      amounts.map(({ item, amount }) => ({ id: item.id, name: item.name, value: real(amount) }))
+
     projection.push({
       year,
       cash: clampNonNeg(cashReal),
@@ -1638,6 +1699,21 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       liabilitiesByItem,
       totalIncome: incomesThisYearReal.toNumber(),
       totalExpenses: expensesThisYearReal.toNumber(),
+      incomesByItem: flowItems(incomeAmountsNominal),
+      expensesByItem: flowItems(expenseAmountsNominal),
+      propertyTaxByItem: flowItems(
+        propertyTaxNominal.map(({ asset, tax }) => ({ item: asset, amount: tax })),
+      ),
+      installmentsByItem: installmentsNominal.map(({ item, paid }) => ({
+        ...item,
+        value: real(paid),
+      })),
+      totalInstallments: real(liabilitiesPaidThisYearNominal),
+      transfersByItem: plan.transfers.flatMap((transfer) => {
+        const moved = transferMovedNominal.get(transfer.id)
+        return moved ? [{ id: transfer.id, name: transfer.name, value: real(moved) }] : []
+      }),
+      portfolioValue: real(investableNominal),
       fiPercent,
       runwayYears,
       insufficientFundTransferIds: insufficientFundTransferIdsThisYear,

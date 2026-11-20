@@ -1,7 +1,6 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import Link from '@lucide/svelte/icons/link'
   import TriangleAlert from '@lucide/svelte/icons/triangle-alert'
 
   import * as Tooltip from '$lib/components/ui/tooltip'
@@ -11,47 +10,17 @@
     name: string
     value: string
     valueClass?: string
-    dense?: boolean
     hasInsufficientFunds?: boolean
-    // Marks the row as tied to another item (a financed asset's loan); the
-    // text is the icon's accessible label and tooltip.
-    linkedLabel?: string
     onclick?: () => void
   }
 
-  let {
-    name,
-    value,
-    valueClass,
-    dense = false,
-    hasInsufficientFunds = false,
-    linkedLabel,
-    onclick,
-  }: Props = $props()
+  let { name, value, valueClass, hasInsufficientFunds = false, onclick }: Props = $props()
 
-  const rowClass = $derived(
-    cn(
-      'flex w-full items-center justify-between gap-2 rounded-md px-2 text-left text-sm',
-      dense ? 'h-7' : 'h-8',
-    ),
-  )
+  const rowClass =
+    'flex h-8 w-full items-center justify-between gap-2 rounded-md px-2 text-left text-sm'
 </script>
 
 {#snippet content()}
-  {#if linkedLabel}
-    <Tooltip.Provider delayDuration={150}>
-      <Tooltip.Root>
-        <Tooltip.Trigger>
-          {#snippet child({ props })}
-            <span {...props} role="img" aria-label={linkedLabel} class="shrink-0">
-              <Link class="size-3 text-muted-foreground" aria-hidden="true" />
-            </span>
-          {/snippet}
-        </Tooltip.Trigger>
-        <Tooltip.Content>{linkedLabel}</Tooltip.Content>
-      </Tooltip.Root>
-    </Tooltip.Provider>
-  {/if}
   <span class={cn('min-w-0 flex-1 truncate', hasInsufficientFunds && 'text-destructive')}>
     {name}
   </span>
@@ -79,12 +48,9 @@
     <span
       class={cn(
         'shrink-0 tabular-nums',
-        // Non-dense rows live in the cash-flow / asset sidebar and follow the
-        // Figma spec: 12px medium-weight in the default foreground colour.
-        // Dense rows live in the right inspector panel and keep the existing
-        // sm sizing until that panel gets its own design pass.
-        dense ? 'text-sm' : 'text-xs font-medium',
-        valueClass ?? (dense ? 'text-muted-foreground' : 'text-foreground'),
+        // Figma: 12px medium-weight in the default foreground colour.
+        'text-xs font-medium',
+        valueClass ?? 'text-foreground',
       )}
     >
       {value}
@@ -95,7 +61,7 @@
 <!-- A row with no handler is information, not a control: rendered as a div so
      it stays out of the tab order and is not announced as a dead button. -->
 {#if onclick}
-  <button type="button" {onclick} class={cn(rowClass, !dense && 'hover:bg-accent')}>
+  <button type="button" {onclick} class={cn(rowClass, 'hover:bg-accent')}>
     {@render content()}
   </button>
 {:else}

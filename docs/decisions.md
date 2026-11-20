@@ -10,6 +10,35 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-20 The projection's right sidebar shows net worth, cash flow and the FIRE portfolio
+
+**Context.** #320 redesigns the right sidebar of the projection page into
+three sections, each with a year-on-year badge. The frames left open what the
+Cash flow headline counts and what the Transfers row shows, and they have no
+Key figures section, where liquid net worth, year-on-year and the income and
+expense totals lived.
+
+**Decision.** Cash flow is income less expenses, property tax and loan
+installments. Its Expense row lists the expenses first, then the property tax
+and the installments, which look like expenses for now. Transfers shows the
+amount that left each source and stays out of the headline. The Key figures
+section is dropped: total income and total expenses are the head rows of
+Income and Expense, the portfolio value is shown as "FIRE portfolio" instead
+of liquid net worth, and the badge's tooltip carries the year-on-year amount.
+The "Missing funds" panel of the frames waits for #67, since the engine does
+not stop at an error yet. `docs/product/projections.md` and `net-worth.md`
+state the rules.
+
+**Why.** An installment drains cash like any expense, so a cash flow without
+it would overstate what the year leaves over; it is also what the FI number
+counts as living cost. The portfolio value is the figure financial
+independence is measured on, so it is the one worth following year by year;
+liquid net worth differed from it only by the secured loans.
+
+**Supersedes.** "Liquid net worth ... stays a key figure of a projection for
+now" in the 2026-11-19 entry below, and the open question on it in
+`net-worth.md`.
+
 ## 2026-11-19 Net worth, portfolio value and liquid net worth are three figures
 
 **Context.** The app had three wealth totals and no stated definition for

@@ -33,8 +33,6 @@
     CollapsibleTrigger,
   } from '$lib/components/ui/collapsible'
   import { Input } from '$lib/components/ui/input'
-  import { Separator } from '$lib/components/ui/separator'
-  import { Slider } from '$lib/components/ui/slider'
   import { CURRENT_PROJECTION_ID, buildCurrentProjectionPlan } from '$lib/current-projection'
   import { getCurrentProfile } from '$lib/current-values'
   import { DEMO_PLAN_ID } from '$lib/demo'
@@ -63,6 +61,7 @@
   import CashEditDialog from './cash-edit-dialog.svelte'
   import CashFlowEditDialog from './cash-flow-edit-dialog.svelte'
   import LiabilityEditDialog from './liability-edit-dialog.svelte'
+  import PlanDetailsPanel from './plan-details-panel.svelte'
   import PlanSidebarRow from './plan-sidebar-row.svelte'
   import TransferEditDialog from './transfer-edit-dialog.svelte'
 
@@ -278,7 +277,6 @@
 
   // Yearly projection (real / inflation-adjusted values)
   const projection = $derived(plan ? getYearlyPlanProjection(plan, profile) : [])
-  const selectedYearProjection = $derived(projection.find((p) => p.year === selectedYear))
 
   // Union of per-year warning IDs — a transfer or expense that fails in any
   // year of the plan is surfaced in the sidebar with a destructive badge.
@@ -301,13 +299,6 @@
         p.insufficientFundAssetIds.length > 0,
     )?.year,
   )
-
-  // Breakdown values for the selected year (real terms)
-  const cashValue = $derived(selectedYearProjection?.cash ?? 0)
-  const investmentsValue = $derived(selectedYearProjection?.investments ?? 0)
-  const tangibleAssetsValue = $derived(selectedYearProjection?.tangibleAssets ?? 0)
-  const liabilitiesValue = $derived(selectedYearProjection?.liabilities ?? 0)
-  const netWorth = $derived(selectedYearProjection?.netWorth ?? 0)
 
   interface SidebarItem {
     id: string
@@ -459,85 +450,6 @@
       color: CATEGORY_COLORS.liabilities[0],
     },
   ]
-
-  // Breakdown items for the right panel
-  const breakdownItems = $derived([
-    {
-      id: 'cash',
-      label: $_('page.plan.cash'),
-      color: CATEGORY_COLORS.cash,
-      value: cashValue,
-      formattedValue: appStore.formatCurrencyCode(cashValue),
-      isNegative: false,
-    },
-    {
-      id: 'investments',
-      label: $_('page.plan.investments'),
-      color: CATEGORY_COLORS.investments[0],
-      value: investmentsValue,
-      formattedValue: appStore.formatCurrencyCode(investmentsValue),
-      isNegative: false,
-    },
-    {
-      id: 'tangibleAssets',
-      label: $_('page.plan.tangibleAssets'),
-      color: CATEGORY_COLORS.tangibleAssets[0],
-      value: tangibleAssetsValue,
-      formattedValue: appStore.formatCurrencyCode(tangibleAssetsValue),
-      isNegative: false,
-    },
-    {
-      id: 'liabilities',
-      label: $_('page.plan.liabilities'),
-      color: CATEGORY_COLORS.liabilities[0],
-      value: liabilitiesValue,
-      formattedValue:
-        liabilitiesValue > 0
-          ? '-' + appStore.formatCurrencyCode(liabilitiesValue)
-          : appStore.formatCurrencyCode(0),
-      isNegative: liabilitiesValue > 0,
-    },
-  ])
-
-  // Previous-year projection for year-on-year delta
-  const previousYearProjection = $derived(projection.find((p) => p.year === selectedYear - 1))
-
-  // Liquid net worth: cash + investments − liabilities (excludes tangibles, which are less liquid)
-  const liquidNetWorth = $derived(cashValue + investmentsValue - liabilitiesValue)
-
-  const yearOnYearDelta = $derived(
-    previousYearProjection ? netWorth - previousYearProjection.netWorth : undefined,
-  )
-  const yearOnYearPercent = $derived.by(() => {
-    if (previousYearProjection === undefined) return undefined
-    const prev = previousYearProjection.netWorth
-    if (prev === 0) return undefined
-    return ((netWorth - prev) / Math.abs(prev)) * 100
-  })
-
-  function signed(value: number, formatted: string): string {
-    if (value > 0) return `+${formatted}`
-    if (value < 0) return formatted.startsWith('-') ? formatted : `-${formatted}`
-    return formatted
-  }
-
-  const yearOnYearLabel = $derived.by(() => {
-    if (yearOnYearDelta === undefined) return '—'
-    const amount = signed(yearOnYearDelta, appStore.formatCurrencyCode(Math.abs(yearOnYearDelta)))
-    if (yearOnYearPercent === undefined) return amount
-    const pctSign = yearOnYearPercent > 0 ? '+' : ''
-    return `${amount} (${pctSign}${appStore.formatPercent(yearOnYearPercent, 1)})`
-  })
-  const yearOnYearClass = $derived.by(() => {
-    if (yearOnYearDelta === undefined || yearOnYearDelta === 0) return undefined
-    return yearOnYearDelta > 0 ? 'text-success' : 'text-destructive'
-  })
-
-  const totalIncomeValue = $derived(selectedYearProjection?.totalIncome ?? 0)
-  const totalExpensesValue = $derived(selectedYearProjection?.totalExpenses ?? 0)
-  const investmentsByItem = $derived(selectedYearProjection?.investmentsByItem ?? [])
-  const tangibleAssetsByItem = $derived(selectedYearProjection?.tangibleAssetsByItem ?? [])
-  const liabilitiesByItem = $derived(selectedYearProjection?.liabilitiesByItem ?? [])
 
   // Calculate age from birth date for the selected year
   const currentAge = $derived.by(() => {
@@ -823,189 +735,9 @@
       </div>
     </div>
 
-    <!-- Right Panel: Details inspector -->
+    <!-- Right Panel: the selected year in detail -->
     {#if isPanelOpen}
-      <div class="flex w-[384px] shrink-0 flex-col overflow-hidden border-l">
-        <!-- Header section -->
-        <div class="flex shrink-0 flex-col gap-2 p-4">
-          <div class="flex items-center gap-4">
-            <p class="min-w-0 flex-1 text-lg font-bold">{selectedYear}</p>
-            {#if currentAge !== undefined}
-              <p class="text-sm">{$_('page.plan.age', { values: { age: currentAge } })}</p>
-            {/if}
-          </div>
-          <Slider
-            type="single"
-            class="py-1"
-            bind:value={selectedYear}
-            min={startYear}
-            max={endYear}
-            step={1}
-          />
-        </div>
-
-        <!-- Content section -->
-        <div class="flex flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto px-2 pb-4">
-          <!-- Net worth -->
-          <div class="px-2 py-2">
-            <p class="text-sm font-medium">{$_('page.plan.netWorth')}</p>
-            <p class="mt-1 text-lg">{appStore.formatCurrencyCode(netWorth)}</p>
-          </div>
-
-          <!-- Category breakdown (4 rows, 28px each, with 16x16 squares) -->
-          <div class="flex flex-col px-2 py-2">
-            {#each breakdownItems as item (item.id)}
-              <div class="flex h-7 items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <div class="size-4 rounded-[2px]" style="background-color: {item.color}"></div>
-                  <span class="text-sm">{item.label}</span>
-                </div>
-                <span class="text-sm tabular-nums" class:text-destructive={item.isNegative}>
-                  {item.formattedValue}
-                </span>
-              </div>
-            {/each}
-          </div>
-
-          <Separator class="mx-2" />
-
-          <!-- Expandable detail sections -->
-          <div class="flex flex-col gap-4">
-            <!-- Key figures -->
-            <Collapsible>
-              <CollapsibleTrigger
-                class="flex h-8 w-full items-center justify-between px-2 hover:bg-accent"
-              >
-                <span class="text-sm font-medium">{$_('page.plan.keyFigures')}</span>
-                <ChevronRight
-                  class="size-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90"
-                />
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div class="flex flex-col">
-                  <PlanSidebarRow
-                    dense
-                    name={$_('page.plan.yearOnYear')}
-                    value={yearOnYearLabel}
-                    valueClass={yearOnYearClass}
-                  />
-                  <PlanSidebarRow
-                    dense
-                    name={$_('page.plan.liquidNetWorth')}
-                    value={appStore.formatCurrencyCode(liquidNetWorth)}
-                  />
-                  <PlanSidebarRow
-                    dense
-                    name={$_('page.plan.totalIncome')}
-                    value={`+${appStore.formatCurrencyCode(totalIncomeValue)}`}
-                    valueClass="text-success"
-                  />
-                  <PlanSidebarRow
-                    dense
-                    name={$_('page.plan.totalExpenses')}
-                    value={`-${appStore.formatCurrencyCode(totalExpensesValue)}`}
-                    valueClass="text-destructive"
-                  />
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-
-            <!-- Investments value -->
-            <Collapsible>
-              <CollapsibleTrigger
-                class="flex h-8 w-full items-center justify-between px-2 hover:bg-accent"
-              >
-                <span class="text-sm font-medium">{$_('page.plan.investmentsValue')}</span>
-                <ChevronRight
-                  class="size-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90"
-                />
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                {#if investmentsByItem.length > 0}
-                  <div class="flex flex-col">
-                    {#each investmentsByItem as item (item.id)}
-                      <PlanSidebarRow
-                        dense
-                        name={item.name}
-                        value={appStore.formatCurrencyCode(item.value)}
-                        onclick={notImplemented}
-                      />
-                    {/each}
-                  </div>
-                {:else}
-                  <p class="px-2 py-1 text-xs text-muted-foreground">
-                    {$_('page.plan.noItems')}
-                  </p>
-                {/if}
-              </CollapsibleContent>
-            </Collapsible>
-
-            <!-- Tangible assets value -->
-            <Collapsible>
-              <CollapsibleTrigger
-                class="flex h-8 w-full items-center justify-between px-2 hover:bg-accent"
-              >
-                <span class="text-sm font-medium">{$_('page.plan.tangibleAssetsValue')}</span>
-                <ChevronRight
-                  class="size-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90"
-                />
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                {#if tangibleAssetsByItem.length > 0}
-                  <div class="flex flex-col">
-                    {#each tangibleAssetsByItem as item (item.id)}
-                      <PlanSidebarRow
-                        dense
-                        name={item.name}
-                        value={appStore.formatCurrencyCode(item.value)}
-                        onclick={notImplemented}
-                      />
-                    {/each}
-                  </div>
-                {:else}
-                  <p class="px-2 py-1 text-xs text-muted-foreground">
-                    {$_('page.plan.noItems')}
-                  </p>
-                {/if}
-              </CollapsibleContent>
-            </Collapsible>
-
-            <!-- Liabilities balance -->
-            <Collapsible>
-              <CollapsibleTrigger
-                class="flex h-8 w-full items-center justify-between px-2 hover:bg-accent"
-              >
-                <span class="text-sm font-medium">{$_('page.plan.liabilitiesBalance')}</span>
-                <ChevronRight
-                  class="size-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90"
-                />
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                {#if liabilitiesByItem.length > 0}
-                  <div class="flex flex-col">
-                    {#each liabilitiesByItem as item (item.id)}
-                      <PlanSidebarRow
-                        dense
-                        name={item.name}
-                        value={item.value > 0
-                          ? `-${appStore.formatCurrencyCode(item.value)}`
-                          : appStore.formatCurrencyCode(0)}
-                        valueClass="text-destructive"
-                        linkedLabel={item.assetId ? $_('page.plan.financedAssetLoan') : undefined}
-                        onclick={notImplemented}
-                      />
-                    {/each}
-                  </div>
-                {:else}
-                  <p class="px-2 py-1 text-xs text-muted-foreground">
-                    {$_('page.plan.noItems')}
-                  </p>
-                {/if}
-              </CollapsibleContent>
-            </Collapsible>
-          </div>
-        </div>
-      </div>
+      <PlanDetailsPanel {projection} bind:selectedYear {startYear} {endYear} age={currentAge} />
     {/if}
 
     {#if savedPlan}

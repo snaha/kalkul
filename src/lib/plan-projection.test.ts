@@ -3745,3 +3745,176 @@ describe('loan installment / term derivation', () => {
     ).toBeUndefined()
   })
 })
+
+describe('per-item cash flows and portfolio value of a year', () => {
+  const salary: Income = {
+    id: 'inc1',
+    name: 'Salary',
+    amount: 1000,
+    schedule: 'recurring',
+    frequency: 'yearly',
+    start: 'immediately',
+    end: 'never',
+    change_over_time: 'none',
+  }
+  const bonus: Income = {
+    id: 'inc2',
+    name: 'Bonus',
+    amount: 500,
+    schedule: 'one_time',
+    transaction_year: 2026,
+    transaction_month: 3,
+  }
+  const rent: Expense = {
+    id: 'e1',
+    name: 'Rent',
+    amount: 300,
+    schedule: 'recurring',
+    frequency: 'yearly',
+    start: 'immediately',
+    end: 'never',
+    change_over_time: 'none',
+  }
+  const loan: ProfileLiability = {
+    id: 'l1',
+    name: 'Car loan',
+    outstanding_balance: 10_000,
+    installment_frequency: 'monthly',
+    annual_rate: 0,
+    installment_amount: 200,
+    remaining_term: 10,
+  }
+
+  it('lists the incomes and expenses active in the year, each with its amount', () => {
+    const result = project(makePlan(), makeProfile({ incomes: [salary, bonus], expenses: [rent] }))
+    expect(result[0].incomesByItem).toEqual([{ id: 'inc1', name: 'Salary', value: 1000 }])
+    expect(result[1].incomesByItem).toEqual([
+      { id: 'inc1', name: 'Salary', value: 1000 },
+      { id: 'inc2', name: 'Bonus', value: 500 },
+    ])
+    expect(result[1].expensesByItem).toEqual([{ id: 'e1', name: 'Rent', value: 300 }])
+  })
+
+  it('deflates the per-item amounts like the totals', () => {
+    const result = project(
+      makePlan({ inflation_rate: 0.1 }),
+      makeProfile({ incomes: [{ ...salary, change_over_time: 'none' }] }),
+    )
+    expect(result[2].incomesByItem[0].value).toBeCloseTo(result[2].totalIncome, 6)
+  })
+
+  it('lists property tax per taxed asset while it is held', () => {
+    const house: ProfileTangibleAsset = {
+      id: 't1',
+      name: 'House',
+      value: 1000,
+      status: 'fully_owned',
+      property_tax_rate: 2,
+      sale: 'at_specific_date',
+      sale_year: 2026,
+    }
+    const result = project(makePlan(), makeProfile({ cash_amount: 500, tangible_assets: [house] }))
+    expect(result[0].propertyTaxByItem).toEqual([{ id: 't1', name: 'House', value: 20 }])
+    expect(result[2].propertyTaxByItem).toEqual([])
+  })
+
+  it('lists the installments paid in the year and their total', () => {
+    const result = project(makePlan(), makeProfile({ cash_amount: 50_000, liabilities: [loan] }))
+    expect(result[0].installmentsByItem).toEqual([{ id: 'l1', name: 'Car loan', value: 2400 }])
+    expect(result[0].totalInstallments).toBeCloseTo(2400, 6)
+    // 10,000 at 2,400 a year is paid off during 2029: nothing left in 2030.
+    expect(result[5].installmentsByItem).toEqual([])
+    expect(result[5].totalInstallments).toBe(0)
+  })
+
+  it("lists the plan's transfers with the amount that left the source, 0 when skipped", () => {
+    const investments: ProfileInvestment[] = [{ id: 'inv1', name: 'Stocks', balance: 0, apy: 0 }]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'Invest',
+        from_asset_id: 'cash',
+        to_asset_id: 'inv1',
+        amount: 1000,
+        schedule: 'recurring',
+        frequency: 'yearly',
+        start: 'immediately',
+        end: 'never',
+        change_over_time: 'none',
+      },
+    ]
+    const result = project(makePlan(), makeProfile({ cash_amount: 2500, investments, transfers }))
+    expect(result[0].transfersByItem).toEqual([{ id: 't1', name: 'Invest', value: 1000 }])
+    expect(result[1].transfersByItem).toEqual([{ id: 't1', name: 'Invest', value: 1000 }])
+    // 500 left: the third transfer is skipped.
+    expect(result[2].transfersByItem).toEqual([{ id: 't1', name: 'Invest', value: 0 }])
+  })
+
+  it("adds up a year's cash flow from incomes, expenses, property tax and installments", () => {
+    // docs/product/projections.md, worked example 9.
+    const result = project(
+      makePlan(),
+      makeProfile({
+        cash_amount: 50_000,
+        incomes: [{ ...salary, amount: 60_000 }],
+        expenses: [{ ...rent, amount: 24_000 }],
+        investments: [{ id: 'inv1', name: 'ETF', balance: 0, apy: 0 }],
+        tangible_assets: [
+          { id: 't1', name: 'House', value: 100_000, status: 'fully_owned', property_tax_rate: 2 },
+        ],
+        liabilities: [{ ...loan, outstanding_balance: 6000, installment_amount: 500 }],
+        transfers: [
+          {
+            id: 'tr1',
+            name: 'Invest',
+            from_asset_id: 'cash',
+            to_asset_id: 'inv1',
+            amount: 10_000,
+            schedule: 'recurring',
+            frequency: 'yearly',
+            start: 'immediately',
+            end: 'never',
+            change_over_time: 'none',
+          },
+        ],
+      }),
+    )
+    const cashFlow = (i: number) =>
+      result[i].totalIncome - result[i].totalExpenses - result[i].totalInstallments
+    expect(result[0].totalIncome).toBeCloseTo(60_000, 6)
+    expect(result[0].totalExpenses).toBeCloseTo(26_000, 6)
+    expect(result[0].totalInstallments).toBeCloseTo(6000, 6)
+    expect(cashFlow(0)).toBeCloseTo(28_000, 6)
+    expect(result[0].transfersByItem).toEqual([{ id: 'tr1', name: 'Invest', value: 10_000 }])
+    // The loan is paid off: its row is gone and the cash flow is 6,000 up.
+    expect(result[1].installmentsByItem).toEqual([])
+    expect(cashFlow(1)).toBeCloseTo(34_000, 6)
+  })
+
+  it('reports the portfolio value: cash plus investments minus standalone loans', () => {
+    // docs/product/net-worth.md, worked example 1.
+    const result = project(
+      makePlan(),
+      makeProfile({
+        cash_amount: 100_000,
+        investments: [{ id: 'inv1', name: 'ETF', balance: 400_000, apy: 0 }],
+        tangible_assets: [
+          {
+            id: 't1',
+            name: 'House',
+            value: 5_000_000,
+            status: 'financed',
+            outstanding_balance: 3_000_000,
+            installment_frequency: 'monthly',
+            annual_rate: 0,
+            installment_amount: 0,
+            remaining_term: 30,
+          },
+        ],
+        liabilities: [{ ...loan, outstanding_balance: 50_000, installment_amount: 0 }],
+      }),
+    )
+    expect(result[0].netWorth).toBeCloseTo(2_450_000, 6)
+    expect(result[0].portfolioValue).toBeCloseTo(450_000, 6)
+  })
+})
