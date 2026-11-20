@@ -10,6 +10,27 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-20 The projection's left sidebar is for editing and shows no asset values
+
+**Context.** The left sidebar listed every asset with the value it was entered
+at, which reads as its value today while the chart beside it shows another
+year (#448). Adding an item meant the button at the bottom and then a type
+picker (#420). #470 redesigns the sidebar to match the right one.
+
+**Decision.** The left sidebar is for adding and editing, the right one for
+reading figures. Assets show their name only; cash flows keep the amount as
+entered, with an icon when it follows inflation. Cash flows and Assets are two
+sections of one list, without tabs, search or item counts. Each group has a +
+that adds an item of its type directly; the section's Add button keeps the
+type picker.
+
+**Why.** An entered asset value is where the plan starts, not what the asset
+is worth in the year on screen, and the right sidebar now has that. A cash
+flow's entered amount is the rule the user set, so it stays. With both
+sections on one short list there is nothing left for tabs or search to do.
+
+**Supersedes.** Nothing recorded; the earlier layout was not in a doc.
+
 ## 2026-11-20 A section opens on what it would hide; a financed asset needs a term or an installment
 
 **Context.** In the review of #430: the sections of an imported item's dialog

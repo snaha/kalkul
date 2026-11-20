@@ -43,6 +43,10 @@
       "backToHome": "Back to home",
       "toggleSidebar": "Show or hide the sidebar",
       "toggleDetailsPanel": "Show or hide the details panel",
+      "items": {
+        "add": "Add",
+        "inflationAdjusted": "Adjusted for inflation"
+      },
       "details": {
         "cashFlow": "Cash flow",
         "income": "Income",
@@ -57,10 +61,7 @@
       },
       "cashFlows": "Cash flows",
       "assets": "Assets",
-      "searchCashFlows": "Search cash flows",
-      "searchAssets": "Search assets",
       "transfers": "Transfers",
-      "incomes": "Incomes",
       "expenses": "Expenses",
       "chartPlaceholder": "Chart will be displayed here",
       "chartAriaLabel": "Stacked bar chart showing net worth breakdown by year",

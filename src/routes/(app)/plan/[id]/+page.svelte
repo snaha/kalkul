@@ -3,13 +3,10 @@
   import { _ } from 'svelte-i18n'
 
   import ArrowLeft from '@lucide/svelte/icons/arrow-left'
-  import ChevronRight from '@lucide/svelte/icons/chevron-right'
   import PanelLeft from '@lucide/svelte/icons/panel-left'
   import PanelRight from '@lucide/svelte/icons/panel-right'
-  import Plus from '@lucide/svelte/icons/plus'
   import RefreshCw from '@lucide/svelte/icons/refresh-cw'
   import Rows2 from '@lucide/svelte/icons/rows-2'
-  import Search from '@lucide/svelte/icons/search'
   import Settings2 from '@lucide/svelte/icons/settings-2'
   import TriangleAlert from '@lucide/svelte/icons/triangle-alert'
 
@@ -27,12 +24,6 @@
   } from '$lib/components/stacked-bar-chart.svelte'
   import { Badge } from '$lib/components/ui/badge'
   import { Button } from '$lib/components/ui/button'
-  import {
-    Collapsible,
-    CollapsibleContent,
-    CollapsibleTrigger,
-  } from '$lib/components/ui/collapsible'
-  import { Input } from '$lib/components/ui/input'
   import { CURRENT_PROJECTION_ID, buildCurrentProjectionPlan } from '$lib/current-projection'
   import { getCurrentProfile } from '$lib/current-values'
   import { DEMO_PLAN_ID } from '$lib/demo'
@@ -53,7 +44,7 @@
   import storageKeys from '$lib/storage-keys'
   import { appStore } from '$lib/stores/app.svelte'
   import { trackToday } from '$lib/today.svelte'
-  import { cn, notImplemented } from '$lib/utils'
+  import { notImplemented } from '$lib/utils'
 
   import AddAssetDialog, { type AssetKind as AddAssetKind } from './add-asset-dialog.svelte'
   import AddCashFlowDialog from './add-cash-flow-dialog.svelte'
@@ -62,7 +53,7 @@
   import CashFlowEditDialog from './cash-flow-edit-dialog.svelte'
   import LiabilityEditDialog from './liability-edit-dialog.svelte'
   import PlanDetailsPanel from './plan-details-panel.svelte'
-  import PlanSidebarRow from './plan-sidebar-row.svelte'
+  import PlanItemsPanel, { type PlanItemSection } from './plan-items-panel.svelte'
   import TransferEditDialog from './transfer-edit-dialog.svelte'
 
   const planId = $derived(page.params.id)
@@ -122,16 +113,9 @@
   const endYear = $derived(plan ? yearOf(plan.end_date) : new Date().getFullYear())
 
   // State for UI
-  let activeTab = $state<'cashflows' | 'assets'>('cashflows')
-  let searchQuery = $state('')
   let selectedYear = $state(new Date().getFullYear())
   let isPanelOpen = $state(true)
   let isLeftPanelOpen = $state(true)
-  // Left sidebar collapsible open state, keyed by category id. Persists across
-  // Cash flows / Assets tab switches because the component tree is recreated
-  // when `categories` changes but this state lives on the page.
-  let openSections = $state<Record<string, boolean>>({})
-
   // Cash-flow edit dialog state
   let editDialogOpen = $state(false)
   let editDialogKind = $state<'income' | 'expense'>('income')
@@ -253,28 +237,6 @@
   function listOf<K extends PlanListKey>(key: K): Portfolio[K] {
     return plan ? plan[key] : []
   }
-  const planTransfers = $derived(listOf('transfers'))
-  const transfersCount = $derived(planTransfers.length)
-
-  function transferValueSuffix(t: Transfer): string {
-    if (t.schedule === 'one_time') return `(${$_('page.plan.scheduleOneTime').toLowerCase()})`
-    return `/ ${getFrequencyShortLabel($_, t.frequency ?? 'monthly')}`
-  }
-
-  // Mirrors the transfer suffix: a one-time income/expense is an event, not a
-  // rate, so it reads "(one-time)" instead of a frequency.
-  function cashFlowValueSuffix(f: Income | Expense): string {
-    if (f.schedule === 'one_time') return `(${$_('page.plan.scheduleOneTime').toLowerCase()})`
-    return `/ ${getFrequencyShortLabel($_, f.frequency ?? 'monthly')}`
-  }
-  const incomesCount = $derived(listOf('incomes').length)
-  const expensesCount = $derived(listOf('expenses').length)
-  // Cash always exists (#331): the plan opens at its own balance.
-  const openingCash = $derived(plan?.cash_amount ?? 0)
-  const investmentsCount = $derived(listOf('investments').length)
-  const tangibleAssetsCount = $derived(listOf('tangible_assets').length)
-  const liabilitiesCount = $derived(listOf('liabilities').length)
-
   // Yearly projection (real / inflation-adjusted values)
   const projection = $derived(plan ? getYearlyPlanProjection(plan, profile) : [])
 
@@ -300,136 +262,128 @@
     )?.year,
   )
 
-  interface SidebarItem {
-    id: string
-    name: string
-    value: string
-    valueClass?: string
-    hasInsufficientFunds?: boolean
-    onClick: () => void
+  // The amount of a cash flow as entered: a rate for a recurring one
+  // ("1,000 EUR/m"), the bare amount for a one-time one.
+  function entered(amount: string, flow: Income | Expense | Transfer): string {
+    if (flow.schedule === 'one_time') return amount
+    return `${amount}/${getFrequencyShortLabel($_, flow.frequency ?? 'monthly')}`
+  }
+  const followsInflation = (flow: Income | Expense | Transfer) =>
+    flow.inflation_adjusted === true || flow.change_over_time === 'match_inflation'
+
+  // Nothing on the Current projection can be edited: its rows open nothing
+  // and every "add" offers to start a plan instead.
+  function editing<T extends unknown[]>(action: (...args: T) => void) {
+    return readOnly ? undefined : action
+  }
+  function adding(action: () => void): () => void {
+    return readOnly ? () => (modelChangesOpen = true) : action
   }
 
-  interface SidebarCategory {
-    id: string
-    label: string
-    count: number
-    items: SidebarItem[]
-  }
-
-  function matchesSearch(name: string, query: string): boolean {
-    if (query.trim() === '') return true
-    return name.toLowerCase().includes(query.trim().toLowerCase())
-  }
-
-  // Cash-flow categories with their items
-  const cashFlowCategories = $derived<SidebarCategory[]>([
+  const itemSections = $derived<PlanItemSection[]>([
     {
-      id: 'transfers',
-      label: $_('page.plan.transfers'),
-      count: transfersCount,
-      items: planTransfers
-        .filter((t) => matchesSearch(t.name, searchQuery))
-        .map((t) => ({
-          id: t.id,
-          name: t.name,
-          value: `${t.transfer_all ? $_('page.plan.transferMax') : appStore.formatCurrencyCode(t.amount)} ${transferValueSuffix(t)}`,
-          hasInsufficientFunds: failingTransferIds.has(t.id),
-          onClick: () => openTransferDialog(t),
-        })),
+      id: 'cashFlows',
+      label: $_('page.plan.cashFlows'),
+      addLabel: $_('page.plan.addCashFlow'),
+      onAdd: adding(() => (addCashFlowDialogOpen = true)),
+      groups: [
+        {
+          id: 'transfers',
+          label: $_('page.plan.transfers'),
+          addLabel: $_('page.plan.newTransfer'),
+          onAdd: adding(openCreateTransferDialog),
+          rows: listOf('transfers').map((t) => ({
+            id: t.id,
+            name: t.name,
+            value: entered(
+              t.transfer_all ? $_('page.plan.transferMax') : appStore.formatCurrencyCode(t.amount),
+              t,
+            ),
+            inflationAdjusted: !t.transfer_all && followsInflation(t),
+            hasInsufficientFunds: failingTransferIds.has(t.id),
+            onClick: editing(() => openTransferDialog(t)),
+          })),
+        },
+        {
+          id: 'incomes',
+          label: $_('page.plan.details.income'),
+          addLabel: $_('page.plan.newIncome'),
+          onAdd: adding(() => openCreateDialog('income')),
+          rows: listOf('incomes').map((i) => ({
+            id: i.id,
+            name: i.name,
+            value: entered(`+${appStore.formatCurrencyCode(i.amount)}`, i),
+            inflationAdjusted: followsInflation(i),
+            onClick: editing(() => openEditDialog('income', i)),
+          })),
+        },
+        {
+          id: 'expenses',
+          label: $_('page.plan.expenses'),
+          addLabel: $_('page.plan.newExpense'),
+          onAdd: adding(() => openCreateDialog('expense')),
+          rows: listOf('expenses').map((e) => ({
+            id: e.id,
+            name: e.name,
+            value: entered(`-${appStore.formatCurrencyCode(e.amount)}`, e),
+            inflationAdjusted: followsInflation(e),
+            hasInsufficientFunds: failingExpenseIds.has(e.id),
+            onClick: editing(() => openEditDialog('expense', e)),
+          })),
+        },
+      ],
     },
     {
-      id: 'incomes',
-      label: $_('page.plan.incomes'),
-      count: incomesCount,
-      items: listOf('incomes')
-        .filter((i) => matchesSearch(i.name, searchQuery))
-        .map((i) => ({
-          id: i.id,
-          name: i.name,
-          // Figma shows the same neutral foreground color for incomes and
-          // expenses; the leading sign carries the direction.
-          value: `+${appStore.formatCurrencyCode(i.amount)} ${cashFlowValueSuffix(i)}`,
-          onClick: () => openEditDialog('income', i),
-        })),
-    },
-    {
-      id: 'expenses',
-      label: $_('page.plan.expenses'),
-      count: expensesCount,
-      items: listOf('expenses')
-        .filter((e) => matchesSearch(e.name, searchQuery))
-        .map((e) => ({
-          id: e.id,
-          name: e.name,
-          value: `-${appStore.formatCurrencyCode(e.amount)} ${cashFlowValueSuffix(e)}`,
-          hasInsufficientFunds: failingExpenseIds.has(e.id),
-          onClick: () => openEditDialog('expense', e),
-        })),
+      id: 'assets',
+      label: $_('page.plan.assets'),
+      addLabel: $_('page.plan.addAsset'),
+      onAdd: adding(() => (addAssetDialogOpen = true)),
+      groups: [
+        // Cash always exists (#331): one row, which opens its balance.
+        {
+          id: 'cash',
+          label: $_('page.plan.cash'),
+          rows: [],
+          onClick: editing(() => (cashDialogOpen = true)),
+        },
+        {
+          id: 'investments',
+          label: $_('page.plan.investments'),
+          addLabel: $_('page.plan.addInvestmentTitle'),
+          onAdd: adding(() => openAssetCreateDialog('investment')),
+          rows: listOf('investments').map((inv) => ({
+            id: inv.id,
+            name: inv.name,
+            hasInsufficientFunds: failingAssetIds.has(inv.id),
+            onClick: editing(() => openAssetEditDialog({ kind: 'investment', initial: inv })),
+          })),
+        },
+        {
+          id: 'tangibleAssets',
+          label: $_('page.plan.tangibleAssets'),
+          addLabel: $_('page.plan.addTangibleAssetTitle'),
+          onAdd: adding(() => openAssetCreateDialog('tangibleAsset')),
+          rows: listOf('tangible_assets').map((a) => ({
+            id: a.id,
+            name: a.name,
+            hasInsufficientFunds: failingAssetIds.has(a.id),
+            onClick: editing(() => openAssetEditDialog({ kind: 'tangibleAsset', initial: a })),
+          })),
+        },
+        {
+          id: 'liabilities',
+          label: $_('page.plan.liabilities'),
+          addLabel: $_('page.setup.liabilities.addLiability'),
+          onAdd: adding(() => openAssetCreateDialog('liability')),
+          rows: listOf('liabilities').map((l) => ({
+            id: l.id,
+            name: l.name,
+            onClick: editing(() => openLiabilityEditDialog(l)),
+          })),
+        },
+      ],
     },
   ])
-
-  // Asset categories with their items
-  const assetCategories = $derived<SidebarCategory[]>([
-    {
-      id: 'cash',
-      label: $_('page.plan.cash'),
-      count: 1,
-      items: matchesSearch($_('page.plan.cashItem'), searchQuery)
-        ? [
-            {
-              id: 'cash',
-              name: $_('page.plan.cashItem'),
-              value: appStore.formatCurrencyCode(openingCash),
-              onClick: () => (cashDialogOpen = true),
-            },
-          ]
-        : [],
-    },
-    {
-      id: 'investments',
-      label: $_('page.plan.investments'),
-      count: investmentsCount,
-      items: listOf('investments')
-        .filter((inv) => matchesSearch(inv.name, searchQuery))
-        .map((inv) => ({
-          id: inv.id,
-          name: inv.name,
-          value: appStore.formatCurrencyCode(inv.balance),
-          hasInsufficientFunds: failingAssetIds.has(inv.id),
-          onClick: () => openAssetEditDialog({ kind: 'investment', initial: inv }),
-        })),
-    },
-    {
-      id: 'tangibleAssets',
-      label: $_('page.plan.tangibleAssets'),
-      count: tangibleAssetsCount,
-      items: listOf('tangible_assets')
-        .filter((a) => matchesSearch(a.name, searchQuery))
-        .map((a) => ({
-          id: a.id,
-          name: a.name,
-          value: appStore.formatCurrencyCode(a.value),
-          hasInsufficientFunds: failingAssetIds.has(a.id),
-          onClick: () => openAssetEditDialog({ kind: 'tangibleAsset', initial: a }),
-        })),
-    },
-    {
-      id: 'liabilities',
-      label: $_('page.plan.liabilities'),
-      count: liabilitiesCount,
-      items: listOf('liabilities')
-        .filter((l) => matchesSearch(l.name, searchQuery))
-        .map((l) => ({
-          id: l.id,
-          name: l.name,
-          value: `-${appStore.formatCurrencyCode(l.outstanding_balance)}`,
-          valueClass: 'text-destructive',
-          onClick: () => openLiabilityEditDialog(l),
-        })),
-    },
-  ])
-
-  const categories = $derived(activeTab === 'cashflows' ? cashFlowCategories : assetCategories)
 
   // Legend items for the chart
   const legendItems = [
@@ -514,110 +468,9 @@
     </div>
   {/if}
   <div bind:this={pageContainerRef} class="relative flex min-h-0 flex-1 overflow-hidden">
-    <!-- Left Panel: Cash flows / Assets -->
+    <!-- Left Panel: what the plan is made of -->
     {#if isLeftPanelOpen}
-      <div class="flex w-[256px] shrink-0 flex-col gap-2 bg-sidebar p-2">
-        <!-- Pill Tabs -->
-        <div class="p-2">
-          <div class="flex h-8 rounded-lg bg-muted p-[3px]">
-            <button
-              class={cn(
-                'flex-1 rounded-md text-sm font-medium transition-all',
-                activeTab === 'cashflows'
-                  ? 'bg-background shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-              onclick={() => (activeTab = 'cashflows')}
-            >
-              {$_('page.plan.cashFlows')}
-            </button>
-            <button
-              class={cn(
-                'flex-1 rounded-md text-sm font-medium transition-all',
-                activeTab === 'assets'
-                  ? 'bg-background shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-              onclick={() => (activeTab = 'assets')}
-            >
-              {$_('page.plan.assets')}
-            </button>
-          </div>
-        </div>
-
-        <!-- Search -->
-        <div class="p-2">
-          <div class="relative">
-            <Search
-              class="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            />
-            <Input
-              placeholder={activeTab === 'cashflows'
-                ? $_('page.plan.searchCashFlows')
-                : $_('page.plan.searchAssets')}
-              class="h-8 pl-8"
-              bind:value={searchQuery}
-            />
-          </div>
-        </div>
-
-        <!-- Category rows -->
-        <div class="flex flex-1 flex-col overflow-y-auto">
-          {#each categories.filter((c) => c.items.length > 0) as category (category.id)}
-            <Collapsible
-              open={openSections[category.id] ?? false}
-              onOpenChange={(v) => (openSections[category.id] = v)}
-            >
-              <CollapsibleTrigger
-                class="flex h-8 w-full items-center justify-between rounded-md px-2 hover:bg-accent"
-              >
-                <div class="flex items-center gap-1">
-                  <span class="text-sm font-medium">{category.label}</span>
-                  <Badge variant="outline">{category.count}</Badge>
-                </div>
-                <ChevronRight
-                  class="size-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90"
-                />
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div class="flex flex-col">
-                  {#each category.items as item (item.id)}
-                    <PlanSidebarRow
-                      name={item.name}
-                      value={item.value}
-                      valueClass={item.valueClass}
-                      hasInsufficientFunds={item.hasInsufficientFunds}
-                      onclick={readOnly ? undefined : item.onClick}
-                    />
-                  {/each}
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-          {/each}
-        </div>
-
-        <!-- Add button footer -->
-        <div class="shrink-0 p-4">
-          {#if activeTab === 'cashflows'}
-            <Button
-              class="w-full"
-              onclick={() =>
-                readOnly ? (modelChangesOpen = true) : (addCashFlowDialogOpen = true)}
-            >
-              <Plus class="size-4" />
-              {$_('page.plan.addCashFlow')}
-            </Button>
-          {:else}
-            <Button
-              class="w-full"
-              onclick={() => (readOnly ? (modelChangesOpen = true) : (addAssetDialogOpen = true))}
-            >
-              <Plus class="size-4" />
-              {$_('page.plan.addAsset')}
-            </Button>
-          {/if}
-        </div>
-      </div>
+      <PlanItemsPanel sections={itemSections} />
     {/if}
 
     <!-- Center Panel: Chart area (placeholder) -->
