@@ -9,7 +9,7 @@
     inflationAdjusted?: boolean
     hasInsufficientFunds?: boolean
     onClick?: () => void
-    // Told when the pointer or the focus enters and leaves the row.
+    // Told when the pointer enters and leaves the row.
     onHover?: (hovering: boolean) => void
   }
 
@@ -137,15 +137,18 @@
                 : undefined}
               onmouseenter={() => row.onHover?.(true)}
               onmouseleave={() => row.onHover?.(false)}
-              onfocusin={() => row.onHover?.(true)}
-              onfocusout={() => row.onHover?.(false)}
             >
               <!-- A row with no handler is information, not a control: a div,
                    so it stays out of the tab order. -->
               {#if row.onClick}
                 <button
                   type="button"
-                  onclick={row.onClick}
+                  onclick={() => {
+                    // The dialog takes over: drop the hover, which would
+                    // otherwise outlive it.
+                    row.onHover?.(false)
+                    row.onClick?.()
+                  }}
                   class={cn(rowClass, 'hover:bg-sidebar-accent', failing)}
                 >
                   {@render rowCells(row)}
