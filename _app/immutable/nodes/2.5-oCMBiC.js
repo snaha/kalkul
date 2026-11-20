@@ -1,1 +1,0 @@
-import{E as e,M as t,N as n,_t as r}from"../chunks/D2epjhbI.js";import{t as i}from"../chunks/CrRd7PwY.js";function a(a,o){i(a,{children:(i,a)=>{var s=n(),c=r(s);e(c,()=>o.children),t(i,s)},$$slots:{default:!0}})}export{a as component};
