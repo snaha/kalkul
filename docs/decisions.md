@@ -10,6 +10,20 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-20 Every History axis label carries its year, and fewer are shown
+
+**Context.** #227: on a history longer than a year the month ticks repeated
+with nothing to tell them apart. #393 put the year on the first label of each
+year, and a second row of years (#394) was turned down as too tall for the
+dashboard, where vertical space is short.
+
+**Decision.** Every label on the History chart's X axis is a month and a year
+("Dec 2025"), on one line. Only as many as fit comfortably are shown, evenly
+spaced: two before "Now" on a phone, up to four on desktop, so the interval
+grows with the length of the history. "Now" stays the final label, in the
+strongest weight. This applies to the dashboard and the History page, and
+supersedes the year-on-a-new-year labels of #393.
+
 ## 2026-11-20 The projection's right sidebar shows net worth, cash flow and the FIRE portfolio
 
 **Context.** #320 redesigns the right sidebar of the projection page into

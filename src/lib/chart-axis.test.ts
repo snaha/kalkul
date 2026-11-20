@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import { labelsWithYear, monthTicks, niceAxisBounds } from './chart-axis'
+import { monthTicks, niceAxisBounds, tickStride } from './chart-axis'
 
 describe('niceAxisBounds', () => {
   test('rounds the top of the axis up to a round step above the data', () => {
@@ -74,23 +74,30 @@ describe('monthTicks', () => {
   })
 })
 
-describe('labelsWithYear', () => {
-  test('a short chart carries the year on the leading label only', () => {
-    expect(labelsWithYear(['2025-12-01', '2026-01-01', '2026-02-01'], false)).toEqual([
-      true,
-      false,
-      false,
-    ])
+describe('tickStride', () => {
+  test('six months on a desktop dashboard chart show every second month', () => {
+    // 562px fits four labels; Dec to May is six ticks: Dec, Feb, Apr.
+    expect(tickStride(6, 562)).toBe(2)
   })
 
-  test('a long chart repeats the year on the first label of each new year', () => {
-    // Thinned ticks: the first label of 2022 is March, and it still gets the year.
-    expect(
-      labelsWithYear(['2020-09-01', '2021-02-01', '2021-07-01', '2022-03-01', '2022-08-01'], true),
-    ).toEqual([true, true, false, true, false])
+  test('a phone-width chart keeps two month labels', () => {
+    expect(tickStride(6, 280)).toBe(3)
   })
 
-  test('handles an empty list', () => {
-    expect(labelsWithYear([], true)).toEqual([])
+  test('a wide chart never shows more than four month labels', () => {
+    expect(tickStride(12, 2000)).toBe(3)
+  })
+
+  test('a six-year history widens the interval past four months', () => {
+    expect(tickStride(72, 900)).toBe(18)
+  })
+
+  test('a short history shows every month', () => {
+    expect(tickStride(3, 562)).toBe(1)
+  })
+
+  test('an unmeasured chart or an empty history still yields a stride', () => {
+    expect(tickStride(6, 0)).toBe(6)
+    expect(tickStride(0, 562)).toBe(1)
   })
 })

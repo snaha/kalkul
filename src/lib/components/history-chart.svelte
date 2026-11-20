@@ -2,7 +2,7 @@
   import { _, locale } from 'svelte-i18n'
 
   import { daysBetween } from '$lib/@snaha/kalkul-maths'
-  import { labelsWithYear, monthTicks, niceAxisBounds } from '$lib/chart-axis'
+  import { monthTicks, niceAxisBounds, tickStride } from '$lib/chart-axis'
   import type { HistoryPoint } from '$lib/history-series'
   import { RUNWAY_CAP_YEARS } from '$lib/runway'
   import { cn, parseDateOnly } from '$lib/utils'
@@ -42,17 +42,9 @@
   // `formatValue` resolves for the Y axis). Read here rather than passed in:
   // every chart labels its axis the same way, and a locale string has no
   // business travelling through props.
-  const shortMonth = $derived(new Intl.DateTimeFormat($locale ?? undefined, { month: 'short' }))
   const monthWithYear = $derived(
     new Intl.DateTimeFormat($locale ?? undefined, { month: 'short', year: 'numeric' }),
   )
-
-  // The leading tick carries a year, matching the spec; a chart longer than a
-  // year repeats it where a new year starts (`labelsWithYear`).
-  function formatMonth(date: string, withYear: boolean): string {
-    const parsed = parseDateOnly(date)
-    return withYear ? monthWithYear.format(parsed) : shortMonth.format(parsed)
-  }
 
   function formatYears(years: number | undefined): string {
     if (years === undefined) return '—'
@@ -71,11 +63,9 @@
   let plotHeight = $state(0)
 
   const DOT_SIZE = 8
-  // Room for the "Now" label so a month tick can't collide with it.
-  const NOW_LABEL_WIDTH = 40
-  // Minimum gap between month labels. Wide enough for the leading "Mon YYYY"
-  // tick; below it, labels are thinned rather than allowed to overlap.
-  const MIN_TICK_SPACING = 56
+  // Room for the "Now" label plus half a centred "Mon YYYY" beside it, so a
+  // month tick can't collide with it.
+  const NOW_LABEL_WIDTH = 72
   // Gap between a hovered dot and its tooltip.
   const TOOLTIP_GAP = 12
 
@@ -150,19 +140,15 @@
       date,
       x: xFraction(date) * plotWidth,
     }))
-    // Two years of history would otherwise print 24 overlapping labels; keep
-    // every Nth so whatever survives is legible at the current width.
-    const gap = ticks.length > 1 ? ticks[1].x - ticks[0].x : plotWidth
-    const stride = Math.max(1, Math.ceil(MIN_TICK_SPACING / Math.max(gap, 1)))
-    const shown = ticks
-      .filter((_, i) => i % stride === 0)
-      // The trailing "Now" label owns the right edge.
-      .filter((tick) => plotWidth - tick.x > NOW_LABEL_WIDTH)
-    const withYear = labelsWithYear(
-      shown.map((tick) => tick.date),
-      ticks.length > 12,
+    // Every label is a full "Mon YYYY", so only as many as fit comfortably
+    // are shown, evenly spaced (`tickStride`).
+    const stride = tickStride(ticks.length, plotWidth)
+    return (
+      ticks
+        .filter((_, i) => i % stride === 0)
+        // The trailing "Now" label owns the right edge.
+        .filter((tick) => plotWidth - tick.x > NOW_LABEL_WIDTH)
     )
-    return shown.map((tick, i) => ({ ...tick, withYear: withYear[i] }))
   })
 </script>
 
@@ -310,8 +296,8 @@
     <div class="relative min-w-0 flex-1">
       {#each monthLabels as tick (tick.date)}
         <span
-          class="absolute -translate-x-1/2 whitespace-nowrap text-muted-foreground"
-          style:left="{tick.x}px">{formatMonth(tick.date, tick.withYear)}</span
+          class="absolute -translate-x-1/2 whitespace-nowrap text-muted-foreground tabular-nums"
+          style:left="{tick.x}px">{monthWithYear.format(parseDateOnly(tick.date))}</span
         >
       {/each}
       <span class="absolute right-0 whitespace-nowrap font-medium text-foreground">{nowLabel}</span>

@@ -83,13 +83,18 @@ export function monthTicks(from: string, to: string): string[] {
   return ticks
 }
 
+// Every X-axis label is a full "Mon YYYY" (#227), so each needs this much of
+// the axis to itself to stay clear of its neighbours.
+const LABEL_SPACING = 120
+// With the trailing "Now" that is five labels at most on a desktop chart.
+const MAX_MONTH_LABELS = 4
+
 /**
- * Which of the surviving X-axis labels carry a year: the leading one always
- * and, once the chart spans more than a year, every label that starts a new
- * year. A shorter chart keeps the single leading year the spec draws.
+ * How many month ticks apart the X-axis labels sit: every Nth tick is
+ * labelled, so that the labels are evenly spaced and as many as fit `width`
+ * comfortably — two on a phone, up to four on desktop, before "Now".
  */
-export function labelsWithYear(dates: string[], spansOverAYear: boolean): boolean[] {
-  return dates.map(
-    (date, i) => i === 0 || (spansOverAYear && date.slice(0, 4) !== dates[i - 1].slice(0, 4)),
-  )
+export function tickStride(tickCount: number, width: number): number {
+  const labels = Math.min(MAX_MONTH_LABELS, Math.max(1, Math.floor(width / LABEL_SPACING)))
+  return Math.max(1, Math.ceil(tickCount / labels))
 }
