@@ -18,12 +18,7 @@ import { parseDateOnly } from '$lib/utils'
 
 /** The six groups the snapshot dialog is laid out in, in the design's order. */
 export type SnapshotSectionId =
-  | 'cash'
-  | 'investments'
-  | 'tangible_assets'
-  | 'liabilities'
-  | 'incomes'
-  | 'expenses'
+  'cash' | 'investments' | 'tangible_assets' | 'liabilities' | 'incomes' | 'expenses'
 
 /** What a field holds, which decides its label wording and its sign. */
 export type SnapshotFieldKind = 'cash' | 'balance' | 'value' | 'debt' | 'amount'

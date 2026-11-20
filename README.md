@@ -40,7 +40,7 @@ pnpm test:unit run    # Run unit tests once
 
 ## AI access via MCP
 
-The browser tab can run an MCP server (`src/lib/mcp/server.ts`) whose tools read and change the
+The browser tab can run an MCP server (`src/lib/mcp/mcp-server.ts`) whose tools read and change the
 data through the app store. A small local relay (`server/index.ts`) forwards JSON-RPC between an
 MCP client and the tab; it holds no data.
 
@@ -100,7 +100,7 @@ page views, a handful of named actions such as "plan created", and a random per-
 returning visitor is counted once. Nothing that identifies a person is sent.
 
 Set the variable in the build's environment (as the workflow does), not in a `.env` file: the
-Content Security Policy is computed in `svelte.config.js`, which does not read `.env` files, so a
+Content Security Policy is computed in `vite.config.ts`, which does not read `.env` files, so a
 value from there would load the tracker while the policy still blocks it.
 
 ## Testing

@@ -34,7 +34,7 @@ const DESTRUCTIVE: ToolAnnotations = { readOnlyHint: false, destructiveHint: tru
 
 /**
  * A tool definition shared by both surfaces: the in-browser MCP server
- * (src/lib/mcp/server.ts, reached through the local relay) and WebMCP
+ * (src/lib/mcp/mcp-server.ts, reached through the local relay) and WebMCP
  * (src/lib/mcp/web-mcp.ts, reached by agents running in the browser).
  * `execute` validates its input with `inputSchema` itself, so each surface
  * only has to forward raw arguments.
@@ -174,7 +174,7 @@ export function kalkulTools(app: App = appStore): KalkulTool[] {
     ),
     tool(
       'get_projection',
-      'Yearly projection of a portfolio computed by the app (net worth, cash, investments, ...)',
+      "Yearly projection of a portfolio computed by the app: net worth, cash, investments, tangible assets and liabilities with a per-item breakdown, the year's cash flow (income, expenses, property tax, installments and transfers per item), portfolio value, FI % and runway",
       z.object({ portfolio_id: z.string() }),
       READ_ONLY,
       ({ portfolio_id }) =>
