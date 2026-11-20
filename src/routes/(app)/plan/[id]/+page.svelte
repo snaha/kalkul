@@ -28,6 +28,7 @@
   import { getCurrentProfile } from '$lib/current-values'
   import { DEMO_PLAN_ID } from '$lib/demo'
   import { isPlanOutdated, snapshotFinancialData } from '$lib/plan-base'
+  import { activeYearsOfCashFlow } from '$lib/plan-item-years'
   import { getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
   import routes from '$lib/routes'
   import type {
@@ -280,6 +281,21 @@
     return readOnly ? () => (modelChangesOpen = true) : action
   }
 
+  // The cash flow under the pointer in the left sidebar: the chart keeps the
+  // colours of the years it is active in and desaturates the rest.
+  let hoveredCashFlowId = $state<string | undefined>(undefined)
+  const highlightedYears = $derived(
+    hoveredCashFlowId === undefined
+      ? undefined
+      : activeYearsOfCashFlow(projection, hoveredCashFlowId),
+  )
+  function hovering(id: string) {
+    return (isHovering: boolean) => {
+      if (isHovering) hoveredCashFlowId = id
+      else if (hoveredCashFlowId === id) hoveredCashFlowId = undefined
+    }
+  }
+
   const itemSections = $derived<PlanItemSection[]>([
     {
       id: 'cashFlows',
@@ -302,6 +318,7 @@
             inflationAdjusted: !t.transfer_all && followsInflation(t),
             hasInsufficientFunds: failingTransferIds.has(t.id),
             onClick: editing(() => openTransferDialog(t)),
+            onHover: hovering(t.id),
           })),
         },
         {
@@ -315,6 +332,7 @@
             value: entered(`+${appStore.formatCurrencyCode(i.amount)}`, i),
             inflationAdjusted: followsInflation(i),
             onClick: editing(() => openEditDialog('income', i)),
+            onHover: hovering(i.id),
           })),
         },
         {
@@ -329,6 +347,7 @@
             inflationAdjusted: followsInflation(e),
             hasInsufficientFunds: failingExpenseIds.has(e.id),
             onClick: editing(() => openEditDialog('expense', e)),
+            onHover: hovering(e.id),
           })),
         },
       ],
@@ -553,6 +572,7 @@
             data={chartData}
             {selectedYear}
             {hoveredYear}
+            {highlightedYears}
             height={chartContainerHeight}
             width={chartContainerWidth}
             ariaLabel={$_('page.plan.chartAriaLabel')}

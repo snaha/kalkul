@@ -77,6 +77,9 @@
     width?: number
     ariaLabel?: string
     showSelectedIndicator?: boolean
+    // When set, only these years keep their colours; every other bar is
+    // desaturated. Used to show the period something is active in.
+    highlightedYears?: Set<number>
     // First year in the projection where the calculation surfaced an
     // insufficient-funds warning. Marked with a destructive triangle below the
     // corresponding bar so the user can spot when things start going wrong.
@@ -94,6 +97,7 @@
     width,
     ariaLabel,
     showSelectedIndicator = true,
+    highlightedYears,
     firstErrorYear,
     firstErrorTooltip,
     onYearClick,
@@ -316,7 +320,9 @@
   <!-- Bars -->
   {#each bars as bar (bar.year)}
     <g
-      class="cursor-pointer transition-opacity focus:outline-none"
+      class="cursor-pointer transition-[opacity,filter] focus:outline-none"
+      class:grayscale={highlightedYears !== undefined && !highlightedYears.has(bar.year)}
+      class:opacity-40={highlightedYears !== undefined && !highlightedYears.has(bar.year)}
       class:opacity-60={hoveredYear !== undefined && bar.year === hoveredYear}
       role="button"
       tabindex="0"

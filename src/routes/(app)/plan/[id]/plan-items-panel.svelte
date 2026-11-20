@@ -9,6 +9,8 @@
     inflationAdjusted?: boolean
     hasInsufficientFunds?: boolean
     onClick?: () => void
+    // Told when the pointer or the focus enters and leaves the row.
+    onHover?: (hovering: boolean) => void
   }
 
   export interface PlanItemGroup {
@@ -133,6 +135,10 @@
               title={row.hasInsufficientFunds
                 ? $_('page.plan.insufficientFundsTooltip')
                 : undefined}
+              onmouseenter={() => row.onHover?.(true)}
+              onmouseleave={() => row.onHover?.(false)}
+              onfocusin={() => row.onHover?.(true)}
+              onfocusout={() => row.onHover?.(false)}
             >
               <!-- A row with no handler is information, not a control: a div,
                    so it stays out of the tab order. -->
