@@ -832,8 +832,11 @@ export const snapshotSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .refine(isRealCalendarDate),
+  // A missing `cash_amount`, or an investment entry with no `balance`, records an
+  // unknown figure: `resolveSnapshots` in `snapshots.ts` calculates it on read.
+  // An investment with no entry at all was not held.
   cash_amount: z.number().optional(),
-  investments: z.array(z.object({ id: z.string(), balance: z.number() })).optional(),
+  investments: z.array(z.object({ id: z.string(), balance: z.number().optional() })).optional(),
   // Financed assets carry their debt alongside the value so a snapshot's net
   // worth can be computed without consulting the current profile. The remaining
   // term rides along with every recorded debt: it moves with the balance —

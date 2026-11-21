@@ -171,3 +171,20 @@ describe('buildSnapshotRows', () => {
     expect(buildSnapshotRows(emptiedOlder)[0].deletable).toBe(true)
   })
 })
+
+describe('buildSnapshotRows with unknown figures', () => {
+  test('totals an unknown figure at its calculated value', () => {
+    const rows = buildSnapshotRows({
+      name: 'Alice',
+      email: 'a@example.com',
+      cash_amount: 2_200,
+      snapshots: [
+        { date: '2026-01-01', cash_amount: 1_000 },
+        { date: '2026-03-01' },
+        { date: '2026-05-01', cash_amount: 2_200 },
+      ],
+    })
+    expect(rows.map((row) => row.netWorth)).toEqual([2_200, 1_590, 1_000])
+    expect(rows[1].totalAssets).toBe(1_590)
+  })
+})

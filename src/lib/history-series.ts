@@ -2,8 +2,13 @@ import { addDays, daysBetween } from '$lib/@snaha/kalkul-maths'
 import { getCurrentProfile } from '$lib/current-values'
 import { getFiPercent, hasAnyFinancialData } from '$lib/financial-totals'
 import { getRunwayYears } from '$lib/runway'
-import { type Profile, type Snapshot, normalizeSnapshots } from '$lib/schemas'
-import { captureSnapshot, profileAtSnapshot, snapshotNetWorth } from '$lib/snapshots'
+import type { Profile, Snapshot } from '$lib/schemas'
+import {
+  captureSnapshot,
+  profileAtSnapshot,
+  resolveSnapshots,
+  snapshotNetWorth,
+} from '$lib/snapshots'
 import { parseDateOnly, toDateOnlyString } from '$lib/utils'
 
 /** The figures the History chart reports for one date. */
@@ -86,7 +91,7 @@ export function hasHistoryToShow(profile: Profile): boolean {
  */
 export function buildHistorySeries(profile: Profile, today: Date): HistoryPoint[] {
   if (!hasHistoryToShow(profile)) return []
-  const snapshots = normalizeSnapshots(profile.snapshots ?? [])
+  const snapshots = resolveSnapshots(profile)
 
   const todayDate = toDateOnlyString(today)
   const points: HistoryPoint[] = []

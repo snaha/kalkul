@@ -10,12 +10,14 @@ import {
   latestSnapshot,
   profileAtSnapshot,
   removeSnapshot,
+  resolveSnapshots,
   snapshotNetWorth,
   staleSince,
   upsertSnapshot,
   withDeletedSnapshot,
   withSavedSnapshot,
   withSeededSnapshot,
+  withUnknownBalances,
 } from './snapshots'
 
 // The schema's conditional-requirement messages are translations, and one is
@@ -567,12 +569,9 @@ describe('withSavedSnapshot', () => {
     expect(saved.expenses).toEqual(PROFILE.expenses)
   })
 
-  test('reads an unrecorded cash amount as zero, like the net worth it records', () => {
-    // There is only one cash balance, so "not recorded" cannot mean "left
-    // alone" the way it does for an item: `snapshotNetWorth` counts a missing
-    // amount as zero, and the profile has to read it the same way.
+  test('keeps the profile cash when the newest snapshot records it as unknown', () => {
     const bare: Snapshot = { date: '2026-08-01', investments: [{ id: 'inv1', balance: 1 }] }
-    expect(withSavedSnapshot(HISTORY, bare).cash_amount).toBe(0)
+    expect(withSavedSnapshot(HISTORY, bare).cash_amount).toBe(9_000)
   })
 })
 
@@ -693,5 +692,158 @@ describe('withDeletedSnapshot', () => {
     })
     expect(profileSchema.safeParse(deleted).success).toBe(true)
     expect(getNetWorth(deleted)).toBe(snapshotNetWorth(JAN))
+  })
+})
+
+describe('resolveSnapshots', () => {
+  const investment = { id: 'inv1', name: 'ETF', balance: 3_000, apy: 5 }
+  const base: Profile = { name: 'Alice', email: 'a@example.com', cash_amount: 2_200 }
+
+  test('interpolates an unknown figure linearly by date between its known neighbours', () => {
+    const resolved = resolveSnapshots({
+      ...base,
+      snapshots: [
+        { date: '2026-01-01', cash_amount: 1_000 },
+        { date: '2026-03-01' },
+        { date: '2026-05-01', cash_amount: 2_200 },
+      ],
+    })
+    expect(resolved.map((s) => s.cash_amount)).toEqual([1_000, 1_590, 2_200])
+  })
+
+  test('takes an unknown figure on the newest snapshot from the profile', () => {
+    const resolved = resolveSnapshots({
+      ...base,
+      investments: [investment],
+      snapshots: [
+        { date: '2026-01-01', cash_amount: 1_000, investments: [{ id: 'inv1', balance: 1_000 }] },
+        { date: '2026-03-01', investments: [{ id: 'inv1' }] },
+        { date: '2026-05-01', investments: [{ id: 'inv1' }] },
+      ],
+    })
+    expect(resolved.map((s) => s.cash_amount)).toEqual([1_000, 1_590, 2_200])
+    expect(resolved.map((s) => s.investments?.[0].balance)).toEqual([1_000, 1_983, 3_000])
+  })
+
+  test('counts an unknown figure with no earlier value as zero', () => {
+    const resolved = resolveSnapshots({
+      ...base,
+      snapshots: [{ date: '2026-01-01' }, { date: '2026-03-01', cash_amount: 2_200 }],
+    })
+    expect(resolved[0].cash_amount).toBe(0)
+  })
+
+  test('holds the last known value up to the date an investment is no longer held', () => {
+    const resolved = resolveSnapshots({
+      ...base,
+      snapshots: [
+        { date: '2026-01-15', cash_amount: 10_000, investments: [{ id: 'inv1', balance: 50_000 }] },
+        { date: '2026-03-15', cash_amount: 10_000, investments: [{ id: 'inv1' }] },
+        { date: '2026-05-15', cash_amount: 10_000, investments: [{ id: 'inv1' }] },
+        { date: '2026-07-15', cash_amount: 60_000, investments: [] },
+      ],
+    })
+    expect(resolved.map((s) => s.investments?.[0]?.balance)).toEqual([
+      50_000,
+      50_000,
+      50_000,
+      undefined,
+    ])
+    expect(resolved.map(snapshotNetWorth)).toEqual([60_000, 60_000, 60_000, 60_000])
+  })
+
+  test('counts an unknown figure right after a date it was not held as zero', () => {
+    const resolved = resolveSnapshots({
+      ...base,
+      investments: [investment],
+      snapshots: [
+        { date: '2026-01-01', cash_amount: 0, investments: [] },
+        { date: '2026-03-01', cash_amount: 0, investments: [{ id: 'inv1' }] },
+        { date: '2026-05-01', cash_amount: 0, investments: [{ id: 'inv1', balance: 1_200 }] },
+      ],
+    })
+    expect(resolved[1].investments).toEqual([{ id: 'inv1', balance: 0 }])
+  })
+
+  test('holds the last known value when the profile no longer has the investment', () => {
+    const resolved = resolveSnapshots({
+      ...base,
+      snapshots: [
+        { date: '2026-01-01', cash_amount: 0, investments: [{ id: 'inv1', balance: 1_200 }] },
+        { date: '2026-03-01', cash_amount: 0, investments: [{ id: 'inv1' }] },
+      ],
+    })
+    expect(resolved[1].investments).toEqual([{ id: 'inv1', balance: 1_200 }])
+  })
+
+  test('leaves known figures as recorded', () => {
+    const snapshots: Snapshot[] = [
+      { date: '2026-01-01', cash_amount: 1, investments: [{ id: 'inv1', balance: 2 }] },
+    ]
+    expect(resolveSnapshots({ ...base, snapshots })).toEqual(snapshots)
+  })
+})
+
+describe('withUnknownBalances', () => {
+  const snapshot: Snapshot = {
+    date: '2026-05-01',
+    cash_amount: 100,
+    investments: [
+      { id: 'inv1', balance: 200 },
+      { id: 'inv2', balance: 300 },
+    ],
+    liabilities: [{ id: 'l1', outstanding_balance: 50 }],
+  }
+
+  test('drops every cash and investment figure that was not entered', () => {
+    expect(withUnknownBalances(snapshot, { investmentIds: new Set(['inv2']) })).toEqual({
+      date: '2026-05-01',
+      investments: [{ id: 'inv1' }, { id: 'inv2', balance: 300 }],
+      liabilities: [{ id: 'l1', outstanding_balance: 50 }],
+    })
+  })
+
+  test('keeps entered cash', () => {
+    expect(withUnknownBalances(snapshot, { cash: true }).cash_amount).toBe(100)
+  })
+
+  test('keeps the figures that are numbers on the snapshot it replaces', () => {
+    const replaced: Snapshot = {
+      date: '2026-05-01',
+      cash_amount: 100,
+      investments: [{ id: 'inv1', balance: 200 }, { id: 'inv2' }],
+    }
+
+    expect(withUnknownBalances(snapshot, {}, replaced)).toEqual({
+      date: '2026-05-01',
+      cash_amount: 100,
+      investments: [{ id: 'inv1', balance: 200 }, { id: 'inv2' }],
+      liabilities: [{ id: 'l1', outstanding_balance: 50 }],
+    })
+  })
+})
+
+describe('unknown figures in the history', () => {
+  const JAN: Snapshot = { date: '2026-01-01', cash_amount: 1_000 }
+  const MAR: Snapshot = { date: '2026-03-01' }
+  const MAY: Snapshot = { date: '2026-05-01', cash_amount: 2_200 }
+  const profile: Profile = {
+    name: 'Alice',
+    email: 'a@example.com',
+    cash_amount: 2_200,
+    snapshots: [JAN, MAR, MAY],
+  }
+
+  test('rewinding onto an unknown figure takes its calculated value', () => {
+    expect(withDeletedSnapshot(profile, MAY.date).cash_amount).toBe(1_590)
+  })
+
+  test('keeps the figure unknown after a rewind', () => {
+    expect(withDeletedSnapshot(profile, MAY.date).snapshots?.at(-1)).toEqual(MAR)
+  })
+
+  test('saving an older snapshot keeps the profile on an unknown newest figure', () => {
+    const unknownNewest = { ...profile, snapshots: [JAN, MAR] }
+    expect(withSavedSnapshot(unknownNewest, { ...JAN, cash_amount: 500 }).cash_amount).toBe(2_200)
   })
 })

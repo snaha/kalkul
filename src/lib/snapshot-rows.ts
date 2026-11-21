@@ -1,6 +1,11 @@
 import { getFiPercent, getLiabilitiesTotal, getTotalAssets } from '$lib/financial-totals'
 import type { Profile } from '$lib/schemas'
-import { canDeleteSnapshot, profileAtSnapshot, snapshotNetWorth } from '$lib/snapshots'
+import {
+  canDeleteSnapshot,
+  profileAtSnapshot,
+  resolveSnapshots,
+  snapshotNetWorth,
+} from '$lib/snapshots'
 
 /** One row of the History page's Snapshots table. */
 export interface SnapshotRow {
@@ -28,7 +33,7 @@ export interface SnapshotRow {
  * for the date.
  */
 export function buildSnapshotRows(profile: Profile): SnapshotRow[] {
-  return (profile.snapshots ?? [])
+  return resolveSnapshots(profile)
     .map((snapshot) => {
       const at = profileAtSnapshot(profile, snapshot)
       return {
