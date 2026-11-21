@@ -43,6 +43,10 @@
       "backToHome": "Zpět domů",
       "toggleSidebar": "Zobrazit nebo skrýt postranní panel",
       "toggleDetailsPanel": "Zobrazit nebo skrýt panel s podrobnostmi",
+      "items": {
+        "add": "Přidat",
+        "inflationAdjusted": "Upraveno o inflaci"
+      },
       "details": {
         "cashFlow": "Peněžní tok",
         "income": "Příjmy",
@@ -57,10 +61,7 @@
       },
       "cashFlows": "Peněžní toky",
       "assets": "Aktiva",
-      "searchCashFlows": "Hledat peněžní toky",
-      "searchAssets": "Hledat aktiva",
       "transfers": "Převody",
-      "incomes": "Příjmy",
       "expenses": "Výdaje",
       "chartPlaceholder": "Zde bude zobrazen graf",
       "chartAriaLabel": "Skládaný sloupcový graf zobrazující rozpad čistého jmění podle let",
