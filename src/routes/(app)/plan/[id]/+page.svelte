@@ -28,7 +28,7 @@
   import { getCurrentProfile } from '$lib/current-values'
   import { DEMO_PLAN_ID } from '$lib/demo'
   import { isPlanOutdated, snapshotFinancialData } from '$lib/plan-base'
-  import { getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
+  import { followsInflation, getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
   import routes from '$lib/routes'
   import type {
     Expense,
@@ -268,8 +268,6 @@
     if (flow.schedule === 'one_time') return amount
     return `${amount}/${getFrequencyShortLabel($_, flow.frequency ?? 'monthly')}`
   }
-  const followsInflation = (flow: Income | Expense | Transfer) =>
-    flow.inflation_adjusted === true || flow.change_over_time === 'match_inflation'
 
   // Nothing on the Current projection can be edited: its rows open nothing
   // and every "add" offers to start a plan instead.
@@ -469,9 +467,10 @@
   {/if}
   <div bind:this={pageContainerRef} class="relative flex min-h-0 flex-1 overflow-hidden">
     <!-- Left Panel: what the plan is made of -->
-    {#if isLeftPanelOpen}
+    <!-- Hidden rather than unmounted, so the groups that were open stay open. -->
+    <div class="contents" hidden={!isLeftPanelOpen}>
       <PlanItemsPanel sections={itemSections} />
-    {/if}
+    </div>
 
     <!-- Center Panel: Chart area (placeholder) -->
     <div class="flex min-h-0 flex-1 flex-col overflow-hidden border-l">
@@ -589,9 +588,9 @@
     </div>
 
     <!-- Right Panel: the selected year in detail -->
-    {#if isPanelOpen}
+    <div class="contents" hidden={!isPanelOpen}>
       <PlanDetailsPanel {projection} bind:selectedYear {startYear} {endYear} age={currentAge} />
-    {/if}
+    </div>
 
     {#if savedPlan}
       <!-- Add cash flow type picker -->

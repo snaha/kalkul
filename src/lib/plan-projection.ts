@@ -235,19 +235,26 @@ function activeMonthFraction(
   return new Decimal(Math.max(0, months)).div(12)
 }
 
+/**
+ * Whether a cash flow's amount follows inflation: the explicit toggle is on
+ * or (legacy) the dropdown still says 'match_inflation'.
+ */
+export function followsInflation(
+  cashFlow: Partial<Pick<CashFlowTemporal, 'inflation_adjusted' | 'change_over_time'>>,
+): boolean {
+  return cashFlow.inflation_adjusted === true || cashFlow.change_over_time === 'match_inflation'
+}
+
 function growthFactor(
   cashFlow: CashFlowTemporal,
   yearsSinceStart: number,
   yearsSincePlanStart: number,
   inflationRate: Decimal,
 ): Decimal {
-  // Inflation factor: applied if the explicit toggle is on OR (legacy) the
-  // dropdown still says 'match_inflation'. Anchored to PLAN start, not the
-  // cash flow's own start, so the entered amount is interpreted as
-  // today's-money and scales forward to the year of execution regardless of
-  // when the cash flow itself begins.
-  const inflationOn =
-    cashFlow.inflation_adjusted === true || cashFlow.change_over_time === 'match_inflation'
+  // Inflation factor, anchored to PLAN start, not the cash flow's own start,
+  // so the entered amount is interpreted as today's-money and scales forward
+  // to the year of execution regardless of when the cash flow itself begins.
+  const inflationOn = followsInflation(cashFlow)
   const inflationFactor =
     inflationOn && yearsSincePlanStart > 0
       ? DECIMAL_1.plus(inflationRate).pow(yearsSincePlanStart)

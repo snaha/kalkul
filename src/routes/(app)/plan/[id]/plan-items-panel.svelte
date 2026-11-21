@@ -45,6 +45,7 @@
     CollapsibleContent,
     CollapsibleTrigger,
   } from '$lib/components/ui/collapsible'
+  import * as Tooltip from '$lib/components/ui/tooltip'
   import { cn } from '$lib/utils'
 
   let { sections }: { sections: PlanItemSection[] } = $props()
@@ -75,6 +76,26 @@
       {row.value}
     </span>
   {/if}
+  {#if row.hasInsufficientFunds}
+    <span class="sr-only">{$_('page.plan.insufficientFundsTooltip')}</span>
+  {/if}
+{/snippet}
+
+{#snippet itemRow(row: PlanItemRow, failing: string | undefined, props: Record<string, unknown>)}
+  <!-- A row with no handler is information, not a control: a div, so it
+       stays out of the tab order. -->
+  {#if row.onClick}
+    <button
+      {...props}
+      type="button"
+      onclick={row.onClick}
+      class={cn(rowClass, 'hover:bg-sidebar-accent', failing)}
+    >
+      {@render rowCells(row)}
+    </button>
+  {:else}
+    <div {...props} class={cn(rowClass, failing)}>{@render rowCells(row)}</div>
+  {/if}
 {/snippet}
 
 {#snippet addButton(g: PlanItemGroup)}
@@ -94,14 +115,17 @@
 
 {#snippet group(g: PlanItemGroup)}
   {@const rowBase =
-    'group/row relative flex items-center gap-2 rounded-md p-2 text-sm leading-none font-medium hover:bg-sidebar-accent'}
+    'group/row relative flex items-center gap-2 rounded-md p-2 text-sm leading-none font-medium'}
+  {@const hover = 'hover:bg-sidebar-accent'}
   {#if g.onClick}
-    <button type="button" onclick={g.onClick} class={cn(rowBase, 'w-full text-left')}>
+    <button type="button" onclick={g.onClick} class={cn(rowBase, hover, 'w-full text-left')}>
       <span class="min-w-0 flex-1 truncate">{g.label}</span>
     </button>
   {:else if g.rows.length === 0}
-    <!-- Nothing to open yet: no chevron, and the label keeps its column. -->
-    <div class={cn(rowBase, 'pl-8')}>
+    <!-- Nothing to open: no chevron and no highlight, since only the + acts.
+         A group that can be added to keeps its label in the column of the
+         others; one that cannot (Cash, read-only) stays flush left. -->
+    <div class={cn(rowBase, g.onAdd && 'pl-8')}>
       <span class="min-w-0 flex-1 truncate">{g.label}</span>
       {@render addButton(g)}
     </div>
@@ -113,7 +137,7 @@
     >
       <!-- The whole row toggles the group. The trigger lies over it rather
            than around it, so the add button can be a button of its own. -->
-      <div class={rowBase}>
+      <div class={cn(rowBase, hover)}>
         <CollapsibleTrigger class="peer absolute inset-0 rounded-md" aria-label={g.label} />
         <ChevronRight
           class="pointer-events-none size-4 shrink-0 transition-transform peer-data-[state=open]:rotate-90"
@@ -129,23 +153,22 @@
             {@const failing = row.hasInsufficientFunds
               ? 'bg-destructive/10 text-destructive'
               : undefined}
-            <li
-              title={row.hasInsufficientFunds
-                ? $_('page.plan.insufficientFundsTooltip')
-                : undefined}
-            >
-              <!-- A row with no handler is information, not a control: a div,
-                   so it stays out of the tab order. -->
-              {#if row.onClick}
-                <button
-                  type="button"
-                  onclick={row.onClick}
-                  class={cn(rowClass, 'hover:bg-sidebar-accent', failing)}
-                >
-                  {@render rowCells(row)}
-                </button>
+            <li>
+              {#if row.hasInsufficientFunds}
+                <!-- The reason a row is red: a tooltip on hover and focus,
+                     and read out with the row. -->
+                <Tooltip.Provider delayDuration={150}>
+                  <Tooltip.Root>
+                    <Tooltip.Trigger>
+                      {#snippet child({ props })}
+                        {@render itemRow(row, failing, props)}
+                      {/snippet}
+                    </Tooltip.Trigger>
+                    <Tooltip.Content>{$_('page.plan.insufficientFundsTooltip')}</Tooltip.Content>
+                  </Tooltip.Root>
+                </Tooltip.Provider>
               {:else}
-                <div class={cn(rowClass, failing)}>{@render rowCells(row)}</div>
+                {@render itemRow(row, failing, {})}
               {/if}
             </li>
           {/each}
