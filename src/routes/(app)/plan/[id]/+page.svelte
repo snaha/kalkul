@@ -383,6 +383,19 @@
     },
   ])
 
+  // What a row of the right sidebar opens: the same dialog as the row of that
+  // item on the left, by item id, with 'cash' for the cash balance.
+  const itemOpeners = $derived(
+    new Map(
+      itemSections.flatMap((section) =>
+        section.groups.flatMap((g) => [
+          [g.id, g.onClick] as const,
+          ...g.rows.map((r) => [r.id, r.onClick] as const),
+        ]),
+      ),
+    ),
+  )
+
   // Legend items for the chart
   const legendItems = [
     { id: 'cash', label: $_('page.plan.cash'), color: CATEGORY_COLORS.cash },
@@ -589,7 +602,14 @@
 
     <!-- Right Panel: the selected year in detail -->
     <div class="contents" hidden={!isPanelOpen}>
-      <PlanDetailsPanel {projection} bind:selectedYear {startYear} {endYear} age={currentAge} />
+      <PlanDetailsPanel
+        {projection}
+        bind:selectedYear
+        {startYear}
+        {endYear}
+        age={currentAge}
+        opener={(id) => itemOpeners.get(id)}
+      />
     </div>
 
     {#if savedPlan}

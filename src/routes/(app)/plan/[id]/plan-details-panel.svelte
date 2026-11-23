@@ -18,7 +18,7 @@
   } from '$lib/components/ui/collapsible'
   import { Slider } from '$lib/components/ui/slider'
   import * as Tooltip from '$lib/components/ui/tooltip'
-  import type { YearlyProjection } from '$lib/plan-projection'
+  import type { YearlyProjection, YearlyProjectionItem } from '$lib/plan-projection'
   import { RUNWAY_CAP_YEARS } from '$lib/runway'
   import { appStore } from '$lib/stores/app.svelte'
   import { cn } from '$lib/utils'
@@ -30,14 +30,18 @@
     startYear: number
     endYear: number
     age?: number
+    // What opens the dialog of a plan item, by its id ('cash' for the cash
+    // balance); nothing for an item that cannot be opened.
+    opener?: (id: string) => (() => void) | undefined
   }
 
-  let { projection, selectedYear = $bindable(), startYear, endYear, age }: Props = $props()
+  let { projection, selectedYear = $bindable(), startYear, endYear, age, opener }: Props = $props()
 
   interface Row {
     id: string
     name: string
     value: string
+    onClick?: () => void
   }
 
   interface Group {
@@ -48,6 +52,8 @@
     color?: string
     // The rows the group expands to. A group without any has nothing to open.
     rows: Row[]
+    // A group that is a single thing (Cash): the row itself opens it.
+    onClick?: () => void
     // A plain figure that sits at the section's edge, not under the chevrons.
     flush?: boolean
   }
@@ -69,6 +75,15 @@
   const toneOf = (value: number) =>
     value > 0 ? 'text-success' : value < 0 ? 'text-destructive' : undefined
 
+  // A row opens its item's dialog. The loan behind a financed asset, its
+  // installments and an asset's property tax open the asset they belong to.
+  const row = (item: YearlyProjectionItem, value: string, name = item.name): Row => ({
+    id: item.id,
+    name,
+    value,
+    onClick: opener?.(item.assetId ?? item.id),
+  })
+
   const sum = (rows: { value: number }[]) => rows.reduce((total, row) => total + row.value, 0)
 
   const netWorthGroups = $derived<Group[]>(
@@ -80,20 +95,21 @@
             value: money(year.cash),
             color: CATEGORY_COLORS.cash,
             rows: [],
+            onClick: opener?.('cash'),
           },
           {
             id: 'investments',
             label: $_('page.plan.investments'),
             value: money(year.investments),
             color: CATEGORY_COLORS.investments[0],
-            rows: year.investmentsByItem.map((i) => ({ ...i, value: money(i.value) })),
+            rows: year.investmentsByItem.map((i) => row(i, money(i.value))),
           },
           {
             id: 'tangibleAssets',
             label: $_('page.plan.tangibleAssets'),
             value: money(year.tangibleAssets),
             color: CATEGORY_COLORS.tangibleAssets[0],
-            rows: year.tangibleAssetsByItem.map((i) => ({ ...i, value: money(i.value) })),
+            rows: year.tangibleAssetsByItem.map((i) => row(i, money(i.value))),
           },
           {
             id: 'liabilities',
@@ -101,7 +117,7 @@
             value: outflow(year.liabilities),
             valueClass: year.liabilities > 0 ? 'text-destructive' : undefined,
             color: CATEGORY_COLORS.liabilities[0],
-            rows: year.liabilitiesByItem.map((i) => ({ ...i, value: outflow(i.value) })),
+            rows: year.liabilitiesByItem.map((i) => row(i, outflow(i.value))),
           },
         ]
       : [],
@@ -115,7 +131,7 @@
             label: $_('page.plan.details.income'),
             value: inflow(year.totalIncome),
             valueClass: year.totalIncome > 0 ? 'text-success' : undefined,
-            rows: year.incomesByItem.map((i) => ({ ...i, value: inflow(i.value) })),
+            rows: year.incomesByItem.map((i) => row(i, inflow(i.value))),
           },
           {
             id: 'expense',
@@ -126,16 +142,18 @@
             // Expenses first, then what the assets and loans cost. The ids are
             // prefixed so a tax or installment row never shares one with an expense.
             rows: [
-              ...year.expensesByItem.map((i) => ({ ...i, value: outflow(i.value) })),
+              ...year.expensesByItem.map((i) => row(i, outflow(i.value))),
               ...year.propertyTaxByItem.map((i) => ({
+                ...row(
+                  i,
+                  outflow(i.value),
+                  $_('page.plan.details.propertyTaxOf', { values: { name: i.name } }),
+                ),
                 id: `tax-${i.id}`,
-                name: $_('page.plan.details.propertyTaxOf', { values: { name: i.name } }),
-                value: outflow(i.value),
               })),
               ...year.installmentsByItem.map((i) => ({
+                ...row(i, outflow(i.value)),
                 id: `installment-${i.id}`,
-                name: i.name,
-                value: outflow(i.value),
               })),
             ],
           },
@@ -143,7 +161,7 @@
             id: 'transfers',
             label: $_('page.plan.transfers'),
             value: money(sum(year.transfersByItem)),
-            rows: year.transfersByItem.map((i) => ({ ...i, value: money(i.value) })),
+            rows: year.transfersByItem.map((i) => row(i, money(i.value))),
           },
         ]
       : [],
@@ -199,7 +217,15 @@
 {/snippet}
 
 {#snippet group(g: Group)}
-  {#if g.rows.length === 0}
+  {#if g.onClick}
+    <button
+      type="button"
+      onclick={g.onClick}
+      class="flex w-full items-center gap-2 rounded-md p-2 pl-8 text-sm leading-none hover:bg-sidebar-accent"
+    >
+      {@render groupCells(g)}
+    </button>
+  {:else if g.rows.length === 0}
     <div class={cn('flex items-center gap-2 p-2 text-sm leading-none', !g.flush && 'pl-8')}>
       {@render groupCells(g)}
     </div>
@@ -222,17 +248,32 @@
           class="relative flex flex-col gap-1 py-0.5 pl-6 before:absolute before:inset-y-0 before:left-4 before:border-l before:border-sidebar-border"
         >
           {#each g.rows as row (row.id)}
-            <li
-              class="flex h-7 items-center gap-2 rounded-md px-2 text-sm leading-none hover:bg-sidebar-accent"
-            >
-              <span class="min-w-0 flex-1 truncate text-muted-foreground">{row.name}</span>
-              <span class={cn('shrink-0 tabular-nums', g.valueClass)}>{row.value}</span>
+            {@const rowClass =
+              'flex h-7 w-full items-center gap-2 rounded-md px-2 text-sm leading-none'}
+            <li>
+              <!-- A row with no handler is information, not a control. -->
+              {#if row.onClick}
+                <button
+                  type="button"
+                  onclick={row.onClick}
+                  class={cn(rowClass, 'hover:bg-sidebar-accent')}
+                >
+                  {@render rowCells(row, g.valueClass)}
+                </button>
+              {:else}
+                <div class={rowClass}>{@render rowCells(row, g.valueClass)}</div>
+              {/if}
             </li>
           {/each}
         </ul>
       </CollapsibleContent>
     </Collapsible>
   {/if}
+{/snippet}
+
+{#snippet rowCells(row: Row, valueClass: string | undefined)}
+  <span class="min-w-0 flex-1 truncate text-left text-muted-foreground">{row.name}</span>
+  <span class={cn('shrink-0 tabular-nums', valueClass)}>{row.value}</span>
 {/snippet}
 
 {#snippet groupCells(g: Group)}

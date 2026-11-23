@@ -160,6 +160,10 @@ chart's terms: real, deflated to the plan's first year.
 - The Expense rows are the expenses first, then the property tax of each taxed
   asset, then the installments of each loan, named after the loan. They look
   alike for now and add up to the Expense row.
+- A row opens the dialog of its item, the same one its row in the left
+  sidebar opens: Cash opens the cash balance, and a property tax row, the
+  loan behind a financed asset and its installments open the asset. On the
+  Current projection, where nothing can be edited, the rows open nothing.
 - Only what is active in the year is listed among the cash flows: an income or
   expense outside its dates, a paid-off loan and a sold asset have no row.
 - Transfers shows what left each source, before fees and tax. A transfer
@@ -322,8 +326,6 @@ rather than papering over it.
   projection has stopped at its first error: a panel that replaces the
   sections on the right, a summary above the sections on the left. The engine
   does not stop at an error today; that is #67.
-- Whether a row of the right sidebar opens its item, or focuses the chart on
-  it, is not decided (#320).
 
 ## Where this lives in the code
 
