@@ -141,29 +141,42 @@ current year, clamped to the plan's range, and the year moves with the slider,
 the previous and next buttons, or a click on a bar. Every amount is in the
 chart's terms: real, deflated to the plan's first year.
 
-| UI label       | Field / code                                        | Meaning                                                       |
-| -------------- | --------------------------------------------------- | ------------------------------------------------------------- |
-| Net worth      | `netWorth`                                          | As in `net-worth.md`                                          |
-| Cash flow      | `cashFlow`                                          | What the year's flows add to or take from cash                |
-| Income         | `totalIncome`, `incomesByItem`                      | The incomes that fire in the year                             |
-| Expense        | `totalExpenses + totalInstallments` and their items | Expenses, property tax and loan installments paid in the year |
-| Transfers      | `transfersByItem`                                   | What left the source of each of the plan's transfers          |
-| FIRE portfolio | `portfolioValue`                                    | The portfolio value of `net-worth.md`                         |
-| Runway         | `runwayYears`                                       | Portfolio value over the year's outflows                      |
+| UI label               | Field / code                                                     | Meaning                                                         |
+| ---------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------- |
+| Net worth              | `netWorth`                                                       | As in `net-worth.md`                                            |
+| Cash flow              | `cashFlow`                                                       | Income less what the year costs                                 |
+| Income                 | `totalIncome`, `incomesByItem`                                   | The incomes that fire in the year                               |
+| Expenses               | `expensesByItem`                                                 | The expenses that fire in the year                              |
+| Liability installments | `installmentsByItem`, `totalInstallments`                        | The installments paid on each loan in the year                  |
+| Fees and taxes         | `investmentFeesByItem`, `transferTaxByItem`, `propertyTaxByItem` | Investment fees, transfer tax and property tax paid in the year |
+| Transfers              | `transfersByItem`                                                | What left the source of each of the plan's transfers            |
+| FIRE portfolio         | `portfolioValue`                                                 | The portfolio value of `net-worth.md`                           |
+| Runway                 | `runwayYears`                                                    | Portfolio value over the year's outflows                        |
 
 - Net worth lists cash, investments, tangible assets and liabilities, the last
   three opening to one row per item. The rows add up to the headline.
-- Cash flow is income less everything that drains cash in the year: the
-  expenses, the property tax and the loan installments. Money a new loan pays
-  into cash is not income and is not counted; neither are transfers, which
-  only move money between the plan's own balances.
-- The Expense rows are the expenses first, then the property tax of each taxed
-  asset, then the installments of each loan, named after the loan. They look
-  alike for now and add up to the Expense row.
+- Cash flow is income less what the year costs: the expenses, the loan
+  installments, and the fees and taxes. Money a new loan pays into cash is not
+  income and is not counted; neither are transfers, which only move money
+  between the plan's own balances. The fees and transfer tax are counted
+  although they do not leave cash (they come off a return or a transfer), so
+  the groups under Cash flow add up to it.
+- Expenses lists each expense by its name. Liability installments lists what
+  each loan was repaid, named after the loan: a standalone loan by its name,
+  the loan behind a financed asset by the asset's.
+- Fees and taxes lists, in this order:
+  - "<investment> fees": what an investment lost to fees in the year, its TER
+    and ongoing entry fee taken off its growth plus the upfront entry fee on
+    what was paid in and the exit fee on what was taken out, the planned buy
+    and sell of the investment included. The first year is not compounded, so
+    it has no TER.
+  - "<transfer> tax": the estimated tax a transfer deducted.
+  - "<asset> property tax": the property tax of a taxed asset.
 - A row opens the dialog of its item, the same one its row in the left
-  sidebar opens: Cash opens the cash balance, and a property tax row, the
-  loan behind a financed asset and its installments open the asset. On the
-  Current projection, where nothing can be edited, the rows open nothing.
+  sidebar opens: Cash opens the cash balance, a fees row its investment, a
+  tax row its transfer, and a property tax row, the loan behind a financed
+  asset and its installments open the asset. On the Current projection,
+  where nothing can be edited, the rows open nothing.
 - Only what is active in the year is listed among the cash flows: an income or
   expense outside its dates, a paid-off loan and a sold asset have no row.
 - Transfers shows what left each source, before fees and tax. A transfer
@@ -313,14 +326,25 @@ rather than papering over it.
 
 9. **A year's cash flow.** A salary of 60,000 a year, rent of 24,000, a house
    taxed 2,000 a year and a car loan repaid at 500 a month. Income reads
-   +60,000; Expense reads −32,000 and opens to rent 24,000, the house's
-   property tax 2,000 and the car loan 6,000; Cash flow is +28,000. A transfer
-   of 10,000 from cash to an ETF shows 10,000 under Transfers and changes none
-   of the three. The year after the loan is paid off, its row is gone, Expense
-   reads −26,000 and Cash flow +34,000: the badge shows 21.4% up and its
-   tooltip "+6,000 vs" the year before.
+   +60,000; Expenses −24,000 (rent); Liability installments −6,000 (the car
+   loan); Fees and taxes −2,000 ("House property tax"); Cash flow is +28,000.
+   A transfer of 10,000 from cash to an ETF with no fees shows 10,000 under
+   Transfers and changes none of these. The year after the loan is paid off,
+   Liability installments has no row and Cash flow reads +34,000: the badge
+   shows 21.4% up and its tooltip "+6,000 vs" the year before.
+10. **Fees and taxes.** An ETF of 10,000 at 5% with a 1% TER: its first year
+    has no fees; the second lists "ETF fees" at 100 and the cash flow is −100.
+    Paying 1,000 into an ETF with a 2% upfront entry fee lists "ETF fees" at
+    20 in that year. A transfer named "Sell" that takes 1,000 out of an
+    investment and deducts tax takes the tax on top of the 1,000 from the
+    investment; that tax is listed as "Sell tax" and comes off the cash flow.
 
 ## Open questions
+
+- The Figma frame for the right sidebar's Fees and taxes group also has an
+  "<asset> sales tax" row, the tax on a tangible asset's sale. A tangible asset
+  has no sales tax today: a sale puts its whole value into cash. The row comes
+  with a decision on taxing a sale (#474).
 
 - The Figma frames for both sidebars show a "Missing funds" message once the
   projection has stopped at its first error: a panel that replaces the

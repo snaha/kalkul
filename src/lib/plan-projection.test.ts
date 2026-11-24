@@ -3889,6 +3889,82 @@ describe('per-item cash flows and portfolio value of a year', () => {
     expect(result[1].cashFlow).toBeCloseTo(34_000, 6)
   })
 
+  const yearly = (
+    id: string,
+    from: string,
+    to: string,
+    amount: number,
+    extra: Partial<Transfer> = {},
+  ): Transfer => ({
+    id,
+    name: id,
+    from_asset_id: from,
+    to_asset_id: to,
+    amount,
+    schedule: 'recurring',
+    frequency: 'yearly',
+    start: 'immediately',
+    end: 'never',
+    change_over_time: 'none',
+    ...extra,
+  })
+
+  it('lists the TER an investment pays in each compounded year and takes it off the cash flow', () => {
+    const result = project(
+      makePlan(),
+      makeProfile({
+        investments: [{ id: 'inv1', name: 'ETF', balance: 10_000, apy: 5, ter: 1 }],
+      }),
+    )
+    // The first year is not compounded, so nothing is charged.
+    expect(result[0].investmentFeesByItem).toEqual([])
+    expect(result[1].investmentFeesByItem).toEqual([{ id: 'inv1', name: 'ETF', value: 100 }])
+    expect(result[1].cashFlow).toBeCloseTo(-100, 6)
+  })
+
+  it('adds the entry and exit fees of a transfer to the fees of the investment that charges them', () => {
+    const result = project(
+      makePlan(),
+      makeProfile({
+        cash_amount: 10_000,
+        investments: [
+          {
+            id: 'inv1',
+            name: 'ETF',
+            balance: 0,
+            apy: 0,
+            entry_fee: 2,
+            entry_fee_type: 'upfront',
+          },
+          { id: 'inv2', name: 'Bonds', balance: 1000, apy: 0, exit_fee: 1 },
+        ],
+        transfers: [yearly('in', 'cash', 'inv1', 1000), yearly('out', 'inv2', 'cash', 500)],
+      }),
+    )
+    expect(result[0].investmentFeesByItem).toEqual([
+      { id: 'inv1', name: 'ETF', value: 20 },
+      { id: 'inv2', name: 'Bonds', value: 5 },
+    ])
+    expect(result[0].cashFlow).toBeCloseTo(-25, 6)
+  })
+
+  it('lists the tax a transfer deducts and takes it off the cash flow', () => {
+    const result = project(
+      makePlan(),
+      makeProfile({
+        investments: [{ id: 'inv1', name: 'ETF', balance: 100_000, apy: 10 }],
+        transfers: [yearly('sell', 'inv1', 'cash', 1000, { deduct_tax: true, tax_rate: 15 })],
+      }),
+    )
+    const tax = result[2].transfersByItem[0].value - 1000
+    expect(tax).toBeGreaterThan(0)
+    expect(result[2].transferTaxByItem).toHaveLength(1)
+    expect(result[2].transferTaxByItem[0].id).toBe('sell')
+    expect(result[2].transferTaxByItem[0].value).toBeCloseTo(tax, 6)
+    expect(result[2].investmentFeesByItem).toEqual([])
+    expect(result[2].cashFlow).toBeCloseTo(-tax, 6)
+  })
+
   it('reports the portfolio value: cash plus investments minus standalone loans', () => {
     // docs/product/net-worth.md, worked example 1.
     const result = project(

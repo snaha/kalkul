@@ -50,7 +50,10 @@
       "details": {
         "cashFlow": "Cash flow",
         "income": "Income",
-        "expense": "Expense",
+        "liabilityInstallments": "Liability installments",
+        "feesAndTaxes": "Fees and taxes",
+        "investmentFeesOf": "{name} fees",
+        "transferTaxOf": "{name} tax",
         "propertyTaxOf": "{name} property tax",
         "firePortfolio": "FIRE portfolio",
         "financialIndependence": "Financial independence",

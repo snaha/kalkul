@@ -10,6 +10,24 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-24 The projection's cash flow lists installments and fees and taxes apart from expenses
+
+**Context.** The right sidebar's Expense group listed a financed asset's
+installments under the asset's name only, so a taxed, financed house read
+"House property tax" and then "House" (#474). Investment fees and transfer
+tax were not shown anywhere.
+
+**Decision.** Cash flow has three outflow groups: Expenses, Liability
+installments and Fees and taxes. Fees and taxes lists each investment's fees,
+each transfer's tax and each asset's property tax, and the Cash flow headline
+subtracts all of them, although fees and transfer tax do not leave cash. Sales
+tax on a tangible asset is left for later, since an asset has none today.
+Supersedes the single Expense group of 2026-11-23's sidebar.
+
+**Why.** The group labels match the ones used in financial data and the left
+sidebar, and each group names its rows without a suffix for the installments.
+Counting the fees in the headline keeps the groups adding up to it.
+
 ## 2026-11-23 A row of the projection's right sidebar opens its item
 
 **Context.** #320 left open whether a row of the right sidebar opens its item
