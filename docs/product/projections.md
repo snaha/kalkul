@@ -168,8 +168,8 @@ chart's terms: real, deflated to the plan's first year.
   - "<investment> fees": what an investment lost to fees in the year, its TER
     and ongoing entry fee taken off its growth plus the upfront entry fee on
     what was paid in and the exit fee on what was taken out, the planned buy
-    and sell of the investment included. The first year is not compounded, so
-    it has no TER.
+    and sell of the investment included. The TER is charged each month the
+    balance grows, the first year's months included.
   - "<transfer> tax": the estimated tax a transfer deducted.
   - "<asset> property tax": the property tax of a taxed asset.
 - A row opens the dialog of its item, the same one its row in the left
@@ -273,6 +273,36 @@ month of that year is left before the birthday.
 A planned purchase, sale or loan timed by an age is still a whole-year event
 in the year the age is reached.
 
+### The projection runs month by month
+
+A projection steps month by month, from its start month through December of
+its last year, and reports a figure per year. The plan's end date only names
+its last year: the last year always runs through December.
+
+Each month, in this order:
+
+1. Investments and tangible assets grow by a month: (1 + yearly rate)^(1/12).
+   An investment's rate is its APY net of TER and the ongoing entry fee; an
+   asset's is its value rate, or inflation when it has none. What a balance
+   holds at the start of the month earns that month, so money moved in during
+   a month earns from the next.
+2. Income is paid into cash, and so is the principal of a loan the plan takes
+   on that month.
+3. Transfers run, the planned buy of an asset first and its planned sale last.
+   A transfer the source cannot cover that month is skipped.
+4. Expenses, loan installments and a twelfth of each year's property tax are
+   paid from cash. If cash cannot cover them, the expenses of that month are
+   flagged, even when the year as a whole adds up.
+
+A recurring amount is spread evenly over the months it runs: 1,200 a year is
+100 a month. A one-time item is paid in its month, a planned purchase in its
+start month (January when it has none) and a planned sale in its sale month
+(December when it has none). A loan's installments fall on its cadence from
+the month it runs from: monthly every month, yearly in every twelfth month.
+
+A year's balances are those at the end of its December; its flows are the sum
+of its months.
+
 ### A projection starts in its start month
 
 A projection's first year has only the months from its start month on. What
@@ -282,14 +312,13 @@ nothing before the start month is paid or received again.
 - A recurring income, expense or transfer runs from the start month, even
   when it starts "immediately" or on an earlier date that year.
 - A one-time item dated before the start month does not happen.
-- A loan pays the whole installments that fit in the first year's months;
-  the rest of its term follows on, so it is paid off that much later. A
-  yearly installment fits only a first year that starts in January; otherwise
-  it falls into the next year.
+- A loan runs from the start month: its installments fall on their cadence
+  from there, and the rest of its term follows on.
+- Property tax is paid a twelfth a month, so the first year pays for its
+  months only.
+- Balances grow from the start month.
 - A one-time date, or an end date, in the first year before the start month
   is rejected in the dialogs, since it would never happen.
-- Property tax is a year's tax: the first year pays the share for its
-  months.
 
 ### Inflation counts months
 
@@ -302,14 +331,15 @@ after the start month costs (1 + rate)^(n / 12) as much.
   is paid in: every month of a recurring flow, the transaction month of a
   one-time one. A payment in the start month is the amount as entered.
 - Any other flow is paid as entered, every month.
-- A flow's figures in today's money, in the right sidebar and in the dialog's
-  "in today's money", divide each payment by its own month's factor. A flow
-  that adjusts for inflation therefore reads as entered; one that does not
-  shrinks month by month.
-- Balances (cash, investments, assets, loans) are deflated once per year, by
-  (1 + rate)^(years since the start year), since the projection steps them a
-  year at a time. So are property tax, loan installments and a "Max"
-  transfer, which have no entered amount to deflate month by month.
+- Every payment's figure in today's money (incomes, expenses, transfers,
+  installments, property tax), in the right sidebar and in the dialog's "in
+  today's money", divides it by its own month's factor. A flow that adjusts
+  for inflation therefore reads as entered; one that does not shrinks month
+  by month.
+- A year's balances (cash, investments, assets, loans) are divided by the
+  factor at the end of its December, `n` + 1 months after the start month. A
+  tangible asset that follows inflation keeps its value; idle cash loses a
+  little every month.
 - "Change over time" (a yearly raise or cut) still steps once a year, from the
   flow's own start year.
 - Amounts are shown in whole units, so a small amount shows the monthly steps
@@ -374,8 +404,10 @@ rather than papering over it.
    Transfers and changes none of these. The year after the loan is paid off,
    Liability installments has no row and Cash flow reads +34,000: the badge
    shows 21.4% up and its tooltip "+6,000 vs" the year before.
-10. **Fees and taxes.** An ETF of 10,000 at 5% with a 1% TER: its first year
-    has no fees; the second lists "ETF fees" at 100 and the cash flow is −100.
+10. **Fees and taxes.** An ETF of 10,000 at 5% with a 1% TER grows at 4% a
+    year, compounded monthly; the 1% it does not earn is listed as "ETF fees":
+    97.79 in a first year from January and 101.71 in the second, and the cash
+    flow is that much lower.
     Paying 1,000 into an ETF with a 2% upfront entry fee lists "ETF fees" at
     20 in that year. A transfer named "Sell" that takes 1,000 out of an
     investment and deducts tax takes the tax on top of the 1,000 from the
@@ -400,19 +432,21 @@ rather than papering over it.
     year's ten months. A one-time expense dated March of the first year never
     happens.
 
+13. **Growth by the month.** A plan starts in November 2026 with an ETF of
+    10,000 at 6%. At the end of 2026 it holds 10,000 × 1.06^(2/12) = 10,097.6,
+    and at the end of 2027 10,000 × 1.06^(14/12). A transfer of 1,000 into it
+    in March 2027 earns from April. A plan holding no cash with rent of 100 a
+    month and a one-time income of 1,200 in December flags the rent in
+    January: the year adds up, but January's rent cannot be paid.
+
 ## Open questions
 
 - The Figma frame for the right sidebar's Fees and taxes group also has an
   "<asset> sales tax" row, the tax on a tangible asset's sale. A tangible asset
   has no sales tax today: a sale puts its whole value into cash. The row comes
   with a decision on taxing a sale (#474).
-- The plan's last year still counts every month, whatever month the plan
-  ends in. A plan ending in January counts all twelve months of its last
-  year.
-- Balances do not grow in the first year: an investment is first compounded,
-  by a whole year, in the second. A first year of a few months has their
-  flows but none of their growth.
-
+- A recurring "Max" transfer sweeps its source every month it runs, whatever
+  its frequency.
 - The Figma frames for both sidebars show a "Missing funds" message once the
   projection has stopped at its first error: a panel that replaces the
   sections on the right, a summary above the sections on the left. The engine

@@ -47,6 +47,16 @@ function project(edits: PlanEdits, profile: Profile) {
   return getYearlyPlanProjection(planFrom(profile, edits), profile)
 }
 
+/** Growth over `months` at a yearly rate in percent, compounded monthly. */
+const grown = (ratePercent: number, months: number) => (1 + ratePercent / 100) ** (months / 12)
+
+/** A balance fed `perMonth` each month after that month's growth, over `months`. */
+function contributions(perMonth: number, ratePercent: number, months: number): number {
+  let balance = 0
+  for (let k = 0; k < months; k++) balance = balance * grown(ratePercent, 1) + perMonth
+  return balance
+}
+
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return {
     name: 'Test',
@@ -194,13 +204,14 @@ describe('getYearlyPlanProjection', () => {
     expect(result[0].investments).toBe(5_000)
   })
 
-  it('compounds investments at apy (stored as percent) each year', () => {
+  it('compounds investments at apy (stored as percent) month by month', () => {
     const investments: ProfileInvestment[] = [{ id: 'i1', name: 'Stocks', balance: 1000, apy: 10 }]
     const result = project(makePlan(), makeProfile({ investments }))
-    expect(result[0].investments).toBeCloseTo(1000, 6)
-    expect(result[1].investments).toBeCloseTo(1100, 6)
-    expect(result[2].investments).toBeCloseTo(1210, 6)
-    expect(result[5].investments).toBeCloseTo(1000 * Math.pow(1.1, 5), 4)
+    // The plan starts in January: its first year grows twelve months too.
+    expect(result[0].investments).toBeCloseTo(1100, 6)
+    expect(result[1].investments).toBeCloseTo(1210, 6)
+    expect(result[2].investments).toBeCloseTo(1331, 6)
+    expect(result[5].investments).toBeCloseTo(1000 * Math.pow(1.1, 6), 4)
   })
 
   it('keeps real investment value flat when apy == inflation', () => {
@@ -939,8 +950,8 @@ describe('getYearlyPlanProjection', () => {
     const result = project(makePlan(), makeProfile({ investments }))
     expect(result[0].investmentsByItem).toHaveLength(2)
     expect(result[0].investmentsByItem[0]).toMatchObject({ id: 'a', name: 'Stocks' })
-    expect(result[0].investmentsByItem[0].value).toBeCloseTo(1000, 6)
-    expect(result[2].investmentsByItem[0].value).toBeCloseTo(1210, 6)
+    expect(result[0].investmentsByItem[0].value).toBeCloseTo(1100, 6)
+    expect(result[2].investmentsByItem[0].value).toBeCloseTo(1331, 6)
     expect(result[2].investmentsByItem[1].value).toBeCloseTo(500, 6)
     // Aggregate matches the sum of per-item values.
     expect(result[2].investments).toBeCloseTo(
@@ -1189,13 +1200,13 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = project(makePlan(), makeProfile({ cash_amount: 0, investments, transfers }))
-    // Year 0: starts at 1000, transfer at end of year leaves 500.
-    expect(result[0].investments).toBeCloseTo(500, 6)
+    // January: 1000 grows a month, 500 leaves, and the rest grows eleven more.
+    const afterYear0 = (1000 * grown(10, 1) - 500) * grown(10, 11)
+    expect(result[0].investments).toBeCloseTo(afterYear0, 6)
     expect(result[0].cash).toBeCloseTo(500, 6)
-    // Year 1: 500 * 1.1 = 550
-    expect(result[1].investments).toBeCloseTo(550, 6)
-    // Year 2: 605
-    expect(result[2].investments).toBeCloseTo(605, 6)
+    // Later years compound what is left.
+    expect(result[1].investments).toBeCloseTo(afterYear0 * 1.1, 6)
+    expect(result[2].investments).toBeCloseTo(afterYear0 * 1.21, 6)
   })
 
   it('honors a recurring monthly transfer cash -> investment', () => {
@@ -1307,11 +1318,9 @@ describe('getYearlyPlanProjection', () => {
     expect(result[0].investments).toBeCloseTo(1200, 6) // fires from year 1
   })
 
-  it('compounds recurring contributions at apy from the year they arrive', () => {
-    // 1000 / year into an account at 10% APY, starting at plan-start.
-    // Year 0: deposit 1000 -> balance 1000
-    // Year 1: compound -> 1100, then deposit 1000 -> 2100
-    // Year 2: compound -> 2310, then deposit 1000 -> 3310
+  it('compounds recurring contributions at apy from the month after they arrive', () => {
+    // 1000 / year into an account at 10% APY, paid a twelfth each month from
+    // plan start; each month's deposit grows from the next month on.
     const investments: ProfileInvestment[] = [{ id: 'inv1', name: 'Stocks', balance: 0, apy: 10 }]
     const transfers: Transfer[] = [
       {
@@ -1331,9 +1340,9 @@ describe('getYearlyPlanProjection', () => {
       makePlan(),
       makeProfile({ cash_amount: 100_000, investments, transfers }),
     )
-    expect(result[0].investments).toBeCloseTo(1000, 6)
-    expect(result[1].investments).toBeCloseTo(2100, 6)
-    expect(result[2].investments).toBeCloseTo(3310, 6)
+    expect(result[0].investments).toBeCloseTo(contributions(1000 / 12, 10, 12), 6)
+    expect(result[1].investments).toBeCloseTo(contributions(1000 / 12, 10, 24), 6)
+    expect(result[2].investments).toBeCloseTo(contributions(1000 / 12, 10, 36), 6)
   })
 
   it('reduces a tangible-asset value when transferred out', () => {
@@ -1660,9 +1669,10 @@ describe('getYearlyPlanProjection', () => {
       makePlan({ inflation_rate: 0.05 }),
       makeProfile({ cash_amount: 10_000, investments, transfers }),
     )
-    // Nominal transfer in 2028 = 1000 * 1.05^3 ≈ 1157.625, then deflated by
-    // 1.05^3 back to the plan-start (real) units used by the projection.
-    expect(result[3].investments).toBeCloseTo(1000, 4)
+    // Nominal transfer in January 2028 = 1000 * 1.05^3, worth 1000 then. It
+    // sits in a fund without growth, so by the end of 2028 (four years of
+    // inflation) it is worth a year's inflation less.
+    expect(result[3].investments).toBeCloseTo(1000 / 1.05, 4)
   })
 
   it('leaves a one-time transfer unscaled when inflation_adjusted is omitted', () => {
@@ -1684,9 +1694,9 @@ describe('getYearlyPlanProjection', () => {
       makePlan({ inflation_rate: 0.05 }),
       makeProfile({ cash_amount: 10_000, investments, transfers }),
     )
-    // Without the toggle the nominal 1000 stays at 1000; in real terms after
-    // 3 years of 5% inflation that's 1000 / 1.05^3 ≈ 863.84.
-    expect(result[3].investments).toBeCloseTo(1000 / Math.pow(1.05, 3), 4)
+    // Without the toggle the nominal 1000 stays at 1000; in real terms at the
+    // end of 2028, four years of 5% inflation in, that's 1000 / 1.05^4.
+    expect(result[3].investments).toBeCloseTo(1000 / Math.pow(1.05, 4), 4)
   })
 
   // --- Liability interest options ---
@@ -1846,12 +1856,12 @@ describe('getYearlyPlanProjection', () => {
     expect(result[0].investments).toBeCloseTo(0, 6)
     expect(result[1].investments).toBeCloseTo(0, 6)
     expect(result[1].cash).toBeCloseTo(5000, 6)
-    // 2027: bought out of cash, then compounding starts the year after.
-    expect(result[2].investments).toBeCloseTo(1000, 6)
+    // January 2027: bought out of cash, and it grows from February.
+    expect(result[2].investments).toBeCloseTo(1000 * grown(10, 11), 6)
     expect(result[2].cash).toBeCloseTo(4000, 6)
-    expect(result[3].investments).toBeCloseTo(1100, 6)
-    // Net worth is unchanged by the purchase itself.
-    expect(result[2].netWorth).toBeCloseTo(5000, 6)
+    expect(result[3].investments).toBeCloseTo(1000 * grown(10, 23), 6)
+    // The purchase itself moves cash into the fund; only its growth adds.
+    expect(result[2].netWorth).toBeCloseTo(4000 + 1000 * grown(10, 11), 6)
   })
 
   it("buys an investment planned for the plan's first year out of cash", () => {
@@ -1869,10 +1879,11 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = project(makePlan(), makeProfile({ cash_amount: 5000, investments }))
+    // Bought in March, it grows from April.
     expect(result[0].cash).toBeCloseTo(4000, 6)
-    expect(result[0].investments).toBeCloseTo(1000, 6)
-    expect(result[0].netWorth).toBeCloseTo(5000, 6)
-    expect(result[1].investments).toBeCloseTo(1100, 6)
+    expect(result[0].investments).toBeCloseTo(1000 * grown(10, 9), 6)
+    expect(result[0].netWorth).toBeCloseTo(4000 + 1000 * grown(10, 9), 6)
+    expect(result[1].investments).toBeCloseTo(1000 * grown(10, 21), 6)
   })
 
   it("treats a start earlier in the plan's first year than the plan itself as already held", () => {
@@ -1964,7 +1975,7 @@ describe('getYearlyPlanProjection', () => {
       makeProfile({ investments: [{ ...investments[0], start: 'immediately', exit: 'never' }] }),
     )
     expect(withoutTiming.map((r) => r.investments)).toEqual(immediately.map((r) => r.investments))
-    expect(withoutTiming[1].investments).toBeCloseTo(1100, 6)
+    expect(withoutTiming[1].investments).toBeCloseTo(1210, 6)
   })
 
   it('flags a planned investment the plan cannot afford', () => {
@@ -2159,9 +2170,9 @@ describe('getYearlyPlanProjection', () => {
     ]
     // Zero inflation keeps real == nominal, so the 10 % drop is visible directly.
     const result = project(makePlan(), makeProfile({ tangible_assets }))
-    expect(result[0].tangibleAssets).toBeCloseTo(1000, 6)
-    expect(result[1].tangibleAssets).toBeCloseTo(900, 6)
-    expect(result[2].tangibleAssets).toBeCloseTo(810, 6)
+    expect(result[0].tangibleAssets).toBeCloseTo(900, 6)
+    expect(result[1].tangibleAssets).toBeCloseTo(810, 6)
+    expect(result[2].tangibleAssets).toBeCloseTo(729, 6)
 
     const appreciating = project(
       makePlan(),
@@ -2169,7 +2180,7 @@ describe('getYearlyPlanProjection', () => {
         tangible_assets: [{ ...tangible_assets[0], value_over_time: 'appreciate', value_rate: 10 }],
       }),
     )
-    expect(appreciating[1].tangibleAssets).toBeCloseTo(1100, 6)
+    expect(appreciating[1].tangibleAssets).toBeCloseTo(1210, 6)
   })
 
   it('charges the yearly property tax to cash while the asset is held', () => {
@@ -2297,10 +2308,9 @@ describe('getYearlyPlanProjection', () => {
       { id: 'i1', name: 'Fund', balance: 1000, apy: 7, ter: 1 },
     ]
     const result = project(makePlan(), makeProfile({ investments }))
-    // Effective APY = 7 − 1 = 6 %. Year 1 balance = 1000 * 1.06 = 1060.
-    expect(result[0].investments).toBeCloseTo(1000, 6)
-    expect(result[1].investments).toBeCloseTo(1060, 6)
-    expect(result[2].investments).toBeCloseTo(1060 * 1.06, 6)
+    // Effective APY = 7 − 1 = 6 %, from the first month.
+    expect(result[0].investments).toBeCloseTo(1060, 6)
+    expect(result[1].investments).toBeCloseTo(1060 * 1.06, 6)
   })
 
   it('treats an ongoing entry fee as additional APY drag', () => {
@@ -2309,7 +2319,7 @@ describe('getYearlyPlanProjection', () => {
     ]
     const result = project(makePlan(), makeProfile({ investments }))
     // Effective APY = 7 − 1 = 6 % (whole entry_fee as drag, no upfront cut).
-    expect(result[1].investments).toBeCloseTo(1060, 6)
+    expect(result[0].investments).toBeCloseTo(1060, 6)
   })
 
   it('floors the effective APY at −100 % so extreme fees decay the balance to 0', () => {
@@ -2328,8 +2338,7 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = project(makePlan(), makeProfile({ investments }))
-    expect(result[0].investments).toBeCloseTo(1000, 6)
-    for (const entry of result.slice(1)) {
+    for (const entry of result) {
       expect(entry.investments).toBe(0)
     }
   })
@@ -2359,8 +2368,9 @@ describe('getYearlyPlanProjection', () => {
     ]
     const result = project(makePlan(), makeProfile({ cash_amount: 1000, investments, transfers }))
     // 40 % of 5 % = 2 % upfront cut → 1000 → 980 lands in the investment.
-    // Source loses the full 1000; the broker pockets the missing 20.
-    expect(result[0].investments).toBeCloseTo(980, 6)
+    // Source loses the full 1000; the broker pockets the missing 20. The
+    // other 60 % (3 %) drags it from February on.
+    expect(result[0].investments).toBeCloseTo(980 * grown(-3, 11), 6)
     expect(result[0].cash).toBeCloseTo(0, 6)
   })
 
@@ -2884,7 +2894,9 @@ describe('getYearlyPlanProjection', () => {
         transfer_all: true,
         schedule: 'one_time',
         transaction_year: 2027,
-        transaction_month: 1,
+        // December, so the year ends right after the sale: cash held longer
+        // loses value to inflation, which is not what this test is about.
+        transaction_month: 12,
       },
     ]
     const result = project(
@@ -2913,7 +2925,9 @@ describe('getYearlyPlanProjection', () => {
         amount: 500_000,
         schedule: 'one_time',
         transaction_year: 2027,
-        transaction_month: 6,
+        // December, so the house has no time to follow inflation before the
+        // year ends.
+        transaction_month: 12,
       },
     ]
     const result = project(
@@ -2922,10 +2936,10 @@ describe('getYearlyPlanProjection', () => {
     )
     const saleYear = result.find((r) => r.year === 2027)
     // An internal move must not change total net worth: cash held nominal, so
-    // in 2027 real terms the total is 600,000 deflated by two years.
-    expect(saleYear?.netWorth).toBeCloseTo(600_000 / 1.02 ** 2, 4)
-    expect(saleYear?.tangibleAssets).toBeCloseTo(500_000 / 1.02 ** 2, 4)
-    expect(saleYear?.cash).toBeCloseTo(100_000 / 1.02 ** 2, 4)
+    // at the end of 2027 the total is 600,000 deflated by three years.
+    expect(saleYear?.netWorth).toBeCloseTo(600_000 / 1.02 ** 3, 4)
+    expect(saleYear?.tangibleAssets).toBeCloseTo(500_000 / 1.02 ** 3, 4)
+    expect(saleYear?.cash).toBeCloseTo(100_000 / 1.02 ** 3, 4)
   })
 })
 
@@ -3027,9 +3041,14 @@ describe('summarizeTransfer', () => {
       makePlan(),
       makeProfile({ cash_amount: 0, investments, transfers: [sale] }),
     )
-    // 1000 / 0.85 leaves the doubled fund; (gross − 2 % exit fee − tax) − 1 % entry fee arrives.
+    // In June 2026, 1000 / 0.85 leaves the fund (doubled over 2025, grown six
+    // months since, and six more after); (gross − 2 % exit fee − tax) − 1 %
+    // entry fee arrives.
     const gross = 1000 / 0.85
-    expect(years[1].investments).toBeCloseTo(2000 - gross + (gross * 0.98 - gross * 0.15) * 0.99, 6)
+    expect(years[1].investments).toBeCloseTo(
+      (2000 * grown(100, 6) - gross) * grown(100, 6) + (gross * 0.98 - gross * 0.15) * 0.99,
+      6,
+    )
   })
 
   it('counts the holding years the way the engine does: by age, and never before the plan', () => {
@@ -3052,8 +3071,9 @@ describe('summarizeTransfer', () => {
       const preview = summarizeTransfer(sale, planFrom(profile, {}), '1980-01-01')
       // Cash gets the 1,000 as entered; the fund (grown first) loses the gross.
       expect(years[4].cash - years[3].cash).toBeCloseTo(1000, 6)
+      // The sale is in June: the fund grows six months before and after it.
       return {
-        engine: years[3].investments * 1.07 - years[4].investments,
+        engine: (years[3].investments * 1.07 - years[4].investments) / grown(7, 6),
         preview: preview.grossTotal,
       }
     }
@@ -3296,8 +3316,9 @@ describe('one-time cash flows in the projection', () => {
     // 1000 * 1.02^(29/12) nominal in June 2027, deflated back by the same
     // factor → 1000 real.
     expect(year2027?.totalExpenses).toBeCloseTo(1000, 4)
-    // Cash is what is left of 10,000 nominal after that payment.
-    expect(year2027?.cash).toBeCloseTo((10_000 - 1000 * 1.02 ** (29 / 12)) / 1.02 ** 2, 4)
+    // Cash is what is left of 10,000 nominal after that payment, at the end
+    // of 2027: three years of inflation in.
+    expect(year2027?.cash).toBeCloseTo((10_000 - 1000 * 1.02 ** (29 / 12)) / 1.02 ** 3, 4)
   })
 
   it('adds a one-time income to cash in its transaction year only', () => {
@@ -3351,9 +3372,13 @@ describe('estimated tax on a transfer out of an investment', () => {
       makeProfile({ cash_amount: 0, investments: doubling, transfers: [sell(2026)] }),
     )
     // Held a year: 1 − 2^−1 = 50 % gain, taxed at 30 %. Cash gets the 1000 as
-    // entered; the fund loses 1000 / (1 − 0.5 × 0.3) so the tax is covered.
+    // entered; the fund loses 1000 / (1 − 0.5 × 0.3) in January, after its
+    // January growth, so the tax is covered.
     expect(result[1].cash).toBeCloseTo(1000, 6)
-    expect(result[1].investments).toBeCloseTo(2000 - 1000 / 0.85, 6)
+    expect(result[1].investments).toBeCloseTo(
+      (2000 * grown(100, 1) - 1000 / 0.85) * grown(100, 11),
+      6,
+    )
   })
 
   it('charges nothing in the year the plan starts, or without the switch', () => {
@@ -3375,22 +3400,23 @@ describe('estimated tax on a transfer out of an investment', () => {
       makeProfile({
         cash_amount: 0,
         investments: doubling,
-        transfers: [{ ...sell(2026), amount: 2000 }],
+        transfers: [{ ...sell(2026), amount: 2100 }],
       }),
     )
-    // The fund holds exactly the 2000 entered; the gross would be 2000 / 0.85.
-    // Rather than skip the transfer, it goes the way Max would: 2000 out,
-    // 1700 in, and no insufficient-funds flag.
+    // In January 2026 the fund holds 2000 × 2^(1/12) ≈ 2119: the 2100 entered,
+    // but not the gross 2100 / 0.85. Rather than skip the transfer, it goes
+    // the way Max would: all of it out, 85 % in, and no insufficient-funds flag.
+    const held = 2000 * grown(100, 1)
     expect(result[1].insufficientFundTransferIds).toEqual([])
     expect(result[1].investments).toBeCloseTo(0, 6)
-    expect(result[1].cash).toBeCloseTo(1700, 6)
+    expect(result[1].cash).toBeCloseTo(held * 0.85, 6)
     // Short of the amount itself, it is still skipped.
     const short = project(
       makePlan(),
       makeProfile({
         cash_amount: 0,
         investments: doubling,
-        transfers: [{ ...sell(2026), amount: 2001 }],
+        transfers: [{ ...sell(2026), amount: 2200 }],
       }),
     )
     expect(short[1].insufficientFundTransferIds).toEqual(['t1'])
@@ -3406,8 +3432,8 @@ describe('estimated tax on a transfer out of an investment', () => {
         transfers: [{ ...sell(2026), amount: 0, transfer_all: true }],
       }),
     )
-    // 2000 swept, half of it gain: 1000 × 30 % = 300 tax.
-    expect(result[1].cash).toBeCloseTo(1700, 6)
+    // All of it swept in January 2026, half of it gain, taxed at 30 %.
+    expect(result[1].cash).toBeCloseTo(2000 * grown(100, 1) * 0.85, 6)
   })
 })
 
@@ -3850,10 +3876,11 @@ describe('per-item cash flows and portfolio value of a year', () => {
         change_over_time: 'none',
       },
     ]
-    const result = project(makePlan(), makeProfile({ cash_amount: 2500, investments, transfers }))
-    expect(result[0].transfersByItem).toEqual([{ id: 't1', name: 'Invest', value: 1000 }])
-    expect(result[1].transfersByItem).toEqual([{ id: 't1', name: 'Invest', value: 1000 }])
-    // 500 left: the third transfer is skipped.
+    const result = project(makePlan(), makeProfile({ cash_amount: 2000, investments, transfers }))
+    // A twelfth leaves each month.
+    expect(result[0].transfersByItem[0].value).toBeCloseTo(1000, 9)
+    expect(result[1].transfersByItem[0].value).toBeCloseTo(1000, 9)
+    // Cash is spent: the third year's transfers are skipped.
     expect(result[2].transfersByItem).toEqual([{ id: 't1', name: 'Invest', value: 0 }])
   })
 
@@ -3916,17 +3943,26 @@ describe('per-item cash flows and portfolio value of a year', () => {
     ...extra,
   })
 
-  it('lists the TER an investment pays in each compounded year and takes it off the cash flow', () => {
+  it('lists the TER an investment pays each month and takes it off the cash flow', () => {
     const result = project(
       makePlan(),
       makeProfile({
         investments: [{ id: 'inv1', name: 'ETF', balance: 10_000, apy: 5, ter: 1 }],
       }),
     )
-    // The first year is not compounded, so nothing is charged.
-    expect(result[0].investmentFeesByItem).toEqual([])
-    expect(result[1].investmentFeesByItem).toEqual([{ id: 'inv1', name: 'ETF', value: 100 }])
-    expect(result[1].cashFlow).toBeCloseTo(-100, 6)
+    // Each month the balance grows at 4% a year instead of 5%: the difference,
+    // summed over the year's twelve months, is the fee.
+    const gross = Math.pow(1.05, 1 / 12)
+    const net = Math.pow(1.04, 1 / 12)
+    const feesOver = (from: number) =>
+      Array.from({ length: 12 }, (_, k) => 10_000 * Math.pow(net, from + k) * (gross - net)).reduce(
+        (a, b) => a + b,
+      )
+    expect(result[0].investmentFeesByItem).toHaveLength(1)
+    expect(result[0].investmentFeesByItem[0].value).toBeCloseTo(feesOver(0), 6)
+    expect(result[0].investmentFeesByItem[0].value).toBeCloseTo(97.79, 2)
+    expect(result[1].investmentFeesByItem[0].value).toBeCloseTo(101.71, 2)
+    expect(result[1].cashFlow).toBeCloseTo(-feesOver(12), 6)
   })
 
   it('adds the entry and exit fees of a transfer to the fees of the investment that charges them', () => {
@@ -4042,8 +4078,9 @@ describe('inflation by the month', () => {
     const result = project(makePlan({ inflation_rate: 0.12 }), makeProfile({ incomes: [salary] }))
     let nominal = 0
     for (let k = 0; k < 12; k++) nominal += 1000 * 1.12 ** (k / 12)
-    // Plan starts in January 2025: the first year's months are 0..11 months in.
-    expect(result[0].cash).toBeCloseTo(nominal, 6)
+    // Plan starts in January 2025: the first year's months are 0..11 months
+    // in. Cash at the end of December is deflated by a whole year.
+    expect(result[0].cash).toBeCloseTo(nominal / 1.12, 6)
     // In today's money it is the amount entered.
     expect(result[0].totalIncome).toBeCloseTo(12_000, 6)
     expect(result[1].totalIncome).toBeCloseTo(12_000, 6)
@@ -4068,8 +4105,9 @@ describe('inflation by the month', () => {
       makePlan({ start_date: '2026-11-01', end_date: '2028-01-01', inflation_rate: 0.02 }),
       makeProfile({ incomes: [salary] }),
     )
-    // November and December 2026: 1,000 and 1,001.65.
-    expect(result[0].cash).toBeCloseTo(1000 + 1000 * 1.02 ** (1 / 12), 6)
+    // November and December 2026: 1,000 and 1,001.65, deflated at the end of
+    // December, two months in.
+    expect(result[0].cash).toBeCloseTo((1000 + 1000 * 1.02 ** (1 / 12)) / 1.02 ** (2 / 12), 6)
     expect(1000 * 1.02 ** (1 / 12)).toBeCloseTo(1001.65, 2)
     expect(1000 * 1.02 ** (2 / 12)).toBeCloseTo(1003.31, 2)
     expect(result[1].totalIncome).toBeCloseTo(12_000, 6)
@@ -4264,5 +4302,90 @@ describe("the plan's first year starts at its start month", () => {
         undefined,
       ).occurrences,
     ).toBe(0)
+  })
+})
+
+describe('the projection runs month by month', () => {
+  // docs/product/projections.md, "The projection runs month by month".
+  const november = makePlan({ start_date: '2026-11-01', end_date: '2027-12-01' })
+
+  it('grows a balance from the start month, a month at a time', () => {
+    const result = project(
+      november,
+      makeProfile({ investments: [{ id: 'inv1', name: 'ETF', balance: 10_000, apy: 6 }] }),
+    )
+    // November and December 2026, then all of 2027.
+    expect(result[0].investments).toBeCloseTo(10_000 * 1.06 ** (2 / 12), 6)
+    expect(result[1].investments).toBeCloseTo(10_000 * 1.06 ** (14 / 12), 6)
+  })
+
+  it('flags a month cash cannot cover, even when the year adds up', () => {
+    const rent: Expense = {
+      id: 'e1',
+      name: 'Rent',
+      amount: 100,
+      schedule: 'recurring',
+      frequency: 'monthly',
+      start: 'immediately',
+      end: 'never',
+      change_over_time: 'none',
+    }
+    const bonus: Income = {
+      id: 'inc1',
+      name: 'Bonus',
+      amount: 1200,
+      schedule: 'one_time',
+      transaction_year: 2025,
+      transaction_month: 12,
+    }
+    const result = project(makePlan(), makeProfile({ incomes: [bonus], expenses: [rent] }))
+    // The bonus pays the year's rent, but only in December: January is short.
+    expect(result[0].insufficientFundExpenseIds).toEqual(['e1'])
+  })
+
+  it('pays a loan on its cadence from the month it runs from', () => {
+    const result = project(
+      makePlan({ start_date: '2025-02-01' }),
+      makeProfile({
+        cash_amount: 10_000,
+        liabilities: [
+          {
+            id: 'l1',
+            name: 'Loan',
+            outstanding_balance: 4000,
+            installment_frequency: 'yearly',
+            annual_rate: 0,
+            installment_amount: 1000,
+            remaining_term: 4,
+          },
+        ],
+      }),
+    )
+    // A yearly installment falls in the twelfth month: January 2026, not 2025.
+    expect(result[0].totalInstallments).toBe(0)
+    expect(result[1].totalInstallments).toBe(1000)
+    expect(result[1].liabilities).toBe(3000)
+  })
+
+  it('deflates balances at the end of December and each payment by its own month', () => {
+    const rent: Expense = {
+      id: 'e1',
+      name: 'Rent',
+      amount: 100,
+      schedule: 'recurring',
+      frequency: 'monthly',
+      start: 'immediately',
+      end: 'never',
+      change_over_time: 'none',
+    }
+    const result = project(
+      makePlan({ inflation_rate: 0.12 }),
+      makeProfile({ cash_amount: 10_000, expenses: [rent] }),
+    )
+    // Cash at the end of December 2025 is a year of inflation in.
+    expect(result[0].cash).toBeCloseTo((10_000 - 1200) / 1.12, 6)
+    let rentReal = 0
+    for (let k = 0; k < 12; k++) rentReal += 100 / 1.12 ** (k / 12)
+    expect(result[0].totalExpenses).toBeCloseTo(rentReal, 6)
   })
 })

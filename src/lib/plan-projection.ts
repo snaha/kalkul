@@ -361,8 +361,10 @@ function changeFactor(cashFlow: CashFlowTemporal, yearsSinceStart: number): Deci
 }
 
 interface LiabilitySchedule {
+  /** What is owed at the end of each year's December. */
   outstandingByYear: Map<number, Decimal>
-  paidByYear: Map<number, Decimal>
+  /** What is paid in each month, by `monthIndex`; absent when nothing. */
+  paidByMonth: Map<number, Decimal>
 }
 
 // Number of times per year interest is added to the balance when the user
@@ -534,16 +536,16 @@ export function remainingInstallmentPeriods(liability: ProfileLiability): number
 
 function simulateLiability(
   liability: ProfileLiability,
-  startYear: number,
-  /** The plan's start month (1..12): its first year pays from there on. */
-  startMonth: number,
-  endYear: number,
+  /** The month the loan is taken out, or the plan's start for debt already owed. */
+  firstAt: number,
   /**
-   * Optional life span, used by a tangible asset's financing: the loan does
-   * not exist before the purchase year, and a sale in `lastYear` settles
-   * whatever is still owed out of the proceeds.
+   * The month the rest is settled in one go: a planned pay-off, or the sale of
+   * the asset it finances. Nothing is owed after it.
    */
-  window?: { firstYear?: number; lastYear?: number },
+  settleAt: number | undefined,
+  /** The plan's first and last month. */
+  fromAt: number,
+  toAt: number,
 ): LiabilitySchedule {
   const periodsPerYear = INSTALLMENT_PERIODS_PER_YEAR[liability.installment_frequency]
   const installmentPeriodInterestRate = installmentPeriodRate(liability)
@@ -555,56 +557,50 @@ function simulateLiability(
     liability.remaining_term_unit,
     periodsPerYear,
   )
+  let periodsPaid = 0
 
   const outstandingByYear = new Map<number, Decimal>()
-  const paidByYear = new Map<number, Decimal>()
+  const paidByMonth = new Map<number, Decimal>()
 
-  for (let year = startYear; year <= endYear; year++) {
-    let paidThisYear = DECIMAL_0
-    // Not taken out yet, or already settled: nothing owed, nothing paid. An
-    // absent bound is open-ended, so a standalone liability with neither a
-    // planned start nor a planned pay-off runs from plan year one for its term.
-    const beforeStart = window?.firstYear !== undefined && year < window.firstYear
-    const afterEnd = window?.lastYear !== undefined && year > window.lastYear
-    if (beforeStart || afterEnd) {
-      outstandingByYear.set(year, DECIMAL_0)
-      paidByYear.set(year, DECIMAL_0)
-      if (afterEnd) balance = DECIMAL_0
-      continue
-    }
-    // The plan's first year has only the months from its start (#487), and
-    // pays the whole installments that fit in them; the rest of the term
-    // follows on. A yearly installment fits only a first year from January.
-    const periodsThisYear =
-      year === startYear ? Math.floor((periodsPerYear * (13 - startMonth)) / 12) : periodsPerYear
-    for (let i = 0; i < periodsThisYear; i++) {
-      if (periodsRemaining <= 0 || balance.lessThanOrEqualTo(0)) break
-      const interest = balance.mul(installmentPeriodInterestRate)
-      const grossDue = balance.plus(interest)
-      // Final scheduled installment: pay whatever is owed so the loan reaches
-      // zero at the end of `remaining_term`. Without this balloon, slightly
-      // under-amortizing inputs leave a residual balance that lingers forever.
-      // `<= 1` rather than `=== 1` because the count can be fractional (a
-      // months term with a yearly cadence: 18 months -> 1.5 periods), and a
-      // fractional countdown never lands exactly on 1.
-      const isLastPeriod = periodsRemaining <= 1
-      const payment = isLastPeriod ? grossDue : Decimal.min(installmentAmount, grossDue)
-      balance = grossDue.minus(payment)
-      if (balance.lessThan(0)) balance = DECIMAL_0
-      paidThisYear = paidThisYear.plus(payment)
-      periodsRemaining -= 1
-    }
-    // Selling the asset settles the rest of the loan from the proceeds; for a
-    // standalone liability this is a planned pay-off date.
-    if (window?.lastYear !== undefined && year === window.lastYear && balance.greaterThan(0)) {
-      paidThisYear = paidThisYear.plus(balance)
+  for (let at = fromAt; at <= toAt; at++) {
+    const live = at >= firstAt && (settleAt === undefined || at <= settleAt)
+    let paid = DECIMAL_0
+    if (live) {
+      // Installments fall on their cadence from the month the loan runs from:
+      // monthly every month, weekly 52 a year spread over the months, yearly
+      // in every twelfth month (December for a loan running from January).
+      const due = Math.floor(((at - firstAt + 1) * periodsPerYear) / 12)
+      for (; periodsPaid < due; periodsPaid++) {
+        if (periodsRemaining <= 0 || balance.lessThanOrEqualTo(0)) continue
+        const interest = balance.mul(installmentPeriodInterestRate)
+        const grossDue = balance.plus(interest)
+        // Final scheduled installment: pay whatever is owed so the loan reaches
+        // zero at the end of `remaining_term`. Without this balloon, slightly
+        // under-amortizing inputs leave a residual balance that lingers forever.
+        // `<= 1` rather than `=== 1` because the count can be fractional (a
+        // months term with a yearly cadence: 18 months -> 1.5 periods), and a
+        // fractional countdown never lands exactly on 1.
+        const isLastPeriod = periodsRemaining <= 1
+        const payment = isLastPeriod ? grossDue : Decimal.min(installmentAmount, grossDue)
+        balance = Decimal.max(grossDue.minus(payment), DECIMAL_0)
+        paid = paid.plus(payment)
+        periodsRemaining -= 1
+      }
+      // Selling the asset settles the rest of the loan from the proceeds; for a
+      // standalone liability this is a planned pay-off date.
+      if (at === settleAt && balance.greaterThan(0)) {
+        paid = paid.plus(balance)
+        balance = DECIMAL_0
+      }
+    } else if (settleAt !== undefined && at > settleAt) {
       balance = DECIMAL_0
     }
-    outstandingByYear.set(year, balance)
-    paidByYear.set(year, paidThisYear)
+    if (paid.greaterThan(0)) paidByMonth.set(at, paid)
+    const { year, month } = monthOf(at)
+    if (month === 12) outstandingByYear.set(year, live ? balance : DECIMAL_0)
   }
 
-  return { outstandingByYear, paidByYear }
+  return { outstandingByYear, paidByMonth }
 }
 
 /**
@@ -673,6 +669,12 @@ export function monthIndex(year: number, month: number): number {
   return year * 12 + month
 }
 
+/** The year and month (1..12) of a `monthIndex`. */
+function monthOf(at: number): { year: number; month: number } {
+  const year = Math.floor((at - 1) / 12)
+  return { year, month: at - year * 12 }
+}
+
 /**
  * The month an explicitly planned start falls in, or undefined when the start
  * is not planned ('immediately'/'now') or its field was never filled in.
@@ -698,6 +700,13 @@ interface PlannedWindow {
    * instead, which is what the engine did before planned timing.
    */
   fundsFromCash: boolean
+  /** The month it is bought in, or the plan's first month when already held. */
+  startsAt: number
+  /**
+   * The month it is sold in: its sale month, or December of the sale year when
+   * none is set. Infinity when it is kept.
+   */
+  exitsAt: number
 }
 
 function plannedWindow(
@@ -713,11 +722,20 @@ function plannedWindow(
   // window would never fire as a one-time transfer, so the start year is
   // clamped and the position is simply already held.
   const startsAt = plannedStartsAt(temporal, birth)
+  const startYear = Math.max(resolvedStart, planStartYear)
+  const exitYear = resolveEndYear(temporal, birth)
+  const fundsFromCash =
+    startsAt === undefined ? resolvedStart > planStartYear : startsAt >= planStartsAt
+  const exitMonth =
+    temporal.end === 'at_specific_date' && temporal.end_month !== undefined
+      ? temporal.end_month
+      : 12
   return {
-    startYear: Math.max(resolvedStart, planStartYear),
-    exitYear: resolveEndYear(temporal, birth),
-    fundsFromCash:
-      startsAt === undefined ? resolvedStart > planStartYear : startsAt >= planStartsAt,
+    startYear,
+    exitYear,
+    fundsFromCash,
+    startsAt: fundsFromCash ? (startsAt ?? monthIndex(startYear, 1)) : planStartsAt,
+    exitsAt: Number.isFinite(exitYear) ? monthIndex(exitYear, exitMonth) : Infinity,
   }
 }
 
@@ -753,6 +771,8 @@ const emptyWindow: PlannedWindow = {
   startYear: Number.NEGATIVE_INFINITY,
   exitYear: Number.POSITIVE_INFINITY,
   fundsFromCash: false,
+  startsAt: Number.NEGATIVE_INFINITY,
+  exitsAt: Number.POSITIVE_INFINITY,
 }
 
 function plannedTimingTransfers(
@@ -770,6 +790,7 @@ function plannedTimingTransfers(
         amount: buyAmount,
         schedule: 'one_time',
         transaction_year: window.startYear,
+        transaction_month: monthOf(window.startsAt).month,
       }
     : undefined
   const exit: Transfer | undefined = Number.isFinite(window.exitYear)
@@ -782,6 +803,7 @@ function plannedTimingTransfers(
         transfer_all: true,
         schedule: 'one_time',
         transaction_year: window.exitYear,
+        transaction_month: monthOf(window.exitsAt).month,
       }
     : undefined
   return { start, exit }
@@ -894,42 +916,118 @@ export function cashFlowToTemporal(flow: ScheduledCashFlow): CashFlowTemporal {
 }
 
 /**
- * What a one-time schedule contributes in `year`: nothing outside the
- * transaction year, and otherwise the amount in its transaction month (see
- * `monthlyAmounts`). Shared by one-time transfers and cash flows so both
- * inflate identically.
+ * The months a flow pays in during a year and what it pays in each, before
+ * inflation: `perMonth` is in today's money when `inflationAdjusted`.
  */
-function oneTimeAmountForYear(
+interface MonthSpan {
+  from: number
+  to: number
+  perMonth: Decimal
+  inflationAdjusted: boolean
+}
+
+/** A one-time schedule pays its amount in its transaction month. */
+function oneTimeSpan(
   schedule: { transaction_year?: number; transaction_month?: number; inflation_adjusted?: boolean },
   amount: Decimal,
   year: number,
   planStart: PlanStart,
-): FlowAmount {
-  if (!firesOneTime(schedule, year, planStart)) return NO_AMOUNT
+): MonthSpan | undefined {
+  if (!firesOneTime(schedule, year, planStart)) return undefined
   const month = schedule.transaction_month ?? 1
-  return monthlyAmounts(amount, schedule.inflation_adjusted === true, planStart, year, month, month)
+  return {
+    from: month,
+    to: month,
+    perMonth: amount,
+    inflationAdjusted: schedule.inflation_adjusted === true,
+  }
 }
 
-/** A recurring amount over the months it runs in `year`. */
-function recurringAmountForYear(
+/** A recurring amount spreads its yearly total evenly over the months it runs. */
+function recurringSpan(
   temporal: CashFlowTemporal,
   annual: Decimal,
   year: number,
   planStartYear: number,
   birth: Birth | undefined,
   planStart: PlanStart,
-): FlowAmount {
+): MonthSpan | undefined {
   const start = resolveStartYear(temporal, planStartYear, birth)
   const end = resolveEndYear(temporal, birth)
-  if (year < start || year > end) return NO_AMOUNT
+  if (year < start || year > end) return undefined
   const [from, to] = activeMonthRange(temporal, year, start, end, birth, planStart)
-  const perMonth = annual.div(12).mul(changeFactor(temporal, year - start))
-  return monthlyAmounts(perMonth, followsInflation(temporal), planStart, year, from, to)
+  if (to < from) return undefined
+  return {
+    from,
+    to,
+    perMonth: annual.div(12).mul(changeFactor(temporal, year - start)),
+    inflationAdjusted: followsInflation(temporal),
+  }
 }
 
-// Transfer amount that should be applied in the given year (for
-// fixed-amount transfers only — caller should use the live source balance
-// instead when `transfer.transfer_all` is true).
+/** What a span pays in `month`, as paid: 0 outside it. */
+function spanMonthAmount(
+  span: MonthSpan,
+  planStart: PlanStart,
+  year: number,
+  month: number,
+): Decimal {
+  if (month < span.from || month > span.to) return DECIMAL_0
+  return span.inflationAdjusted
+    ? span.perMonth.mul(inflationFactor(planStart, year, month))
+    : span.perMonth
+}
+
+/** What a span pays over its year, as paid and in today's money. */
+function spanYearAmount(
+  span: MonthSpan | undefined,
+  planStart: PlanStart,
+  year: number,
+): FlowAmount {
+  if (span === undefined) return NO_AMOUNT
+  return monthlyAmounts(span.perMonth, span.inflationAdjusted, planStart, year, span.from, span.to)
+}
+
+function transferSpan(
+  transfer: Transfer,
+  year: number,
+  planStartYear: number,
+  birth: Birth | undefined,
+  planStart: PlanStart,
+): MonthSpan | undefined {
+  const amount = new Decimal(transfer.amount)
+  if (transfer.schedule === 'one_time') return oneTimeSpan(transfer, amount, year, planStart)
+  return recurringSpan(
+    transferToTemporal(transfer),
+    annualizedAmount(amount, transfer.frequency ?? 'monthly'),
+    year,
+    planStartYear,
+    birth,
+    planStart,
+  )
+}
+
+function cashFlowSpan(
+  flow: ScheduledCashFlow,
+  amount: Decimal,
+  year: number,
+  planStartYear: number,
+  birth: Birth | undefined,
+  planStart: PlanStart,
+): MonthSpan | undefined {
+  if (flow.schedule === 'one_time') return oneTimeSpan(flow, amount, year, planStart)
+  return recurringSpan(
+    cashFlowToTemporal(flow),
+    annualizedAmount(amount, flow.frequency ?? 'monthly'),
+    year,
+    planStartYear,
+    birth,
+    planStart,
+  )
+}
+
+// Transfer amount over a year (for fixed-amount transfers only; a "Max"
+// transfer takes the live source balance instead).
 function transferAmountForYear(
   transfer: Transfer,
   year: number,
@@ -937,17 +1035,10 @@ function transferAmountForYear(
   birth: Birth | undefined,
   planStart: PlanStart,
 ): FlowAmount {
-  const amount = new Decimal(transfer.amount)
-  if (transfer.schedule === 'one_time') {
-    return oneTimeAmountForYear(transfer, amount, year, planStart)
-  }
-  return recurringAmountForYear(
-    transferToTemporal(transfer),
-    annualizedAmount(amount, transfer.frequency ?? 'monthly'),
-    year,
-    planStartYear,
-    birth,
+  return spanYearAmount(
+    transferSpan(transfer, year, planStartYear, birth, planStart),
     planStart,
+    year,
   )
 }
 
@@ -1154,68 +1245,11 @@ function cashFlowAmountForYear(
   birth: Birth | undefined,
   planStart: PlanStart,
 ): FlowAmount {
-  if (flow.schedule === 'one_time') {
-    return oneTimeAmountForYear(flow, amount, year, planStart)
-  }
-  return recurringAmountForYear(
-    cashFlowToTemporal(flow),
-    annualizedAmount(amount, flow.frequency ?? 'monthly'),
-    year,
-    planStartYear,
-    birth,
+  return spanYearAmount(
+    cashFlowSpan(flow, amount, year, planStartYear, birth, planStart),
     planStart,
+    year,
   )
-}
-
-/**
- * Sum the amounts of the cash flows active in `year`, as paid and in today's
- * money, and report which items were active. Recurring flows annualize by
- * frequency, change over time from their own start year and are paid in each
- * month they run; one-time flows in their transaction month. Inflation counts
- * months from the plan's start month (`monthlyAmounts`).
- */
-function accumulateCashFlows<T extends ScheduledCashFlow & { id: string }>(
-  items: T[],
-  year: number,
-  planStartYear: number,
-  birth: Birth | undefined,
-  planStart: PlanStart,
-  getAmount: (item: T) => Decimal,
-): {
-  total: Decimal
-  realTotal: Decimal
-  activeIds: string[]
-  amounts: { item: T; amount: Decimal; real: Decimal }[]
-} {
-  let total = DECIMAL_0
-  let realTotal = DECIMAL_0
-  const activeIds: string[] = []
-  const amounts: { item: T; amount: Decimal; real: Decimal }[] = []
-  for (const item of items) {
-    if (item.schedule === 'one_time') {
-      if (!firesOneTime(item, year, planStart)) continue
-    } else {
-      const temporal = cashFlowToTemporal(item)
-      const itemStart = resolveStartYear(temporal, planStartYear, birth)
-      const itemEnd = resolveEndYear(temporal, birth)
-      if (year < itemStart || year > itemEnd) continue
-      if (activeMonthFraction(temporal, year, itemStart, itemEnd, birth, planStart).isZero())
-        continue
-    }
-    const { nominal, real } = cashFlowAmountForYear(
-      item,
-      getAmount(item),
-      year,
-      planStartYear,
-      birth,
-      planStart,
-    )
-    total = total.plus(nominal)
-    realTotal = realTotal.plus(real)
-    activeIds.push(item.id)
-    amounts.push({ item, amount: nominal, real })
-  }
-  return { total, realTotal, activeIds, amounts }
 }
 
 /**
@@ -1335,13 +1369,25 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
         x.liability !== undefined,
     )
 
-  const standaloneSchedules = liabilities.map((l) =>
-    simulateLiability(l, startYear, planStart.month, endYear, {
-      firstYear: liabilityStartYear(l, birth),
-      lastYear: liabilityPayOffYear(l),
-    }),
-  )
-  // The year each loan the plan takes on pays its principal into cash (#322):
+  const planEndsAt = monthIndex(endYear, 12)
+  // A standalone loan runs from its planned start (the plan's first month when
+  // unset or earlier) to its planned pay-off. Their own start and pay-off
+  // months are not read yet (#456): a later start is taken out in January, a
+  // pay-off settles in December.
+  const loanStartsAt = (year: number | undefined) =>
+    year === undefined || year <= startYear ? planStartsAt : monthIndex(year, 1)
+  const standaloneLoans = liabilities.map((liability) => {
+    const firstAt = loanStartsAt(liabilityStartYear(liability, birth))
+    const payOffYear = liabilityPayOffYear(liability)
+    const settleAt = payOffYear === undefined ? undefined : monthIndex(payOffYear, 12)
+    return {
+      liability,
+      firstAt,
+      settleAt,
+      schedule: simulateLiability(liability, firstAt, settleAt, planStartsAt, planEndsAt),
+    }
+  })
+  // The month each loan the plan takes on pays its principal into cash (#322):
   // that is new money, whereas a liability the plan was created with is debt
   // the user already carries, so that money is already in today's balances,
   // however the plan has edited it since. A start before the plan pays in at
@@ -1349,35 +1395,29 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   // never goes live, so nothing is borrowed either.
   const fiWithdrawalRate = profile.fi_withdrawal_rate ?? DEFAULT_FI_WITHDRAWAL_RATE
   const currentDebtIds = new Set(plan.base.liabilities.map((l) => l.id))
-  const borrowedByYear = new Map<number, Decimal>()
-  for (const l of liabilities) {
-    if (currentDebtIds.has(l.id)) continue
-    const firstYear = Math.max(liabilityStartYear(l, birth) ?? startYear, startYear)
-    const lastYear = liabilityPayOffYear(l)
-    if (lastYear !== undefined && lastYear < firstYear) continue
-    const soFar = borrowedByYear.get(firstYear) ?? DECIMAL_0
-    borrowedByYear.set(firstYear, soFar.plus(new Decimal(l.outstanding_balance)))
+  const borrowedByMonth = new Map<number, Decimal>()
+  for (const { liability, firstAt, settleAt } of standaloneLoans) {
+    if (currentDebtIds.has(liability.id)) continue
+    if (settleAt !== undefined && settleAt < firstAt) continue
+    const soFar = borrowedByMonth.get(firstAt) ?? DECIMAL_0
+    borrowedByMonth.set(firstAt, soFar.plus(new Decimal(liability.outstanding_balance)))
   }
-  const financedSchedules = tangibleAssetLiabilities.map(({ asset, liability }) => {
-    const window = assetWindows.get(asset.id)
+  // A financed asset's loan only runs while the asset is owned: from the month
+  // it is bought, and its sale settles whatever is left.
+  const financedLoans = tangibleAssetLiabilities.map(({ asset, liability }) => {
+    const window = assetWindows.get(asset.id) ?? emptyWindow
+    const firstAt = Math.max(window.startsAt, planStartsAt)
+    const settleAt = Number.isFinite(window.exitsAt) ? window.exitsAt : undefined
     return {
       assetId: asset.id,
       liability,
-      schedule: simulateLiability(
-        liability,
-        startYear,
-        planStart.month,
-        endYear,
-        window === undefined
-          ? undefined
-          : { firstYear: window.startYear, lastYear: window.exitYear },
-      ),
+      schedule: simulateLiability(liability, firstAt, settleAt, planStartsAt, planEndsAt),
     }
   })
 
   // A planned purchase the plan could not afford never happens: the asset is
   // not acquired, so its financing must not run either. Recorded once and
-  // honoured for every following year — the buy is a one-time transfer, so it
+  // honoured for every following month — the buy is a one-time transfer, so it
   // is never retried.
   const abandonedAssetIds = new Set<string>()
 
@@ -1385,49 +1425,54 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   // opens at the plan's own cash (copied from the profile at creation), and
   // income, transfers, expenses and installments all go through it with the
   // insufficient-funds check applied. There is no way to exclude cash.
-  const initialCashNominal = plan.cash_amount
+  let cashNominal = new Decimal(plan.cash_amount)
 
-  let cashNominal = new Decimal(initialCashNominal)
-  const inflationRate = new Decimal(plan.inflation_rate)
-
-  // State-based per-asset balance tracking. Each year we (a) compound
-  // investments by APY, (b) apply cash flows to cash, (c) apply transfers
-  // between balances. This carries the running balance forward so a transfer
-  // in year N affects compounding from year N+1 onward.
-  // A future-start investment is not held yet, so it starts at 0 and its
-  // synthetic buy (below) pays the balance in when the start year arrives.
-  // Held from the plan's first year: not bought later, and not already sold
-  // before the plan even starts (an exit in the past never fires as a
+  // State-based per-asset balance tracking, stepped a month at a time. A
+  // future-start investment is not held yet, so it starts at 0 and its
+  // synthetic buy (below) pays the balance in when its month arrives.
+  // Held from the plan's first month: not bought later, and not already sold
+  // before the plan even starts (an exit before it never fires as a
   // one-time transfer, so seeding the balance would strand it forever).
   function heldAtPlanStart(id: string): boolean {
     const window = assetWindows.get(id)
     if (window === undefined) return true
-    return !window.fundsFromCash && window.exitYear >= startYear
+    return !window.fundsFromCash && window.exitsAt >= planStartsAt
   }
   const invBalancesNominal = new Map<string, Decimal>(
     investments.map((i) => [i.id, heldAtPlanStart(i.id) ? new Decimal(i.balance) : DECIMAL_0]),
   )
   // A not-yet-purchased asset starts at 0; its synthetic buy (plus the
-  // lender-funded part, below) brings it to full value in the purchase year.
+  // lender-funded part, below) brings it to full value in the purchase month.
   const tangValuesNominal = new Map<string, Decimal>(
     tangibleAssets.map((a) => [a.id, heldAtPlanStart(a.id) ? new Decimal(a.value) : DECIMAL_0]),
   )
   // Per-investment lookup so the transfer loop can apply entry/exit fees by
   // asset id without re-scanning the array.
   const investmentsById = new Map<string, ProfileInvestment>(investments.map((i) => [i.id, i]))
-  const investmentApy = new Map<string, Decimal>(
-    investments.map((i) => [i.id, effectiveInvestmentApy(i)]),
-  )
 
-  // Nominal yearly multiplier per tangible asset. Absent value_over_time it
-  // is the inflation factor (real value flat); appreciate/depreciate replace
-  // it with the user's nominal rate. Floored at 0 — a total write-off.
-  const tangibleGrowth = new Map<string, Decimal>(
-    tangibleAssets.flatMap((a) => {
-      if (a.value_over_time === undefined) return []
+  // Monthly growth multipliers, taken once: (1 + yearly rate)^(1/12). An
+  // investment grows at its APY net of fees (`effectiveInvestmentApy`). A
+  // tangible asset follows inflation, so its real value stays flat, unless it
+  // has its own value_over_time rate; floored at 0, a total write-off.
+  // Balances stay truly nominal so that transfers, which move nominal amounts
+  // between cash, investments and assets, neither create nor destroy wealth.
+  const ONE_TWELFTH = new Decimal(1).div(12)
+  const investmentMonthlyGrowth = new Map<string, Decimal>(
+    investments.map((i) => [
+      i.id,
+      DECIMAL_1.plus(effectiveInvestmentApy(i).div(100)).pow(ONE_TWELFTH),
+    ]),
+  )
+  // The same at the gross APY: the difference is what the fees take.
+  const investmentGrossMonthlyGrowth = new Map<string, Decimal>(
+    investments.map((i) => [i.id, DECIMAL_1.plus(new Decimal(i.apy).div(100)).pow(ONE_TWELFTH)]),
+  )
+  const tangibleMonthlyGrowth = new Map<string, Decimal>(
+    tangibleAssets.map((a) => {
+      if (a.value_over_time === undefined) return [a.id, planStart.monthly]
       const rate = new Decimal(a.value_rate ?? 0).div(100)
       const signed = a.value_over_time === 'depreciate' ? rate.negated() : rate
-      return [[a.id, Decimal.max(DECIMAL_1.plus(signed), DECIMAL_0)] as [string, Decimal]]
+      return [a.id, Decimal.max(DECIMAL_1.plus(signed), DECIMAL_0).pow(ONE_TWELFTH)]
     }),
   )
 
@@ -1440,7 +1485,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   ])
   // Planned buys/sells belong to their investment, not to the plan's
   // transfer list, so they are never filtered by endpoint. Buys
-  // run before the user's transfers so a same-year contribution lands in a
+  // run before the user's transfers so a same-month contribution lands in a
   // live investment, and sells run last so that contribution is swept out
   // with the rest rather than stranded in a liquidated asset.
   const timingTransfers = [
@@ -1459,312 +1504,282 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     ...timingTransfers.map((t) => t.exit).filter((t): t is Transfer => t !== undefined),
   ]
 
+  function getBalance(id: string): Decimal {
+    if (id === CASH_ENDPOINT) return cashNominal
+    if (invBalancesNominal.has(id)) return invBalancesNominal.get(id) ?? DECIMAL_0
+    if (tangValuesNominal.has(id)) return tangValuesNominal.get(id) ?? DECIMAL_0
+    return DECIMAL_0
+  }
+
+  function withdraw(id: string, amount: Decimal): void {
+    if (id === CASH_ENDPOINT) {
+      cashNominal = cashNominal.minus(amount)
+    } else if (invBalancesNominal.has(id)) {
+      invBalancesNominal.set(id, (invBalancesNominal.get(id) ?? DECIMAL_0).minus(amount))
+    } else if (tangValuesNominal.has(id)) {
+      tangValuesNominal.set(id, (tangValuesNominal.get(id) ?? DECIMAL_0).minus(amount))
+    }
+  }
+
+  function deposit(id: string, amount: Decimal): void {
+    if (id === CASH_ENDPOINT) {
+      cashNominal = cashNominal.plus(amount)
+    } else if (invBalancesNominal.has(id)) {
+      invBalancesNominal.set(id, (invBalancesNominal.get(id) ?? DECIMAL_0).plus(amount))
+    } else if (tangValuesNominal.has(id)) {
+      tangValuesNominal.set(id, (tangValuesNominal.get(id) ?? DECIMAL_0).plus(amount))
+    }
+  }
+
+  // An investment or asset only takes part in transfers from the month it is
+  // bought to the month it is sold — money must not flow into one the user has
+  // not bought yet, or into one they have already sold. Cash always passes.
+  function isEndpointActive(id: string, at: number): boolean {
+    const window = assetWindows.get(id)
+    if (!window) return true
+    return at >= window.startsAt && at <= window.exitsAt
+  }
+
+  const addTo = (map: Map<string, Decimal>, id: string, amount: Decimal) =>
+    map.set(id, (map.get(id) ?? DECIMAL_0).plus(amount))
+  const sumOf = (map: Map<string, Decimal>) =>
+    Array.from(map.values()).reduce<Decimal>((sum, v) => sum.plus(v), DECIMAL_0)
+
   const projection: YearlyProjection[] = []
 
   for (let year = startYear; year <= endYear; year++) {
-    const yearsSincePlanStart = year - startYear
+    // What each flow pays in each month of this year. Only what runs in the
+    // year is listed among its cash flows.
+    const incomeSpans = incomes.flatMap((item) => {
+      const span = cashFlowSpan(item, new Decimal(item.amount), year, startYear, birth, planStart)
+      return span ? [{ item, span }] : []
+    })
+    const expenseSpans = expenses.flatMap((item) => {
+      const span = cashFlowSpan(item, new Decimal(item.amount), year, startYear, birth, planStart)
+      return span ? [{ item, span }] : []
+    })
+    const transferSpans = new Map(
+      planTransfers.map((t) => [t.id, transferSpan(t, year, startYear, birth, planStart)]),
+    )
 
-    // 1. Compound investments for this year (skip the first year — initial
-    //    balance is the year-0 nominal value).
+    // The year's flows, as paid (nominal) and in today's money (real): each
+    // month's amount divided by that month's price level.
+    const incomeNominal = new Map<string, Decimal>()
+    const incomeReal = new Map<string, Decimal>()
+    const expenseNominal = new Map<string, Decimal>()
+    const expenseReal = new Map<string, Decimal>()
+    const propertyTaxNominal = new Map<string, Decimal>()
+    const propertyTaxReal = new Map<string, Decimal>()
+    const installmentNominal = new Map<string, Decimal>()
+    const installmentReal = new Map<string, Decimal>()
+    // What left the source of each of the plan's own transfers this year.
+    const transferMovedReal = new Map<string, Decimal>()
     // What each investment loses to fees this year, and each transfer to tax.
-    const investmentFeesNominal = new Map<string, Decimal>()
-    const transferTaxNominal = new Map<string, Decimal>()
-    const addTo = (map: Map<string, Decimal>, id: string, amount: Decimal) => {
-      if (amount.greaterThan(0)) map.set(id, (map.get(id) ?? DECIMAL_0).plus(amount))
+    const investmentFeesReal = new Map<string, Decimal>()
+    const transferTaxReal = new Map<string, Decimal>()
+    const addPositive = (map: Map<string, Decimal>, id: string, amount: Decimal) => {
+      if (amount.greaterThan(0)) addTo(map, id, amount)
     }
-    if (yearsSincePlanStart > 0) {
+    const insufficientTransferIds = new Set<string>()
+    const insufficientAssetIds = new Set<string>()
+    const insufficientExpenseIds = new Set<string>()
+
+    for (let month = year === startYear ? planStart.month : 1; month <= 12; month++) {
+      const at = monthIndex(year, month)
+      const priceLevel = inflationFactor(planStart, year, month)
+
+      // 1. Growth: the balances held at the start of the month earn it.
+      //    The fee drag is what the balance would have grown by at the gross APY.
       for (const [id, balance] of invBalancesNominal) {
-        const apy = investmentApy.get(id) ?? DECIMAL_0
-        const grown = balance.mul(DECIMAL_1.plus(apy.div(100)))
-        // The drag is what the balance would have grown by at the gross APY.
-        const grossApy = new Decimal(investmentsById.get(id)?.apy ?? 0)
-        addTo(
-          investmentFeesNominal,
-          id,
-          balance.mul(DECIMAL_1.plus(grossApy.div(100))).minus(grown),
-        )
+        const grown = balance.mul(investmentMonthlyGrowth.get(id) ?? DECIMAL_1)
+        const grossGrown = balance.mul(investmentGrossMonthlyGrowth.get(id) ?? DECIMAL_1)
+        addPositive(investmentFeesReal, id, grossGrown.minus(grown).div(priceLevel))
         invBalancesNominal.set(id, grown)
       }
-      // Tangibles passively track inflation: compound the nominal value at
-      // the inflation rate so the real value stays flat absent transfers.
-      // Keeping this balance truly nominal (instead of treating it as
-      // already-real) is what makes transfers unit-consistent — withdraw()
-      // and deposit() move nominal amounts between cash, investments, and
-      // tangibles, so mixing units would create or destroy net worth. An
-      // asset with its own value_over_time rate compounds at that instead.
       for (const [id, value] of tangValuesNominal) {
+        tangValuesNominal.set(id, value.mul(tangibleMonthlyGrowth.get(id) ?? DECIMAL_1))
+      }
+
+      // 2. Income into cash up front, so this month's transfers and expenses
+      //    can use it. A loan the plan takes on pays its principal in the
+      //    month it starts (#322): booked alongside income, not as income, so
+      //    it does not lift the savings rate or FI %.
+      for (const { item, span } of incomeSpans) {
+        const amount = spanMonthAmount(span, planStart, year, month)
+        if (amount.isZero()) continue
+        addTo(incomeNominal, item.id, amount)
+        addTo(incomeReal, item.id, amount.div(priceLevel))
+        cashNominal = cashNominal.plus(amount)
+      }
+      cashNominal = cashNominal.plus(borrowedByMonth.get(at) ?? DECIMAL_0)
+
+      // 3. Transfers, before the cash check: a transfer into cash (drawing
+      //    from an investment to fund an expense) then covers that expense
+      //    instead of tripping a spurious insufficient-funds warning. Each is
+      //    applied atomically: a source short of the amount skips it (no
+      //    partial move, no overdraft).
+      for (const transfer of planTransfers) {
+        const span = transferSpans.get(transfer.id)
+        if (span === undefined || month < span.from || month > span.to) continue
+        // The synthetic buy is what makes its asset active, so it is exempt
+        // from the endpoint check on the way in.
+        const plannedStartFor = plannedBuyAssetId(transfer)
+        if (plannedStartFor === undefined) {
+          if (
+            !isEndpointActive(transfer.from_asset_id, at) ||
+            !isEndpointActive(transfer.to_asset_id, at)
+          )
+            continue
+        }
+        const source = investmentsById.get(transfer.from_asset_id)
+        const heldYears = year - (assetWindows.get(transfer.from_asset_id)?.startYear ?? startYear)
+        const ownTransfer = plannedStartFor === undefined && !isPlannedSell(transfer)
+        if (ownTransfer && !transferMovedReal.has(transfer.id)) {
+          transferMovedReal.set(transfer.id, DECIMAL_0)
+        }
+        let amount: Decimal
+        if (transfer.transfer_all) {
+          // "Max" mode: take whatever the source has when the transfer fires.
+          // If the source is empty we flag it — the user intended a sweep that
+          // produced nothing. A planned exit of an empty investment is not a
+          // plan failure, so it stays silent.
+          // ponytail: a recurring Max sweeps every month it runs, whatever its
+          // frequency; give it occurrence months if a yearly sweep must differ.
+          amount = getBalance(transfer.from_asset_id)
+          if (amount.lessThanOrEqualTo(0)) {
+            if (!isPlannedSell(transfer)) insufficientTransferIds.add(transfer.id)
+            continue
+          }
+        } else {
+          // The entered amount is what arrives after the tax, so the source
+          // gives up that plus the tax (`grossTransferAmount`).
+          const entered = spanMonthAmount(span, planStart, year, month)
+          amount = grossTransferAmount(transfer, entered, source, heldYears)
+          if (amount.isZero()) continue
+          const balance = getBalance(transfer.from_asset_id)
+          // The source holds the amount but not the tax on top: sweep it the
+          // way Max would (it lands less the tax) rather than skip the transfer.
+          if (balance.lessThan(amount) && balance.greaterThanOrEqualTo(entered)) amount = balance
+          if (balance.lessThan(amount)) {
+            if (plannedStartFor !== undefined) {
+              insufficientAssetIds.add(plannedStartFor)
+              abandonedAssetIds.add(plannedStartFor)
+            } else {
+              insufficientTransferIds.add(transfer.id)
+            }
+            continue
+          }
+        }
+        // Source loses the full `amount`; the destination receives what is left
+        // after the fees and the estimated tax, each booked to what it is lost
+        // to: the exit fee and the estimated tax come off on the way out, the
+        // upfront entry fee on the way in. The tax is on the gross gain share,
+        // before the exit fee: a modelling choice, real brokers usually tax net
+        // proceeds.
+        withdraw(transfer.from_asset_id, amount)
+        if (ownTransfer) addTo(transferMovedReal, transfer.id, amount.div(priceLevel))
+        const afterExitFee = applyExitFee(source, amount)
+        const tax = estimatedTransferTax(transfer, amount, source, heldYears)
+        const afterTax = Decimal.max(afterExitFee.minus(tax), DECIMAL_0)
+        const net = applyEntryFee(investmentsById.get(transfer.to_asset_id), afterTax)
+        addPositive(
+          investmentFeesReal,
+          transfer.from_asset_id,
+          amount.minus(afterExitFee).div(priceLevel),
+        )
+        addPositive(transferTaxReal, transfer.id, afterExitFee.minus(afterTax).div(priceLevel))
+        addPositive(investmentFeesReal, transfer.to_asset_id, afterTax.minus(net).div(priceLevel))
+        deposit(transfer.to_asset_id, net)
+      }
+
+      // 4. The lender funds the rest of a financed purchase, so the asset is
+      //    worth its full price from the purchase month even though only the
+      //    down payment left cash. Net worth is unchanged: the financing
+      //    liability starts the same month. Runs after the transfers so a
+      //    down payment the plan could not afford books nothing at all.
+      for (const asset of tangibleAssets) {
+        const window = assetWindows.get(asset.id)
+        if (!window?.fundsFromCash || at !== window.startsAt) continue
+        if (asset.status !== 'financed' || !asset.outstanding_balance) continue
+        if (abandonedAssetIds.has(asset.id)) continue
         tangValuesNominal.set(
-          id,
-          value.mul(tangibleGrowth.get(id) ?? DECIMAL_1.plus(inflationRate)),
+          asset.id,
+          (tangValuesNominal.get(asset.id) ?? DECIMAL_0).plus(
+            new Decimal(asset.outstanding_balance),
+          ),
         )
       }
-    }
 
-    // 2. Income / expense accumulation (see accumulateCashFlows).
-    const {
-      total: incomesThisYearNominal,
-      realTotal: incomesThisYearReal,
-      amounts: incomeAmounts,
-    } = accumulateCashFlows(
-      incomes,
-      year,
-      startYear,
-      birth,
-      planStart,
-      (income) => new Decimal(income.amount),
-    )
-    const {
-      total: cashFlowExpensesNominal,
-      realTotal: cashFlowExpensesReal,
-      activeIds: activeExpenseIdsThisYear,
-      amounts: expenseAmounts,
-    } = accumulateCashFlows(
-      expenses,
-      year,
-      startYear,
-      birth,
-      planStart,
-      (expense) => new Decimal(expense.amount),
-    )
-    // 3. Apply income to cash up front, then run transfers, then settle
-    //    expenses + liability payments. Doing transfers before the cash check
-    //    is what lets a transfer-into-cash (e.g. drawing from an investment
-    //    to fund a monthly expense) actually cover that expense instead of
-    //    being booked too late and tripping a spurious insufficient-funds
-    //    warning.
-    //    A loan the plan takes on pays its principal into cash in the year it
-    //    starts (`borrowedByYear`, #322). Booked alongside income, not as
-    //    income: it is not earnings and must not lift the savings rate or FI %.
-    const borrowedThisYearNominal = borrowedByYear.get(year) ?? DECIMAL_0
-    cashNominal = cashNominal.plus(incomesThisYearNominal).plus(borrowedThisYearNominal)
-
-    // 4. Transfer flows for this year. Each transfer is applied atomically:
-    //    if the source balance is less than the requested amount, the entire
-    //    transfer is skipped (no partial move, no overdraft). Balances after
-    //    transfers are what's shown for year Y and what next year's
-    //    compounding works from.
-    function getBalance(id: string): Decimal {
-      if (id === CASH_ENDPOINT) return cashNominal
-      if (invBalancesNominal.has(id)) return invBalancesNominal.get(id) ?? DECIMAL_0
-      if (tangValuesNominal.has(id)) return tangValuesNominal.get(id) ?? DECIMAL_0
-      return DECIMAL_0
-    }
-
-    function withdraw(id: string, amount: Decimal): void {
-      if (id === CASH_ENDPOINT) {
-        cashNominal = cashNominal.minus(amount)
-      } else if (invBalancesNominal.has(id)) {
-        invBalancesNominal.set(id, (invBalancesNominal.get(id) ?? DECIMAL_0).minus(amount))
-      } else if (tangValuesNominal.has(id)) {
-        tangValuesNominal.set(id, (tangValuesNominal.get(id) ?? DECIMAL_0).minus(amount))
-      }
-    }
-
-    function deposit(id: string, amount: Decimal): void {
-      if (id === CASH_ENDPOINT) {
-        cashNominal = cashNominal.plus(amount)
-      } else if (invBalancesNominal.has(id)) {
-        invBalancesNominal.set(id, (invBalancesNominal.get(id) ?? DECIMAL_0).plus(amount))
-      } else if (tangValuesNominal.has(id)) {
-        tangValuesNominal.set(id, (tangValuesNominal.get(id) ?? DECIMAL_0).plus(amount))
-      }
-    }
-
-    // An investment only takes part in transfers between its start and exit
-    // years — money must not flow into one the user has not bought yet, or
-    // into one they have already sold. Non-investment endpoints always pass.
-    function isEndpointActive(id: string): boolean {
-      const window = assetWindows.get(id)
-      if (!window) return true
-      return year >= window.startYear && year <= window.exitYear
-    }
-
-    const insufficientFundTransferIdsThisYear: string[] = []
-    const insufficientFundAssetIdsThisYear: string[] = []
-    // What left the source of each of the plan's own transfers this year.
-    const transferMovedNominal = new Map<string, Decimal>()
-    // Today's money per unit moved, for a fixed amount: its months' inflation.
-    // A "Max" sweep has none and is deflated by the year like a balance.
-    const transferRealPerNominal = new Map<string, Decimal>()
-    for (const transfer of planTransfers) {
-      if (!isTransferActiveThisYear(transfer, year, startYear, birth, planStart)) continue
-      // The synthetic buy is what makes its asset active, so it is exempt
-      // from the endpoint check on the way in.
-      const plannedStartFor = plannedBuyAssetId(transfer)
-      if (plannedStartFor === undefined) {
-        if (!isEndpointActive(transfer.from_asset_id) || !isEndpointActive(transfer.to_asset_id))
-          continue
-      }
-      const source = investmentsById.get(transfer.from_asset_id)
-      const heldYears = year - (assetWindows.get(transfer.from_asset_id)?.startYear ?? startYear)
-      if (plannedStartFor === undefined && !isPlannedSell(transfer)) {
-        transferMovedNominal.set(transfer.id, DECIMAL_0)
-      }
-      let amount: Decimal
-      if (transfer.transfer_all) {
-        // "Max" mode: take whatever the source has at execution time. If the
-        // source is empty when the transfer fires we flag it — the user
-        // intended a sweep that produced nothing. A planned exit of an empty
-        // investment is not a plan failure, so it stays silent.
-        amount = getBalance(transfer.from_asset_id)
-        if (amount.lessThanOrEqualTo(0)) {
-          if (!isPlannedSell(transfer)) insufficientFundTransferIdsThisYear.push(transfer.id)
-          continue
-        }
-      } else {
-        // The entered amount is what arrives after the tax, so the source
-        // gives up that plus the tax (`grossTransferAmount`).
-        const scheduled = transferAmountForYear(transfer, year, startYear, birth, planStart)
-        const entered = scheduled.nominal
-        if (entered.greaterThan(0)) {
-          transferRealPerNominal.set(transfer.id, scheduled.real.div(entered))
-        }
-        amount = grossTransferAmount(transfer, entered, source, heldYears)
+      // 5. Expenses, installments and property tax, settled from cash after
+      //    the transfers. If cash would go negative, every expense paid this
+      //    month is flagged; installments drain cash too but aren't blamed.
+      //    An abandoned purchase owes nothing and is taxed on nothing.
+      let outflow = DECIMAL_0
+      const paidExpenseIds: string[] = []
+      for (const { item, span } of expenseSpans) {
+        const amount = spanMonthAmount(span, planStart, year, month)
         if (amount.isZero()) continue
-        const balance = getBalance(transfer.from_asset_id)
-        // The source holds the amount but not the tax on top: sweep it the
-        // way Max would (it lands less the tax) rather than skip the transfer.
-        if (balance.lessThan(amount) && balance.greaterThanOrEqualTo(entered)) amount = balance
-        if (balance.lessThan(amount)) {
-          if (plannedStartFor !== undefined) {
-            insufficientFundAssetIdsThisYear.push(plannedStartFor)
-            abandonedAssetIds.add(plannedStartFor)
-          } else {
-            insufficientFundTransferIdsThisYear.push(transfer.id)
-          }
-          continue
-        }
+        addTo(expenseNominal, item.id, amount)
+        addTo(expenseReal, item.id, amount.div(priceLevel))
+        paidExpenseIds.push(item.id)
+        outflow = outflow.plus(amount)
       }
-      // Source loses the full `amount`; the destination receives what is left
-      // after the fees and the estimated tax, each booked to what it is lost
-      // to: the exit fee and the estimated tax come off on the way out, the
-      // upfront entry fee on the way in. The tax is on the gross gain share,
-      // before the exit fee: a modelling choice, real brokers usually tax net
-      // proceeds.
-      withdraw(transfer.from_asset_id, amount)
-      if (transferMovedNominal.has(transfer.id)) transferMovedNominal.set(transfer.id, amount)
-      const destination = investmentsById.get(transfer.to_asset_id)
-      const afterExitFee = applyExitFee(source, amount)
-      const tax = estimatedTransferTax(transfer, amount, source, heldYears)
-      const afterTax = Decimal.max(afterExitFee.minus(tax), DECIMAL_0)
-      const net = applyEntryFee(destination, afterTax)
-      addTo(investmentFeesNominal, transfer.from_asset_id, amount.minus(afterExitFee))
-      addTo(transferTaxNominal, transfer.id, afterExitFee.minus(afterTax))
-      addTo(investmentFeesNominal, transfer.to_asset_id, afterTax.minus(net))
-      deposit(transfer.to_asset_id, net)
-    }
-
-    // 5. The lender funds the rest of a financed purchase, so the asset is
-    //    worth its full price from the purchase year even though only the
-    //    down payment left cash. Net worth is unchanged: the financing
-    //    liability starts the same year. Runs after the transfer loop so a
-    //    down payment the plan could not afford books nothing at all — the
-    //    fully-owned path gets that for free by never reaching its deposit.
-    for (const asset of tangibleAssets) {
-      const window = assetWindows.get(asset.id)
-      if (!window?.fundsFromCash || year !== window.startYear) continue
-      if (asset.status !== 'financed' || !asset.outstanding_balance) continue
-      if (abandonedAssetIds.has(asset.id)) continue
-      tangValuesNominal.set(
-        asset.id,
-        (tangValuesNominal.get(asset.id) ?? DECIMAL_0).plus(new Decimal(asset.outstanding_balance)),
-      )
-    }
-
-    // 6. Liability schedules (pre-computed for the full range, no state change
-    //    here) and property tax, both settled from post-transfer cash below.
-    //    An abandoned purchase owes nothing and is taxed on nothing.
-    let liabilitiesOutstandingNominal = DECIMAL_0
-    let liabilitiesPaidThisYearNominal = DECIMAL_0
-    const installmentsNominal: { item: YearlyProjectionItem; paid: Decimal }[] = []
-    function addSchedule(
-      schedule: LiabilitySchedule,
-      liability: ProfileLiability,
-      assetId?: string,
-    ): void {
-      liabilitiesOutstandingNominal = liabilitiesOutstandingNominal.plus(
-        schedule.outstandingByYear.get(year) ?? DECIMAL_0,
-      )
-      const paid = schedule.paidByYear.get(year) ?? DECIMAL_0
-      liabilitiesPaidThisYearNominal = liabilitiesPaidThisYearNominal.plus(paid)
-      if (paid.greaterThan(0)) {
-        installmentsNominal.push({
-          item: { id: liability.id, name: liability.name, value: 0, ...(assetId && { assetId }) },
-          paid,
-        })
+      const payInstallment = (id: string, schedule: LiabilitySchedule) => {
+        const paid = schedule.paidByMonth.get(at)
+        if (paid === undefined) return
+        addTo(installmentNominal, id, paid)
+        addTo(installmentReal, id, paid.div(priceLevel))
+        outflow = outflow.plus(paid)
       }
+      for (const { liability, schedule } of standaloneLoans) payInstallment(liability.id, schedule)
+      for (const { assetId, liability, schedule } of financedLoans) {
+        if (!abandonedAssetIds.has(assetId)) payInstallment(liability.id, schedule)
+      }
+      // Property tax is a yearly percentage of the purchase price —
+      // deliberately the flat nominal value, not the inflated or appreciated
+      // one — paid a twelfth each month the asset is held.
+      for (const asset of tangibleAssets) {
+        if (!asset.property_tax_rate || abandonedAssetIds.has(asset.id)) continue
+        const window = assetWindows.get(asset.id)
+        if (window && (at < window.startsAt || at > window.exitsAt)) continue
+        const tax = new Decimal(asset.value).mul(asset.property_tax_rate).div(100).div(12)
+        addTo(propertyTaxNominal, asset.id, tax)
+        addTo(propertyTaxReal, asset.id, tax.div(priceLevel))
+        outflow = outflow.plus(tax)
+      }
+      const attemptedCash = cashNominal.minus(outflow)
+      if (attemptedCash.lessThan(0)) paidExpenseIds.forEach((id) => insufficientExpenseIds.add(id))
+      cashNominal = Decimal.max(attemptedCash, DECIMAL_0)
     }
-    standaloneSchedules.forEach((schedule, i) => addSchedule(schedule, liabilities[i]))
-    for (const { assetId, liability, schedule } of financedSchedules) {
-      if (!abandonedAssetIds.has(assetId)) addSchedule(schedule, liability, assetId)
-    }
-    // Property tax is charged on the purchase price — deliberately the flat
-    // nominal value, not the inflated or appreciated one — for every year the
-    // asset is held, and settled from cash alongside the ordinary expenses.
-    const propertyTaxNominal: { asset: ProfileTangibleAsset; tax: Decimal }[] = []
-    for (const asset of tangibleAssets) {
-      if (!asset.property_tax_rate || abandonedAssetIds.has(asset.id)) continue
-      const window = assetWindows.get(asset.id)
-      if (window && (year < window.startYear || year > window.exitYear)) continue
-      propertyTaxNominal.push({
-        asset,
-        // A year's tax; the plan's first year pays for its months only (#487).
-        tax: new Decimal(asset.value)
-          .mul(new Decimal(asset.property_tax_rate).div(100))
-          .mul(year === startYear ? new Decimal(13 - planStart.month).div(12) : DECIMAL_1),
-      })
-    }
-    const propertyTaxThisYearNominal = propertyTaxNominal.reduce<Decimal>(
-      (sum, { tax }) => sum.plus(tax),
+
+    // 6. Aggregate the year at the end of its December, deflated by the price
+    //    level then: (1 + inflation)^(months from the plan's start month).
+    const deflationFactor = inflationFactor(planStart, year, 13)
+    const investmentsNominal = sumOf(invBalancesNominal)
+    const tangibleAssetsTotalNominal = sumOf(tangValuesNominal)
+    const outstandingAt = (schedule: LiabilitySchedule) =>
+      schedule.outstandingByYear.get(year) ?? DECIMAL_0
+    const standaloneOutstandingNominal = standaloneLoans.reduce<Decimal>(
+      (sum, { schedule }) => sum.plus(outstandingAt(schedule)),
       DECIMAL_0,
     )
-    const expensesThisYearNominal = cashFlowExpensesNominal.plus(propertyTaxThisYearNominal)
-
-    // 7. Settle expenses + liability payments against post-transfer cash.
-    //    If the result would go negative, flag every expense active this
-    //    year. Liabilities are part of the overflow math (they also drain
-    //    cash) but aren't blamed in the sidebar today.
-    const insufficientFundExpenseIdsThisYear: string[] = []
-    const attemptedCashNominal = cashNominal
-      .minus(expensesThisYearNominal)
-      .minus(liabilitiesPaidThisYearNominal)
-    if (attemptedCashNominal.lessThan(0)) {
-      insufficientFundExpenseIdsThisYear.push(...activeExpenseIdsThisYear)
-    }
-    cashNominal = Decimal.max(attemptedCashNominal, DECIMAL_0)
-
-    // 8. Aggregate + deflate.
-    const investmentsNominal = Array.from(invBalancesNominal.values()).reduce<Decimal>(
-      (sum, v) => sum.plus(v),
-      DECIMAL_0,
-    )
-    const tangibleAssetsTotalNominal = Array.from(tangValuesNominal.values()).reduce<Decimal>(
-      (sum, v) => sum.plus(v),
-      DECIMAL_0,
+    const liabilitiesOutstandingNominal = financedLoans.reduce<Decimal>(
+      (sum, { assetId, schedule }) =>
+        abandonedAssetIds.has(assetId) ? sum : sum.plus(outstandingAt(schedule)),
+      standaloneOutstandingNominal,
     )
 
-    // Integer-year deflation: the projection runs in annual buckets, so
-    // deflate by (1 + inflation)^yearsSincePlanStart directly. This is the
-    // exact inverse of integer-year compounding; using day-based deflation
-    // would drift across leap years.
-    const deflationFactor = DECIMAL_1.plus(inflationRate).pow(yearsSincePlanStart)
     const cashReal = cashNominal.div(deflationFactor)
     const investmentsReal = investmentsNominal.div(deflationFactor)
     const liabilitiesReal = liabilitiesOutstandingNominal.div(deflationFactor)
-    // Flows are deflated month by month (`monthlyAmounts`), property tax like
-    // a balance.
-    const expensesThisYearReal = cashFlowExpensesReal.plus(
-      propertyTaxThisYearNominal.div(deflationFactor),
-    )
-
     const tangibleAssetsReal = tangibleAssetsTotalNominal.div(deflationFactor)
-
     const netWorth = cashReal.plus(investmentsReal).plus(tangibleAssetsReal).minus(liabilitiesReal)
 
     // Defensive output clamp: balances are conceptually >= 0; any tiny
     // negative residual from Decimal arithmetic or `-0` from
     // `Decimal.minus` would otherwise display as "-EUR 0" via Intl.
     const clampNonNeg = (d: Decimal): number => Math.max(0, d.toNumber())
+    const real = (nominal: Decimal): number => nominal.div(deflationFactor).toNumber()
 
     const investmentsByItem: YearlyProjectionItem[] = investments.map((inv) => ({
       id: inv.id,
@@ -1782,36 +1797,32 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     // rows add up to the total. A loan not yet taken out, paid off, settled by
     // a sale, or behind a purchase the plan could not afford stays listed at 0.
     const liabilitiesByItem: YearlyProjectionItem[] = [
-      ...liabilities.map((liability, i) => ({
+      ...standaloneLoans.map(({ liability, schedule }) => ({
         id: liability.id,
         name: liability.name,
-        value: clampNonNeg(
-          (standaloneSchedules[i].outstandingByYear.get(year) ?? DECIMAL_0).div(deflationFactor),
-        ),
+        value: clampNonNeg(outstandingAt(schedule).div(deflationFactor)),
       })),
-      ...financedSchedules.map(({ assetId, liability, schedule }) => ({
+      ...financedLoans.map(({ assetId, liability, schedule }) => ({
         id: liability.id,
         name: liability.name,
         assetId,
         value: abandonedAssetIds.has(assetId)
           ? 0
-          : clampNonNeg((schedule.outstandingByYear.get(year) ?? DECIMAL_0).div(deflationFactor)),
+          : clampNonNeg(outstandingAt(schedule).div(deflationFactor)),
       })),
     ]
 
-    // 9. Per-year FI % and runway. FI mirrors the dashboard's getFiPercent in
+    // 7. Per-year FI % and runway. FI mirrors the dashboard's getFiPercent in
     //    financial-totals.ts; the runway stays the ratio of investable wealth
     //    to outflows, while the dashboard's Runway card runs the drawdown in
     //    runway.ts (docs/product/runway.md). Investable wealth excludes
     //    tangibles and subtracts only standalone liabilities (a mortgage is
     //    secured by its asset); outflows include every installment actually
     //    paid this year. Numerator and denominator are both nominal, so the
-    //    deflator cancels and the ratio is basis-independent.
-    const standaloneOutstandingNominal = standaloneSchedules.reduce<Decimal>(
-      (sum, s) => sum.plus(s.outstandingByYear.get(year) ?? DECIMAL_0),
-      DECIMAL_0,
-    )
-    const outflowsNominal = expensesThisYearNominal.plus(liabilitiesPaidThisYearNominal)
+    //    ratio is basis-independent.
+    const outflowsNominal = sumOf(expenseNominal)
+      .plus(sumOf(propertyTaxNominal))
+      .plus(sumOf(installmentNominal))
     const investableNominal = cashNominal
       .plus(investmentsNominal)
       .minus(standaloneOutstandingNominal)
@@ -1826,17 +1837,22 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       runwayYears = Math.max(0, investableNominal.div(outflowsNominal).toNumber())
     }
 
-    const real = (nominal: Decimal): number => nominal.div(deflationFactor).toNumber()
-    const sumOf = (map: Map<string, Decimal>) =>
-      Array.from(map.values()).reduce<Decimal>((sum, v) => sum.plus(v), DECIMAL_0)
-    const flowItems = (
-      amounts: { item: { id: string; name: string }; amount: Decimal; real?: Decimal }[],
+    const items = (
+      list: { id: string; name: string }[],
+      amounts: Map<string, Decimal>,
     ): YearlyProjectionItem[] =>
-      amounts.map(({ item, amount, real: inTodaysMoney }) => ({
+      list.map((item) => ({
         id: item.id,
         name: item.name,
-        value: inTodaysMoney ? inTodaysMoney.toNumber() : real(amount),
+        value: (amounts.get(item.id) ?? DECIMAL_0).toNumber(),
       }))
+    const incomesReal = sumOf(incomeReal)
+    const expensesReal = sumOf(expenseReal).plus(sumOf(propertyTaxReal))
+    const installmentsReal = sumOf(installmentReal)
+    const loanItems = [
+      ...standaloneLoans.map(({ liability }) => ({ liability, assetId: undefined })),
+      ...financedLoans.map(({ liability, assetId }) => ({ liability, assetId })),
+    ]
 
     projection.push({
       year,
@@ -1848,45 +1864,57 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       investmentsByItem,
       tangibleAssetsByItem,
       liabilitiesByItem,
-      totalIncome: incomesThisYearReal.toNumber(),
-      totalExpenses: expensesThisYearReal.toNumber(),
-      incomesByItem: flowItems(incomeAmounts),
-      expensesByItem: flowItems(expenseAmounts),
-      propertyTaxByItem: flowItems(
-        propertyTaxNominal.map(({ asset, tax }) => ({ item: asset, amount: tax })),
+      totalIncome: incomesReal.toNumber(),
+      totalExpenses: expensesReal.toNumber(),
+      incomesByItem: items(
+        incomeSpans.map(({ item }) => item),
+        incomeReal,
       ),
-      installmentsByItem: installmentsNominal.map(({ item, paid }) => ({
-        ...item,
-        value: real(paid),
-      })),
-      totalInstallments: real(liabilitiesPaidThisYearNominal),
-      investmentFeesByItem: investments.flatMap((inv) => {
-        const fee = investmentFeesNominal.get(inv.id)
-        return fee ? [{ id: inv.id, name: inv.name, value: real(fee) }] : []
+      expensesByItem: items(
+        expenseSpans.map(({ item }) => item),
+        expenseReal,
+      ),
+      propertyTaxByItem: items(
+        tangibleAssets.filter((a) => propertyTaxReal.has(a.id)),
+        propertyTaxReal,
+      ),
+      installmentsByItem: loanItems.flatMap(({ liability, assetId }) => {
+        const paid = installmentReal.get(liability.id)
+        if (!paid) return []
+        return [
+          {
+            id: liability.id,
+            name: liability.name,
+            value: paid.toNumber(),
+            ...(assetId && { assetId }),
+          },
+        ]
       }),
-      transferTaxByItem: plan.transfers.flatMap((transfer) => {
-        const tax = transferTaxNominal.get(transfer.id)
-        return tax ? [{ id: transfer.id, name: transfer.name, value: real(tax) }] : []
-      }),
-      cashFlow: incomesThisYearReal
-        .minus(expensesThisYearReal)
-        .minus(liabilitiesPaidThisYearNominal.div(deflationFactor))
-        .minus(sumOf(investmentFeesNominal).div(deflationFactor))
-        .minus(sumOf(transferTaxNominal).div(deflationFactor))
+      totalInstallments: installmentsReal.toNumber(),
+      investmentFeesByItem: items(
+        investments.filter((i) => investmentFeesReal.has(i.id)),
+        investmentFeesReal,
+      ),
+      transferTaxByItem: items(
+        plan.transfers.filter((t) => transferTaxReal.has(t.id)),
+        transferTaxReal,
+      ),
+      cashFlow: incomesReal
+        .minus(expensesReal)
+        .minus(installmentsReal)
+        .minus(sumOf(investmentFeesReal))
+        .minus(sumOf(transferTaxReal))
         .toNumber(),
-      transfersByItem: plan.transfers.flatMap((transfer) => {
-        const moved = transferMovedNominal.get(transfer.id)
-        if (!moved) return []
-        const perNominal = transferRealPerNominal.get(transfer.id)
-        const value = perNominal ? moved.mul(perNominal).toNumber() : real(moved)
-        return [{ id: transfer.id, name: transfer.name, value }]
-      }),
+      transfersByItem: items(
+        plan.transfers.filter((t) => transferMovedReal.has(t.id)),
+        transferMovedReal,
+      ),
       portfolioValue: real(investableNominal),
       fiPercent,
       runwayYears,
-      insufficientFundTransferIds: insufficientFundTransferIdsThisYear,
-      insufficientFundAssetIds: insufficientFundAssetIdsThisYear,
-      insufficientFundExpenseIds: insufficientFundExpenseIdsThisYear,
+      insufficientFundTransferIds: [...insufficientTransferIds],
+      insufficientFundAssetIds: [...insufficientAssetIds],
+      insufficientFundExpenseIds: [...insufficientExpenseIds],
     })
   }
 

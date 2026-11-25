@@ -10,6 +10,25 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-25 The projection runs month by month
+
+**Context.** The projection stepped a year at a time: balances grew once a
+year from the second year on, money moved in during a year earned nothing
+until the next, and the cash check looked at the year as a whole (#487).
+
+**Decision.** The projection steps month by month and reports per year.
+Balances grow by (1 + yearly rate)^(1/12) a month from the start month,
+income, transfers and outflows run in their month, and the cash check is
+monthly. Loan installments fall on their cadence from the loan's first month.
+A year's balances are those at the end of December, deflated by the price
+level then; every payment is deflated by its own month. The last year always
+runs through December. A recurring amount is still spread evenly over its
+months.
+
+**Why.** A plan starts in the current month, and its first months, a
+transfer's timing and a mid-year shortfall all matter at that resolution.
+Supersedes the yearly growth and cash check of the earlier engine.
+
 ## 2026-11-25 A projection's first year starts at its start month
 
 **Context.** A projection usually starts in the current month, but its first
