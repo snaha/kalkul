@@ -852,8 +852,8 @@ function isTransferActiveThisYear(
 
 /**
  * Whether a one-time item fires in `year`: its transaction year, unless its
- * month comes before the plan starts. The planned buy and sell of an asset
- * carry no month and always fire in their year.
+ * month comes before the plan starts. An item without a month (only from
+ * unvalidated data) fires in its year.
  */
 function firesOneTime(
   schedule: { transaction_year?: number; transaction_month?: number },
@@ -934,7 +934,9 @@ function oneTimeSpan(
   planStart: PlanStart,
 ): MonthSpan | undefined {
   if (!firesOneTime(schedule, year, planStart)) return undefined
-  const month = schedule.transaction_month ?? 1
+  // A month is required, but unvalidated data may lack one: it then falls in
+  // the first month the year has.
+  const month = schedule.transaction_month ?? (year === planStart.year ? planStart.month : 1)
   return {
     from: month,
     to: month,
@@ -1621,6 +1623,16 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       for (const transfer of planTransfers) {
         const span = transferSpans.get(transfer.id)
         if (span === undefined || month < span.from || month > span.to) continue
+        // A recurring "Max" transfer has no amount to spread: it sweeps on its
+        // frequency, a yearly one once a year in its first month that year
+        // (when within a year is #490's question).
+        if (
+          transfer.transfer_all &&
+          transfer.schedule !== 'one_time' &&
+          transfer.frequency === 'yearly' &&
+          month !== span.from
+        )
+          continue
         // The synthetic buy is what makes its asset active, so it is exempt
         // from the endpoint check on the way in.
         const plannedStartFor = plannedBuyAssetId(transfer)
@@ -1643,8 +1655,6 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
           // If the source is empty we flag it — the user intended a sweep that
           // produced nothing. A planned exit of an empty investment is not a
           // plan failure, so it stays silent.
-          // ponytail: a recurring Max sweeps every month it runs, whatever its
-          // frequency; give it occurrence months if a yearly sweep must differ.
           amount = getBalance(transfer.from_asset_id)
           if (amount.lessThanOrEqualTo(0)) {
             if (!isPlannedSell(transfer)) insufficientTransferIds.add(transfer.id)

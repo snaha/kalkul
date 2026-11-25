@@ -445,8 +445,9 @@ rather than papering over it.
   "<asset> sales tax" row, the tax on a tangible asset's sale. A tangible asset
   has no sales tax today: a sale puts its whole value into cash. The row comes
   with a decision on taxing a sale (#474).
-- A recurring "Max" transfer sweeps its source every month it runs, whatever
-  its frequency.
+- A recurring "Max" transfer sweeps on its frequency: a monthly or weekly
+  one every month it runs, a yearly one once a year, in its first month that
+  year. Which month a yearly payment falls in is part of #490.
 - The Figma frames for both sidebars show a "Missing funds" message once the
   projection has stopped at its first error: a panel that replaces the
   sections on the right, a summary above the sections on the left. The engine

@@ -4389,3 +4389,53 @@ describe('the projection runs month by month', () => {
     expect(result[0].totalExpenses).toBeCloseTo(rentReal, 6)
   })
 })
+
+describe('one-time and Max transfers in the month loop', () => {
+  it('sweeps a yearly Max transfer once a year, without flagging the empty months', () => {
+    const result = project(
+      makePlan(),
+      makeProfile({
+        investments: [{ id: 'inv1', name: 'ETF', balance: 1000, apy: 0 }],
+        transfers: [
+          {
+            id: 't1',
+            name: 'Sweep',
+            from_asset_id: 'inv1',
+            to_asset_id: 'cash',
+            amount: 0,
+            transfer_all: true,
+            schedule: 'recurring',
+            frequency: 'yearly',
+            start: 'immediately',
+            end: 'never',
+            change_over_time: 'none',
+          },
+        ],
+      }),
+    )
+    expect(result[0].cash).toBe(1000)
+    expect(result[0].insufficientFundTransferIds).toEqual([])
+    // Nothing left to sweep the next year: one flag, for that year's sweep.
+    expect(result[1].insufficientFundTransferIds).toEqual(['t1'])
+  })
+
+  it('pays a one-time item stored without a month in the first month it can', () => {
+    const result = project(
+      makePlan({ start_date: '2026-11-01', end_date: '2027-12-01' }),
+      makeProfile({
+        cash_amount: 1000,
+        expenses: [
+          {
+            id: 'e1',
+            name: 'Repair',
+            amount: 300,
+            schedule: 'one_time',
+            transaction_year: 2026,
+          } as Expense,
+        ],
+      }),
+    )
+    expect(result[0].totalExpenses).toBe(300)
+    expect(result[0].cash).toBe(700)
+  })
+})
