@@ -273,6 +273,29 @@ month of that year is left before the birthday.
 A planned purchase, sale or loan timed by an age is still a whole-year event
 in the year the age is reached.
 
+### Inflation counts months
+
+A projection's today's money is the money of its start month. Prices rise by
+the plan's inflation rate a year, a month at a time: an amount paid `n` months
+after the start month costs (1 + rate)^(n / 12) as much.
+
+- An income, expense or transfer set to "Adjust for inflation" is entered in
+  today's money. Each payment is that amount times the factor of the month it
+  is paid in: every month of a recurring flow, the transaction month of a
+  one-time one. A payment in the start month is the amount as entered.
+- Any other flow is paid as entered, every month.
+- A flow's figures in today's money, in the right sidebar and in the dialog's
+  "in today's money", divide each payment by its own month's factor. A flow
+  that adjusts for inflation therefore reads as entered; one that does not
+  shrinks month by month.
+- Balances (cash, investments, assets, loans) are deflated once per year, by
+  (1 + rate)^(years since the start year), since the projection steps them a
+  year at a time.
+- "Change over time" (a yearly raise or cut) still steps once a year, from the
+  flow's own start year.
+- Amounts are shown in whole units, so a small amount shows the monthly steps
+  only once they add up to a unit.
+
 ### When a feature seems to need a projection to write financial data
 
 The answer is a projection-level setting, never a profile write. Raise it
@@ -341,6 +364,13 @@ rather than papering over it.
     With the ETF at 10% and a 15% tax rate, two years in the gain is
     1 − 1.1⁻² ≈ 17.4% of what is sold, so 1,026.73 leaves the ETF and
     "Sell tax" reads 26.73.
+11. **Inflation by the month.** A projection starts in November 2026 with 2%
+    inflation. A one-time transfer of 100 that adjusts for inflation costs 100
+    in November 2026, 100.17 in December 2026, 100.33 in January 2027 and
+    102.17 in December 2027; the dialog reads "Nominal value: 100 EUR", "100",
+    "100" and "102 EUR", each "(100 EUR in today's money)". A salary of 1,000
+    a month that adjusts for inflation pays 1,001.65 in December 2026 and
+    1,003.31 in January 2027, and the right sidebar shows 12,000 of income in 2027.
 
 ## Open questions
 
