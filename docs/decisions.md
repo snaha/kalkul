@@ -10,6 +10,22 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-25 A projection's first year starts at its start month
+
+**Context.** A projection usually starts in the current month, but its first
+year counted every month from January: a salary starting "immediately" paid
+twelve times, on top of opening cash that already held what was paid before
+(#487). Loans paid twelve installments and property tax a whole year.
+
+**Decision.** Nothing is paid or received in the first year before the start
+month. Recurring flows run from it, one-time items dated before it do not
+happen, a loan pays the whole installments in the remaining months and
+follows on with the rest of its term, and property tax is prorated by month.
+
+**Why.** The balances a plan opens with are as of its start month, so
+counting the earlier months again would count them twice. A loan's remaining
+term counts from today as well, so its schedule moves with the start.
+
 ## 2026-11-25 Inflation counts months from the projection's start month
 
 **Context.** An amount that adjusts for inflation rose once a year, from the

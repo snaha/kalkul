@@ -273,6 +273,22 @@ month of that year is left before the birthday.
 A planned purchase, sale or loan timed by an age is still a whole-year event
 in the year the age is reached.
 
+### A projection starts in its start month
+
+A projection's first year has only the months from its start month on. What
+happened earlier that year is already in the balances the plan opens with, so
+nothing before the start month is paid or received again.
+
+- A recurring income, expense or transfer runs from the start month, even
+  when it starts "immediately" or on an earlier date that year.
+- A one-time item dated before the start month does not happen.
+- A loan pays the whole installments that fall in the first year's months;
+  the rest of its term follows on, so it is paid off that much later. A
+  yearly installment rounds to none in a first year of a few months and
+  falls into the next year.
+- Property tax is a year's tax: the first year pays the share for its
+  months.
+
 ### Inflation counts months
 
 A projection's today's money is the money of its start month. Prices rise by
@@ -373,12 +389,27 @@ rather than papering over it.
     a month that adjusts for inflation pays 1,001.65 in December 2026 and
     1,003.31 in January 2027, and the right sidebar shows 12,000 of income in 2027.
 
+12. **A plan that starts in November.** It opens with 10,000 of cash, a
+    salary of 1,000 a month, rent of 400 a month and a transfer of 500 a
+    month into an ETF, all starting "immediately", and a car loan of 12,000
+    repaid at 1,000 a month. The first year has November and December only:
+    Income +2,000, Expenses −800, Liability installments −2,000, and 1,000
+    under Transfers. The loan's remaining 10,000 is repaid over the next
+    year's ten months. A one-time expense dated March of the first year never
+    happens.
+
 ## Open questions
 
 - The Figma frame for the right sidebar's Fees and taxes group also has an
   "<asset> sales tax" row, the tax on a tangible asset's sale. A tangible asset
   has no sales tax today: a sale puts its whole value into cash. The row comes
   with a decision on taxing a sale (#474).
+- The plan's last year still counts every month, whatever month the plan
+  ends in. A plan ending in January counts all twelve months of its last
+  year.
+- Balances do not grow in the first year: an investment is first compounded,
+  by a whole year, in the second. A first year of a few months has their
+  flows but none of their growth.
 
 - The Figma frames for both sidebars show a "Missing funds" message once the
   projection has stopped at its first error: a panel that replaces the

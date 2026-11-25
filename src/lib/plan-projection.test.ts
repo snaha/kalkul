@@ -4096,3 +4096,133 @@ describe('inflation by the month', () => {
     expect(result[1].expensesByItem[0].value).toBeCloseTo(real, 6)
   })
 })
+
+describe("the plan's first year starts at its start month", () => {
+  // docs/product/projections.md, "A projection starts in its start month".
+  const plan = makePlan({ start_date: '2026-11-01', end_date: '2027-12-01' })
+  const monthly = {
+    schedule: 'recurring' as const,
+    frequency: 'monthly' as const,
+    start: 'immediately' as const,
+    end: 'never' as const,
+    change_over_time: 'none' as const,
+  }
+  const salary: Income = { id: 'inc1', name: 'Salary', amount: 1000, ...monthly }
+  const rent: Expense = { id: 'e1', name: 'Rent', amount: 400, ...monthly }
+  const invest: Transfer = {
+    id: 't1',
+    name: 'Invest',
+    from_asset_id: 'cash',
+    to_asset_id: 'inv1',
+    amount: 500,
+    ...monthly,
+  }
+  const investments: ProfileInvestment[] = [{ id: 'inv1', name: 'ETF', balance: 0, apy: 0 }]
+
+  it('counts only the months from the start month', () => {
+    const result = project(
+      plan,
+      makeProfile({
+        cash_amount: 10_000,
+        incomes: [salary],
+        expenses: [rent],
+        investments,
+        transfers: [invest],
+      }),
+    )
+    expect(result[0].totalIncome).toBe(2000)
+    expect(result[0].totalExpenses).toBe(800)
+    expect(result[0].transfersByItem).toEqual([{ id: 't1', name: 'Invest', value: 1000 }])
+    expect(result[0].cash).toBe(10_000 + 2000 - 800 - 1000)
+    expect(result[1].totalIncome).toBe(12_000)
+  })
+
+  it('starts a flow dated earlier in the first year at the start month', () => {
+    const result = project(
+      plan,
+      makeProfile({
+        incomes: [{ ...salary, start: 'at_specific_date', start_year: 2026, start_month: 3 }],
+      }),
+    )
+    expect(result[0].totalIncome).toBe(2000)
+  })
+
+  it('skips a one-time item dated before the start month', () => {
+    const result = project(
+      plan,
+      makeProfile({
+        cash_amount: 10_000,
+        expenses: [
+          {
+            id: 'e2',
+            name: 'Car',
+            amount: 5000,
+            schedule: 'one_time',
+            transaction_year: 2026,
+            transaction_month: 3,
+          },
+        ],
+      }),
+    )
+    expect(result[0].totalExpenses).toBe(0)
+    expect(result[0].cash).toBe(10_000)
+  })
+
+  it('pays a loan from the start month and shifts the rest of its term', () => {
+    const result = project(
+      plan,
+      makeProfile({
+        cash_amount: 50_000,
+        liabilities: [
+          {
+            id: 'l1',
+            name: 'Car loan',
+            outstanding_balance: 12_000,
+            installment_frequency: 'monthly',
+            annual_rate: 0,
+            installment_amount: 1000,
+            remaining_term: 1,
+          },
+        ],
+      }),
+    )
+    // November and December 2026, then the remaining ten in 2027.
+    expect(result[0].totalInstallments).toBe(2000)
+    expect(result[0].liabilities).toBe(10_000)
+    expect(result[1].totalInstallments).toBe(10_000)
+    expect(result[1].liabilities).toBe(0)
+  })
+
+  it('charges the first year the property tax of its months', () => {
+    const result = project(
+      plan,
+      makeProfile({
+        cash_amount: 10_000,
+        tangible_assets: [
+          { id: 'h1', name: 'House', value: 120_000, status: 'fully_owned', property_tax_rate: 1 },
+        ],
+      }),
+    )
+    expect(result[0].propertyTaxByItem).toEqual([{ id: 'h1', name: 'House', value: 200 }])
+    expect(result[1].propertyTaxByItem).toEqual([{ id: 'h1', name: 'House', value: 1200 }])
+  })
+
+  it('counts the same months in the dialog previews', () => {
+    const summaryPlan = { investments: [], ...plan }
+    expect(summarizeTransfer(invest, summaryPlan, undefined)).toMatchObject({
+      occurrences: 14,
+      nominalTotal: 7000,
+    })
+    expect(summarizeCashFlow(salary, plan, undefined)).toMatchObject({
+      occurrences: 14,
+      nominalTotal: 14_000,
+    })
+    expect(
+      summarizeCashFlow(
+        { ...rent, schedule: 'one_time', transaction_year: 2026, transaction_month: 3 },
+        plan,
+        undefined,
+      ).occurrences,
+    ).toBe(0)
+  })
+})
