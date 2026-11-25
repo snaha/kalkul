@@ -4207,6 +4207,46 @@ describe("the plan's first year starts at its start month", () => {
     expect(result[1].propertyTaxByItem).toEqual([{ id: 'h1', name: 'House', value: 1200 }])
   })
 
+  it('does not warn about a flow that simply ended before the plan starts', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    project(
+      plan,
+      makeProfile({
+        incomes: [
+          {
+            ...salary,
+            start: 'at_specific_date',
+            start_year: 2026,
+            start_month: 3,
+            end: 'at_specific_date',
+            end_year: 2026,
+            end_month: 6,
+          },
+        ],
+      }),
+    )
+    expect(warn).not.toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
+  it('pays a yearly installment in the first year only when the year starts in January', () => {
+    const loan = {
+      id: 'l1',
+      name: 'Loan',
+      outstanding_balance: 1200,
+      installment_frequency: 'yearly' as const,
+      annual_rate: 0,
+      installment_amount: 1200,
+      remaining_term: 1,
+    }
+    const july = project(
+      makePlan({ start_date: '2026-07-01', end_date: '2027-12-01' }),
+      makeProfile({ cash_amount: 5000, liabilities: [loan] }),
+    )
+    expect(july[0].totalInstallments).toBe(0)
+    expect(july[1].totalInstallments).toBe(1200)
+  })
+
   it('counts the same months in the dialog previews', () => {
     const summaryPlan = { investments: [], ...plan }
     expect(summarizeTransfer(invest, summaryPlan, undefined)).toMatchObject({

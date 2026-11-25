@@ -1,4 +1,4 @@
-import { type PlanRange, clampYearToPlan, timingWithinPlan, yearWithinPlan } from '$lib/plan-range'
+import { type PlanRange, dateWithinPlan, seedDateInPlan, timingWithinPlan } from '$lib/plan-range'
 import type {
   CashFlowEnd,
   CashFlowStart,
@@ -49,7 +49,9 @@ export function blankTransferFields(
   range?: PlanRange,
 ): TransferFields {
   const now = new Date()
-  const year = now.getFullYear()
+  const seeded = range
+    ? seedDateInPlan(range, now)
+    : { year: now.getFullYear(), month: now.getMonth() + 1 }
   return {
     id,
     name,
@@ -63,8 +65,8 @@ export function blankTransferFields(
     // their real value over time without the user having to flip it.
     inflation_adjusted: true,
     schedule: 'one_time',
-    transaction_year: range ? clampYearToPlan(range, year) : year,
-    transaction_month: now.getMonth() + 1,
+    transaction_year: seeded.year,
+    transaction_month: seeded.month,
     frequency: 'monthly',
     start: 'immediately',
     // Timing fields start empty so 'at_specific_date'/'when_age_is' force an
@@ -169,7 +171,7 @@ export function endMinMonth(f: TransferFields): number | undefined {
 /** Whether the schedule can take effect inside the plan; mirrors `cashFlowWithinPlan`. */
 export function transferWithinPlan(f: TransferFields, range: PlanRange): boolean {
   return f.schedule === 'one_time'
-    ? yearWithinPlan(range, f.transaction_year)
+    ? dateWithinPlan(range, f.transaction_year, f.transaction_month)
     : timingWithinPlan(range, 'start', f.start, f.start_year, f.start_age) &&
-        timingWithinPlan(range, 'end', f.end, f.end_year, f.end_age)
+        timingWithinPlan(range, 'end', f.end, f.end_year, f.end_age, f.end_month)
 }

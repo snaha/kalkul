@@ -244,7 +244,6 @@ function activeMonthRange(
   if (year === endYear && cashFlow.end === 'at_specific_date' && cashFlow.end_month !== undefined) {
     endMonth = cashFlow.end_month
   }
-  if (year === planStart.year) startMonth = Math.max(startMonth, planStart.month)
   const months = endMonth - startMonth + 1
   // Schema validation rejects a same-year start month after the end month and
   // stored data is repaired at load, but not every write path validates (e.g.
@@ -257,6 +256,9 @@ function activeMonthRange(
       `Cash flow start month (${startMonth}) is after end month (${endMonth}) in ${year}; treating it as inactive`,
     )
   }
+  // After the check above: a flow that ended before the plan starts is valid
+  // data, not a start after its end.
+  if (year === planStart.year) startMonth = Math.max(startMonth, planStart.month)
   return [startMonth, endMonth]
 }
 
@@ -571,11 +573,10 @@ function simulateLiability(
       continue
     }
     // The plan's first year has only the months from its start (#487), and
-    // pays the whole installments that fall in them; the rest of the term
-    // follows on. A yearly installment in a first year of a few months
-    // rounds to none and falls into the next year.
+    // pays the whole installments that fit in them; the rest of the term
+    // follows on. A yearly installment fits only a first year from January.
     const periodsThisYear =
-      year === startYear ? Math.round((periodsPerYear * (13 - startMonth)) / 12) : periodsPerYear
+      year === startYear ? Math.floor((periodsPerYear * (13 - startMonth)) / 12) : periodsPerYear
     for (let i = 0; i < periodsThisYear; i++) {
       if (periodsRemaining <= 0 || balance.lessThanOrEqualTo(0)) break
       const interest = balance.mul(installmentPeriodInterestRate)

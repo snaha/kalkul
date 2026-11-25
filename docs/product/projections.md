@@ -282,10 +282,12 @@ nothing before the start month is paid or received again.
 - A recurring income, expense or transfer runs from the start month, even
   when it starts "immediately" or on an earlier date that year.
 - A one-time item dated before the start month does not happen.
-- A loan pays the whole installments that fall in the first year's months;
+- A loan pays the whole installments that fit in the first year's months;
   the rest of its term follows on, so it is paid off that much later. A
-  yearly installment rounds to none in a first year of a few months and
-  falls into the next year.
+  yearly installment fits only a first year that starts in January; otherwise
+  it falls into the next year.
+- A one-time date, or an end date, in the first year before the start month
+  is rejected in the dialogs, since it would never happen.
 - Property tax is a year's tax: the first year pays the share for its
   months.
 
@@ -351,7 +353,7 @@ rather than papering over it.
    200,000 makes the plan's loan 200,000 and re-derives the installment,
    while Financial data still says 235,000 owed.
 
-7. **Every loan is in the breakdown.** A plan holds a standalone loan of
+7. **Every loan is in the breakdown.** A plan starting in January holds a standalone loan of
    1,000 paid off at 250 a year, and a house financed with 3,000,000
    outstanding paid off at 300,000 a year, both at 0% interest. Its first year
    lists "Loan" at 750 and "House" at 2,700,000, the house's row marked as tied

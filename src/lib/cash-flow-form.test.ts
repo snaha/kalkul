@@ -127,6 +127,22 @@ describe('plan range', () => {
     expect(cashFlowWithinPlan(f, range)).toBe(false)
   })
 
+  test('a one-time date and an end date must not come before the plan starts', () => {
+    const autumn = planRangeOf({ start_date: '2030-09-01', end_date: '2040-12-01' }, undefined)
+    const f = blankCashFlowFields('x', 'Bonus', autumn)
+    f.schedule = 'one_time'
+    f.transaction_year = 2030
+    f.transaction_month = 8
+    expect(cashFlowWithinPlan(f, autumn)).toBe(false)
+    f.transaction_month = 9
+    expect(cashFlowWithinPlan(f, autumn)).toBe(true)
+    const g = cashFlowToFields(RECURRING)
+    g.end = 'at_specific_date'
+    g.end_year = 2030
+    g.end_month = 8
+    expect(cashFlowWithinPlan(g, autumn)).toBe(false)
+  })
+
   test('recurring timing may only start before the plan ends and end after it starts', () => {
     const f = cashFlowToFields(RECURRING)
     expect(cashFlowWithinPlan(f, range)).toBe(true) // starts 2027, before the plan: clamped

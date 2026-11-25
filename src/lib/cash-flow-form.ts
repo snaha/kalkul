@@ -1,4 +1,4 @@
-import { type PlanRange, clampYearToPlan, timingWithinPlan, yearWithinPlan } from '$lib/plan-range'
+import { type PlanRange, dateWithinPlan, seedDateInPlan, timingWithinPlan } from '$lib/plan-range'
 import type {
   CashFlowEnd,
   CashFlowSchedule,
@@ -46,7 +46,9 @@ export function blankCashFlowFields(
   range?: PlanRange,
 ): CashFlowFields {
   const now = new Date()
-  const year = now.getFullYear()
+  const seeded = range
+    ? seedDateInPlan(range, now)
+    : { year: now.getFullYear(), month: now.getMonth() + 1 }
   return {
     id,
     name,
@@ -56,8 +58,8 @@ export function blankCashFlowFields(
     // transaction date is seeded with "now" (like transfers) so switching the
     // type to One-time yields a valid Create immediately.
     schedule: 'recurring',
-    transaction_year: range ? clampYearToPlan(range, year) : year,
-    transaction_month: now.getMonth() + 1,
+    transaction_year: seeded.year,
+    transaction_month: seeded.month,
     // Default ON — most income/expense streams track inflation in real
     // terms, so this matches user intent for the common case.
     inflation_adjusted: true,
@@ -161,7 +163,7 @@ export function endMinMonth(f: CashFlowFields): number | undefined {
  */
 export function cashFlowWithinPlan(f: CashFlowFields, range: PlanRange): boolean {
   return f.schedule === 'one_time'
-    ? yearWithinPlan(range, f.transaction_year)
+    ? dateWithinPlan(range, f.transaction_year, f.transaction_month)
     : timingWithinPlan(range, 'start', f.start, f.start_year, f.start_age) &&
-        timingWithinPlan(range, 'end', f.end, f.end_year, f.end_age)
+        timingWithinPlan(range, 'end', f.end, f.end_year, f.end_age, f.end_month)
 }
