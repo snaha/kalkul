@@ -290,7 +290,8 @@ after the start month costs (1 + rate)^(n / 12) as much.
   shrinks month by month.
 - Balances (cash, investments, assets, loans) are deflated once per year, by
   (1 + rate)^(years since the start year), since the projection steps them a
-  year at a time.
+  year at a time. So are property tax, loan installments and a "Max"
+  transfer, which have no entered amount to deflate month by month.
 - "Change over time" (a yearly raise or cut) still steps once a year, from the
   flow's own start year.
 - Amounts are shown in whole units, so a small amount shows the monthly steps

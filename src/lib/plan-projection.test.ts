@@ -4049,6 +4049,32 @@ describe('inflation by the month', () => {
     expect(result[1].totalIncome).toBeCloseTo(12_000, 6)
   })
 
+  it('pays an inflation-adjusted salary by its month and shows it as entered', () => {
+    // docs/product/projections.md, worked example 10.
+    const salary: Income = {
+      id: 'inc1',
+      name: 'Salary',
+      amount: 1000,
+      schedule: 'recurring',
+      frequency: 'monthly',
+      start: 'at_specific_date',
+      start_year: 2026,
+      start_month: 11,
+      end: 'never',
+      change_over_time: 'none',
+      inflation_adjusted: true,
+    }
+    const result = project(
+      makePlan({ start_date: '2026-11-01', end_date: '2028-01-01', inflation_rate: 0.02 }),
+      makeProfile({ incomes: [salary] }),
+    )
+    // November and December 2026: 1,000 and 1,001.65.
+    expect(result[0].cash).toBeCloseTo(1000 + 1000 * 1.02 ** (1 / 12), 6)
+    expect(1000 * 1.02 ** (1 / 12)).toBeCloseTo(1001.65, 2)
+    expect(1000 * 1.02 ** (2 / 12)).toBeCloseTo(1003.31, 2)
+    expect(result[1].totalIncome).toBeCloseTo(12_000, 6)
+  })
+
   it('deflates each month of a flow that does not follow inflation', () => {
     const rent: Expense = {
       id: 'e1',

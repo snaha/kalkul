@@ -256,16 +256,20 @@ function activeMonthRange(
 
 /** The plan's inflation rate and the month its today's money is anchored to. */
 interface Inflation {
-  rate: Decimal
   year: number
   month: number
+  // (1 + rate)^(1/12), and its powers by month as they are asked for: a
+  // fractional Decimal pow is ~100× an integer one and runs per flow-month.
+  monthly: Decimal
+  byMonths: Map<number, Decimal>
 }
 
 function planInflation(plan: Pick<Portfolio, 'start_date' | 'inflation_rate'>): Inflation {
   return {
-    rate: new Decimal(plan.inflation_rate),
     year: yearOf(plan.start_date),
     month: Number(plan.start_date.slice(5, 7)),
+    monthly: DECIMAL_1.plus(plan.inflation_rate).pow(new Decimal(1).div(12)),
+    byMonths: new Map(),
   }
 }
 
@@ -276,7 +280,12 @@ function planInflation(plan: Pick<Portfolio, 'start_date' | 'inflation_rate'>): 
 function inflationFactor(inflation: Inflation, year: number, month: number): Decimal {
   const months = (year - inflation.year) * 12 + month - inflation.month
   if (months <= 0) return DECIMAL_1
-  return DECIMAL_1.plus(inflation.rate).pow(new Decimal(months).div(12))
+  let factor = inflation.byMonths.get(months)
+  if (factor === undefined) {
+    factor = inflation.monthly.pow(months)
+    inflation.byMonths.set(months, factor)
+  }
+  return factor
 }
 
 /** A flow's amount in a year, as paid and in the plan's start-month money. */
