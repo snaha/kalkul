@@ -10,6 +10,21 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-26 A partial first year's FI % and runway use a year of outflows
+
+**Context.** A projection's first year has only the months from its start
+month, so its outflows are a few months' worth. FI % and runway divide the
+portfolio value by the year's outflows: a plan starting in November with
+120,000 of cash and rent of 1,000 a month showed a 59-year runway and FI
+236% in its first year, the year the right sidebar opens on.
+
+**Decision.** For FI % and runway the first year's outflows are scaled to
+twelve months: × 12 / the months in the year. The figures shown under Cash
+flow stay what was actually paid.
+
+**Why.** Both measures compare wealth with a yearly outflow level, not with
+what happened to be paid in a short year.
+
 ## 2026-11-25 A projection's first year starts at its start month
 
 **Context.** A projection usually starts in the current month, but its first

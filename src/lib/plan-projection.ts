@@ -107,7 +107,8 @@ export interface YearlyProjection {
   // Progress toward financial independence in this year: investable wealth
   // (cash + investments − standalone liabilities outstanding) as a percent of
   // the FI number: this year's outflows (living expenses + loan installments)
-  // × 100 / the profile's withdrawal rate, 25× at the default 4%.
+  // × 100 / the profile's withdrawal rate, 25× at the default 4%. The plan's
+  // first year counts its months' outflows scaled to twelve months.
   // Undefined in years with zero outflows, where the ratio is meaningless.
   fiPercent?: number
   // Years this year's investable wealth could cover this year's outflow
@@ -212,7 +213,7 @@ function activeMonthFraction(
 
 /**
  * The first and last month (1..12) a recurring flow runs in `year`; empty when
- * last < first. Nothing runs before the plan's start month (#487).
+ * last < first. Nothing runs before the plan's start month.
  */
 function activeMonthRange(
   cashFlow: CashFlowTemporal,
@@ -572,7 +573,7 @@ function simulateLiability(
       if (afterEnd) balance = DECIMAL_0
       continue
     }
-    // The plan's first year has only the months from its start (#487), and
+    // The plan's first year has only the months from its start, and
     // pays the whole installments that fit in them; the rest of the term
     // follows on. A yearly installment fits only a first year from January.
     const periodsThisYear =
@@ -1708,7 +1709,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       if (window && (year < window.startYear || year > window.exitYear)) continue
       propertyTaxNominal.push({
         asset,
-        // A year's tax; the plan's first year pays for its months only (#487).
+        // A year's tax; the plan's first year pays for its months only.
         tax: new Decimal(asset.value)
           .mul(new Decimal(asset.property_tax_rate).div(100))
           .mul(year === startYear ? new Decimal(13 - planStart.month).div(12) : DECIMAL_1),
@@ -1805,13 +1806,17 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     //    runway.ts (docs/product/runway.md). Investable wealth excludes
     //    tangibles and subtracts only standalone liabilities (a mortgage is
     //    secured by its asset); outflows include every installment actually
-    //    paid this year. Numerator and denominator are both nominal, so the
-    //    deflator cancels and the ratio is basis-independent.
+    //    paid this year, scaled to twelve months in the plan's first year,
+    //    which has only the months from its start. Numerator and denominator
+    //    are both nominal, so the deflator cancels and the ratio is
+    //    basis-independent.
     const standaloneOutstandingNominal = standaloneSchedules.reduce<Decimal>(
       (sum, s) => sum.plus(s.outstandingByYear.get(year) ?? DECIMAL_0),
       DECIMAL_0,
     )
-    const outflowsNominal = expensesThisYearNominal.plus(liabilitiesPaidThisYearNominal)
+    const outflowsNominal = expensesThisYearNominal
+      .plus(liabilitiesPaidThisYearNominal)
+      .mul(year === startYear ? new Decimal(12).div(13 - planStart.month) : DECIMAL_1)
     const investableNominal = cashNominal
       .plus(investmentsNominal)
       .minus(standaloneOutstandingNominal)

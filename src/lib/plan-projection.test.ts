@@ -4207,6 +4207,27 @@ describe("the plan's first year starts at its start month", () => {
     expect(result[1].propertyTaxByItem).toEqual([{ id: 'h1', name: 'House', value: 1200 }])
   })
 
+  it("measures the first year's FI percent and runway on a year of its outflows", () => {
+    // docs/product/projections.md, worked example 13.
+    const rent: Expense = {
+      id: 'exp1',
+      name: 'Rent',
+      amount: 1000,
+      schedule: 'recurring',
+      frequency: 'monthly',
+      start: 'immediately',
+      end: 'never',
+      change_over_time: 'none',
+    }
+    const result = project(plan, makeProfile({ cash_amount: 120_000, expenses: [rent] }))
+    // November and December 2026 cost 2,000, a level of 12,000 a year.
+    expect(result[0].portfolioValue).toBe(118_000)
+    expect(result[0].runwayYears).toBeCloseTo(118_000 / 12_000, 6)
+    expect(result[0].fiPercent).toBeCloseTo((118_000 / 300_000) * 100, 6)
+    expect(result[1].runwayYears).toBeCloseTo(106_000 / 12_000, 6)
+    expect(result[1].fiPercent).toBeCloseTo((106_000 / 300_000) * 100, 6)
+  })
+
   it('does not warn about a flow that simply ended before the plan starts', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     project(

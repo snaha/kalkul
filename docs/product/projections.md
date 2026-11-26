@@ -290,6 +290,8 @@ nothing before the start month is paid or received again.
   is rejected in the dialogs, since it would never happen.
 - Property tax is a year's tax: the first year pays the share for its
   months.
+- FI % and runway are measured on a year's outflows, so the first year's
+  outflows are scaled to twelve months: × 12 / the months in the year.
 
 ### Inflation counts months
 
@@ -400,6 +402,14 @@ rather than papering over it.
     year's ten months. A one-time expense dated March of the first year never
     happens.
 
+13. **FI % and runway in a first year of two months.** A plan that starts in
+    November opens with 120,000 of cash and pays rent of 1,000 a month, with
+    no inflation. The first year pays 2,000 and ends with a portfolio value
+    of 118,000. Its outflows count as 2,000 × 12 / 2 = 12,000 a year: runway
+    118,000 / 12,000 = 9.8 years, and at the default 4% FI % is 118,000 /
+    300,000 = 39%. The next year pays 12,000 and ends at 106,000: runway 8.8
+    years, FI % 35%.
+
 ## Open questions
 
 - The Figma frame for the right sidebar's Fees and taxes group also has an
@@ -412,6 +422,9 @@ rather than papering over it.
 - Balances do not grow in the first year: an investment is first compounded,
   by a whole year, in the second. A first year of a few months has their
   flows but none of their growth.
+- The change badges compare a first year of a few months with the full year
+  after it, so a steady salary reads as "Income +500%" in the second year of
+  a plan that starts in November.
 
 - The Figma frames for both sidebars show a "Missing funds" message once the
   projection has stopped at its first error: a panel that replaces the
