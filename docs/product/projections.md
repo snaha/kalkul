@@ -392,7 +392,8 @@ rather than papering over it.
 - The Figma frames for both sidebars show a "Missing funds" message once the
   projection has stopped at its first error: a panel that replaces the
   sections on the right, a summary above the sections on the left. The engine
-  does not stop at an error today; that is #67.
+  now stops at a loan it cannot pay, and the page says so above the chart; the
+  panel and the summary of the frames are not built (#67).
 
 ## Where this lives in the code
 

@@ -3996,6 +3996,8 @@ describe('per-item cash flows and portfolio value of a year', () => {
     )
     expect(result[0].netWorth).toBeCloseTo(2_450_000, 6)
     expect(result[0].portfolioValue).toBeCloseTo(450_000, 6)
+  })
+})
 
 describe('installments the plan cannot afford (#334)', () => {
   /** 1,000 at 0 %, 250 a year for four years. */
@@ -4035,6 +4037,15 @@ describe('installments the plan cannot afford (#334)', () => {
     expect(result.map((r) => r.liabilities)).toEqual([750, 500, 400])
     expect(result.map((r) => r.insufficientFundLiabilityIds)).toEqual([[], [], ['l1']])
     expect(projectionStopYear(result)).toBe(2027)
+  })
+
+  it("lists in the year's cash flow only what each loan was paid", () => {
+    const result = project(makePlan(), makeProfile({ cash_amount: 600, liabilities: [loan] }))
+    expect(result[1].installmentsByItem).toEqual([{ id: 'l1', name: 'Loan', value: 250 }])
+    // 2027 is due 250 and pays the 100 that is there.
+    expect(result[2].installmentsByItem).toEqual([{ id: 'l1', name: 'Loan', value: 100 }])
+    expect(result[2].totalInstallments).toBe(100)
+    expect(result[2].cashFlow).toBe(-100)
   })
 
   it('stops even when later income would have caught up', () => {
