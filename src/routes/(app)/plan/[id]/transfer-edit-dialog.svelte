@@ -171,8 +171,8 @@
           !ageRangeEmpty(form.start, form.start_age, form.end, form.end_age))),
   )
 
-  // The APY the tax estimate runs on, when the source is an investment.
-  const sourceApy = $derived(plan.investments.find((i) => i.id === form.from_asset_id)?.apy)
+  // Only an investment has a gain to tax.
+  const sourceIsInvestment = $derived(plan.investments.some((i) => i.id === form.from_asset_id))
   const taxRateValid = $derived(
     !form.deduct_tax || ((form.tax_rate ?? 0) >= 0 && (form.tax_rate ?? 0) <= 100),
   )
@@ -192,7 +192,7 @@
     if (!amountAndTimingValid || !taxRateValid || form.transfer_all) return undefined
     if (form.schedule === 'one_time' && !form.inflation_adjusted && !form.deduct_tax)
       return undefined
-    return summarizeTransfer(transferFromFields(form), plan, appStore.profile.birth_date)
+    return summarizeTransfer(transferFromFields(form), plan.toJSON(), appStore.profile.toJSON())
   })
 </script>
 
@@ -451,7 +451,7 @@
   <!-- Deduct estimated tax (frames 1340, 1344 and 1345): the switch on its
        own row after the timing, and the rate with its note once it is on.
        Only an investment has a gain to tax, so cash gets no switch. -->
-  {#if sourceApy !== undefined}
+  {#if sourceIsInvestment}
     <!-- Frame 1386: a line sets the switch apart from the Timeline section. -->
     {#if imported}<Separator />{/if}
     <label class="flex cursor-pointer items-center gap-2">
@@ -472,9 +472,7 @@
           />
         </div>
         <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">
-          {$_('page.plan.taxRateOnGainDescriptionApy', {
-            values: { apy: appStore.formatNumber(sourceApy) },
-          })}
+          {$_('page.plan.taxRateOnGainDescription')}
         </p>
       </div>
     {/if}

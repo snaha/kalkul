@@ -18,6 +18,7 @@ function year(
     tangibleAssets: 0,
     liabilities: 0,
     investmentsByItem: [],
+    costBasisByItem: [],
     tangibleAssetsByItem: [],
     liabilitiesByItem: [],
     totalIncome: 0,
