@@ -44,7 +44,7 @@ const env = vi.hoisted(() => {
   return env
 })
 
-vi.mock('$app/environment', () => ({ browser: true }))
+vi.mock('$app/env', () => ({ browser: true }))
 
 vi.mock('./persistence', () => ({
   load: async (key: string) => {
