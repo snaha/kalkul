@@ -283,9 +283,12 @@ describe('snapshotFromFields', () => {
     expect(result.incomes).toEqual([{ id: 'i1', amount: 5_000, frequency: 'monthly' }])
   })
 
-  describe('on a snapshot whose cash flows were never recorded', () => {
+  describe('on an older snapshot whose cash flows were never recorded', () => {
+    // The newest row opens at the profile's flows and records them, so the
+    // unrecorded row needs a newer one after it.
     const { incomes: _incomes, expenses: _expenses, ...unrecorded } = SOURCE
-    const history: Profile = { ...PROFILE, snapshots: [unrecorded] }
+    const newer = captureSnapshot(PROFILE, '2026-08-01')
+    const history: Profile = { ...PROFILE, snapshots: [unrecorded, newer] }
     const ownDate = buildSnapshotSections(history, unrecorded, '2026-06-01')
 
     test('keeps them unrecorded when only another section is edited', () => {

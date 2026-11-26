@@ -565,13 +565,23 @@ describe('withSavedSnapshot', () => {
     const added: Snapshot = {
       ...JUN,
       date: '2026-08-01',
-      expenses: [{ id: 'e1', amount: 600, frequency: 'weekly' }],
+      expenses: [{ id: 'e1', amount: 2_400, frequency: 'monthly' }],
     }
     expect(withSavedSnapshot(HISTORY, added).expenses?.[0]).toEqual({
       ...PROFILE.expenses![0],
-      amount: 600,
-      frequency: 'weekly',
+      amount: 2_400,
     })
+  })
+
+  test('writes the cash flows of an older snapshot re-dated past the latest onto the profile', () => {
+    const redated: Snapshot = {
+      ...JAN,
+      date: '2026-08-01',
+      incomes: [{ id: 'i1', amount: 4_100, frequency: 'monthly' }],
+    }
+    const saved = withSavedSnapshot(HISTORY, redated, '2026-01-01')
+    expect(saved.snapshots?.map((s) => s.date)).toEqual(['2026-06-01', '2026-08-01'])
+    expect(saved.incomes?.[0]).toEqual({ ...PROFILE.incomes![0], amount: 4_100 })
   })
 
   test('leaves the cash flows alone when an older snapshot is saved', () => {

@@ -44,8 +44,9 @@ January records a salary of 3,000 a month and June 4,000. The user then raises
 it to 5,000 in Financial data; no snapshot is recorded.
 
 - Editing June opens the salary at 5,000. Confirm untouched: June records 5,000,
-  the profile keeps 5,000. History now shows June's Financial independence
-  measured against 5,000, as if the raise were in by June.
+  the profile keeps 5,000. History now shows the raise as in by June. A rent
+  increase entered the same way would also move June's Financial independence,
+  which counts expenses but not income.
 - Editing June and typing 5,500: June records 5,500 and the profile becomes
   5,500.
 - Re-dating June to 1 March keeps it the newest: it still opens at 5,000.
@@ -56,6 +57,9 @@ it to 5,000 in Financial data; no snapshot is recorded.
   survives. Dated 1 March, the same duplicate is behind June and opens at
   January's 3,000.
 - Editing January opens at 3,000, and saving it leaves the profile at 5,000.
+- Correcting January's salary to 3,100 and then re-dating the row to 1 August,
+  past June, in the same dialog: the typed 3,100 is kept, the row is saved as
+  the newest, and the profile becomes 3,100 over the 5,000 raise.
 - Deleting June rewinds balances to January's but leaves the salary at 5,000.
 
 ## Open questions
@@ -63,9 +67,14 @@ it to 5,000 in Financial data; no snapshot is recorded.
 - Should the newest row's cash flows stay history, opening at what it recorded
   and writing only typed fields onto the profile? That keeps June at 4,000 in
   the first example, at the cost of the newest row showing a figure the
-  dashboard no longer runs on.
+  dashboard no longer runs on, and of a typed field overwriting a profile
+  figure it does not show. A variant opens at what the row recorded, shows the
+  profile's figure beside it, and asks whether to update Financial data.
 - Should the dialog say that saving the newest row changes the profile's
-  incomes and expenses?
+  incomes and expenses? Tracked in #493.
+- Should a figure typed as a correction of an older row still reach the profile
+  when the row is re-dated past the newest in the same dialog, as in the
+  January example?
 
 ## In the code
 
