@@ -24,7 +24,7 @@ The dependency is one-way: projections read financial data, they never write it.
 | Down payment       | Down payment                 | `down_payment` on a tangible asset added in a projection        |
 | Imported           | "Local override"             | an item whose id is in its list in `base`, `isImportedPlanItem` |
 | Birth month        | Date of birth, in Settings   | `Profile.birth_date`, a month and a year                        |
-| Cost basis         | not shown                    | `costBasisNominal` in `simulatePlan`                            |
+| Cost basis         | not shown                    | `costBasisNominal` in `simulatePlan`, `costBasisByItem`         |
 
 ## Rules
 

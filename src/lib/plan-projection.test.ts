@@ -4612,6 +4612,24 @@ describe('the cost basis of an investment (average cost, #495)', () => {
     expect(result[2].transfersByItem.find((t) => t.id === 'sell')?.value).toBeCloseTo(1030.4, 2)
   })
 
+  it('reports what is left of each cost basis at the end of the year', () => {
+    const result = project(
+      makePlan(),
+      makeProfile({
+        cash_amount: 10_000,
+        investments: [{ id: 'inv1', name: 'Fund', balance: 1000, apy: 100 }],
+        transfers: [
+          once('buy', 'cash', 'inv1', 1000, 2025, 12),
+          once('untaxed', 'inv1', 'cash', 1000, 2026, 1),
+        ],
+      }),
+    )
+    expect(result[0].costBasisByItem).toEqual([{ id: 'inv1', name: 'Fund', value: 2000 }])
+    // January 2026 takes 1,000 out of a balance of 1000 × 2^(13/12) + 1000 × 2^(1/12).
+    const balance = 1000 * grown(100, 13) + 1000 * grown(100, 1)
+    expect(result[1].costBasisByItem[0].value).toBeCloseTo(2000 * (1 - 1000 / balance), 6)
+  })
+
   it('taxes nothing on a loss', () => {
     const result = project(
       makePlan(),

@@ -70,6 +70,8 @@ export interface YearlyProjection {
   liabilities: number
   netWorth: number
   investmentsByItem: YearlyProjectionItem[]
+  /** What was paid into each investment and is still in it (#495), in today's money. */
+  costBasisByItem: YearlyProjectionItem[]
   tangibleAssetsByItem: YearlyProjectionItem[]
   liabilitiesByItem: YearlyProjectionItem[]
   totalIncome: number
@@ -1837,6 +1839,12 @@ function simulatePlan(
       value: clampNonNeg((invBalancesNominal.get(inv.id) ?? DECIMAL_0).div(deflationFactor)),
     }))
 
+    const costBasisByItem: YearlyProjectionItem[] = investments.map((inv) => ({
+      id: inv.id,
+      name: inv.name,
+      value: clampNonNeg((costBasisNominal.get(inv.id) ?? DECIMAL_0).div(deflationFactor)),
+    }))
+
     const tangibleAssetsByItem: YearlyProjectionItem[] = tangibleAssets.map((asset) => ({
       id: asset.id,
       name: asset.name,
@@ -1912,6 +1920,7 @@ function simulatePlan(
       liabilities: clampNonNeg(liabilitiesReal),
       netWorth: netWorth.toNumber(),
       investmentsByItem,
+      costBasisByItem,
       tangibleAssetsByItem,
       liabilitiesByItem,
       totalIncome: incomesReal.toNumber(),
