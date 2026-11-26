@@ -820,10 +820,11 @@ export const snapshotSchema = z.object({
       }),
     )
     .optional(),
-  // Recurring cash flows as they stood on the date. Both the amount and the
-  // frequency are recorded: a salary that went from 4,000 monthly to 48,000
-  // yearly is the same money, and the History page would otherwise show it as a
-  // twelvefold raise.
+  // Recurring cash flows as they stood on the date. On the newest snapshot they
+  // are the profile's as of its last save (`withSavedSnapshot`). Both the
+  // amount and the frequency are recorded: a salary that went from 4,000
+  // monthly to 48,000 yearly is the same money, and the History page would
+  // otherwise show it as a twelvefold raise.
   incomes: z
     .array(z.object({ id: z.string(), amount: z.number(), frequency: frequencySchema }))
     .optional(),

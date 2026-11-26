@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { decimalSeparatorOf, formatNumberInput, parseNumberInput } from './parse-number-input'
+import {
+  decimalSeparatorOf,
+  formatNumberInput,
+  numberDraft,
+  parseNumberInput,
+} from './parse-number-input'
 import { formatNumber } from './utils'
 
 const enFormat = (n: number) => formatNumber(n, 'en')
@@ -97,5 +102,19 @@ describe('formatNumberInput', () => {
     expect(formatNumberInput(1234.56, enFormat)).toBe('1,234.56')
     expect(formatNumberInput(undefined, enFormat)).toBe('')
     expect(formatNumberInput(Number.NaN, enFormat)).toBe('')
+  })
+})
+
+describe('numberDraft', () => {
+  it('writes the number with the given decimal separator', () => {
+    expect(numberDraft(1234.5, '.')).toBe('1234.5')
+    expect(numberDraft(1234.5, ',')).toBe('1234,5')
+    expect(numberDraft(1234, ',')).toBe('1234')
+  })
+
+  it('parses back to the same number', () => {
+    expect(parseNumberInput(numberDraft(12.125, ','), ',')).toBe(12.125)
+    expect(parseNumberInput(numberDraft(1234.567, ','), ',')).toBe(1234.567)
+    expect(parseNumberInput(numberDraft(1234.567, '.'), '.')).toBe(1234.567)
   })
 })

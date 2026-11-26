@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 
 import { getCurrentProfile } from '$lib/current-values'
 import type { Profile, Snapshot } from '$lib/schemas'
-import { captureSnapshot } from '$lib/snapshots'
+import { captureSnapshot, withSavedSnapshot } from '$lib/snapshots'
 import { parseDateOnly } from '$lib/utils'
 
 import {
@@ -143,15 +143,13 @@ describe('buildSnapshotSections', () => {
   })
 
   test('opens a cash flow the snapshot has no entry for at zero', () => {
-    // One meaning for an omission everywhere: nothing recorded. The frequency
-    // still comes from the profile — a field opening at zero has to carry some
-    // cadence in its suffix.
-    //
-    // This holds on the newest snapshot's own date too, where the estimate runs
-    // on the profile's flows: a salary entered since records nothing, and an
-    // untouched Confirm must not write it onto a day it was not recorded for.
+    // One meaning for an omission everywhere: nothing recorded. That holds on
+    // a row that is not the newest; the newest opens at the profile's flows.
+    // The frequency still comes from the profile — a field opening at zero has
+    // to carry some cadence in its suffix.
     const partial: Snapshot = { ...SOURCE, incomes: [] }
-    const history: Profile = { ...PROFILE, snapshots: [partial] }
+    const newer = captureSnapshot(PROFILE, '2026-09-01')
+    const history: Profile = { ...PROFILE, snapshots: [partial, newer] }
     expect(
       fieldsOf(buildSnapshotSections(history, partial, '2026-06-01'), 'incomes')[0],
     ).toMatchObject({ value: 0, frequency: 'monthly' })
@@ -285,9 +283,12 @@ describe('snapshotFromFields', () => {
     expect(result.incomes).toEqual([{ id: 'i1', amount: 5_000, frequency: 'monthly' }])
   })
 
-  describe('on a snapshot whose cash flows were never recorded', () => {
+  describe('on an older snapshot whose cash flows were never recorded', () => {
+    // The newest row opens at the profile's flows and records them, so the
+    // unrecorded row needs a newer one after it.
     const { incomes: _incomes, expenses: _expenses, ...unrecorded } = SOURCE
-    const history: Profile = { ...PROFILE, snapshots: [unrecorded] }
+    const newer = captureSnapshot(PROFILE, '2026-08-01')
+    const history: Profile = { ...PROFILE, snapshots: [unrecorded, newer] }
     const ownDate = buildSnapshotSections(history, unrecorded, '2026-06-01')
 
     test('keeps them unrecorded when only another section is edited', () => {
@@ -386,6 +387,94 @@ describe('seedSnapshotOn', () => {
     expect(seed).toEqual(
       captureSnapshot(getCurrentProfile(raised, parseDateOnly('2026-09-01')), '2026-09-01'),
     )
+  })
+})
+
+describe('a snapshot saved as the newest', () => {
+  const salary = (amount: number) => ({ ...PROFILE.incomes![0], amount })
+  const JAN = captureSnapshot({ ...PROFILE, incomes: [salary(3_000)] }, '2026-01-01')
+  const JUN = captureSnapshot({ ...PROFILE, incomes: [salary(4_000)] }, '2026-06-01')
+  const raised: Profile = { ...PROFILE, incomes: [salary(5_000)], snapshots: [JAN, JUN] }
+
+  const salaryShown = (source: Snapshot, date: string, originalDate?: string) =>
+    fieldsOf(buildSnapshotSections(raised, source, date, originalDate), 'incomes')[0].value
+
+  /** What the dialog's Confirm saves, with `edits` typed into its fields. */
+  function save(
+    profile: Profile,
+    source: Snapshot,
+    date: string,
+    originalDate?: string,
+    edits: Record<string, number> = {},
+  ): Profile {
+    const sections = buildSnapshotSections(profile, source, date, originalDate)
+    const saved = snapshotFromFields(source, sections, edits, date)
+    return withSavedSnapshot(profile, saved, originalDate)
+  }
+  const recordedOn = (profile: Profile, date: string) =>
+    profile.snapshots?.find((snapshot) => snapshot.date === date)
+
+  test('opens the cash flows of the newest row at the ones running now', () => {
+    expect(salaryShown(JUN, '2026-06-01', '2026-06-01')).toBe(5_000)
+  })
+
+  test('opens them there on a date that keeps the row the newest', () => {
+    expect(salaryShown(JUN, '2026-03-01', '2026-06-01')).toBe(5_000)
+  })
+
+  test('opens an older row moved past the newest at the ones running now', () => {
+    expect(salaryShown(JAN, '2026-07-01', '2026-01-01')).toBe(5_000)
+  })
+
+  test('opens a copy dated after the newest at the ones running now', () => {
+    expect(salaryShown({ ...JAN, date: '2026-07-01' }, '2026-07-01')).toBe(5_000)
+  })
+
+  test('opens an older row at what it recorded', () => {
+    expect(salaryShown(JAN, '2026-01-01', '2026-01-01')).toBe(3_000)
+  })
+
+  test('opens the newest row moved behind another at what it recorded', () => {
+    expect(salaryShown(JUN, '2025-12-01', '2026-06-01')).toBe(4_000)
+  })
+
+  test('opens a copy dated before its original at what it recorded', () => {
+    expect(salaryShown({ ...JUN, date: '2026-03-01' }, '2026-03-01')).toBe(4_000)
+  })
+
+  test('records the cash flows running now and keeps them on the profile', () => {
+    const saved = save(raised, JUN, '2026-06-01', '2026-06-01')
+    expect(saved.incomes?.[0].amount).toBe(5_000)
+    expect(recordedOn(saved, '2026-06-01')?.incomes?.[0].amount).toBe(5_000)
+  })
+
+  test('keeps a raise when an older row is duplicated past the newest', () => {
+    const saved = save(raised, { ...JAN, date: '2026-08-01' }, '2026-08-01')
+    expect(saved.incomes?.[0].amount).toBe(5_000)
+    expect(recordedOn(saved, '2026-08-01')?.incomes?.[0].amount).toBe(5_000)
+  })
+
+  test('writes a typed cash flow onto the profile', () => {
+    const edits = { 'incomes:i1': 5_500 }
+    const saved = save(raised, JUN, '2026-06-01', '2026-06-01', edits)
+    expect(saved.incomes?.[0].amount).toBe(5_500)
+    expect(recordedOn(saved, '2026-06-01')?.incomes?.[0].amount).toBe(5_500)
+  })
+
+  test('leaves the profile alone when the row moves behind another', () => {
+    const edits = { 'incomes:i1': 4_100 }
+    const saved = save(raised, JUN, '2025-12-01', '2026-06-01', edits)
+    expect(saved.incomes?.[0].amount).toBe(5_000)
+    expect(recordedOn(saved, '2025-12-01')?.incomes?.[0].amount).toBe(4_100)
+  })
+
+  test('keeps an entry recorded for a cash flow the profile has since lost', () => {
+    const ghost = { id: 'e-gone', amount: 500, frequency: 'monthly' as const }
+    const recorded: Snapshot = { ...JUN, expenses: [...(JUN.expenses ?? []), ghost] }
+    const history: Profile = { ...raised, snapshots: [JAN, recorded] }
+    const saved = save(history, recorded, '2026-06-01', '2026-06-01')
+    expect(recordedOn(saved, '2026-06-01')?.expenses).toContainEqual(ghost)
+    expect(saved.expenses).toEqual(PROFILE.expenses)
   })
 })
 
