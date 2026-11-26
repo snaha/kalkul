@@ -102,6 +102,7 @@
       "openingCash": "Hotovost na začátku této projekce",
       "outdated": "Vaše finanční data se od vytvoření této projekce změnila, takže čísla nemusí být aktuální.",
       "outdatedDismiss": "Rozumím",
+      "stopped": "Projekce končí v roce {year}: na splátky není dost hotovosti ({loans}).",
       "transferFromLabel": "Odkud",
       "transferToLabel": "Kam",
       "transferLabelLabel": "Popisek",

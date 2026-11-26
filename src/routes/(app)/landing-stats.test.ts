@@ -11,6 +11,7 @@ function year(
     insufficientFundTransferIds?: string[]
     insufficientFundAssetIds?: string[]
     insufficientFundExpenseIds?: string[]
+    insufficientFundLiabilityIds?: string[]
   },
 ): YearlyProjection {
   return {
@@ -35,6 +36,7 @@ function year(
     insufficientFundTransferIds: [],
     insufficientFundAssetIds: [],
     insufficientFundExpenseIds: [],
+    insufficientFundLiabilityIds: [],
     ...value,
   }
 }

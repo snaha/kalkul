@@ -245,7 +245,7 @@ interface AmortizedLoan {
 
 /**
  * A liability after `yearFraction` of a year of payments, amortized on the same
- * terms `simulateLiability` uses in the projection: each whole installment
+ * terms `loanYear` uses in the projection: each whole installment
  * period that fits in the window adds the period's interest and takes one
  * installment off, floored at zero, with the loan's final scheduled installment
  * settling whatever is left (the same balloon the projection pays, so a loan

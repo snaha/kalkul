@@ -28,7 +28,14 @@
   import { getCurrentProfile } from '$lib/current-values'
   import { DEMO_PLAN_ID } from '$lib/demo'
   import { isPlanOutdated, snapshotFinancialData } from '$lib/plan-base'
-  import { followsInflation, getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
+  import {
+    financingLiabilityId,
+    followsInflation,
+    getYearlyPlanProjection,
+    projectionStopYear,
+    yearOf,
+  } from '$lib/plan-projection'
+  import { projectionBars } from '$lib/projection-bars'
   import routes from '$lib/routes'
   import type {
     Expense,
@@ -229,7 +236,7 @@
   // Clamp selected year to valid range when portfolio changes
   $effect(() => {
     if (selectedYear < startYear) selectedYear = startYear
-    if (selectedYear > endYear) selectedYear = endYear
+    if (selectedYear > lastProjectedYear) selectedYear = lastProjectedYear
   })
 
   // The plan's own items, the same the engine sees. Nothing until the plan
@@ -239,6 +246,21 @@
   }
   // Yearly projection (real / inflation-adjusted values)
   const projection = $derived(plan ? getYearlyPlanProjection(plan, profile) : [])
+  // A projection ends early in the year cash cannot pay a loan
+  // (docs/product/projections.md). Nothing is projected after that year, so
+  // nothing after it can be selected.
+  const stopYear = $derived(projectionStopYear(projection))
+  const lastProjectedYear = $derived(projection.at(-1)?.year ?? endYear)
+  // The loans that stopped it, named as the liabilities breakdown names them.
+  const stoppedByLoans = $derived.by(() => {
+    const last = projection.at(-1)
+    if (stopYear === undefined || last === undefined) return ''
+    const unpaid = new Set(last.insufficientFundLiabilityIds)
+    return last.liabilitiesByItem
+      .filter((item) => unpaid.has(item.id))
+      .map((item) => item.name)
+      .join(', ')
+  })
 
   // Union of per-year warning IDs — a transfer or expense that fails in any
   // year of the plan is surfaced in the sidebar with a destructive badge.
@@ -249,6 +271,11 @@
     new Set(projection.flatMap((p) => p.insufficientFundExpenseIds)),
   )
   const failingAssetIds = $derived(new Set(projection.flatMap((p) => p.insufficientFundAssetIds)))
+  // Loans the plan could not pay in full in some year; the loan behind a
+  // financed asset is listed under `financingLiabilityId` of that asset.
+  const failingLiabilityIds = $derived(
+    new Set(projection.flatMap((p) => p.insufficientFundLiabilityIds)),
+  )
 
   // First year with any insufficient-funds warning. The chart marks this year
   // with a destructive triangle so the user can jump to the source of the
@@ -258,7 +285,8 @@
       (p) =>
         p.insufficientFundTransferIds.length > 0 ||
         p.insufficientFundExpenseIds.length > 0 ||
-        p.insufficientFundAssetIds.length > 0,
+        p.insufficientFundAssetIds.length > 0 ||
+        p.insufficientFundLiabilityIds.length > 0,
     )?.year,
   )
 
@@ -364,7 +392,8 @@
           rows: listOf('tangible_assets').map((a) => ({
             id: a.id,
             name: a.name,
-            hasInsufficientFunds: failingAssetIds.has(a.id),
+            hasInsufficientFunds:
+              failingAssetIds.has(a.id) || failingLiabilityIds.has(financingLiabilityId(a.id)),
             onClick: editing(() => openAssetEditDialog({ kind: 'tangibleAsset', initial: a })),
           })),
         },
@@ -376,6 +405,7 @@
           rows: listOf('liabilities').map((l) => ({
             id: l.id,
             name: l.name,
+            hasInsufficientFunds: failingLiabilityIds.has(l.id),
             onClick: editing(() => openLiabilityEditDialog(l)),
           })),
         },
@@ -447,24 +477,20 @@
   })
 
   // Chart data derived from the yearly projection (real / inflation-adjusted values)
-  const chartData = $derived<BarData[]>(
-    projection.map((p) => ({
-      year: p.year,
-      cash: p.cash,
-      investments: p.investments,
-      tangibleAssets: p.tangibleAssets,
-      liabilities: p.liabilities,
-    })),
-  )
+  // Padded to the plan's end: a projection that stopped early keeps its time
+  // axis and the years it never reached stay empty.
+  const chartData = $derived<BarData[]>(projectionBars(projection, endYear))
 
   function handleYearClick(year: number) {
+    if (year > lastProjectedYear) return
     selectedYear = year
     isPanelOpen = true
   }
 
   function handleYearHover(year: number | undefined, position?: HoverPosition) {
-    hoveredYear = year
-    hoverPosition = position
+    const projected = year !== undefined && year <= lastProjectedYear
+    hoveredYear = projected ? year : undefined
+    hoverPosition = projected ? position : undefined
   }
 </script>
 
@@ -555,6 +581,16 @@
         </Button>
       </div>
 
+      {#if stopYear !== undefined}
+        <div
+          role="alert"
+          class="flex items-center gap-2 border-b bg-destructive/10 px-4 py-2 text-sm text-destructive"
+        >
+          <TriangleAlert class="size-4 shrink-0" />
+          {$_('page.plan.stopped', { values: { year: stopYear, loans: stoppedByLoans } })}
+        </div>
+      {/if}
+
       <!-- Chart -->
       <div
         bind:this={chartContainerRef}
@@ -606,7 +642,7 @@
         {projection}
         bind:selectedYear
         {startYear}
-        {endYear}
+        endYear={lastProjectedYear}
         age={currentAge}
         opener={(id) => itemOpeners.get(id)}
       />

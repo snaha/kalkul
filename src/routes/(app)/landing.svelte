@@ -1,11 +1,11 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
 
-  import type { BarData } from '$lib/components/stacked-bar-chart.svelte'
   import { Separator } from '$lib/components/ui/separator'
   import { buildCurrentProjectionPlan } from '$lib/current-projection'
   import { getDefaultPlanDates } from '$lib/plan-defaults'
-  import { type YearlyProjection, getYearlyPlanProjection } from '$lib/plan-projection'
+  import { getYearlyPlanProjection } from '$lib/plan-projection'
+  import { projectionBars } from '$lib/projection-bars'
   import { appStore } from '$lib/stores/app.svelte'
 
   import LandingCompare from './landing-compare.svelte'
@@ -52,16 +52,7 @@
   )
   const planYears = $derived(getYearlyPlanProjection(savedPlan, profile))
 
-  const toBars = (years: YearlyProjection[]): BarData[] =>
-    years.map((year) => ({
-      year: year.year,
-      cash: year.cash,
-      investments: year.investments,
-      tangibleAssets: year.tangibleAssets,
-      liabilities: year.liabilities,
-    }))
-
-  const currentBars = $derived(toBars(currentYears))
+  const currentBars = $derived(projectionBars(currentYears))
 
   // The comparison runs to the headline age only: the same horizon on both
   // cards, and few enough bars that a card-sized chart still reads as bars
@@ -154,9 +145,9 @@
       </div>
       <div>
         <LandingCompare
-          currentBars={toBars(currentCompareYears)}
+          currentBars={projectionBars(currentCompareYears)}
           {currentStats}
-          planBars={toBars(planYears)}
+          planBars={projectionBars(planYears, compareEndYear)}
           {planStats}
           {planUnfundedYear}
           planName={savedPlan.name}

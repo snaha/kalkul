@@ -8,12 +8,12 @@
   import plansIllustration from '$lib/assets/plans-illustration.svg'
   import AddProjectionDialog from '$lib/components/add-projection-dialog.svelte'
   import ProjectionThumbnail from '$lib/components/projection-thumbnail.svelte'
-  import type { BarData } from '$lib/components/stacked-bar-chart.svelte'
   import { Badge } from '$lib/components/ui/badge'
   import { Button } from '$lib/components/ui/button'
   import * as Card from '$lib/components/ui/card'
   import { CURRENT_PROJECTION_ID, buildCurrentProjectionPlan } from '$lib/current-projection'
-  import { type YearlyProjection, getYearlyPlanProjection } from '$lib/plan-projection'
+  import { getYearlyPlanProjection, yearOf } from '$lib/plan-projection'
+  import { projectionBars } from '$lib/projection-bars'
   import routes from '$lib/routes'
   import type { Portfolio, Profile } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
@@ -31,22 +31,13 @@
   let addProjectionOpen = $state(false)
   const hasPlans = $derived(appStore.portfolios.length > 0)
 
-  const toBars = (years: YearlyProjection[]): BarData[] =>
-    years.map((year) => ({
-      year: year.year,
-      cash: year.cash,
-      investments: year.investments,
-      tangibleAssets: year.tangibleAssets,
-      liabilities: year.liabilities,
-    }))
-
   // "Current projection" is derived, not stored: the user's finances carried
   // forward with nothing changed.
-  const currentProjection = $derived(
-    hasFinancialData
-      ? toBars(getYearlyPlanProjection(buildCurrentProjectionPlan(profile, today), profile))
-      : [],
-  )
+  const currentProjection = $derived.by(() => {
+    if (!hasFinancialData) return []
+    const plan = buildCurrentProjectionPlan(profile, today)
+    return projectionBars(getYearlyPlanProjection(plan, profile), yearOf(plan.end_date))
+  })
 
   // Precomputed rather than called from the template: each entry runs a full
   // multi-decade projection, which must not re-run on unrelated re-renders.
@@ -57,7 +48,9 @@
         id: plan.id,
         name: plan.name,
         notes: plan.notes,
-        bars: toBars(getYearlyPlanProjection(plan, profile)),
+        // Padded to the plan's end, so a projection that stopped at a loan it
+        // could not pay shows the gap instead of stretching to fill the card.
+        bars: projectionBars(getYearlyPlanProjection(plan, profile), yearOf(plan.end_date)),
       }
     }),
   )
