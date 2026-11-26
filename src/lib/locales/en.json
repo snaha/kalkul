@@ -119,7 +119,7 @@
       "transferAuto": "Auto",
       "deductTax": "Deduct estimated tax",
       "taxRateOnGain": "Tax rate on gain",
-      "taxRateOnGainDescriptionApy": "Applied to a rough estimate of the gain, based on the investment’s APY ({apy}%).",
+      "taxRateOnGainDescription": "Applied to the gain: the share of the investment’s balance beyond what was paid in.",
       "adjustForInflation": "Adjust for inflation",
       "adjustForInflationDescription": "Grows the amount each year by the projection's inflation rate, so it keeps its real value over time.",
       "totalExpenseRatio": "Total expense ratio",

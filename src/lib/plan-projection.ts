@@ -1045,50 +1045,46 @@ function transferAmountForYear(
 }
 
 /**
- * The share of an investment's balance that is gain after `heldYears` at
- * `apyPercent`: a rough estimate for taxing a withdrawal, since a plan keeps
- * no cost basis. A balance that grew by (1 + r)^n is gain for 1 − (1 + r)^−n
- * of it; nothing in the year it was bought, nothing at a loss.
+ * The share of an investment's balance that is gain: what it holds beyond its
+ * cost basis, what was paid in and is still in it (#495). Nothing at a loss.
  */
-export function estimatedGainShare(apyPercent: number, heldYears: number): Decimal {
-  if (heldYears <= 0 || apyPercent <= 0) return DECIMAL_0
-  return DECIMAL_1.minus(DECIMAL_1.plus(new Decimal(apyPercent).div(100)).pow(-heldYears))
+function gainShareOf(balance: Decimal, costBasis: Decimal): Decimal {
+  if (balance.lessThanOrEqualTo(0)) return DECIMAL_0
+  return Decimal.max(DECIMAL_1.minus(costBasis.div(balance)), DECIMAL_0)
 }
 
 /**
- * The tax a transfer deducts from `amount` on the way out of `source`, held
- * for `heldYears`: nothing unless the transfer asks for it and draws on an
- * investment, since cash has no gain.
+ * The tax a transfer deducts from `amount` on the way out of `source`, of
+ * which `gainShare` is gain: nothing unless the transfer asks for it and draws
+ * on an investment, since cash has no gain.
  */
-export function estimatedTransferTax(
+function estimatedTransferTax(
   transfer: Pick<Transfer, 'deduct_tax' | 'tax_rate'>,
   amount: Decimal,
   source: ProfileInvestment | undefined,
-  heldYears: number,
+  gainShare: Decimal,
 ): Decimal {
   if (!transfer.deduct_tax || !transfer.tax_rate || !source) return DECIMAL_0
-  return amount
-    .mul(estimatedGainShare(source.apy, heldYears))
-    .mul(new Decimal(transfer.tax_rate).div(100))
+  return amount.mul(gainShare).mul(new Decimal(transfer.tax_rate).div(100))
 }
 
 /**
- * What has to leave `source`, held for `heldYears`, so that `net` is left
- * after the estimated tax: the amount the user enters is what they get, the
- * tax is paid on top of it. The gain share is strictly below 1 and the rate
- * at most 100 %, so the divisor never reaches 0.
+ * What has to leave `source`, of which `gainShare` is gain, so that `net` is
+ * left after the estimated tax: the amount the user enters is what they get,
+ * the tax is paid on top of it. The gain share is below 1 while the cost
+ * basis is positive and the rate at most 100 %; a balance that is all gain
+ * taxed at 100 % can deliver nothing, so it is left untaxed rather than
+ * divided by 0.
  */
-export function grossTransferAmount(
+function grossTransferAmount(
   transfer: Pick<Transfer, 'deduct_tax' | 'tax_rate'>,
   net: Decimal,
   source: ProfileInvestment | undefined,
-  heldYears: number,
+  gainShare: Decimal,
 ): Decimal {
   if (!transfer.deduct_tax || !transfer.tax_rate || !source) return net
-  const taxShare = estimatedGainShare(source.apy, heldYears).mul(
-    new Decimal(transfer.tax_rate).div(100),
-  )
-  return net.div(DECIMAL_1.minus(taxShare))
+  const kept = DECIMAL_1.minus(gainShare.mul(new Decimal(transfer.tax_rate).div(100)))
+  return kept.greaterThan(0) ? net.div(kept) : net
 }
 
 export interface TransferSummary {
@@ -1109,30 +1105,21 @@ export interface TransferSummary {
 /**
  * Preview totals for the transfer dialogs: how often a transfer fires within
  * the plan and how much it moves in nominal and in today's money. Reuses the
- * per-year amount the projection itself applies, so the preview and the chart
- * cannot disagree.
+ * per-year amount and the tax the projection itself applies, so the preview
+ * and the chart cannot disagree.
  */
 export function summarizeTransfer(
   transfer: Transfer,
-  plan: Pick<Portfolio, 'start_date' | 'end_date' | 'inflation_rate' | 'investments'>,
-  birthDate: string | undefined,
+  plan: Portfolio,
+  profile: Profile,
 ): TransferSummary {
-  const birth = birthOf(birthDate)
+  const birth = birthOf(profile.birth_date)
   const startYear = yearOf(plan.start_date)
   const endYear = yearOf(plan.end_date)
   const planStart = planStartOf(plan)
-  const source = plan.investments.find((i) => i.id === transfer.from_asset_id)
-  // Held since the same year the engine counts from: the plan start, or a
-  // later planned purchase (`assetWindows` in `getYearlyPlanProjection`).
-  const boughtYear = source
-    ? Math.max(resolveStartYear(investmentToTemporal(source), startYear, birth), startYear)
-    : startYear
   let occurrences = 0
   let nominalTotal = DECIMAL_0
   let realTotal = DECIMAL_0
-  let grossTotal = DECIMAL_0
-  let gainTotal = DECIMAL_0
-  let taxTotal = DECIMAL_0
   for (let year = startYear; year <= endYear; year++) {
     if (!isTransferActiveThisYear(transfer, year, startYear, birth, planStart)) continue
     if (transfer.schedule === 'one_time') {
@@ -1160,21 +1147,32 @@ export function summarizeTransfer(
     )
     nominalTotal = nominalTotal.plus(amount)
     realTotal = realTotal.plus(real)
-    const heldYears = year - boughtYear
-    const gross = grossTransferAmount(transfer, amount, source, heldYears)
-    grossTotal = grossTotal.plus(gross)
-    if (transfer.deduct_tax && source) {
-      gainTotal = gainTotal.plus(gross.mul(estimatedGainShare(source.apy, heldYears)))
-      taxTotal = taxTotal.plus(estimatedTransferTax(transfer, gross, source, heldYears))
-    }
   }
+  // The tax depends on the source's cost basis when each payment is made,
+  // which the whole plan moves, so it is read from the projection itself, run
+  // with the transfer as edited.
+  const untaxed = { grossTotal: nominalTotal.toNumber(), gainTotal: 0, taxTotal: 0 }
+  const taxes = transfer.deduct_tax && plan.investments.some((i) => i.id === transfer.from_asset_id)
+  const totals = taxes
+    ? simulatePlan(
+        {
+          ...plan,
+          transfers: [...plan.transfers.filter((t) => t.id !== transfer.id), transfer],
+        },
+        profile,
+      ).transferTotals.get(transfer.id)
+    : undefined
   return {
     occurrences,
     nominalTotal: nominalTotal.toNumber(),
     realTotal: realTotal.toNumber(),
-    grossTotal: grossTotal.toNumber(),
-    gainTotal: gainTotal.toNumber(),
-    taxTotal: taxTotal.toNumber(),
+    ...(totals
+      ? {
+          grossTotal: totals.gross.toNumber(),
+          gainTotal: totals.gain.toNumber(),
+          taxTotal: totals.tax.toNumber(),
+        }
+      : untaxed),
   }
 }
 
@@ -1330,11 +1328,28 @@ export function applyEntryFee(investment: ProfileInvestment | undefined, amount:
 }
 
 export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): YearlyProjection[] {
+  return simulatePlan(plan, profile).projection
+}
+
+/** What one transfer moved over the whole plan, in nominal amounts. */
+interface TransferTotals {
+  /** What left the source. */
+  gross: Decimal
+  /** The gain inside `gross`, when the transfer deducts tax. */
+  gain: Decimal
+  /** The tax deducted on that gain. */
+  tax: Decimal
+}
+
+function simulatePlan(
+  plan: Portfolio,
+  profile: Profile,
+): { projection: YearlyProjection[]; transferTotals: Map<string, TransferTotals> } {
   const startYear = yearOf(plan.start_date)
   const planStart = planStartOf(plan)
   const endYear = yearOf(plan.end_date)
 
-  if (endYear < startYear) return []
+  if (endYear < startYear) return { projection: [], transferTotals: new Map() }
 
   const birth = birthOf(profile.birth_date)
 
@@ -1443,6 +1458,15 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   const invBalancesNominal = new Map<string, Decimal>(
     investments.map((i) => [i.id, heldAtPlanStart(i.id) ? new Decimal(i.balance) : DECIMAL_0]),
   )
+  // What was paid into each investment and is still in it, for the tax on a
+  // withdrawal (#495), by average cost: money paid in adds to it, a withdrawal
+  // takes out the same share of it as of the balance, growth leaves it alone.
+  // A balance the plan opens with counts as paid in, since its purchase price
+  // is not known. Nominal, never inflation-adjusted: tax is due on the nominal
+  // gain.
+  const costBasisNominal = new Map<string, Decimal>(invBalancesNominal)
+  const gainShare = (id: string): Decimal =>
+    gainShareOf(invBalancesNominal.get(id) ?? DECIMAL_0, costBasisNominal.get(id) ?? DECIMAL_0)
   // A not-yet-purchased asset starts at 0; its synthetic buy (plus the
   // lender-funded part, below) brings it to full value in the purchase month.
   const tangValuesNominal = new Map<string, Decimal>(
@@ -1517,7 +1541,11 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     if (id === CASH_ENDPOINT) {
       cashNominal = cashNominal.minus(amount)
     } else if (invBalancesNominal.has(id)) {
-      invBalancesNominal.set(id, (invBalancesNominal.get(id) ?? DECIMAL_0).minus(amount))
+      const balance = invBalancesNominal.get(id) ?? DECIMAL_0
+      const basis = costBasisNominal.get(id) ?? DECIMAL_0
+      const share = balance.greaterThan(0) ? Decimal.min(amount.div(balance), DECIMAL_1) : DECIMAL_1
+      costBasisNominal.set(id, basis.minus(basis.mul(share)))
+      invBalancesNominal.set(id, balance.minus(amount))
     } else if (tangValuesNominal.has(id)) {
       tangValuesNominal.set(id, (tangValuesNominal.get(id) ?? DECIMAL_0).minus(amount))
     }
@@ -1527,6 +1555,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     if (id === CASH_ENDPOINT) {
       cashNominal = cashNominal.plus(amount)
     } else if (invBalancesNominal.has(id)) {
+      costBasisNominal.set(id, (costBasisNominal.get(id) ?? DECIMAL_0).plus(amount))
       invBalancesNominal.set(id, (invBalancesNominal.get(id) ?? DECIMAL_0).plus(amount))
     } else if (tangValuesNominal.has(id)) {
       tangValuesNominal.set(id, (tangValuesNominal.get(id) ?? DECIMAL_0).plus(amount))
@@ -1548,6 +1577,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     Array.from(map.values()).reduce<Decimal>((sum, v) => sum.plus(v), DECIMAL_0)
 
   const projection: YearlyProjection[] = []
+  const transferTotals = new Map<string, TransferTotals>()
 
   for (let year = startYear; year <= endYear; year++) {
     // What each flow pays in each month of this year. Only what runs in the
@@ -1644,7 +1674,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
             continue
         }
         const source = investmentsById.get(transfer.from_asset_id)
-        const heldYears = year - (assetWindows.get(transfer.from_asset_id)?.startYear ?? startYear)
+        const sourceGainShare = gainShare(transfer.from_asset_id)
         const ownTransfer = plannedStartFor === undefined && !isPlannedSell(transfer)
         if (ownTransfer && !transferMovedReal.has(transfer.id)) {
           transferMovedReal.set(transfer.id, DECIMAL_0)
@@ -1664,7 +1694,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
           // The entered amount is what arrives after the tax, so the source
           // gives up that plus the tax (`grossTransferAmount`).
           const entered = spanMonthAmount(span, planStart, year, month)
-          amount = grossTransferAmount(transfer, entered, source, heldYears)
+          amount = grossTransferAmount(transfer, entered, source, sourceGainShare)
           if (amount.isZero()) continue
           const balance = getBalance(transfer.from_asset_id)
           // The source holds the amount but not the tax on top: sweep it the
@@ -1689,7 +1719,17 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
         withdraw(transfer.from_asset_id, amount)
         if (ownTransfer) addTo(transferMovedReal, transfer.id, amount.div(priceLevel))
         const afterExitFee = applyExitFee(source, amount)
-        const tax = estimatedTransferTax(transfer, amount, source, heldYears)
+        const tax = estimatedTransferTax(transfer, amount, source, sourceGainShare)
+        const totals = transferTotals.get(transfer.id) ?? {
+          gross: DECIMAL_0,
+          gain: DECIMAL_0,
+          tax: DECIMAL_0,
+        }
+        transferTotals.set(transfer.id, {
+          gross: totals.gross.plus(amount),
+          gain: tax.isZero() ? totals.gain : totals.gain.plus(amount.mul(sourceGainShare)),
+          tax: totals.tax.plus(tax),
+        })
         const afterTax = Decimal.max(afterExitFee.minus(tax), DECIMAL_0)
         const net = applyEntryFee(investmentsById.get(transfer.to_asset_id), afterTax)
         addPositive(
@@ -1928,5 +1968,5 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     })
   }
 
-  return projection
+  return { projection, transferTotals }
 }

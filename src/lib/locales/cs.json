@@ -119,7 +119,7 @@
       "transferAuto": "Auto",
       "deductTax": "Odečíst odhadovanou daň",
       "taxRateOnGain": "Daňová sazba ze zisku",
-      "taxRateOnGainDescriptionApy": "Uplatní se na hrubý odhad zisku podle ročního výnosu investice ({apy} %).",
+      "taxRateOnGainDescription": "Uplatní se na zisk: podíl zůstatku investice nad tím, co do ní bylo vloženo.",
       "adjustForInflation": "Upravit podle inflace",
       "adjustForInflationDescription": "Každý rok zvýší částku o inflační míru projekce, aby si zachovala reálnou hodnotu v čase.",
       "totalExpenseRatio": "Celkové roční náklady",

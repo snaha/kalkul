@@ -24,6 +24,7 @@ The dependency is one-way: projections read financial data, they never write it.
 | Down payment       | Down payment                 | `down_payment` on a tangible asset added in a projection        |
 | Imported           | "Local override"             | an item whose id is in its list in `base`, `isImportedPlanItem` |
 | Birth month        | Date of birth, in Settings   | `Profile.birth_date`, a month and a year                        |
+| Cost basis         | not shown                    | `costBasisNominal` in `simulatePlan`                            |
 
 ## Rules
 
@@ -303,6 +304,31 @@ the month it runs from: monthly every month, yearly in every twelfth month.
 A year's balances are those at the end of its December; its flows are the sum
 of its months.
 
+### A transfer is taxed on the gain above what was paid in
+
+A transfer out of an investment that deducts tax pays its tax rate on the
+share of what it takes out that is gain. The gain is what the investment holds
+beyond its cost basis: what was paid into it and is still in it. The cost
+basis follows average cost, the same for every investment and not shown to
+the user:
+
+- A balance the plan opens with counts as paid in, since its purchase price
+  is not known. So does an investment's balance on the month the plan buys it.
+- Money paid in, after any upfront entry fee, adds to the cost basis. Money
+  arriving from another investment counts as paid in at what arrives.
+- Growth adds to the balance and not to the cost basis: that is the gain.
+- A withdrawal takes out the same share of the cost basis as of the balance,
+  taxed or not, so the share that is gain does not change.
+
+The share of a withdrawal that is gain is 1 − cost basis ÷ balance, taken
+before the withdrawal, and 0 when the balance is below its cost basis. The
+amount entered is what arrives: what leaves the source is that amount ÷
+(1 − tax rate × gain share). A "Max" transfer takes everything and the tax
+comes off what arrives. The cost basis is nominal, never adjusted for
+inflation, since tax is due on the nominal gain. The transfer dialog's
+estimate is read from the projection, so it changes with every other flow
+into or out of the source.
+
 ### A projection starts in its start month
 
 A projection's first year has only the months from its start month on. What
@@ -412,9 +438,9 @@ rather than papering over it.
     20 in that year. A transfer named "Sell" that takes 1,000 out of an
     investment and deducts tax takes the tax on top of the 1,000 from the
     investment; that tax is listed as "Sell tax" and comes off the cash flow.
-    With the ETF at 10% and a 15% tax rate, two years in the gain is
-    1 − 1.1⁻² ≈ 17.4% of what is sold, so 1,026.73 leaves the ETF and
-    "Sell tax" reads 26.73.
+    With an ETF that opens at 100,000 at 10% in January 2025 and a 15% tax
+    rate, a sale in January 2027 finds it grown 25 months: 1 − 1.1^(−25/12) ≈
+    18.0% of it is gain, so 1,027.76 leaves the ETF and "Sell tax" reads 27.76.
 11. **Inflation by the month.** A projection starts in November 2026 with 2%
     inflation. A one-time transfer of 100 that adjusts for inflation costs 100
     in November 2026, 100.17 in December 2026, 100.33 in January 2027 and
@@ -438,6 +464,12 @@ rather than papering over it.
     in March 2027 earns from April. A plan holding no cash with rent of 100 a
     month and a one-time income of 1,200 in December flags the rent in
     January: the year adds up, but January's rent cannot be paid.
+14. **What was paid in is not taxed.** A plan starts in January 2025 with an
+    ETF of 10,000 at 7% and pays 500 into it each month of 2025 and 2026.
+    In January 2027 it holds 24,399.79, of which 22,000 was paid in, so
+    9.84% of it is gain. A sale of 1,000 that deducts 30% tax takes 1,030.40
+    out of it, and the tax is 30.40. The cost basis falls by the same share
+    as the balance, 1,030.40 ÷ 24,399.79 of it, to 21,070.94.
 
 ## Open questions
 
@@ -448,6 +480,14 @@ rather than papering over it.
 - A recurring "Max" transfer sweeps on its frequency: a monthly or weekly
   one every month it runs, a yearly one once a year, in its first month that
   year. Which month a yearly payment falls in is part of #490.
+- A balance the plan opens with counts as paid in, so growth before the plan
+  is never taxed. An optional "of which paid in" on the investment would fix
+  that, but needs a Figma frame (#495).
+- The tax is on the gain share of what leaves the source, before the exit fee.
+  Some countries let the exit fee lower the gain (#495).
+- Where FIFO is required (Germany, Hungary) average cost taxes a withdrawal
+  somewhat differently. A country setting could pick the method later,
+  without a user-facing switch (#495).
 - The Figma frames for both sidebars show a "Missing funds" message once the
   projection has stopped at its first error: a panel that replaces the
   sections on the right, a summary above the sections on the left. The engine

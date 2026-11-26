@@ -10,6 +10,29 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-26 A transfer's tax is on the gain above the cost basis, by average cost
+
+**Context.** The tax a transfer deducts was estimated from the source's APY
+and the years the plan had held it, with 1 − (1 + APY)^−years of a withdrawal
+taxed as gain. Money paid in later counted as gain too, and the share taxed
+rose towards 100 % however much was paid in (#495).
+
+**Decision.** Each investment carries a cost basis, by average cost: what is
+paid in adds to it, a withdrawal takes out the same share of it as of the
+balance, and the share of a withdrawal that is gain is 1 − cost basis ÷
+balance. A balance the plan opens with, or buys, counts as paid in. The cost
+basis is nominal. It is the same for every investment and not shown to the
+user. Supersedes the APY estimate.
+
+**Why.** Average cost needs one figure per investment and explains in a
+sentence: "60 % of the balance is gain, so 60 % of each withdrawal is taxed".
+France (weighted average price for securities, pro-rata gain for life
+insurance) and the UK (pooling) use it, and when prices rise it falls between
+FIFO and LIFO, which suits an estimate the user does not steer. The opening
+balance has no known purchase price, so counting it as paid in taxes only the
+gain the plan itself makes; the tax on money that grew before the plan is
+left out.
+
 ## 2026-11-25 The projection runs month by month
 
 **Context.** The projection stepped a year at a time: balances grew once a
