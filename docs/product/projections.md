@@ -485,8 +485,9 @@ rather than papering over it.
   that, but needs a Figma frame (#495).
 - The tax is on the gain share of what leaves the source, before the exit fee.
   Some countries let the exit fee lower the gain (#495).
-- Where FIFO is required (Germany, Hungary) average cost taxes a withdrawal
-  somewhat differently. A country setting could pick the method later,
+- Where FIFO is required (Germany, Spain) or LIFO applies (Italy, outside a
+  broker that withholds the tax) average cost taxes a withdrawal somewhat
+  differently. A country setting could pick the method later,
   without a user-facing switch (#495).
 - The Figma frames for both sidebars show a "Missing funds" message once the
   projection has stopped at its first error: a panel that replaces the

@@ -27,7 +27,8 @@ user. Supersedes the APY estimate.
 **Why.** Average cost needs one figure per investment and explains in a
 sentence: "60 % of the balance is gain, so 60 % of each withdrawal is taxed".
 France (weighted average price for securities, pro-rata gain for life
-insurance) and the UK (pooling) use it, and when prices rise it falls between
+insurance), the UK (pooling) and Austria (moving average) require it, Czechia
+and the US allow it, and when prices rise it falls between
 FIFO and LIFO, which suits an estimate the user does not steer. The opening
 balance has no known purchase price, so counting it as paid in taxes only the
 gain the plan itself makes; the tax on money that grew before the plan is
