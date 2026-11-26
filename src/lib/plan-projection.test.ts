@@ -3194,6 +3194,21 @@ describe('summarizeCashFlow', () => {
     })
   })
 
+  it("shrinks a flow that does not follow inflation month by month in today's money", () => {
+    const result = summarizeCashFlow(
+      { ...recurring, end: 'at_specific_date', end_year: 2025, end_month: 3 },
+      makePlan({ inflation_rate: 0.02 }),
+      undefined,
+    )
+    // January to March 2025, paid as entered: 1,000 + 998.35 + 996.70.
+    expect(result.nominalTotal).toBe(3000)
+    expect(result.realTotal).toBeCloseTo(
+      1000 + 1000 / 1.02 ** (1 / 12) + 1000 / 1.02 ** (2 / 12),
+      6,
+    )
+    expect(result.realTotal).toBeCloseTo(2995.06, 2)
+  })
+
   it('stops counting at an at_specific_date end (inclusive of the end month)', () => {
     const result = summarizeCashFlow(
       { ...recurring, end: 'at_specific_date', end_year: 2026, end_month: 6 },

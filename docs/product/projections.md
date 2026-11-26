@@ -291,7 +291,11 @@ after the start month costs (1 + rate)^(n / 12) as much.
 - Balances (cash, investments, assets, loans) are deflated once per year, by
   (1 + rate)^(years since the start year), since the projection steps them a
   year at a time. So are property tax, loan installments and a "Max"
-  transfer, which have no entered amount to deflate month by month.
+  transfer, which have no entered amount to deflate month by month. Until
+  the projection steps by month, balances therefore lag the flows: a year's
+  balances are deflated at the plan's start month of that year, its payments
+  each at their own month, so in a plan that does not start in January the
+  change in a balance and the year's cash flow differ by that gap.
 - "Change over time" (a yearly raise or cut) still steps once a year, from the
   flow's own start year.
 - Amounts are shown in whole units, so a small amount shows the monthly steps
