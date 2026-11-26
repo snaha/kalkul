@@ -69,9 +69,9 @@
   const savedPlan = $derived(appStore.portfolios.find((p) => p.id === planId))
   // One clock for the page, rolling over at midnight like the dashboard's.
   const clock = trackToday()
-  // The Current projection starts from today's balances — the stored ones
-  // carried forward, as the dashboard shows them — so the two agree. A saved
-  // plan projects the stored data it was written against.
+  // The Current projection reads the stored balances carried forward, as the
+  // dashboard shows them; the plan itself carries them on to its start. A
+  // saved plan projects the stored data it was written against.
   const profile = $derived<Profile>(
     readOnly ? getCurrentProfile(appStore.profile.toJSON(), clock.today) : appStore.profile,
   )
@@ -79,7 +79,7 @@
     readOnly
       ? appStore.loading
         ? undefined
-        : buildCurrentProjectionPlan(profile, clock.today)
+        : buildCurrentProjectionPlan(appStore.profile.toJSON(), clock.today)
       : savedPlan,
   )
   // A saved plan is a copy of the financial data of its creation. Once that

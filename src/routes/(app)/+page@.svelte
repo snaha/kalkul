@@ -176,7 +176,7 @@
 
       <Separator orientation="vertical" class="self-stretch data-[orientation=vertical]:h-auto" />
 
-      <ProjectionsPanel profile={currentProfile} {today} {hasFinancialData} />
+      <ProjectionsPanel profile={storedProfile} {today} {hasFinancialData} />
     </div>
 
     {#if fiSettingsOpen}

@@ -21,11 +21,14 @@ balances that already held 26 days of it.
 **Decision.** A projection taken now starts on the first of the next month,
 or today when today is the first. A start the user picks is unchanged.
 
+The Current projection opens with the balances carried forward to that start,
+as the dashboard carries them to today.
+
 **Why.** The projection pays a month's flows from the month's first day, so
 it cannot start mid-month, and the current month is already in the balances.
-The days left in the current month are not counted at all, which is the
-smaller error and is listed as an open question in
-`docs/product/projections.md`.
+Carrying the balances to the start leaves no day uncounted. A saved plan
+still copies the balances as last recorded; carrying those needs a decision
+on its base, listed as an open question in `docs/product/projections.md`.
 
 ## 2026-11-26 A partial first year's FI % and runway use a year of outflows
 

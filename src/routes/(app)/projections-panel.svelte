@@ -19,7 +19,7 @@
   import { appStore } from '$lib/stores/app.svelte'
 
   interface Props {
-    /** Balances as they stand today — pass the projected profile. */
+    /** The stored profile: the Current projection carries its balances to its start. */
     profile: Profile
     today: Date
     /** With nothing to project from, the panel falls back to its empty state. */

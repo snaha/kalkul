@@ -1,4 +1,5 @@
 import { formatDate } from '$lib/@snaha/kalkul-maths'
+import { getCurrentProfile } from '$lib/current-values'
 import { snapshotFinancialData } from '$lib/plan-base'
 import { DEFAULT_INFLATION_RATE, defaultPlanStart } from '$lib/plan-defaults'
 import type { Portfolio, Profile } from '$lib/schemas'
@@ -25,7 +26,13 @@ const CURRENT_PROJECTION_YEARS = 20
  * {@link CURRENT_PROJECTION_YEARS} ahead unless `endDate` says otherwise.
  *
  * Every asset, liability and cash flow of `profile` is in scope: the plan is
- * a copy of it, taken now, like a saved plan is at creation.
+ * a copy of it, like a saved plan is at creation.
+ *
+ * `profile` is the stored one, with the balances as last recorded. They are
+ * carried forward to the start here, so the projection opens with what the
+ * user will have on that day and no day falls between the balances and the
+ * first month it pays. Passing a profile already carried to today would carry
+ * it twice.
  */
 export function buildCurrentProjectionPlan(
   profile: Profile,
@@ -33,6 +40,7 @@ export function buildCurrentProjectionPlan(
   endDate?: string,
 ): Portfolio {
   const start = defaultPlanStart(today)
+  const atStart = getCurrentProfile(profile, start)
   const end = new Date(start.getFullYear() + CURRENT_PROJECTION_YEARS, start.getMonth(), 1)
   return {
     id: CURRENT_PROJECTION_ID,
@@ -40,7 +48,7 @@ export function buildCurrentProjectionPlan(
     start_date: formatDate(start),
     end_date: endDate ?? formatDate(end),
     inflation_rate: DEFAULT_INFLATION_RATE,
-    ...snapshotFinancialData(profile),
-    base: snapshotFinancialData(profile),
+    ...snapshotFinancialData(atStart),
+    base: snapshotFinancialData(atStart),
   }
 }

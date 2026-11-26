@@ -286,6 +286,12 @@ first. The balances it opens with are today's and already hold the days of
 the current month that have passed, so starting in the current month would
 count those days twice.
 
+The Current projection opens with the balances carried forward to its start,
+the same carrying the dashboard does up to today (`getCurrentProfile`): cash
+with the income, expenses and installments of the days in between,
+investments with their growth and transfers, loans paid down. So no day falls
+between its balances and the first month it pays, and none is counted twice.
+
 - A recurring income, expense or transfer runs from the start month, even
   when it starts "immediately" or on an earlier date that year.
 - A one-time item dated before the start month does not happen.
@@ -417,11 +423,12 @@ rather than papering over it.
     300,000 = 39%. The next year pays 12,000 and ends at 106,000: runway 8.8
     years, FI % 35%.
 
-14. **A projection taken on 26 November.** It opens with today's cash of
-    10,000 and starts on 1 December. With a salary of 5,000 and expenses of
-    3,000 a month, both "immediately", its first year has December only:
-    Income +5,000, Expenses −3,000, cash 12,000. Taken on 1 November it
-    starts that day and the first year has November and December.
+14. **The Current projection on 26 November.** Cash was last recorded on 20
+    November at 10,000, with a salary of 5,000 and expenses of 3,000 a month.
+    The projection starts on 1 December and opens with the cash carried there:
+    11 days at 24,000 a year, 10,000 + 24,000 × 11 / 365.25 = 10,723. Its first
+    year has December only: Income +5,000, Expenses −3,000, cash 12,723. On
+    1 November it would start that day, with November and December.
 
 ## Open questions
 
@@ -429,12 +436,13 @@ rather than papering over it.
   "<asset> sales tax" row, the tax on a tangible asset's sale. A tangible asset
   has no sales tax today: a sale puts its whole value into cash. The row comes
   with a decision on taxing a sale (#474).
-- A projection taken mid-month opens with today's balances and starts on the
-  first of the next month, so the days left in the current month are in
-  neither: a plan taken on 26 November has no flows for 27 to 30 November.
-  Carrying the balances forward to the start would close the gap.
-- A plan saved earlier keeps the start it was given. One that starts in the
-  month its balances were copied in still counts that month in full.
+- A saved plan copies the balances as last recorded, not carried forward to
+  its start as the Current projection's are. The days between the record and
+  the start are in neither the balances nor the projection, and a plan saved
+  earlier that starts in the month its balances were recorded in counts part
+  of that month twice. Carrying a saved plan's copy forward needs a decision
+  on its base: `isPlanOutdated` compares the base with financial data as
+  stored, so a carried base would read as out of date from the first day.
 - The plan's last year still counts every month, whatever month the plan
   ends in. A plan ending in January counts all twelve months of its last
   year.
