@@ -6,7 +6,7 @@ import tereza from '$examples/tereza-svobodova-cz-20yo.kalkul.json'
 import Decimal from 'decimal.js'
 
 import { getCurrentProfile } from '$lib/current-values'
-import { createPlan } from '$lib/plan-defaults'
+import { createPlan, defaultPlanStart } from '$lib/plan-defaults'
 import {
   INSTALLMENT_PERIODS_PER_YEAR,
   financingToLiability,
@@ -291,7 +291,7 @@ function plan(
     ...createPlan(profile, {
       name,
       notes,
-      start_date: toDateOnlyString(new Date(today.getFullYear(), today.getMonth(), 1)),
+      start_date: toDateOnlyString(defaultPlanStart(today)),
       end_date: toDateOnlyString(new Date(today.getFullYear() + endYearsOut, 0, 1)),
       inflation_rate: inflationRate,
     }),

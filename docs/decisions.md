@@ -10,6 +10,23 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-26 A projection taken now starts on the first of the next month
+
+**Context.** A new plan, the Current projection and "Now" in a plan's
+settings started on the first of the current month, while the balances they
+open with are today's. With the first year counting from the start month, a
+projection taken on 26 November paid all of November again on top of
+balances that already held 26 days of it.
+
+**Decision.** A projection taken now starts on the first of the next month,
+or today when today is the first. A start the user picks is unchanged.
+
+**Why.** The projection pays a month's flows from the month's first day, so
+it cannot start mid-month, and the current month is already in the balances.
+The days left in the current month are not counted at all, which is the
+smaller error and is listed as an open question in
+`docs/product/projections.md`.
+
 ## 2026-11-26 A partial first year's FI % and runway use a year of outflows
 
 **Context.** A projection's first year has only the months from its start

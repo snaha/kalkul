@@ -14,9 +14,17 @@ import type { Profile } from './schemas'
 const emptyProfile: Profile = { name: 'Test', email: 'test@example.com' }
 
 describe('getDefaultPlanDates', () => {
-  it('starts on the first of the current month', () => {
+  it('starts on the first of the next month, past the days the balances already hold', () => {
     const dates = getDefaultPlanDates(emptyProfile, new Date(2026, 7, 26))
-    expect(dates.start_date).toBe('2026-08-01')
+    expect(dates.start_date).toBe('2026-09-01')
+  })
+
+  it('starts today on the first of a month', () => {
+    expect(getDefaultPlanDates(emptyProfile, new Date(2026, 7, 1)).start_date).toBe('2026-08-01')
+  })
+
+  it('starts in January of the next year from December', () => {
+    expect(getDefaultPlanDates(emptyProfile, new Date(2026, 11, 26)).start_date).toBe('2027-01-01')
   })
 
   it('ends when the profile birth date reaches the default age', () => {
@@ -44,8 +52,8 @@ describe('getDefaultPlanDates', () => {
       { ...emptyProfile, birth_date: '1938-03-15' },
       new Date(2026, 7, 26),
     )
-    expect(dates.start_date).toBe('2026-08-01')
-    expect(dates.end_date).toBe('2026-09-01')
+    expect(dates.start_date).toBe('2026-09-01')
+    expect(dates.end_date).toBe('2026-10-01')
   })
 
   it('clamps an end that lands in the start month itself', () => {
@@ -53,7 +61,7 @@ describe('getDefaultPlanDates', () => {
       { ...emptyProfile, birth_date: '1941-08-15' },
       new Date(2026, 7, 26),
     )
-    expect(dates.end_date).toBe('2026-09-01')
+    expect(dates.end_date).toBe('2026-10-01')
   })
 
   it('rolls the clamped end into the next year from December', () => {
@@ -61,8 +69,8 @@ describe('getDefaultPlanDates', () => {
       { ...emptyProfile, birth_date: '1938-03-15' },
       new Date(2026, 11, 26),
     )
-    expect(dates.start_date).toBe('2026-12-01')
-    expect(dates.end_date).toBe('2027-01-01')
+    expect(dates.start_date).toBe('2027-01-01')
+    expect(dates.end_date).toBe('2027-02-01')
   })
 })
 
@@ -229,21 +237,26 @@ describe('getPlanSpan', () => {
 describe('seedPlanTimeline', () => {
   const today = new Date(2026, 7, 26)
 
-  it('reads a start on the first of the current month as "now"', () => {
-    const form = seedPlanTimeline({ start_date: '2026-08-01', end_date: '2070-03-01' }, {}, today)
+  it('reads a start on the first of the next month as "now"', () => {
+    const form = seedPlanTimeline({ start_date: '2026-09-01', end_date: '2070-03-01' }, {}, today)
     expect(form.startType).toBe('now')
     expect(form.startYear).toBe('2026')
-    expect(form.startMonth).toBe('7')
+    expect(form.startMonth).toBe('8')
   })
 
-  it('reads a January start in the current month as "now"', () => {
+  it('reads a start today, on the first of a month, as "now"', () => {
     const form = seedPlanTimeline(
       { start_date: '2026-01-01', end_date: '2070-03-01' },
       emptyProfile,
-      new Date(2026, 0, 14),
+      new Date(2026, 0, 1),
     )
     expect(form.startType).toBe('now')
     expect(form.startMonth).toBe('0')
+  })
+
+  it('reads a start on the first of the current month, already under way, as a specific date', () => {
+    const form = seedPlanTimeline({ start_date: '2026-08-01', end_date: '2070-03-01' }, {}, today)
+    expect(form.startType).toBe('at_specific_date')
   })
 
   it('reads the first of the current month in an earlier year as a specific date', () => {
@@ -303,9 +316,9 @@ describe('planTimelineToDates', () => {
     endMonth: '5',
   } as const
 
-  it('turns "now" into the first of the current month', () => {
+  it('turns "now" into the first of the next month', () => {
     expect(planTimelineToDates(base, { birth_date: '1985-03-15' }, today).start_date).toBe(
-      '2026-08-01',
+      '2026-09-01',
     )
   })
 

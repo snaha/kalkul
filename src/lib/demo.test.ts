@@ -41,7 +41,7 @@ describe('buildDemoData', () => {
     expect(profile).toBe(claire.data.profile)
     expect(portfolios.length).toBe(claire.data.portfolios.length + 1)
     const plan = portfolios[0]
-    expect(plan).toMatchObject({ id: DEMO_PLAN_ID, name: 'Claire, 41', start_date: '2026-09-01' })
+    expect(plan).toMatchObject({ id: DEMO_PLAN_ID, name: 'Claire, 41', start_date: '2026-10-01' })
     expect(plan.investments.map((i) => i.id)).toEqual(['inv-1', 'inv-2', 'inv-3'])
     // ta-4 is the chalet a saved plan holds, so it is not part of the current situation.
     expect(plan.tangible_assets.map((a) => a.id)).toEqual(['ta-1', 'ta-2', 'ta-3'])

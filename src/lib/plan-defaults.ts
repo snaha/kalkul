@@ -13,8 +13,19 @@ type PlanDates = Pick<Portfolio, 'start_date' | 'end_date' | 'inflation_rate'>
 type PlanFields = Pick<Portfolio, 'name' | 'notes'> & PlanDates
 
 /**
+ * Where a projection taken now starts: the first of the next month, or today
+ * when today is the first. The balances it opens with are today's and already
+ * hold the days of this month that have passed, and the projection pays a
+ * month's flows from the month's first day, so starting in the current month
+ * would count those days twice (docs/product/projections.md).
+ */
+export function defaultPlanStart(today: Date): Date {
+  return new Date(today.getFullYear(), today.getMonth() + (today.getDate() === 1 ? 0 : 1), 1)
+}
+
+/**
  * Timeline defaults for a plan created from the Add projection dialog, which
- * only asks for a name and a note. Start is the first of the current month;
+ * only asks for a name and a note. Start is `defaultPlanStart`;
  * the plan runs until the user turns {@link DEFAULT_END_AGE}, or — with no
  * birth date on the profile — that many years from now.
  *
@@ -25,7 +36,7 @@ type PlanFields = Pick<Portfolio, 'name' | 'notes'> & PlanDates
  */
 export function getDefaultPlanDates(profile: Profile, today = new Date()): PlanDates {
   const birthDate = profile.birth_date ? parseDateOnly(profile.birth_date) : undefined
-  const start = new Date(today.getFullYear(), today.getMonth(), 1)
+  const start = defaultPlanStart(today)
   const end = birthDate
     ? new Date(birthDate.getFullYear() + DEFAULT_END_AGE, birthDate.getMonth(), 1)
     : new Date(today.getFullYear() + DEFAULT_END_AGE, 0, 1)
@@ -108,7 +119,7 @@ export interface PlanTimelineForm {
 /**
  * Seed the settings form from a plan's stored dates. A plan only stores dates,
  * so the "Now" and "When your age is" choices are inferred: a start on the
- * first of the current month reads back as "Now", and an end landing on the
+ * default start (`defaultPlanStart`) reads back as "Now", and an end landing on the
  * profile's birth month reads back as that age.
  *
  * The age inference is a guess — a specific end date that happens to fall in
@@ -128,10 +139,7 @@ export function seedPlanTimeline(
   const isAge = birthDate !== undefined && end.getMonth() === birthDate.getMonth()
 
   return {
-    startType:
-      start.getFullYear() === today.getFullYear() && start.getMonth() === today.getMonth()
-        ? 'now'
-        : 'at_specific_date',
+    startType: start.getTime() === defaultPlanStart(today).getTime() ? 'now' : 'at_specific_date',
     startYear: String(start.getFullYear()),
     startMonth: String(start.getMonth()),
     endType: isAge ? 'when_age_is' : 'at_specific_date',
@@ -149,7 +157,7 @@ export function planTimelineToDates(
 ): Pick<Portfolio, 'start_date' | 'end_date'> {
   const start =
     form.startType === 'now'
-      ? new Date(today.getFullYear(), today.getMonth(), 1)
+      ? defaultPlanStart(today)
       : new Date(Number(form.startYear), Number(form.startMonth), 1)
 
   const birthDate = profile.birth_date ? parseDateOnly(profile.birth_date) : undefined

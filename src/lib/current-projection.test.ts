@@ -13,12 +13,12 @@ const profile: Profile = {
 }
 
 describe('buildCurrentProjectionPlan', () => {
-  test('starts on the first of the current month', () => {
-    expect(buildCurrentProjectionPlan(profile, TODAY).start_date).toBe('2026-06-01')
+  test('starts on the first of the next month, like a new plan', () => {
+    expect(buildCurrentProjectionPlan(profile, TODAY).start_date).toBe('2026-07-01')
   })
 
   test('runs 20 years ahead', () => {
-    expect(buildCurrentProjectionPlan(profile, TODAY).end_date).toBe('2046-06-01')
+    expect(buildCurrentProjectionPlan(profile, TODAY).end_date).toBe('2046-07-01')
   })
 
   test('takes an explicit end date instead', () => {
