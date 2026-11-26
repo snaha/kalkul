@@ -85,8 +85,15 @@ export interface YearlyProjection {
   propertyTaxByItem: YearlyProjectionItem[]
   installmentsByItem: YearlyProjectionItem[]
   totalInstallments: number
-  // The year's cash flow: income less expenses, property tax and installments
-  // (docs/product/projections.md). Transfers stay out of it.
+  // What each investment loses to fees in the year: the TER and ongoing entry
+  // fee taken off its growth, plus the upfront entry fee on what is paid in and
+  // the exit fee on what is taken out, planned buys and sells included.
+  investmentFeesByItem: YearlyProjectionItem[]
+  // The tax each of the plan's own transfers deducts in the year.
+  transferTaxByItem: YearlyProjectionItem[]
+  // The year's cash flow: income less expenses, property tax, installments,
+  // investment fees and transfer tax (docs/product/projections.md). Transfers
+  // stay out of it.
   cashFlow: number
   // The plan's own transfers active in the year, each with the amount that
   // left its source: 0 when the transfer was skipped for lack of funds. The
@@ -889,24 +896,6 @@ export function grossTransferAmount(
   return net.div(DECIMAL_1.minus(taxShare))
 }
 
-/**
- * What a transfer of `amount` out of `source`, held for `heldYears`, delivers
- * to `destination`: the exit fee and the estimated tax come off on the way
- * out, the upfront entry fee on the way in. The difference is lost to the
- * broker and the tax office. The tax is on the gross gain share, before the
- * exit fee: a modelling choice, real brokers usually tax net proceeds.
- */
-export function transferNetToDestination(
-  transfer: Pick<Transfer, 'deduct_tax' | 'tax_rate'>,
-  amount: Decimal,
-  source: ProfileInvestment | undefined,
-  destination: ProfileInvestment | undefined,
-  heldYears: number,
-): Decimal {
-  const tax = estimatedTransferTax(transfer, amount, source, heldYears)
-  return applyEntryFee(destination, Decimal.max(applyExitFee(source, amount).minus(tax), DECIMAL_0))
-}
-
 export interface TransferSummary {
   /** How many times the transfer fires within the plan. */
   occurrences: number
@@ -1366,10 +1355,24 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
 
     // 1. Compound investments for this year (skip the first year — initial
     //    balance is the year-0 nominal value).
+    // What each investment loses to fees this year, and each transfer to tax.
+    const investmentFeesNominal = new Map<string, Decimal>()
+    const transferTaxNominal = new Map<string, Decimal>()
+    const addTo = (map: Map<string, Decimal>, id: string, amount: Decimal) => {
+      if (amount.greaterThan(0)) map.set(id, (map.get(id) ?? DECIMAL_0).plus(amount))
+    }
     if (yearsSincePlanStart > 0) {
       for (const [id, balance] of invBalancesNominal) {
         const apy = investmentApy.get(id) ?? DECIMAL_0
-        invBalancesNominal.set(id, balance.mul(DECIMAL_1.plus(apy.div(100))))
+        const grown = balance.mul(DECIMAL_1.plus(apy.div(100)))
+        // The drag is what the balance would have grown by at the gross APY.
+        const grossApy = new Decimal(investmentsById.get(id)?.apy ?? 0)
+        addTo(
+          investmentFeesNominal,
+          id,
+          balance.mul(DECIMAL_1.plus(grossApy.div(100))).minus(grown),
+        )
+        invBalancesNominal.set(id, grown)
       }
       // Tangibles passively track inflation: compound the nominal value at
       // the inflation rate so the real value stays flat absent transfers.
@@ -1510,19 +1513,22 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
         }
       }
       // Source loses the full `amount`; the destination receives what is left
-      // after the fees and the estimated tax (`transferNetToDestination`).
+      // after the fees and the estimated tax, each booked to what it is lost
+      // to: the exit fee and the estimated tax come off on the way out, the
+      // upfront entry fee on the way in. The tax is on the gross gain share,
+      // before the exit fee: a modelling choice, real brokers usually tax net
+      // proceeds.
       withdraw(transfer.from_asset_id, amount)
       if (transferMovedNominal.has(transfer.id)) transferMovedNominal.set(transfer.id, amount)
-      deposit(
-        transfer.to_asset_id,
-        transferNetToDestination(
-          transfer,
-          amount,
-          source,
-          investmentsById.get(transfer.to_asset_id),
-          heldYears,
-        ),
-      )
+      const destination = investmentsById.get(transfer.to_asset_id)
+      const afterExitFee = applyExitFee(source, amount)
+      const tax = estimatedTransferTax(transfer, amount, source, heldYears)
+      const afterTax = Decimal.max(afterExitFee.minus(tax), DECIMAL_0)
+      const net = applyEntryFee(destination, afterTax)
+      addTo(investmentFeesNominal, transfer.from_asset_id, amount.minus(afterExitFee))
+      addTo(transferTaxNominal, transfer.id, afterExitFee.minus(afterTax))
+      addTo(investmentFeesNominal, transfer.to_asset_id, afterTax.minus(net))
+      deposit(transfer.to_asset_id, net)
     }
 
     // 5. The lender funds the rest of a financed purchase, so the asset is
@@ -1692,6 +1698,8 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     }
 
     const real = (nominal: Decimal): number => nominal.div(deflationFactor).toNumber()
+    const sumOf = (map: Map<string, Decimal>) =>
+      Array.from(map.values()).reduce<Decimal>((sum, v) => sum.plus(v), DECIMAL_0)
     const flowItems = (
       amounts: { item: { id: string; name: string }; amount: Decimal }[],
     ): YearlyProjectionItem[] =>
@@ -1719,8 +1727,20 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
         value: real(paid),
       })),
       totalInstallments: real(liabilitiesPaidThisYearNominal),
+      investmentFeesByItem: investments.flatMap((inv) => {
+        const fee = investmentFeesNominal.get(inv.id)
+        return fee ? [{ id: inv.id, name: inv.name, value: real(fee) }] : []
+      }),
+      transferTaxByItem: plan.transfers.flatMap((transfer) => {
+        const tax = transferTaxNominal.get(transfer.id)
+        return tax ? [{ id: transfer.id, name: transfer.name, value: real(tax) }] : []
+      }),
       cashFlow: real(
-        incomesThisYearNominal.minus(expensesThisYearNominal).minus(liabilitiesPaidThisYearNominal),
+        incomesThisYearNominal
+          .minus(expensesThisYearNominal)
+          .minus(liabilitiesPaidThisYearNominal)
+          .minus(sumOf(investmentFeesNominal))
+          .minus(sumOf(transferTaxNominal)),
       ),
       transfersByItem: plan.transfers.flatMap((transfer) => {
         const moved = transferMovedNominal.get(transfer.id)

@@ -86,6 +86,25 @@
 
   const sum = (rows: { value: number }[]) => rows.reduce((total, row) => total + row.value, 0)
 
+  const outflowGroup = (id: string, label: string, rows: Row[], total: number): Group => ({
+    id,
+    label,
+    value: outflow(total),
+    valueClass: total > 0 ? 'text-destructive' : undefined,
+    rows,
+  })
+
+  // Rows named after their item by a label of their own ("ETF fees").
+  const labelled = (
+    items: YearlyProjectionItem[],
+    prefix: string,
+    label: (name: string) => string,
+  ): Row[] =>
+    items.map((i) => ({
+      ...row(i, outflow(i.value), label(i.name)),
+      id: `${prefix}-${i.id}`,
+    }))
+
   const netWorthGroups = $derived<Group[]>(
     year
       ? [
@@ -133,30 +152,38 @@
             valueClass: year.totalIncome > 0 ? 'text-success' : undefined,
             rows: year.incomesByItem.map((i) => row(i, inflow(i.value))),
           },
-          {
-            id: 'expense',
-            label: $_('page.plan.details.expense'),
-            value: outflow(year.totalExpenses + year.totalInstallments),
-            valueClass:
-              year.totalExpenses + year.totalInstallments > 0 ? 'text-destructive' : undefined,
-            // Expenses first, then what the assets and loans cost. The ids are
-            // prefixed so a tax or installment row never shares one with an expense.
-            rows: [
-              ...year.expensesByItem.map((i) => row(i, outflow(i.value))),
-              ...year.propertyTaxByItem.map((i) => ({
-                ...row(
-                  i,
-                  outflow(i.value),
-                  $_('page.plan.details.propertyTaxOf', { values: { name: i.name } }),
-                ),
-                id: `tax-${i.id}`,
-              })),
-              ...year.installmentsByItem.map((i) => ({
-                ...row(i, outflow(i.value)),
-                id: `installment-${i.id}`,
-              })),
+          outflowGroup(
+            'expense',
+            $_('page.plan.expenses'),
+            year.expensesByItem.map((i) => row(i, outflow(i.value))),
+            sum(year.expensesByItem),
+          ),
+          outflowGroup(
+            'installments',
+            $_('page.plan.details.liabilityInstallments'),
+            year.installmentsByItem.map((i) => row(i, outflow(i.value))),
+            year.totalInstallments,
+          ),
+          // An investment's fees, a transfer's tax and an asset's property tax.
+          // The ids are prefixed so rows of different kinds never share one.
+          outflowGroup(
+            'feesAndTaxes',
+            $_('page.plan.details.feesAndTaxes'),
+            [
+              ...labelled(year.investmentFeesByItem, 'fees', (name) =>
+                $_('page.plan.details.investmentFeesOf', { values: { name } }),
+              ),
+              ...labelled(year.transferTaxByItem, 'transferTax', (name) =>
+                $_('page.plan.details.transferTaxOf', { values: { name } }),
+              ),
+              ...labelled(year.propertyTaxByItem, 'propertyTax', (name) =>
+                $_('page.plan.details.propertyTaxOf', { values: { name } }),
+              ),
             ],
-          },
+            sum(year.investmentFeesByItem) +
+              sum(year.transferTaxByItem) +
+              sum(year.propertyTaxByItem),
+          ),
           {
             id: 'transfers',
             label: $_('page.plan.transfers'),

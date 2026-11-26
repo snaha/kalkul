@@ -50,7 +50,10 @@
       "details": {
         "cashFlow": "Peněžní tok",
         "income": "Příjmy",
-        "expense": "Výdaje",
+        "liabilityInstallments": "Splátky závazků",
+        "feesAndTaxes": "Poplatky a daně",
+        "investmentFeesOf": "{name} – poplatky",
+        "transferTaxOf": "{name} – daň",
         "propertyTaxOf": "{name} – daň z nemovitosti",
         "firePortfolio": "FIRE portfolio",
         "financialIndependence": "Finanční nezávislost",
