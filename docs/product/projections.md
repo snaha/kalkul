@@ -141,17 +141,17 @@ current year, clamped to the plan's range, and the year moves with the slider,
 the previous and next buttons, or a click on a bar. Every amount is in the
 chart's terms: real, deflated to the plan's first year.
 
-| UI label               | Field / code                                                     | Meaning                                                         |
-| ---------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------- |
-| Net worth              | `netWorth`                                                       | As in `net-worth.md`                                            |
-| Cash flow              | `cashFlow`                                                       | Income less what the year costs                                 |
-| Income                 | `totalIncome`, `incomesByItem`                                   | The incomes that fire in the year                               |
-| Expenses               | `expensesByItem`                                                 | The expenses that fire in the year                              |
-| Liability installments | `installmentsByItem`, `totalInstallments`                        | The installments paid on each loan in the year                  |
-| Fees and taxes         | `investmentFeesByItem`, `transferTaxByItem`, `propertyTaxByItem` | Investment fees, transfer tax and property tax paid in the year |
-| Transfers              | `transfersByItem`                                                | What left the source of each of the plan's transfers            |
-| FIRE portfolio         | `portfolioValue`                                                 | The portfolio value of `net-worth.md`                           |
-| Runway                 | `runwayYears`                                                    | Portfolio value over the year's outflows                        |
+| UI label               | Field / code                                                     | Meaning                                                                                                                  |
+| ---------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Net worth              | `netWorth`                                                       | As in `net-worth.md`                                                                                                     |
+| Cash flow              | `cashFlow`                                                       | Income less what the year costs                                                                                          |
+| Income                 | `totalIncome`, `incomesByItem`                                   | The incomes that fire in the year                                                                                        |
+| Expenses               | `expensesByItem`                                                 | The expenses that fire in the year                                                                                       |
+| Liability installments | `installmentsByItem`, `totalInstallments`                        | The installments paid on each loan in the year                                                                           |
+| Fees and taxes         | `investmentFeesByItem`, `transferTaxByItem`, `propertyTaxByItem` | Investment fees, transfer tax and property tax paid in the year                                                          |
+| Transfers              | `transfersByItem`                                                | What left the source of each of the plan's transfers                                                                     |
+| FIRE portfolio         | `portfolioValue`                                                 | The portfolio value of `net-worth.md`                                                                                    |
+| Runway                 | `runwayYears`                                                    | Portfolio value over the year's outflows: expenses, property tax and installments; fees and transfer tax are not counted |
 
 - Net worth lists cash, investments, tangible assets and liabilities, the last
   three opening to one row per item. The rows add up to the headline.
@@ -338,6 +338,9 @@ rather than papering over it.
     20 in that year. A transfer named "Sell" that takes 1,000 out of an
     investment and deducts tax takes the tax on top of the 1,000 from the
     investment; that tax is listed as "Sell tax" and comes off the cash flow.
+    With the ETF at 10% and a 15% tax rate, two years in the gain is
+    1 − 1.1⁻² ≈ 17.4% of what is sold, so 1,026.73 leaves the ETF and
+    "Sell tax" reads 26.73.
 
 ## Open questions
 

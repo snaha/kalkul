@@ -3956,8 +3956,10 @@ describe('per-item cash flows and portfolio value of a year', () => {
         transfers: [yearly('sell', 'inv1', 'cash', 1000, { deduct_tax: true, tax_rate: 15 })],
       }),
     )
-    const tax = result[2].transfersByItem[0].value - 1000
-    expect(tax).toBeGreaterThan(0)
+    // Held two years at 10%, the gain is 1 − 1.1⁻² of the value and is taxed at
+    // 15%, so 1,000 net takes 1,000 / (1 − 0.15 × 0.21 / 1.21) out of the ETF.
+    const tax = 26.728892660161
+    expect(result[2].transfersByItem[0].value).toBeCloseTo(1000 + tax, 6)
     expect(result[2].transferTaxByItem).toHaveLength(1)
     expect(result[2].transferTaxByItem[0].id).toBe('sell')
     expect(result[2].transferTaxByItem[0].value).toBeCloseTo(tax, 6)
