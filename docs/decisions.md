@@ -10,6 +10,18 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-23 A row of the projection's right sidebar opens its item
+
+**Context.** #320 left open whether a row of the right sidebar opens its item
+or focuses the chart on it. Reading a figure there and wanting to change it
+meant finding the same item again in the left sidebar.
+
+**Decision.** A row opens the dialog of its item, the one its row in the left
+sidebar opens. Cash opens the cash balance; a property tax row, the loan
+behind a financed asset and its installments open the asset they belong to.
+On the Current projection the rows open nothing, as on the left.
+`docs/product/projections.md` states the rule.
+
 ## 2026-11-20 The projection's left sidebar is for editing and shows no asset values
 
 **Context.** The left sidebar listed every asset with the value it was entered
