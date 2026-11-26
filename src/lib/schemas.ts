@@ -212,50 +212,13 @@ function repairZeroMonths(item: unknown): void {
 }
 
 /**
- * Fills in the cash flows a stored snapshot predates, from the profile's
- * current ones — the best estimate available for a date nothing was recorded
- * for.
- *
- * Done once, here, so that everything downstream can read an omitted list as
- * one thing: nothing recorded. Snapshots written before cash flows were
- * recorded leave those arrays undefined, and reading that as "earned and spent
- * nothing" would state such a row's financial independence against debt
- * service alone. An empty array is a recorded fact — none were running — and
- * stays as it is.
- *
- * Only the flows a snapshot records are filled in (`countedCashFlows` in
- * `snapshots.ts`, which this raw data cannot go through): no one-time flow,
- * and only financial data, which is why this runs after `materializePlans` has
- * moved a plan's own flows out of the profile. A one-time flow has no frequency, so copying it would
- * write an entry the very validation this repair runs ahead of rejects.
- *
- * A recorded debt's missing loan term is deliberately *not* filled in. The
- * profile's term is as of its newest snapshot, so writing it onto an older
- * balance would pair January's debt with June's clock and persist that as if
- * it had been recorded. Left unstated, a rewind falls back to the loan's own
- * term at read time (`withRecordedDebt` in `snapshots.ts`) — the same estimate,
- * without pretending to be more.
- */
-function repairSnapshot(snapshot: unknown, profile: Record<string, unknown>): void {
-  if (!isRecord(snapshot)) return
-  for (const key of ['incomes', 'expenses']) {
-    if (Array.isArray(snapshot[key])) continue
-    const flows = profile[key]
-    snapshot[key] = (Array.isArray(flows) ? flows : [])
-      .filter(isRecord)
-      .filter((flow) => flow.schedule !== 'one_time')
-      .map(({ id, amount, frequency }) => ({ id, amount, frequency }))
-  }
-}
-
-/**
  * Brings raw parsed JSON up to what the schema and the app now expect, in
  * place, before validation. Run at every ingest point (a localStorage read, a
  * restored backup, a sync from another tab): a blob the schema rejects would
  * make `loadData()` fall back to the empty default profile and overwrite the
  * user's entire dataset on the next persist.
  *
- * Five repairs today. Data persisted before the same-year month-order rule
+ * Four repairs today. Data persisted before the same-year month-order rule
  * existed may hold a cash flow whose start month is after its end month, which
  * `storedDataSchema` now rejects; the two months are swapped, so both
  * user-entered values survive and the flow spans the range the user visibly
@@ -263,9 +226,8 @@ function repairSnapshot(snapshot: unknown, profile: Record<string, unknown>): vo
  * `cashFlowTemporalRefinement` applies to: incomes, expenses and transfers. A
  * timing month stored as 0 by the old zero-based selector becomes January
  * (`repairZeroMonths`). A transfer stored with an empty endpoint, from before
- * the schema required both (#305), is dropped. A plan without a `base` gets
- * its copy of financial data (`materializePlans`). And snapshots are filled in
- * as `repairSnapshot` describes.
+ * the schema required both (#305), is dropped. And a plan without a `base` gets
+ * its copy of financial data (`materializePlans`).
  */
 export function repairStoredData(data: unknown, today = new Date()): unknown {
   if (!isRecord(data)) return data
@@ -294,11 +256,7 @@ export function repairStoredData(data: unknown, today = new Date()): unknown {
         )
         return false
       })
-    // Before the snapshots: a plan's own cash flows must leave the profile
-    // first, or `repairSnapshot` would record them as financial data.
     materializePlans(profile, data.portfolios)
-    if (Array.isArray(profile.snapshots))
-      for (const snapshot of profile.snapshots) repairSnapshot(snapshot, profile)
     const thisMonth = today.getFullYear() * 12 + today.getMonth() + 1
     const birth =
       typeof profile.birth_date === 'string'

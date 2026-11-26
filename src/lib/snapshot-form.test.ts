@@ -143,11 +143,9 @@ describe('buildSnapshotSections', () => {
   })
 
   test('opens a cash flow the snapshot has no entry for at zero', () => {
-    // One meaning for an omission everywhere: nothing recorded. Snapshots
-    // stored before cash flows were recorded are filled in from the profile at
-    // the load boundary (`repairStoredData`), so they never reach the dialog
-    // empty. The frequency still comes from the profile — a field opening at
-    // zero has to carry some cadence in its suffix.
+    // One meaning for an omission everywhere: nothing recorded. The frequency
+    // still comes from the profile — a field opening at zero has to carry some
+    // cadence in its suffix.
     //
     // This holds on the newest snapshot's own date too, where the estimate runs
     // on the profile's flows: a salary entered since records nothing, and an
@@ -285,6 +283,37 @@ describe('snapshotFromFields', () => {
   test('writes the edited amount and the carried frequency for a cash flow', () => {
     const result = snapshotFromFields(SOURCE, sections, { 'incomes:i1': 5_000 }, '2026-06-01')
     expect(result.incomes).toEqual([{ id: 'i1', amount: 5_000, frequency: 'monthly' }])
+  })
+
+  describe('on a snapshot whose cash flows were never recorded', () => {
+    const { incomes: _incomes, expenses: _expenses, ...unrecorded } = SOURCE
+    const history: Profile = { ...PROFILE, snapshots: [unrecorded] }
+    const ownDate = buildSnapshotSections(history, unrecorded, '2026-06-01')
+
+    test('keeps them unrecorded when only another section is edited', () => {
+      // Their fields open at zero, and saving those zeros would turn the
+      // History row's dash back into a financial independence figure measured
+      // against the loan payments alone.
+      const result = snapshotFromFields(unrecorded, ownDate, { cash: 25_000 }, '2026-06-01')
+      expect(result.cash_amount).toBe(25_000)
+      expect(result.incomes).toBeUndefined()
+      expect(result.expenses).toBeUndefined()
+    })
+
+    test('records a section once one of its fields is typed', () => {
+      const result = snapshotFromFields(unrecorded, ownDate, { 'expenses:e1': 1_200 }, '2026-06-01')
+      expect(result.expenses).toEqual([{ id: 'e1', amount: 1_200, frequency: 'monthly' }])
+      expect(result.incomes).toBeUndefined()
+    })
+
+    test('records the flows a copy past the newest snapshot opened at', () => {
+      // There the fields open at the flows running on the new date, which the
+      // dialog showed and the user confirmed.
+      const copy = buildSnapshotSections(history, unrecorded, '2026-09-01')
+      const result = snapshotFromFields(unrecorded, copy, {}, '2026-09-01')
+      expect(result.incomes).toEqual([{ id: 'i1', amount: 4_000, frequency: 'monthly' }])
+      expect(result.expenses).toEqual([{ id: 'e1', amount: 1_000, frequency: 'monthly' }])
+    })
   })
 })
 

@@ -394,6 +394,34 @@ sidebar marks the ones linked to an asset under Liabilities. A paid-off loan
 stays listed at 0. This replaces the earlier code rule that a financing is
 tracked as part of its asset only. (#390)
 
+## 2026-11-05 A snapshot's unrecorded cash flows stay unrecorded
+
+**Context.** Snapshots saved before cash flows were recorded, a window of about
+four days in September, were filled from the profile's current flows on load,
+and the next save stored those as if recorded on that date. #287 proposed
+leaving them absent in storage and falling back at read time.
+
+**Decision.** Nothing fills them in, in storage or at read time. An omitted list
+means nothing was recorded, as in every other section of a snapshot, and a
+History row without recorded expenses shows a dash for Financial independence,
+in the table and in the chart's tooltip, and for the runway in the tooltip. The
+snapshot dialog opens such flows at zero on the row's own date, and they stay
+unrecorded on Confirm unless a field in their section was typed. A snapshot
+added between such a row and the next one opens its flows at zero as well
+(`seedSnapshotOn` carries the row forward), and there Confirm records them. This settles #287 differently from what it
+proposed. (#396)
+
+**Why.** Browsers that saved since September already hold the filled-in flows,
+and those look exactly like recorded ones, so a read-time fallback could not
+correct them. That leaves only browsers that have not saved since and backups
+from that window, which does not justify a fallback before Kalkul has users to
+keep. The dash is there because financial independence or a runway measured
+without the day's expenses would count loan payments alone as the cost of
+living. Editing another figure of the row must not undo that, which saving
+the dialog's zeros would. The added snapshot is a new record the user
+confirms rather than a correction of an old one, and its zeros are accepted
+because the case is rare and a zero looks wrong on screen.
+
 ## 2026-10-29 Financial independence uses a withdrawal rate the user sets
 
 **Context.** The Financial independence card compared investable wealth with

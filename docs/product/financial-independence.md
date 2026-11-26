@@ -18,7 +18,7 @@ dialog, the FI column in History and the per-year FI% of a projection.
 
 - The FI number is annual outflows × 100 / withdrawal rate. At the default 4%
   that is 25 times the outflows.
-- FI% is the portfolio value over the FI number, as a percentage, clamped at 0. It is undefined, shown as a dash, when outflows are zero.
+- FI% is the portfolio value over the FI number, as a percentage, clamped at 0. It is undefined, shown as a dash, when outflows are zero, and on a History row or chart point whose expenses were never recorded.
 - The portfolio value is defined in `net-worth.md`; it is also called
   investable net worth.
 - Loan installments are outflows. A loan secured by a tangible asset (a
@@ -67,5 +67,7 @@ dialog, the FI column in History and the per-year FI% of a projection.
   `getFiPercent`, `getInvestableNetWorth`
 - `src/lib/plan-projection.ts`: per-year `fiPercent` in `getYearlyPlanProjection`
 - `src/lib/snapshot-rows.ts`: History rows
+- `src/lib/history-series.ts`: FI% on each recorded date for the History chart
+  tooltip
 - `src/lib/schemas.ts`: `fi_withdrawal_rate`, `DEFAULT_FI_WITHDRAWAL_RATE`
 - `src/routes/(app)/fi-settings-dialog.svelte`: the dialog

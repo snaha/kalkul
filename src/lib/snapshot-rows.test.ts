@@ -107,6 +107,20 @@ describe('buildSnapshotRows', () => {
     expect(buildSnapshotRows(profile)[0].fiPercent).toBeUndefined()
   })
 
+  test('leaves financial independence undefined when expenses were never recorded', () => {
+    // The debt recorded on the row would otherwise be its only outflow.
+    const { expenses: _expenses, ...recorded } = captureSnapshot(PROFILE, '2026-06-01')
+    const profile: Profile = { ...PROFILE, snapshots: [recorded] }
+    expect(buildSnapshotRows(profile)[0].fiPercent).toBeUndefined()
+  })
+
+  test('states financial independence when no expenses were recorded as running', () => {
+    const snapshot = { ...captureSnapshot(PROFILE, '2026-06-01'), expenses: [] }
+    const profile: Profile = { ...PROFILE, snapshots: [snapshot] }
+    // 95,000 / (15,000 × 25) = 25.333…%
+    expect(buildSnapshotRows(profile)[0].fiPercent).toBeCloseTo(25.3333, 4)
+  })
+
   test('nets a row off its own totals, whatever the profile holds today', () => {
     // The investment was sold in 2025, so it is not part of *today's* net
     // worth — but the 2025 row records the day it was still held. A row whose
