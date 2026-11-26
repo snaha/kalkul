@@ -141,17 +141,17 @@ current year, clamped to the plan's range, and the year moves with the slider,
 the previous and next buttons, or a click on a bar. Every amount is in the
 chart's terms: real, deflated to the plan's first year.
 
-| UI label               | Field / code                                                     | Meaning                                                                                                                  |
-| ---------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Net worth              | `netWorth`                                                       | As in `net-worth.md`                                                                                                     |
-| Cash flow              | `cashFlow`                                                       | Income less what the year costs                                                                                          |
-| Income                 | `totalIncome`, `incomesByItem`                                   | The incomes that fire in the year                                                                                        |
-| Expenses               | `expensesByItem`                                                 | The expenses that fire in the year                                                                                       |
-| Liability installments | `installmentsByItem`, `totalInstallments`                        | The installments paid on each loan in the year                                                                           |
-| Fees and taxes         | `investmentFeesByItem`, `transferTaxByItem`, `propertyTaxByItem` | Investment fees, transfer tax and property tax paid in the year                                                          |
-| Transfers              | `transfersByItem`                                                | What left the source of each of the plan's transfers                                                                     |
-| FIRE portfolio         | `portfolioValue`                                                 | The portfolio value of `net-worth.md`                                                                                    |
-| Runway                 | `runwayYears`                                                    | Portfolio value over the year's outflows: expenses, property tax and installments; fees and transfer tax are not counted |
+| UI label               | Field / code                                                     | Meaning                                                               |
+| ---------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Net worth              | `netWorth`                                                       | As in `net-worth.md`                                                  |
+| Cash flow              | `cashFlow`                                                       | Income less what the year costs                                       |
+| Income                 | `totalIncome`, `incomesByItem`                                   | The incomes that fire in the year                                     |
+| Expenses               | `expensesByItem`                                                 | The expenses that fire in the year                                    |
+| Liability installments | `installmentsByItem`, `totalInstallments`                        | The installments paid on each loan in the year                        |
+| Fees and taxes         | `investmentFeesByItem`, `transferTaxByItem`, `propertyTaxByItem` | Investment fees, transfer tax and property tax paid in the year       |
+| Transfers              | `transfersByItem`                                                | What left the source of each of the plan's transfers                  |
+| Investable net worth   | `investableNetWorth`                                             | The investable net worth of `net-worth.md`                            |
+| Runway                 | `runwayYears`                                                    | The dashboard's drawdown on the year's closing balances (`runway.md`) |
 
 - Net worth lists cash, investments, tangible assets and liabilities, the last
   three opening to one row per item. The rows add up to the headline.
@@ -182,10 +182,13 @@ chart's terms: real, deflated to the plan's first year.
 - Transfers shows what left each source, before fees and tax. A transfer
   skipped for lack of funds shows 0. The planned buy and sell of an asset are
   not transfers the user entered and are not listed.
-- FIRE portfolio is the portfolio value, the figure the dashboard's financial
-  independence is measured on, with the year's FI % and runway under it. The
-  runway is capped at "100+ years" like the dashboard's, and both read as a
-  dash in a year without outflows.
+- Investable net worth is the figure the dashboard's financial independence
+  is measured on, with the year's FI % and runway under it. Both are the
+  dashboard's own calculations on the year's closing balances and the flows
+  still running as it closes (`financial-independence.md`, `runway.md`), with
+  the withdrawal rate and the runway settings saved on the dashboard. The
+  runway is capped at "100+ years" like the dashboard's; FI % reads as a dash
+  without outflows and the runway when there is nothing to pay.
 - Each headline carries a badge with its change against the year before as a
   percent of that year's magnitude, and the amount of the change in a tooltip
   ("+12,000 EUR vs 2029"), on hover or tap. There is no badge in the plan's

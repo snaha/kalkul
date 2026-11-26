@@ -1,21 +1,22 @@
 # Runway
 
 Normative, present tense. How Kalkul estimates how long the money lasts: the
-Runway card on the dashboard and its settings dialog.
+Runway card on the dashboard, its settings dialog, the runway on each date of
+History and the per-year runway of a projection. All are one calculation.
 
 ## Vocabulary
 
-| UI label                           | Field / code                             | Meaning                                                         |
-| ---------------------------------- | ---------------------------------------- | --------------------------------------------------------------- |
-| Runway                             | `getRunwayYears` in `src/lib/runway.ts`  | Years until the money runs out, one decimal; "100+ years" past  |
-| Allow withdrawing from investments | `Profile.runway_withdraw_investments`    | Investments are sold once cash is gone; absent means on         |
-| Include investment growth          | `Profile.runway_investment_growth`       | Investments grow at their effective APY; absent means off       |
-| Tax rate on investment gains       | `Profile.runway_investment_tax_rate`     | Percent of the gain since today taken at a sale; absent means 0 |
-| Include scheduled income           | `Profile.runway_include_income`          | Recurring income offsets the outflows; absent means off         |
-| Allow selling tangible assets      | `Profile.runway_sell_tangible_assets`    | Assets are sold once investments are gone; absent means off     |
-| Include value growth               | `Profile.runway_tangible_asset_growth`   | Assets follow their own value-over-time rate; absent means off  |
-| Tax rate on tangible asset gains   | `Profile.runway_tangible_asset_tax_rate` | Percent of the gain since today taken at a sale; absent means 0 |
-| Outflows                           | expenses plus loan installments          | What drains cash every month                                    |
+| UI label                           | Field / code                                     | Meaning                                                         |
+| ---------------------------------- | ------------------------------------------------ | --------------------------------------------------------------- |
+| Runway                             | `getRunwayYears`, `YearlyProjection.runwayYears` | Years until the money runs out, one decimal; "100+ years" past  |
+| Allow withdrawing from investments | `Profile.runway_withdraw_investments`            | Investments are sold once cash is gone; absent means on         |
+| Include investment growth          | `Profile.runway_investment_growth`               | Investments grow at their effective APY; absent means off       |
+| Tax rate on investment gains       | `Profile.runway_investment_tax_rate`             | Percent of the gain since today taken at a sale; absent means 0 |
+| Include scheduled income           | `Profile.runway_include_income`                  | Recurring income offsets the outflows; absent means off         |
+| Allow selling tangible assets      | `Profile.runway_sell_tangible_assets`            | Assets are sold once investments are gone; absent means off     |
+| Include value growth               | `Profile.runway_tangible_asset_growth`           | Assets follow their own value-over-time rate; absent means off  |
+| Tax rate on tangible asset gains   | `Profile.runway_tangible_asset_tax_rate`         | Percent of the gain since today taken at a sale; absent means 0 |
+| Outflows                           | expenses, property tax, installments             | What drains cash every month                                    |
 
 ## Rules
 
@@ -23,9 +24,10 @@ Runway card on the dashboard and its settings dialog.
   recurring flows. Each month the outflows come out of cash; when cash runs
   short, investments are sold in list order; when those are gone, tangible
   assets are sold whole, in list order. Each stage only when its switch is on.
-- Outflows are the recurring expenses plus every loan installment, standalone
-  loans and the financing of tangible assets alike. Income counts only when
-  "Include scheduled income" is on.
+- Outflows are the recurring expenses, a year's property tax on each tangible
+  asset spread over the months, and every loan installment, standalone loans
+  and the financing of tangible assets alike. An asset's tax ends when the
+  drawdown sells it. Income counts only when "Include scheduled income" is on.
 - A loan runs on its own schedule: the installment and the interest of each
   period, spread over the months, for its remaining term, with the last month
   settling whatever is left. A loan with no installment is never paid and does
@@ -53,7 +55,7 @@ Runway card on the dashboard and its settings dialog.
   climbs out against one.
 - Money that never runs out, or outlasts 100 years, reads "100+ years". With
   nothing to pay, which includes a loan with no installment, the card shows a
-  dash.
+  dash; property tax alone is something to pay.
 - The drawdown stops early only when nothing drains, or when the investment
   being drawn grows more in a month, taxed as if the whole month's growth were
   gain, than the draw: it can then never shrink. Anything closer walks the
@@ -61,8 +63,15 @@ Runway card on the dashboard and its settings dialog.
   investment in line may grow slower.
 - The settings are flat fields on the profile, one per switch, absent meaning
   the default. They are settings, not financial data: a projection does not
-  copy them, and the per-year runway in a projection keeps its ratio of
-  portfolio value (`net-worth.md`) to outflows (`getYearlyPlanProjection`).
+  copy them, and one set applies to the card, every History date and every
+  year of every projection.
+- A projection year runs the same drawdown from the year's closing balances:
+  its cash, each investment's balance, the tangible assets held at their
+  value then, and every loan at what it still owes with the term it has left.
+  The recurring expenses and incomes are the ones still running in December,
+  each at its yearly rate, in that year's money. Nothing the plan schedules
+  after that year is seen: a later purchase, sale, raise or pay-off does not
+  enter the drawdown.
 - The dialog previews the edit live; Apply writes only the fields that changed;
   Reset puts the switches back to the defaults without applying.
 - The History chart's tooltip shows the runway on each recorded date, computed
@@ -111,23 +120,34 @@ Runway card on the dashboard and its settings dialog.
     installment for ten years, 59.9 years. A million at 7% taxed at 25% lasts
     32.0 years against 5,650 a month and 31.1 against 5,700.
 
+13. A projection from 2025 with cash 100,000, living expenses of 10,000 a year
+    and a loan of 20,000 repaid at 10,000 a year: 2025 closes with cash 80,000
+    and 10,000 owed. The drawdown pays 20,000 in the next twelve months and
+    10,000 a year after: 7 years. With cash 20,000 and a fund of 100,000
+    instead of the loan, 2025 closes on 10,000 and 100,000: 11 years, or 1
+    year with investment withdrawals off.
+
+14. Cash 12,000, expenses of 900 a month and a house worth 120,000 taxed at
+    1%, 100 a month: 1 year. From cash 1,000 with a house worth 12,000 taxed
+    at 10% and asset sales on, the second month sells the house; its tax ends
+    and the 11,000 left pays 900 a month: 14.2 months.
+
 ## Open questions
 
 - Growth is nominal while the outflows stay flat, which flatters a long runway.
   Whether to deflate growth by an inflation rate, and whose rate, is not
   decided.
-- Property tax on tangible assets is not an outflow here, as it is not in the
-  dashboard's cash flow either.
 - Exit fees on investments are ignored on the way out.
 
 ## In the code
 
-- `src/lib/runway.ts`: `getRunwayYears`, `runwaySettingsOf`,
+- `src/lib/runway.ts`: `runwayYearsOf` (the drawdown), `getRunwayYears`, `runwaySettingsOf`,
   `changedRunwaySettings`, `taxRatesInEffect`, `validRunwaySettings`,
   `validTaxRate`, `DEFAULT_RUNWAY_SETTINGS`, `RUNWAY_CAP_YEARS`
 - `src/lib/schemas.ts`: the seven `runway_*` fields on `profileFieldsSchema`
 - `src/routes/(app)/runway-settings-dialog.svelte`: the dialog
 - `src/routes/(app)/+page@.svelte`: the Runway card
-- `src/lib/plan-projection.ts`: the per-year `runwayYears` ratio in projections
+- `src/lib/plan-projection.ts`: the per-year `runwayYears`, the drawdown on a
+  year's closing balances, run when the figure is first read
 - `src/lib/history-series.ts`: the runway on each recorded date for the History
   chart tooltip

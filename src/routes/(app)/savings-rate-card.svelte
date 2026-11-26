@@ -10,6 +10,7 @@
     getAnnualDebtServiceTotal,
     getAnnualExpensesTotal,
     getAnnualIncomeTotal,
+    getAnnualPropertyTaxTotal,
     getSavingsRate,
   } from '$lib/financial-totals'
   import type { Profile } from '$lib/schemas'
@@ -32,10 +33,12 @@
 
   const savingsRate = $derived(getSavingsRate(profile))
   const annualIncome = $derived(getAnnualIncomeTotal(profile))
-  // Loan installments are an outflow just like living costs, and are counted as
-  // such by the savings rate — so the expenses line has to include them too.
+  // Loan installments and property tax are outflows just like living costs, and
+  // are counted as such by the savings rate, so the expenses line includes them.
   const annualExpenses = $derived(
-    getAnnualExpensesTotal(profile) + getAnnualDebtServiceTotal(profile),
+    getAnnualExpensesTotal(profile) +
+      getAnnualDebtServiceTotal(profile) +
+      getAnnualPropertyTaxTotal(profile),
   )
 
   /** Formats a per-year figure in the selected period, e.g. "800 EUR / m". */

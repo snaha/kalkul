@@ -222,13 +222,14 @@ describe('buildHistorySeries figures', () => {
       expect(april.fiPercent).toBeUndefined()
     })
 
-    test('states runway and FI on a point that recorded no expenses as running', () => {
+    test('states the runway, and no FI, on a point that recorded no expenses as running', () => {
       const snapshot = { ...RECORDED, expenses: [] }
       const [april] = buildHistorySeries({ ...INDEBTED, snapshots: [snapshot] }, APRIL_FIRST)
       // 117,000 outlasts the loan's 24 installments of 250
       expect(april.runwayYears).toBe(Infinity)
-      // FI number 250 × 12 / 4 % = 75,000; 117,000 less the 5,000 loan of it
-      expect(april.fiPercent).toBeCloseTo(149.33, 2)
+      // The loan's balance comes off the investable net worth, so its
+      // installments are no FI outflow, and nothing else flows out.
+      expect(april.fiPercent).toBeUndefined()
     })
   })
 })

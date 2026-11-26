@@ -1,6 +1,9 @@
 import Decimal from 'decimal.js'
 
 import { DECIMAL_0, DECIMAL_1 } from '$lib/@snaha/kalkul-maths'
+// `runway.ts` imports this module's loan helpers in turn; both sides only call
+// each other inside functions, so the cycle is safe.
+import { type RunwayInputs, runwaySettingsOf, runwayYearsOf } from '$lib/runway'
 import { DEFAULT_FI_WITHDRAWAL_RATE } from '$lib/schemas'
 import type {
   CashFlowEnd,
@@ -100,19 +103,22 @@ export interface YearlyProjection {
   // planned buy and sell of an asset are not transfers the user entered and
   // stay out.
   transfersByItem: YearlyProjectionItem[]
-  // Portfolio value, also called investable net worth: cash plus investments
-  // minus the loans not secured by an asset (docs/product/net-worth.md). It is
-  // what `fiPercent` and `runwayYears` are measured on.
-  portfolioValue: number
-  // Progress toward financial independence in this year: investable wealth
-  // (cash + investments − standalone liabilities outstanding) as a percent of
-  // the FI number: this year's outflows (living expenses + loan installments)
-  // × 100 / the profile's withdrawal rate, 25× at the default 4%.
-  // Undefined in years with zero outflows, where the ratio is meaningless.
+  // Investable net worth: cash plus investments minus the loans not secured
+  // by an asset (docs/product/net-worth.md). It is what `fiPercent` is
+  // measured on.
+  investableNetWorth: number
+  // Progress toward financial independence as the year closes: investable net
+  // worth as a percent of the FI number, the yearly outflow level × 100 / the
+  // profile's withdrawal rate, 25× at the default 4%. The outflow level is the
+  // recurring expenses running when the year closes, property tax and the
+  // installments of loans secured by an asset, as on the dashboard
+  // (docs/product/financial-independence.md). Undefined without outflows.
   fiPercent?: number
-  // Years this year's investable wealth could cover this year's outflow
-  // level. Undefined in years with zero outflows.
-  runwayYears?: number
+  // How long the year's closing balances last: the dashboard's drawdown
+  // (docs/product/runway.md) on the profile's runway settings. `Infinity` when
+  // the money never runs out, undefined when there is nothing to pay.
+  // Computed when first read.
+  readonly runwayYears?: number
   // IDs of transfers that were skipped this year because the source did not
   // hold enough balance to cover the move. Used by the sidebar to surface
   // unmet cash flows. Empty in healthy years.
@@ -352,6 +358,8 @@ function changeFactor(cashFlow: CashFlowTemporal, yearsSinceStart: number): Deci
 interface LiabilitySchedule {
   outstandingByYear: Map<number, Decimal>
   paidByYear: Map<number, Decimal>
+  /** Scheduled installments left as each year closes. */
+  periodsLeftByYear: Map<number, number>
 }
 
 // Number of times per year interest is added to the balance when the user
@@ -545,6 +553,7 @@ function simulateLiability(
 
   const outstandingByYear = new Map<number, Decimal>()
   const paidByYear = new Map<number, Decimal>()
+  const periodsLeftByYear = new Map<number, number>()
 
   for (let year = startYear; year <= endYear; year++) {
     let paidThisYear = DECIMAL_0
@@ -556,6 +565,7 @@ function simulateLiability(
     if (beforeStart || afterEnd) {
       outstandingByYear.set(year, DECIMAL_0)
       paidByYear.set(year, DECIMAL_0)
+      periodsLeftByYear.set(year, 0)
       if (afterEnd) balance = DECIMAL_0
       continue
     }
@@ -584,9 +594,10 @@ function simulateLiability(
     }
     outstandingByYear.set(year, balance)
     paidByYear.set(year, paidThisYear)
+    periodsLeftByYear.set(year, Math.max(periodsRemaining, 0))
   }
 
-  return { outstandingByYear, paidByYear }
+  return { outstandingByYear, paidByYear, periodsLeftByYear }
 }
 
 /**
@@ -1138,6 +1149,11 @@ function cashFlowAmountForYear(
  * frequency, change over time from their own start year and are paid in each
  * month they run; one-time flows in their transaction month. Inflation counts
  * months from the plan's start month (`monthlyAmounts`).
+ *
+ * `level` is the yearly rate of the recurring flows still running when the
+ * year closes: what each paid over its months, scaled to twelve. FI % and the
+ * runway are measured against it, so a flow that starts mid-year counts in
+ * full and one that ended, or happens once, does not count.
  */
 function accumulateCashFlows<T extends ScheduledCashFlow & { id: string }>(
   items: T[],
@@ -1149,14 +1165,18 @@ function accumulateCashFlows<T extends ScheduledCashFlow & { id: string }>(
 ): {
   total: Decimal
   realTotal: Decimal
+  level: Decimal
   activeIds: string[]
   amounts: { item: T; amount: Decimal; real: Decimal }[]
 } {
   let total = DECIMAL_0
   let realTotal = DECIMAL_0
+  let level = DECIMAL_0
   const activeIds: string[] = []
   const amounts: { item: T; amount: Decimal; real: Decimal }[] = []
   for (const item of items) {
+    // Months the flow runs in, when it is still running in December.
+    let monthsToYearEnd = 0
     if (item.schedule === 'one_time') {
       if (year !== item.transaction_year) continue
     } else {
@@ -1164,7 +1184,9 @@ function accumulateCashFlows<T extends ScheduledCashFlow & { id: string }>(
       const itemStart = resolveStartYear(temporal, planStartYear, birth)
       const itemEnd = resolveEndYear(temporal, birth)
       if (year < itemStart || year > itemEnd) continue
-      if (activeMonthFraction(temporal, year, itemStart, itemEnd, birth).isZero()) continue
+      const [from, to] = activeMonthRange(temporal, year, itemStart, itemEnd, birth)
+      if (to < from) continue
+      if (to === 12) monthsToYearEnd = to - from + 1
     }
     const { nominal, real } = cashFlowAmountForYear(
       item,
@@ -1174,12 +1196,13 @@ function accumulateCashFlows<T extends ScheduledCashFlow & { id: string }>(
       birth,
       inflation,
     )
+    if (monthsToYearEnd > 0) level = level.plus(nominal.mul(12).div(monthsToYearEnd))
     total = total.plus(nominal)
     realTotal = realTotal.plus(real)
     activeIds.push(item.id)
     amounts.push({ item, amount: nominal, real })
   }
-  return { total, realTotal, activeIds, amounts }
+  return { total, realTotal, level, activeIds, amounts }
 }
 
 /**
@@ -1257,6 +1280,21 @@ export function applyEntryFee(investment: ProfileInvestment | undefined, amount:
   return Decimal.max(amount.mul(DECIMAL_1.minus(upfrontPct.div(100))), DECIMAL_0)
 }
 
+/**
+ * Investable net worth as a percent of the FI number, the yearly outflows ×
+ * 100 / the withdrawal rate; never below 0. Undefined without outflows or a
+ * usable rate. One formula for the dashboard, History and every projection
+ * year (docs/product/financial-independence.md).
+ */
+export function fiPercentOf(
+  investable: Decimal,
+  annualOutflows: Decimal,
+  withdrawalRate: number,
+): number | undefined {
+  if (annualOutflows.lessThanOrEqualTo(0) || withdrawalRate <= 0) return undefined
+  return Decimal.max(0, investable.mul(withdrawalRate).div(annualOutflows)).toNumber()
+}
+
 export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): YearlyProjection[] {
   const startYear = yearOf(plan.start_date)
   const endYear = yearOf(plan.end_date)
@@ -1311,6 +1349,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
   // plan start. A planned pay-off before that start means the schedule above
   // never goes live, so nothing is borrowed either.
   const fiWithdrawalRate = profile.fi_withdrawal_rate ?? DEFAULT_FI_WITHDRAWAL_RATE
+  const runwaySettings = runwaySettingsOf(profile)
   const currentDebtIds = new Set(plan.base.liabilities.map((l) => l.id))
   const borrowedByYear = new Map<number, Decimal>()
   for (const l of liabilities) {
@@ -1467,6 +1506,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     const {
       total: incomesThisYearNominal,
       realTotal: incomesThisYearReal,
+      level: incomeLevelNominal,
       amounts: incomeAmounts,
     } = accumulateCashFlows(
       incomes,
@@ -1479,6 +1519,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     const {
       total: cashFlowExpensesNominal,
       realTotal: cashFlowExpensesReal,
+      level: expenseLevelNominal,
       activeIds: activeExpenseIdsThisYear,
       amounts: expenseAmounts,
     } = accumulateCashFlows(
@@ -1759,31 +1800,73 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       })),
     ]
 
-    // 9. Per-year FI % and runway. FI mirrors the dashboard's getFiPercent in
-    //    financial-totals.ts; the runway stays the ratio of investable wealth
-    //    to outflows, while the dashboard's Runway card runs the drawdown in
-    //    runway.ts (docs/product/runway.md). Investable wealth excludes
-    //    tangibles and subtracts only standalone liabilities (a mortgage is
-    //    secured by its asset); outflows include every installment actually
-    //    paid this year. Numerator and denominator are both nominal, so the
-    //    deflator cancels and the ratio is basis-independent.
-    const standaloneOutstandingNominal = standaloneSchedules.reduce<Decimal>(
-      (sum, s) => sum.plus(s.outstandingByYear.get(year) ?? DECIMAL_0),
+    // 9. Per-year FI % and runway: what the dashboard would read on the
+    //    year's closing balances and the recurring flows running as it closes
+    //    (docs/product/financial-independence.md, docs/product/runway.md).
+    //    Everything here is nominal, so the deflator cancels out of both.
+    const closingLoan = (liability: ProfileLiability, schedule: LiabilitySchedule) => ({
+      outstanding_balance: (schedule.outstandingByYear.get(year) ?? DECIMAL_0).toNumber(),
+      remaining_term:
+        (schedule.periodsLeftByYear.get(year) ?? 0) /
+        INSTALLMENT_PERIODS_PER_YEAR[liability.installment_frequency],
+      remaining_term_unit: 'years' as const,
+    })
+    const closingLiabilities = liabilities
+      .map((l, i) => ({ ...l, ...closingLoan(l, standaloneSchedules[i]) }))
+      .filter((l) => l.outstanding_balance > 0)
+    const closingAssets = tangibleAssets.flatMap((asset): ProfileTangibleAsset[] => {
+      const value = (tangValuesNominal.get(asset.id) ?? DECIMAL_0).toNumber()
+      if (!(value > 0) || abandonedAssetIds.has(asset.id)) return []
+      const financing = financedSchedules.find((f) => f.assetId === asset.id)
+      const loan = financing && closingLoan(financing.liability, financing.schedule)
+      return loan && loan.outstanding_balance > 0
+        ? [{ ...asset, value, ...loan }]
+        : [{ ...asset, value, status: 'fully_owned' }]
+    })
+    const standaloneOutstandingNominal = closingLiabilities.reduce<Decimal>(
+      (sum, l) => sum.plus(l.outstanding_balance),
       DECIMAL_0,
     )
-    const outflowsNominal = expensesThisYearNominal.plus(liabilitiesPaidThisYearNominal)
     const investableNominal = cashNominal
       .plus(investmentsNominal)
       .minus(standaloneOutstandingNominal)
-    let fiPercent: number | undefined
-    let runwayYears: number | undefined
-    if (outflowsNominal.greaterThan(0)) {
-      // Investable over the FI number (outflows × 100 / rate), as a percentage.
-      fiPercent = Math.max(
-        0,
-        investableNominal.mul(fiWithdrawalRate).div(outflowsNominal).toNumber(),
-      )
-      runwayYears = Math.max(0, investableNominal.div(outflowsNominal).toNumber())
+    // Property tax stays on the purchase price, as it is charged above.
+    const closingPropertyTax = closingAssets.map((closing) => {
+      const asset = tangibleAssets.find((a) => a.id === closing.id) ?? closing
+      return {
+        assetId: closing.id,
+        annual: new Decimal(asset.value).mul(asset.property_tax_rate ?? 0).div(100),
+      }
+    })
+    // A loan not secured by an asset is left out of the FI outflows: its
+    // balance already came off the investable net worth.
+    const fiOutflowsNominal = closingAssets.reduce<Decimal>(
+      (sum, closing) =>
+        closing.status === 'financed'
+          ? sum.plus(
+              annualizedAmount(
+                new Decimal(closing.installment_amount ?? 0),
+                closing.installment_frequency ?? 'monthly',
+              ),
+            )
+          : sum,
+      closingPropertyTax.reduce((sum, t) => sum.plus(t.annual), expenseLevelNominal),
+    )
+    const fiPercent = fiPercentOf(investableNominal, fiOutflowsNominal, fiWithdrawalRate)
+    // The drawdown walks months, so it runs only when a year's runway is
+    // read: the sidebar reads one year, the charts none.
+    let runway: { years: number | undefined } | undefined
+    const runwayInputs: RunwayInputs = {
+      cash: cashNominal,
+      annualExpenses: expenseLevelNominal,
+      annualIncome: incomeLevelNominal,
+      investments: investments.map((i) => ({
+        ...i,
+        balance: (invBalancesNominal.get(i.id) ?? DECIMAL_0).toNumber(),
+      })),
+      tangibleAssets: closingAssets,
+      liabilities: closingLiabilities,
+      propertyTax: closingPropertyTax,
     }
 
     const real = (nominal: Decimal): number => nominal.div(deflationFactor).toNumber()
@@ -1841,9 +1924,12 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
         const value = perNominal ? moved.mul(perNominal).toNumber() : real(moved)
         return [{ id: transfer.id, name: transfer.name, value }]
       }),
-      portfolioValue: real(investableNominal),
+      investableNetWorth: real(investableNominal),
       fiPercent,
-      runwayYears,
+      get runwayYears() {
+        runway ??= { years: runwayYearsOf(runwayInputs, runwaySettings) }
+        return runway.years
+      },
       insufficientFundTransferIds: insufficientFundTransferIdsThisYear,
       insufficientFundAssetIds: insufficientFundAssetIdsThisYear,
       insufficientFundExpenseIds: insufficientFundExpenseIdsThisYear,
