@@ -81,6 +81,24 @@ describe('createPluginStore', () => {
     expect(log).toEqual(['start a', 'start b', 'stop a', 'stop b'])
   })
 
+  it('holds background work while paused, as in demo mode', () => {
+    // A sync plugin must not export a demo persona or pull data over it.
+    const log: string[] = []
+    let paused = $state(true)
+    const store = createPluginStore([running('a', log)], () => paused)
+    store.setEnabled('a', true)
+    const stop = store.start()
+    flushSync()
+    expect(log).toEqual([])
+    paused = false
+    flushSync()
+    expect(log).toEqual(['start a'])
+    paused = true
+    flushSync()
+    expect(log).toEqual(['start a', 'stop a'])
+    stop()
+  })
+
   it('follows a change made in another tab', () => {
     const log: string[] = []
     const store = createPluginStore([running('a', log)])

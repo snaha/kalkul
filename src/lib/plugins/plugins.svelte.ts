@@ -1,8 +1,9 @@
 import { untrack } from 'svelte'
 
-import { browser } from '$app/environment'
+import { browser } from '$app/env'
 
 import storageKeys from '$lib/storage-keys'
+import { appStore } from '$lib/stores/app.svelte'
 
 import { registeredPlugins } from './registry'
 import type { KalkulPlugin } from './types'
@@ -10,8 +11,9 @@ import type { KalkulPlugin } from './types'
 /**
  * Which plugins are on. Every plugin starts off; the dev page turns them on
  * per browser (localStorage), and the choice follows to other open tabs.
+ * Background work is held while `paused` returns true.
  */
-export function createPluginStore(plugins: KalkulPlugin[]) {
+export function createPluginStore(plugins: KalkulPlugin[], paused: () => boolean = () => false) {
   function readEnabled(): string[] {
     if (!browser) return []
     try {
@@ -63,7 +65,7 @@ export function createPluginStore(plugins: KalkulPlugin[]) {
           const start = plugin.start
           if (!start) continue
           // Its own flag, so turning another plugin on or off leaves it running.
-          const on = $derived(isActive(plugin))
+          const on = $derived(isActive(plugin) && !paused())
           $effect(() => {
             if (!on) return
             return untrack(start)
@@ -78,4 +80,5 @@ export function createPluginStore(plugins: KalkulPlugin[]) {
   }
 }
 
-export const pluginStore = createPluginStore(registeredPlugins)
+// Demo data is held in memory only, so no plugin works on it.
+export const pluginStore = createPluginStore(registeredPlugins, () => appStore.demo)
