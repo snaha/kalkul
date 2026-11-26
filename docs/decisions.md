@@ -10,6 +10,24 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-25 Inflation counts months from the projection's start month
+
+**Context.** An amount that adjusts for inflation rose once a year, from the
+plan's first year: a one-time transfer cost the same in every month of a year
+and jumped in January (#485).
+
+**Decision.** Inflation counts months from the start month: a payment `n`
+months later costs (1 + rate)^(n / 12) as much, for every income, expense and
+transfer, one-time and recurring. A flow in today's money is its payments
+each deflated by their own month, so one that adjusts for inflation reads as
+entered. Balances are still deflated once a year, and a yearly change over
+time still steps once a year. Amounts stay shown in whole units.
+
+**Why.** The start month is "today" for a new projection, so a payment a month
+later should already cost a month more, and the dialog's preview should move
+with the month picked. Deflating each payment by its own month keeps an
+inflation-adjusted amount equal to what was entered, as the dialog says.
+
 ## 2026-11-24 The projection's cash flow lists installments and fees and taxes apart from expenses
 
 **Context.** The right sidebar's Expense group listed a financed asset's
