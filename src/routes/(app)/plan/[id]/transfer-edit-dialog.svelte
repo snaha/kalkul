@@ -18,7 +18,7 @@
   import * as Tooltip from '$lib/components/ui/tooltip'
   import { isImportedPlanItem, removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
   import { summarizeTransfer } from '$lib/plan-projection'
-  import { planRangeOf, planYearOptions, yearWithinPlan } from '$lib/plan-range'
+  import { dateWithinPlan, planRangeOf, planYearOptions } from '$lib/plan-range'
   import { ageRangeEmpty, sameYearMonthsInverted, timingComplete } from '$lib/schemas'
   import type { Transfer, TransferSchedule } from '$lib/schemas'
   import { getFrequencyItems } from '$lib/select-options'
@@ -343,10 +343,13 @@
             }}
           />
         </div>
-        {#if !yearWithinPlan(range, form.transaction_year)}
+        {#if !dateWithinPlan(range, form.transaction_year, form.transaction_month)}
           <p class="text-xs text-destructive">
             {$_('validation.outside_plan', {
-              values: { start: String(range.startYear), end: String(range.endYear) },
+              values: {
+                start: `${months[range.startMonth - 1].label} ${range.startYear}`,
+                end: String(range.endYear),
+              },
             })}
           </p>
         {/if}

@@ -7,6 +7,8 @@ import type { CashFlowEnd, CashFlowStart, Portfolio } from '$lib/schemas'
  */
 export interface PlanRange {
   startYear: number
+  /** 1–12; the first year runs from this month (docs/product/projections.md). */
+  startMonth: number
   endYear: number
   birthYear: number | undefined
   /** 1–12; an age is reached in this month (docs/product/projections.md). */
@@ -19,6 +21,7 @@ export function planRangeOf(
 ): PlanRange {
   return {
     startYear: Number(plan.start_date.slice(0, 4)),
+    startMonth: Number(plan.start_date.slice(5, 7)),
     endYear: Number(plan.end_date.slice(0, 4)),
     birthYear: birthDate?.getFullYear(),
     birthMonth: birthDate === undefined ? undefined : birthDate.getMonth() + 1,
@@ -32,9 +35,17 @@ export function planYearOptions(range: PlanRange): string[] {
   return years
 }
 
-/** The nearest plan year, to seed a new one-time date when today is outside the plan. */
-export function clampYearToPlan(range: PlanRange, year: number): number {
-  return Math.min(Math.max(year, range.startYear), range.endYear)
+/**
+ * The date a new one-time item starts at: today, or the nearest month of the
+ * plan when today is outside it.
+ */
+export function seedDateInPlan(range: PlanRange, today: Date): { year: number; month: number } {
+  const year = today.getFullYear()
+  const month = today.getMonth() + 1
+  if (year < range.startYear || (year === range.startYear && month < range.startMonth)) {
+    return { year: range.startYear, month: range.startMonth }
+  }
+  return { year: Math.min(year, range.endYear), month }
 }
 
 /** The year a timing resolves to; none while it has no date or is incomplete. */
@@ -58,9 +69,9 @@ function plannedYear(
  * they pass. Only a timing without a date ('immediately', 'never') follows the
  * plan's bounds when they move; a specific date stays put, so a value at the
  * edge of the plan is not nudged onto it. A missing value is reported as fine
- * so completeness stays `timingComplete`'s concern. Year precision: the
- * boundary years are accepted whole, except that an end at an age reached in
- * the plan's first year needs a month before the birthday to run in.
+ * so completeness stays `timingComplete`'s concern. In the plan's first year an
+ * end must leave a month to run in from the plan's start month: a specific
+ * date at or after it, or an age whose birthday comes after it.
  */
 export function timingWithinPlan(
   range: PlanRange,
@@ -68,15 +79,27 @@ export function timingWithinPlan(
   timing: CashFlowStart | CashFlowEnd,
   year: number | undefined,
   age: number | undefined,
+  /** The month of a specific-date end, checked against the plan's start month. */
+  month?: number,
 ): boolean {
   const resolved = plannedYear(range, timing, year, age)
   if (resolved === undefined) return true
   if (mode === 'start') return resolved <= range.endYear
   if (resolved !== range.startYear) return resolved > range.startYear
-  return timing !== 'when_age_is' || (range.birthMonth ?? 1) > 1
+  if (timing === 'when_age_is') return (range.birthMonth ?? 1) > range.startMonth
+  return month === undefined || month >= range.startMonth
 }
 
-/** Whether a one-time date (a transaction, a pay-off) falls inside the plan; outside it never fires. */
-export function yearWithinPlan(range: PlanRange, year: number | undefined): boolean {
-  return year === undefined || (year >= range.startYear && year <= range.endYear)
+/**
+ * Whether a one-time date falls inside the plan: within its years, and not in
+ * a month of its first year before it starts. Outside it never happens.
+ */
+export function dateWithinPlan(
+  range: PlanRange,
+  year: number | undefined,
+  month: number | undefined,
+): boolean {
+  if (year === undefined) return true
+  if (year < range.startYear || year > range.endYear) return false
+  return year !== range.startYear || month === undefined || month >= range.startMonth
 }

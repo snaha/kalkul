@@ -30,7 +30,8 @@ mortgage. A standalone loan is any other liability.
 - Portfolio value is what financial independence is measured on: the FI % on
   the dashboard, in History and in every year of a projection is the portfolio
   value over the FI number (`financial-independence.md`). A projection's
-  per-year runway is the portfolio value over that year's outflows.
+  per-year runway is the portfolio value over that year's outflows, a first
+  year of a few months scaled to twelve (`projections.md`).
 - A projection shows the portfolio value of the selected year as "FIRE
   portfolio" in the right sidebar (`projections.md`).
 - Investable net worth and portfolio value are one figure with two names, never

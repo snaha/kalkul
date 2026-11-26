@@ -126,7 +126,7 @@
   )
   // `value` is a CashFlowStart/CashFlowEnd member for the mode (see modeItems).
   let outsidePlan = $derived(
-    !timingWithinPlan(range, mode, value as CashFlowStart | CashFlowEnd, year, age),
+    !timingWithinPlan(range, mode, value as CashFlowStart | CashFlowEnd, year, age, month),
   )
   let emptyAgeRange = $derived(mode === 'end' && ageRangeEmpty('when_age_is', afterAge, value, age))
   // The plan's years plus the stored one.
@@ -192,7 +192,9 @@
   <p class="text-xs text-destructive">
     {mode === 'start'
       ? $_('validation.start_after_plan', { values: { end: String(range.endYear) } })
-      : $_('validation.end_before_plan', { values: { start: String(range.startYear) } })}
+      : $_('validation.end_before_plan', {
+          values: { start: `${months[range.startMonth - 1].label} ${range.startYear}` },
+        })}
   </p>
 {/if}
 {#if emptyAgeRange}

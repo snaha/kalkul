@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  clampYearToPlan,
+  dateWithinPlan,
   planRangeOf,
   planYearOptions,
+  seedDateInPlan,
   timingWithinPlan,
-  yearWithinPlan,
 } from './plan-range'
 
 const range = planRangeOf(
@@ -14,8 +14,14 @@ const range = planRangeOf(
 )
 
 describe('planRangeOf', () => {
-  it('reads the plan years and the birth year', () => {
-    expect(range).toEqual({ startYear: 2026, endYear: 2030, birthYear: 1980, birthMonth: 5 })
+  it('reads the plan years, its start month and the birth year', () => {
+    expect(range).toEqual({
+      startYear: 2026,
+      startMonth: 9,
+      endYear: 2030,
+      birthYear: 1980,
+      birthMonth: 5,
+    })
   })
 })
 
@@ -25,11 +31,19 @@ describe('planYearOptions', () => {
   })
 })
 
-describe('clampYearToPlan', () => {
-  it('moves a year outside the plan to its nearest edge', () => {
-    expect(clampYearToPlan(range, 2020)).toBe(2026)
-    expect(clampYearToPlan(range, 2035)).toBe(2030)
-    expect(clampYearToPlan(range, 2028)).toBe(2028)
+describe('seedDateInPlan', () => {
+  it('keeps today when the plan holds it', () => {
+    expect(seedDateInPlan(range, new Date(2026, 10, 15))).toEqual({ year: 2026, month: 11 })
+    expect(seedDateInPlan(range, new Date(2028, 0, 15))).toEqual({ year: 2028, month: 1 })
+  })
+
+  it('moves a date before the plan to its start month', () => {
+    expect(seedDateInPlan(range, new Date(2026, 2, 15))).toEqual({ year: 2026, month: 9 })
+    expect(seedDateInPlan(range, new Date(2020, 10, 15))).toEqual({ year: 2026, month: 9 })
+  })
+
+  it('moves a date after the plan into its last year', () => {
+    expect(seedDateInPlan(range, new Date(2035, 4, 15))).toEqual({ year: 2030, month: 5 })
   })
 })
 
@@ -44,6 +58,9 @@ describe('timingWithinPlan', () => {
   it('rejects an end before the plan starts, but not one after it ends', () => {
     expect(timingWithinPlan(range, 'end', 'at_specific_date', 2025, undefined)).toBe(false)
     expect(timingWithinPlan(range, 'end', 'at_specific_date', 2026, undefined)).toBe(true)
+    // In the first year, the end month must not come before the start month.
+    expect(timingWithinPlan(range, 'end', 'at_specific_date', 2026, undefined, 8)).toBe(false)
+    expect(timingWithinPlan(range, 'end', 'at_specific_date', 2026, undefined, 9)).toBe(true)
     // Runs to the plan's last year.
     expect(timingWithinPlan(range, 'end', 'at_specific_date', 2045, undefined)).toBe(true)
   })
@@ -56,8 +73,13 @@ describe('timingWithinPlan', () => {
   })
 
   it('needs a month left in the first year for an end at an age reached then', () => {
-    // Born May 1980: 46 in May 2026, so January to April 2026 run.
-    expect(timingWithinPlan(range, 'end', 'when_age_is', undefined, 46)).toBe(true)
+    // The plan starts in September 2026. Born May 1980: 46 in May 2026, so the
+    // flow would stop in April, before the plan starts.
+    expect(timingWithinPlan(range, 'end', 'when_age_is', undefined, 46)).toBe(false)
+    // Born October: September 2026 runs.
+    expect(
+      timingWithinPlan({ ...range, birthMonth: 10 }, 'end', 'when_age_is', undefined, 46),
+    ).toBe(true)
     // Born January: the flow would stop with 2025, before the plan.
     expect(timingWithinPlan({ ...range, birthMonth: 1 }, 'end', 'when_age_is', undefined, 46)).toBe(
       false,
@@ -78,15 +100,20 @@ describe('timingWithinPlan', () => {
   })
 })
 
-describe('yearWithinPlan', () => {
-  it('accepts the plan years and rejects the rest', () => {
-    expect(yearWithinPlan(range, 2026)).toBe(true)
-    expect(yearWithinPlan(range, 2030)).toBe(true)
-    expect(yearWithinPlan(range, 2025)).toBe(false)
-    expect(yearWithinPlan(range, 2031)).toBe(false)
+describe('dateWithinPlan', () => {
+  it('accepts the plan months and rejects the rest', () => {
+    expect(dateWithinPlan(range, 2026, 9)).toBe(true)
+    expect(dateWithinPlan(range, 2030, 12)).toBe(true)
+    expect(dateWithinPlan(range, 2025, 12)).toBe(false)
+    expect(dateWithinPlan(range, 2031, 1)).toBe(false)
   })
 
-  it('leaves a missing year to the completeness check', () => {
-    expect(yearWithinPlan(range, undefined)).toBe(true)
+  it('rejects a month of the first year before the plan starts', () => {
+    expect(dateWithinPlan(range, 2026, 8)).toBe(false)
+  })
+
+  it('leaves a missing year or month to the completeness check', () => {
+    expect(dateWithinPlan(range, undefined, 3)).toBe(true)
+    expect(dateWithinPlan(range, 2026, undefined)).toBe(true)
   })
 })
