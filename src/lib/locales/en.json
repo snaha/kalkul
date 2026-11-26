@@ -322,7 +322,7 @@
         },
         "savingsRateCard": {
           "title": "Savings rate",
-          "help": "Share of your income left after expenses and loan payments",
+          "help": "Share of your income left after expenses, property tax and loan payments",
           "periodLabel": "Savings rate period",
           "monthly": "Monthly",
           "yearly": "Yearly",

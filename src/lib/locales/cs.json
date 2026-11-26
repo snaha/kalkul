@@ -322,7 +322,7 @@
         },
         "savingsRateCard": {
           "title": "Míra úspor",
-          "help": "Část vašich příjmů, která zbyde po výdajích a splátkách",
+          "help": "Část vašich příjmů, která zbyde po výdajích, dani z nemovitosti a splátkách",
           "periodLabel": "Období míry úspor",
           "monthly": "Měsíčně",
           "yearly": "Ročně",

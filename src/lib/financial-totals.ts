@@ -3,7 +3,12 @@ import Decimal from 'decimal.js'
 import { DECIMAL_0 } from '$lib/@snaha/kalkul-maths'
 import { CATEGORY_COLORS } from '$lib/chart-colors'
 import { annualizedAmount, fiPercentOf } from '$lib/plan-projection'
-import { DEFAULT_FI_WITHDRAWAL_RATE, type Frequency, type Profile } from '$lib/schemas'
+import {
+  DEFAULT_FI_WITHDRAWAL_RATE,
+  type Frequency,
+  type Profile,
+  type ProfileTangibleAsset,
+} from '$lib/schemas'
 import { countedCashFlows, hasAnyBalance, snapshotBalances, snapshotNetWorth } from '$lib/snapshots'
 
 export type CategoryLabel = 'cash' | 'investments' | 'tangible-assets' | 'liabilities'
@@ -132,16 +137,22 @@ export interface SavingsRate {
 }
 
 /**
- * What share of income survives the year's outflows. Debt service counts as an
- * outflow alongside living expenses, matching FI % and runway.
+ * What share of income survives the year's outflows. Debt service and property
+ * tax count as outflows alongside living expenses, as they do for the runway.
  *
  * Undefined when there is no income to take a share of.
  */
 export function getSavingsRate(profile: Profile): SavingsRate | undefined {
   const income = getAnnualIncomeTotal(profile)
   if (income <= 0) return undefined
-  const annualAmount = income - getAnnualExpensesTotal(profile) - getAnnualDebtServiceTotal(profile)
-  return { percent: (annualAmount / income) * 100, annualAmount }
+  const annualAmount = new Decimal(income)
+    .minus(getAnnualExpensesTotal(profile))
+    .minus(getAnnualDebtServiceTotal(profile))
+    .minus(getAnnualPropertyTaxTotal(profile))
+  return {
+    percent: annualAmount.div(income).mul(100).toNumber(),
+    annualAmount: annualAmount.toNumber(),
+  }
 }
 
 // Annualized loan payments (standalone liabilities + financed assets). Debt
@@ -177,12 +188,16 @@ function getSecuredDebtServiceTotal(profile: Profile): Decimal {
     )
 }
 
-/** A year's property tax on the tangible assets, each on its recorded value. */
-function getAnnualPropertyTaxTotal(profile: Profile): Decimal {
-  return (profile.tangible_assets ?? []).reduce<Decimal>(
-    (sum, a) => sum.plus(new Decimal(a.value).mul(a.property_tax_rate ?? 0).div(100)),
-    DECIMAL_0,
-  )
+/** A year's property tax on one asset, charged on its recorded value. */
+export function annualPropertyTaxOf(asset: ProfileTangibleAsset): Decimal {
+  return new Decimal(asset.value).mul(asset.property_tax_rate ?? 0).div(100)
+}
+
+/** A year's property tax on the tangible assets. */
+export function getAnnualPropertyTaxTotal(profile: Profile): number {
+  return (profile.tangible_assets ?? [])
+    .reduce<Decimal>((sum, a) => sum.plus(annualPropertyTaxOf(a)), DECIMAL_0)
+    .toNumber()
 }
 
 export function getInvestableNetWorth(profile: Profile): number {

@@ -1830,21 +1830,28 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     const investableNominal = cashNominal
       .plus(investmentsNominal)
       .minus(standaloneOutstandingNominal)
-    // Property tax stays on the purchase price, as it is charged above. A
-    // loan not secured by an asset is left out: its balance already came off
-    // the investable net worth.
-    const fiOutflowsNominal = closingAssets.reduce<Decimal>((sum, closing) => {
+    // Property tax stays on the purchase price, as it is charged above.
+    const closingPropertyTax = closingAssets.map((closing) => {
       const asset = tangibleAssets.find((a) => a.id === closing.id) ?? closing
-      const tax = new Decimal(asset.value).mul(asset.property_tax_rate ?? 0).div(100)
-      const installments =
+      return {
+        assetId: closing.id,
+        annual: new Decimal(asset.value).mul(asset.property_tax_rate ?? 0).div(100),
+      }
+    })
+    // A loan not secured by an asset is left out of the FI outflows: its
+    // balance already came off the investable net worth.
+    const fiOutflowsNominal = closingAssets.reduce<Decimal>(
+      (sum, closing) =>
         closing.status === 'financed'
-          ? annualizedAmount(
-              new Decimal(closing.installment_amount ?? 0),
-              closing.installment_frequency ?? 'monthly',
+          ? sum.plus(
+              annualizedAmount(
+                new Decimal(closing.installment_amount ?? 0),
+                closing.installment_frequency ?? 'monthly',
+              ),
             )
-          : DECIMAL_0
-      return sum.plus(tax).plus(installments)
-    }, expenseLevelNominal)
+          : sum,
+      closingPropertyTax.reduce((sum, t) => sum.plus(t.annual), expenseLevelNominal),
+    )
     const fiPercent = fiPercentOf(investableNominal, fiOutflowsNominal, fiWithdrawalRate)
     // The drawdown walks months, so it runs only when a year's runway is
     // read: the sidebar reads one year, the charts none.
@@ -1859,6 +1866,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       })),
       tangibleAssets: closingAssets,
       liabilities: closingLiabilities,
+      propertyTax: closingPropertyTax,
     }
 
     const real = (nominal: Decimal): number => nominal.div(deflationFactor).toNumber()

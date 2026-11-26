@@ -83,8 +83,9 @@ four are one calculation.
 - A mortgage's installments are still multiplied by 25 like a permanent
   expense, although they end with the loan. Carrying the loan by its balance
   instead is not decided.
-- The savings rate still counts every loan's installments and no property
-  tax, so its outflows differ from the ones here.
+- The savings rate and the runway count every loan's installments, since
+  both pay them out of cash, while FI % leaves out the loans whose balance it
+  already subtracted. All three count property tax.
 - The #220 thread also raised counting tangible assets in the investable net worth
   and letting the user try a lower living cost. The revised frame has neither,
   so the dialog does not; either needs its own issue if wanted.

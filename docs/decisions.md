@@ -28,7 +28,8 @@ sides.
 investable net worth over the yearly outflow level × 100 / the withdrawal
 rate, where the level is the recurring expenses, property tax and the
 installments of loans secured by an asset; the installments of other loans
-are left out. Runway is the drawdown everywhere. A projection year computes
+are left out. Runway is the drawdown everywhere, and it pays property tax like an expense,
+as the savings rate now does. A projection year computes
 both as the dashboard would on the year's closing balances and the flows
 still running as it closes, with the withdrawal rate and the runway settings
 saved on the dashboard.

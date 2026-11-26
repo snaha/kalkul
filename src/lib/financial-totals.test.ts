@@ -397,6 +397,18 @@ describe('getSavingsRate', () => {
     expect(rate?.percent).toBeCloseTo(19.047619, 6)
   })
 
+  test('counts property tax among the outflows', () => {
+    // A house worth 120,000 taxed at 1% takes 1,200 a year of the 9,600 left.
+    const rate = getSavingsRate({
+      ...SAVER,
+      tangible_assets: [
+        { id: 't1', name: 'House', value: 120_000, status: 'fully_owned', property_tax_rate: 1 },
+      ],
+    })
+    expect(rate?.annualAmount).toBe(8_400)
+    expect(rate?.percent).toBeCloseTo(16.666667, 6)
+  })
+
   test('is negative when outflows exceed income', () => {
     const profile: Profile = {
       ...EMPTY_PROFILE,

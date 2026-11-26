@@ -16,7 +16,7 @@ History and the per-year runway of a projection. All are one calculation.
 | Allow selling tangible assets      | `Profile.runway_sell_tangible_assets`            | Assets are sold once investments are gone; absent means off     |
 | Include value growth               | `Profile.runway_tangible_asset_growth`           | Assets follow their own value-over-time rate; absent means off  |
 | Tax rate on tangible asset gains   | `Profile.runway_tangible_asset_tax_rate`         | Percent of the gain since today taken at a sale; absent means 0 |
-| Outflows                           | expenses plus loan installments                  | What drains cash every month                                    |
+| Outflows                           | expenses, property tax, installments             | What drains cash every month                                    |
 
 ## Rules
 
@@ -24,9 +24,10 @@ History and the per-year runway of a projection. All are one calculation.
   recurring flows. Each month the outflows come out of cash; when cash runs
   short, investments are sold in list order; when those are gone, tangible
   assets are sold whole, in list order. Each stage only when its switch is on.
-- Outflows are the recurring expenses plus every loan installment, standalone
-  loans and the financing of tangible assets alike. Income counts only when
-  "Include scheduled income" is on.
+- Outflows are the recurring expenses, a year's property tax on each tangible
+  asset spread over the months, and every loan installment, standalone loans
+  and the financing of tangible assets alike. An asset's tax ends when the
+  drawdown sells it. Income counts only when "Include scheduled income" is on.
 - A loan runs on its own schedule: the installment and the interest of each
   period, spread over the months, for its remaining term, with the last month
   settling whatever is left. A loan with no installment is never paid and does
@@ -54,7 +55,7 @@ History and the per-year runway of a projection. All are one calculation.
   climbs out against one.
 - Money that never runs out, or outlasts 100 years, reads "100+ years". With
   nothing to pay, which includes a loan with no installment, the card shows a
-  dash.
+  dash; property tax alone is something to pay.
 - The drawdown stops early only when nothing drains, or when the investment
   being drawn grows more in a month, taxed as if the whole month's growth were
   gain, than the draw: it can then never shrink. Anything closer walks the
@@ -126,13 +127,16 @@ History and the per-year runway of a projection. All are one calculation.
     instead of the loan, 2025 closes on 10,000 and 100,000: 11 years, or 1
     year with investment withdrawals off.
 
+14. Cash 12,000, expenses of 900 a month and a house worth 120,000 taxed at
+    1%, 100 a month: 1 year. From cash 1,000 with a house worth 12,000 taxed
+    at 10% and asset sales on, the second month sells the house; its tax ends
+    and the 11,000 left pays 900 a month: 14.2 months.
+
 ## Open questions
 
 - Growth is nominal while the outflows stay flat, which flatters a long runway.
   Whether to deflate growth by an inflation rate, and whose rate, is not
   decided.
-- Property tax on tangible assets is not an outflow here, although FI % counts
-  it (`financial-independence.md`) and a projection pays it.
 - Exit fees on investments are ignored on the way out.
 
 ## In the code

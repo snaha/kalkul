@@ -1,7 +1,11 @@
 import Decimal from 'decimal.js'
 
 import { DECIMAL_0, DECIMAL_1 } from '$lib/@snaha/kalkul-maths'
-import { getAnnualExpensesTotal, getAnnualIncomeTotal } from '$lib/financial-totals'
+import {
+  annualPropertyTaxOf,
+  getAnnualExpensesTotal,
+  getAnnualIncomeTotal,
+} from '$lib/financial-totals'
 import {
   INSTALLMENT_PERIODS_PER_YEAR,
   effectiveInvestmentApy,
@@ -204,6 +208,8 @@ export interface RunwayInputs {
   tangibleAssets: ProfileTangibleAsset[]
   /** Loans not secured by an asset; a financed asset carries its own. */
   liabilities: ProfileLiability[]
+  /** A year's property tax per asset, paid until the drawdown sells the asset. */
+  propertyTax: { assetId: string; annual: Decimal.Value }[]
 }
 
 /** The dashboard's runway: the drawdown of the profile as it stands today. */
@@ -219,6 +225,10 @@ export function getRunwayYears(
       investments: profile.investments ?? [],
       tangibleAssets: profile.tangible_assets ?? [],
       liabilities: profile.liabilities ?? [],
+      propertyTax: (profile.tangible_assets ?? []).map((a) => ({
+        assetId: a.id,
+        annual: annualPropertyTaxOf(a),
+      })),
     },
     settings,
   )
@@ -227,7 +237,7 @@ export function getRunwayYears(
 /**
  * How long the money lasts against the outflows it starts with, in years.
  *
- * A month-by-month drawdown. Expenses and loan installments come out of cash,
+ * A month-by-month drawdown. Expenses, property tax and loan installments come out of cash,
  * then out of investments, then out of tangible assets, as far as `settings`
  * allows. Loans run on their own schedule for their remaining term; selling a
  * financed asset settles what is still owed on it. Growth, where switched on,
@@ -252,7 +262,14 @@ export function runwayYearsOf(inputs: RunwayInputs, settings: RunwaySettings): n
     const loan = financing && loanOf(financing, a.id)
     if (loan) loans.push(loan)
   }
-  if (monthlyExpenses.isZero() && !loans.some(owes)) return undefined
+  const taxes = inputs.propertyTax
+    .map((t) => ({ assetId: t.assetId, monthly: new Decimal(t.annual).div(DECIMAL_12) }))
+    .filter((t) => t.monthly.greaterThan(0))
+  const soldIds = new Set<string>()
+  /** A month's property tax on the assets not sold yet. */
+  const monthlyTax = () =>
+    taxes.reduce((sum, t) => (soldIds.has(t.assetId) ? sum : sum.plus(t.monthly)), DECIMAL_0)
+  if (monthlyExpenses.isZero() && taxes.length === 0 && !loans.some(owes)) return undefined
 
   const investmentTax = new Decimal(settings.investment_tax_rate).div(DECIMAL_100)
   const tangibleTax = new Decimal(settings.tangible_asset_tax_rate).div(DECIMAL_100)
@@ -277,8 +294,6 @@ export function runwayYearsOf(inputs: RunwayInputs, settings: RunwaySettings): n
         }))
     : []
   let cash = new Decimal(inputs.cash)
-  // What drains every month once the loans are paid.
-  const baseOut = monthlyExpenses.minus(monthlyIncome)
 
   for (let month = 1; month <= RUNWAY_CAP_YEARS * MONTHS_PER_YEAR; month++) {
     if (settings.investment_growth)
@@ -286,7 +301,7 @@ export function runwayYearsOf(inputs: RunwayInputs, settings: RunwaySettings): n
     if (settings.tangible_asset_growth)
       for (const t of tangibles) if (!t.sold) t.value = t.value.mul(t.factor)
 
-    let out = monthlyExpenses
+    let out = monthlyExpenses.plus(monthlyTax())
     for (const loan of loans) out = out.plus(payMonth(loan))
     const netOut = out.minus(monthlyIncome)
     cash = cash.minus(netOut)
@@ -314,6 +329,7 @@ export function runwayYearsOf(inputs: RunwayInputs, settings: RunwaySettings): n
       if (proceeds.lessThanOrEqualTo(0)) continue
       cash = cash.plus(proceeds)
       t.sold = true
+      soldIds.add(t.id)
       if (loan) settle(loan)
     }
 
@@ -333,6 +349,8 @@ export function runwayYearsOf(inputs: RunwayInputs, settings: RunwaySettings): n
     }
 
     if (loans.some(owes)) continue
+    // What drains every month once the loans are paid; a sale ends an asset's tax.
+    const baseOut = monthlyExpenses.plus(monthlyTax()).minus(monthlyIncome)
     // Nothing drains: the money never runs out.
     if (baseOut.lessThanOrEqualTo(0)) return Infinity
     const drawn = investments.find((inv) => inv.balance.greaterThan(0))
@@ -347,6 +365,8 @@ export function runwayYearsOf(inputs: RunwayInputs, settings: RunwaySettings): n
     }
     const unsold = tangibles.filter((t) => !t.sold)
     if (settings.tangible_asset_growth && unsold.length > 0) continue
+    // A sale still to come ends that asset's tax, so the drain is not flat yet.
+    if (unsold.some((t) => taxes.some((tax) => tax.assetId === t.id))) continue
     // Flat from here on, with no gain left to tax: what is left over what
     // drains, without walking the months.
     const left = investments

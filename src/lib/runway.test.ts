@@ -540,3 +540,39 @@ describe('validRunwaySettings', () => {
     ).toBe(true)
   })
 })
+
+describe('property tax in the runway', () => {
+  const house = { id: 'h1', name: 'House', status: 'fully_owned' as const }
+
+  test('drains every month like an expense', () => {
+    // docs/product/runway.md, worked example 14: 900 of expenses and 100 of tax a month.
+    const profile: Profile = {
+      ...BASE,
+      cash_amount: 12_000,
+      expenses: [expense(900)],
+      tangible_assets: [{ ...house, value: 120_000, property_tax_rate: 1 }],
+    }
+    expect(getRunwayYears(profile)).toBeCloseTo(1, 6)
+  })
+
+  test('is something to pay on its own', () => {
+    const profile: Profile = {
+      ...BASE,
+      cash_amount: 1_200,
+      tangible_assets: [{ ...house, value: 120_000, property_tax_rate: 1 }],
+    }
+    expect(getRunwayYears(profile)).toBeCloseTo(1, 6)
+  })
+
+  test('ends when the asset is sold', () => {
+    // 900 of expenses and 100 of tax a month from 1,000 of cash: the second
+    // month sells the house for 12,000, and the 11,000 left pays 900 a month.
+    const profile: Profile = {
+      ...BASE,
+      cash_amount: 1_000,
+      expenses: [expense(900)],
+      tangible_assets: [{ ...house, value: 12_000, property_tax_rate: 10 }],
+    }
+    expect(getRunwayYears(profile, FLAT)).toBeCloseTo((2 + 11_000 / 900) / 12, 6)
+  })
+})
