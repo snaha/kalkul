@@ -1,1 +1,0 @@
-function e(e,t){return e[t]}function t(t,n,r){let i=e(r,t),a=i.findIndex(e=>e.id===n.id),o=a===-1?[...i,n]:i.map((e,t)=>t===a?n:e);r.update({[t]:o})}function n(t,n,r){let i=e(r,t).filter(e=>e.id!==n);r.update({[t]:i})}export{t as n,n as t};
