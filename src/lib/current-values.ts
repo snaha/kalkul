@@ -39,16 +39,18 @@ interface TransferLeg {
 
 /** What is moving on `asOf`: the cash flow, and the transfers running that day. */
 interface AnnualFlows {
-  /** Net yearly cash flow from incomes, expenses and debt service. */
+  /** Net yearly cash flow from incomes and expenses. */
   cash: Decimal
   transfers: TransferLeg[]
 }
 
 /**
- * Net yearly cash flow from everything the profile runs: take-home income,
- * less living expenses, less debt service on loans that still carry a balance.
+ * Net yearly cash flow from the incomes and expenses the profile runs.
  * Financial data carries no planned timing (docs/product/projections.md), so
  * every flow on it is running today.
+ *
+ * Loan payments are not a rate and are not in here: `amortizeLoan` reports
+ * what each loan's schedule paid in the window, and cash pays exactly that.
  */
 function netAnnualCashFlow(profile: Profile): Decimal {
   const income = (profile.incomes ?? []).reduce<Decimal>(
@@ -59,24 +61,7 @@ function netAnnualCashFlow(profile: Profile): Decimal {
     (sum, e) => sum.plus(annualizedAmount(new Decimal(e.amount), e.frequency ?? 'monthly')),
     DECIMAL_0,
   )
-  // A loan is serviced for as long as it still has a balance to pay off.
-  const debtService = [
-    ...(profile.liabilities ?? []),
-    ...(profile.tangible_assets ?? []).filter((a) => a.status === 'financed'),
-  ].reduce<Decimal>(
-    (sum, loan) =>
-      (loan.outstanding_balance ?? 0) > 0
-        ? sum.plus(
-            annualizedAmount(
-              new Decimal(loan.installment_amount ?? 0),
-              loan.installment_frequency ?? 'monthly',
-            ),
-          )
-        : sum,
-    DECIMAL_0,
-  )
-
-  return income.minus(expenses).minus(debtService)
+  return income.minus(expenses)
 }
 
 /**
@@ -243,6 +228,12 @@ interface AmortizedLoan {
   remaining_term: number
 }
 
+/** A loan carried forward, and what its schedule took out of cash to get there. */
+interface LoanCarry {
+  loan: AmortizedLoan
+  paid: Decimal
+}
+
 /**
  * A liability after `yearFraction` of a year of payments, amortized on the same
  * terms `simulateLiability` uses in the projection: each whole installment
@@ -257,12 +248,14 @@ interface AmortizedLoan {
  * confirmed update and walk the payoff date into the future.
  *
  * Only whole periods count — a part-paid month leaves the balance where the
- * last installment put it. The cash side, by contrast, charges debt service
- * continuously over the window, so a loan that pays off partway through keeps
- * draining cash to the end of it. That residual is small at this granularity
- * and not worth threading a payoff date through the accrual for.
+ * last installment put it.
+ *
+ * `paid` is the sum of those payments, the final balloon included. Cash pays
+ * exactly that, so the debt and the cash side of a loan cannot drift apart
+ * (#374): a balloon comes out of cash, and a loan that pays off partway
+ * through the window stops costing anything.
  */
-function amortizeLoan(liability: ProfileLiability, yearFraction: Decimal): AmortizedLoan {
+function amortizeLoan(liability: ProfileLiability, yearFraction: Decimal): LoanCarry {
   const periodsPerYear = INSTALLMENT_PERIODS_PER_YEAR[liability.installment_frequency]
   const periodRate = installmentPeriodRate(liability)
   const installment = new Decimal(liability.installment_amount)
@@ -274,6 +267,7 @@ function amortizeLoan(liability: ProfileLiability, yearFraction: Decimal): Amort
   )
 
   let balance = new Decimal(liability.outstanding_balance)
+  let paid = DECIMAL_0
   for (let period = 0; period < periods; period++) {
     if (balance.lessThanOrEqualTo(0)) {
       // Paid off early: the schedule is over, whatever the term said.
@@ -284,23 +278,33 @@ function amortizeLoan(liability: ProfileLiability, yearFraction: Decimal): Amort
     const payment = periodsRemaining === 1 ? grossDue : Decimal.min(installment, grossDue)
     balance = grossDue.minus(payment)
     if (balance.lessThan(0)) balance = DECIMAL_0
+    paid = paid.plus(payment)
     periodsRemaining -= 1
   }
 
   return {
-    outstanding_balance: Decimal.max(balance, DECIMAL_0).toDecimalPlaces(MONEY_DECIMALS).toNumber(),
-    remaining_term: periodsToTerm(periodsRemaining, periodsPerYear, liability.remaining_term_unit),
+    loan: {
+      outstanding_balance: Decimal.max(balance, DECIMAL_0)
+        .toDecimalPlaces(MONEY_DECIMALS)
+        .toNumber(),
+      remaining_term: periodsToTerm(
+        periodsRemaining,
+        periodsPerYear,
+        liability.remaining_term_unit,
+      ),
+    },
+    paid,
   }
 }
 
 /**
  * Balances as they stand *today*, projected forward from the most recent
  * snapshot. The stored profile holds the values the user last confirmed; this
- * grows investments at their effective APY, accrues cash at the net of income,
- * expenses and debt service over the elapsed time, moves the recurring
- * transfers running in it between cash and the investments, and pays down loan
- * balances by the installments that fell due — taking those installments off
- * each loan's remaining term as well, so its payoff date stays where it was.
+ * grows investments at their effective APY, accrues cash at the net of income
+ * and expenses over the elapsed time, moves the recurring transfers running in
+ * it between cash and the investments, and pays down loan balances by the
+ * installments that fell due — taking them out of cash, and off each loan's
+ * remaining term as well, so its payoff date stays where it was.
  *
  * Tangible asset *values* are returned untouched: they only change through an
  * explicit edit in financial data, and Quick update does not ask about them.
@@ -327,8 +331,30 @@ export function getCurrentProfile(profile: Profile, today: Date): Profile {
   // the flows running on it, each investment after its growth. Growth first,
   // then the transfers over it — the order the projection's year loop uses, so
   // a contribution does not compound in the same window it arrives in.
+  // Each loan after the payments that fell due in the window. What they paid
+  // comes out of cash, final balloon included.
+  let loanPayments = DECIMAL_0
+  const carryLoan = (loan: ProfileLiability): AmortizedLoan => {
+    const carry = amortizeLoan(loan, yearFraction)
+    loanPayments = loanPayments.plus(carry.paid)
+    return carry.loan
+  }
+  const liabilities = profile.liabilities?.map((liability) => ({
+    ...liability,
+    ...carryLoan(liability),
+  }))
+  const tangibleAssets = profile.tangible_assets?.map((asset) => {
+    // Undefined for a fully owned asset, or one whose financing terms are
+    // incomplete — nothing to amortize either way.
+    const financing = financingToLiability(asset)
+    return financing ? { ...asset, ...carryLoan(financing) } : asset
+  })
+
   const before = new Map<string, Decimal>([
-    [CASH_ENDPOINT, new Decimal(profile.cash_amount ?? 0).plus(flows.cash.mul(yearFraction))],
+    [
+      CASH_ENDPOINT,
+      new Decimal(profile.cash_amount ?? 0).plus(flows.cash.mul(yearFraction)).minus(loanPayments),
+    ],
     ...(profile.investments ?? []).map((investment): [string, Decimal] => [
       investment.id,
       new Decimal(investment.balance).mul(
@@ -337,7 +363,7 @@ export function getCurrentProfile(profile: Profile, today: Date): Profile {
     ]),
   ])
   const after = settleTransfers(before, flows.transfers, yearFraction)
-  // Cash outrun by expenses stops at zero rather than going into overdraft —
+  // Cash outrun by expenses and loan payments stops at zero rather than going into overdraft —
   // the shortfall is not modelled as debt. Transfers never take a balance
   // below zero on their own; see `settleTransfers`.
   const balance = (id: string) =>
@@ -352,17 +378,8 @@ export function getCurrentProfile(profile: Profile, today: Date): Profile {
       ...investment,
       balance: balance(investment.id),
     })),
-    liabilities: profile.liabilities?.map((liability) => ({
-      ...liability,
-      ...amortizeLoan(liability, yearFraction),
-    })),
-    tangible_assets: profile.tangible_assets?.map((asset) => {
-      // Undefined for a fully owned asset, or one whose financing terms are
-      // incomplete — nothing to amortize either way.
-      const financing = financingToLiability(asset)
-      if (!financing) return asset
-      return { ...asset, ...amortizeLoan(financing, yearFraction) }
-    }),
+    liabilities,
+    tangible_assets: tangibleAssets,
   }
 }
 

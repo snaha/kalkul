@@ -131,6 +131,27 @@ cash and investments alone.
 **Supersedes.** The open question in `financial-independence.md` on whether a
 mortgage counts against the portfolio value.
 
+## 2026-11-19 Today's cash pays exactly what each loan's schedule paid
+
+**Context.** #374: the figures carried forward from the last snapshot to
+today computed the two sides of a loan separately. The debt came down by the
+whole installments that fell due, with the last scheduled one settling the
+rest; cash was charged the installment as a yearly rate. A final balloon
+cleared the debt without leaving cash, so net worth rose by it, and a loan
+paid off partway kept costing cash to the end of the window.
+
+**Decision.** Cash pays the sum of the payments each loan's schedule made
+since the snapshot, the final balloon included, for standalone loans and
+financed assets alike. Income and expenses still accrue as a rate. A loan
+therefore costs cash in whole installments: nothing for a part-elapsed
+period.
+
+**Not decided.** When cash cannot cover the payments it stops at 0 and the
+loans are still paid down in full; a plan in the same position stops or
+flags the year. The second half of #374 stays open.
+
+**Supersedes.** Nothing written; the engine charged debt service as a rate.
+
 ## 2026-11-16 An investment has no Exit field
 
 **Context.** The plan dialog let an investment be given an exit date, which
