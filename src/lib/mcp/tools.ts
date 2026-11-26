@@ -174,7 +174,7 @@ export function kalkulTools(app: App = appStore): KalkulTool[] {
     ),
     tool(
       'get_projection',
-      "Yearly projection of a portfolio computed by the app: net worth, cash, investments, tangible assets and liabilities with a per-item breakdown, the year's cash flow (income, expenses, property tax, installments and transfers per item), portfolio value, FI % and runway",
+      "Yearly projection of a portfolio computed by the app: net worth, cash, investments, tangible assets and liabilities with a per-item breakdown, the year's cash flow (income, expenses, property tax, installments and transfers per item), investable net worth, FI % and runway. FI % and the runway are the dashboard's figures on each year's closing balances; runwayYears is null when the money never runs out",
       z.object({ portfolio_id: z.string() }),
       READ_ONLY,
       ({ portfolio_id }) =>

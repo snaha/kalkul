@@ -5,6 +5,7 @@ import {
   getAnnualDebtServiceTotal,
   getAnnualExpensesTotal,
   getAnnualIncomeTotal,
+  getAnnualOutflowsTotal,
   getCashTotal,
   getFiNumber,
   getFiPercent,
@@ -469,7 +470,42 @@ describe('getFiPercent', () => {
     expect(getFiPercent(profile)).toBeUndefined()
   })
 
-  test('include loan installments in the outflow denominator', () => {
+  test('leave out the installments of a loan not secured by an asset', () => {
+    // docs/product/financial-independence.md, worked example 5: the 20,000
+    // owed comes off the investable net worth, so its 1,000 a month is no
+    // outflow. Counting both would put FI at 600,000 / 1,300,000 = 46.2%.
+    const withLoan: Profile = {
+      ...workedExample,
+      liabilities: [
+        {
+          id: 'l1',
+          name: 'Car loan',
+          outstanding_balance: 20_000,
+          installment_frequency: 'monthly',
+          annual_rate: 0,
+          installment_amount: 1_000,
+          remaining_term: 2,
+        },
+      ],
+    }
+    expect(getAnnualOutflowsTotal(withLoan)).toBe(40_000)
+    expect(getFiNumber(withLoan)).toBe(1_000_000)
+    expect(getFiPercent(withLoan)).toBeCloseTo(60, 6)
+  })
+
+  test('count property tax among the outflows', () => {
+    // A house worth 200,000 taxed at 1%: outflows 42,000, FI number 1,050,000.
+    const withHouse: Profile = {
+      ...workedExample,
+      tangible_assets: [
+        { id: 't1', name: 'House', value: 200_000, status: 'fully_owned', property_tax_rate: 1 },
+      ],
+    }
+    expect(getAnnualOutflowsTotal(withHouse)).toBe(42_000)
+    expect(getFiPercent(withHouse)).toBeCloseTo((620_000 / 1_050_000) * 100, 6)
+  })
+
+  test('include the installments of a loan secured by an asset', () => {
     // Financed house adds 790/month = 9,480/yr of non-optional debt service:
     // outflows 40,000 → 49,480, but investable NW is unchanged.
     const withMortgage: Profile = {

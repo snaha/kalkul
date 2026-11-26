@@ -404,11 +404,11 @@
         cashFlowGroups,
       )}
       {@render section(
-        'firePortfolio',
-        $_('page.plan.details.firePortfolio'),
-        money(year.portfolioValue),
+        'investableNetWorth',
+        $_('page.plan.details.investableNetWorth'),
+        money(year.investableNetWorth),
         undefined,
-        yearChange(year.portfolioValue, previous?.portfolioValue),
+        yearChange(year.investableNetWorth, previous?.investableNetWorth),
         [
           {
             id: 'fi',

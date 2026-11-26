@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
+import { getFiPercent } from './financial-totals'
 import { snapshotFinancialData } from './plan-base'
 import {
   getYearlyPlanProjection,
@@ -8,6 +9,7 @@ import {
   summarizeTransfer,
   termYearsForLoan,
 } from './plan-projection'
+import { getRunwayYears } from './runway'
 import type {
   Expense,
   Income,
@@ -2754,6 +2756,17 @@ describe('getYearlyPlanProjection', () => {
     const result = project(makePlan(), makeProfile({ cash_amount: 200, expenses, liabilities }))
     expect(result[0].insufficientFundExpenseIds).toEqual(['exp1'])
   })
+  const living: Expense = {
+    id: 'exp1',
+    name: 'Living',
+    amount: 10_000,
+    schedule: 'recurring',
+    frequency: 'yearly',
+    start: 'immediately',
+    end: 'never',
+    change_over_time: 'none',
+  }
+
   it('computes per-year FI percent and runway from investable wealth and outflows', () => {
     const expenses: Expense[] = [
       {
@@ -2797,7 +2810,33 @@ describe('getYearlyPlanProjection', () => {
     expect(result[0].fiPercent).toBeCloseTo(20, 6)
   })
 
-  it('subtracts standalone liabilities from investable wealth and counts their installments as outflows', () => {
+  it('subtracts a standalone loan from investable net worth and leaves its installments out of the FI outflows', () => {
+    // docs/product/financial-independence.md, worked example 5.
+    const liabilities: ProfileLiability[] = [
+      {
+        id: 'l1',
+        name: 'Loan',
+        outstanding_balance: 20_000,
+        installment_frequency: 'yearly',
+        annual_rate: 0,
+        installment_amount: 10_000,
+        remaining_term: 2,
+      },
+    ]
+    const result = project(
+      makePlan(),
+      makeProfile({ cash_amount: 100_000, liabilities, expenses: [living] }),
+    )
+    // 2025 closes with cash 80,000 and 10,000 still owed: investable 70,000
+    // against outflows of 10,000, the loan counted once.
+    expect(result[0].investableNetWorth).toBe(70_000)
+    expect(result[0].fiPercent).toBeCloseTo(28, 6)
+    // The drawdown pays the loan's last year beside the expenses, then the
+    // expenses alone: 80,000 - 20,000 = 60,000 lasts six more years.
+    expect(result[0].runwayYears).toBeCloseTo(7, 6)
+  })
+
+  it('reads a dash for FI percent and an endless runway when only a standalone loan is paid', () => {
     const liabilities: ProfileLiability[] = [
       {
         id: 'l1',
@@ -2810,13 +2849,134 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = project(makePlan(), makeProfile({ cash_amount: 100_000, liabilities }))
-    // Year 0: cash 100,000 - installment 10,000 = 90,000; outstanding 10,000.
-    // investable = 90,000 - 10,000 = 80,000; outflows = 10,000 (installment).
-    expect(result[0].fiPercent).toBeCloseTo((80_000 / 250_000) * 100, 6)
-    expect(result[0].runwayYears).toBeCloseTo(8, 6)
-    // Year 2: loan paid off, no expenses left -> no outflows -> undefined.
+    expect(result[0].fiPercent).toBeUndefined()
+    expect(result[0].runwayYears).toBe(Infinity)
+    // 2027: the loan is paid off and nothing is left to pay.
     expect(result[2].fiPercent).toBeUndefined()
     expect(result[2].runwayYears).toBeUndefined()
+  })
+
+  it('counts property tax in the FI outflows', () => {
+    const result = project(
+      makePlan(),
+      makeProfile({
+        cash_amount: 100_000,
+        expenses: [living],
+        tangible_assets: [
+          { id: 'h1', name: 'House', value: 120_000, status: 'fully_owned', property_tax_rate: 1 },
+        ],
+      }),
+    )
+    // Cash 100,000 - 10,000 - 1,200 = 88,800 against 11,200 a year.
+    expect(result[0].fiPercent).toBeCloseTo((88_800 / (11_200 * 25)) * 100, 6)
+  })
+
+  it('leaves a one-time expense out of the FI outflows and the runway', () => {
+    const oneTime: Expense = {
+      id: 'car',
+      name: 'Car',
+      amount: 50_000,
+      schedule: 'one_time',
+      transaction_year: 2025,
+      transaction_month: 6,
+    }
+    const result = project(
+      makePlan(),
+      makeProfile({ cash_amount: 200_000, expenses: [living, oneTime] }),
+    )
+    expect(result[0].cash).toBe(140_000)
+    expect(result[0].fiPercent).toBeCloseTo(56, 6)
+    expect(result[0].runwayYears).toBeCloseTo(14, 6)
+  })
+
+  it('counts a flow running at the end of the year at its yearly rate', () => {
+    const rent: Expense = {
+      id: 'rent',
+      name: 'Rent',
+      amount: 1000,
+      schedule: 'recurring',
+      frequency: 'monthly',
+      start: 'at_specific_date',
+      start_year: 2025,
+      start_month: 7,
+      end: 'at_specific_date',
+      end_year: 2026,
+      end_month: 6,
+      change_over_time: 'none',
+    }
+    const result = project(makePlan(), makeProfile({ cash_amount: 100_000, expenses: [rent] }))
+    // 2025 pays July to December, 6,000, and closes on a level of 12,000 a year.
+    expect(result[0].cash).toBe(94_000)
+    expect(result[0].fiPercent).toBeCloseTo((94_000 / 300_000) * 100, 6)
+    expect(result[0].runwayYears).toBeCloseTo(94_000 / 12_000, 6)
+    // 2026 pays until June; nothing runs when the year closes.
+    expect(result[1].cash).toBe(88_000)
+    expect(result[1].fiPercent).toBeUndefined()
+    expect(result[1].runwayYears).toBeUndefined()
+  })
+
+  it("runs the runway on the profile's runway settings", () => {
+    const investments: ProfileInvestment[] = [{ id: 'i1', name: 'Fund', balance: 100_000, apy: 0 }]
+    const profile = makeProfile({ cash_amount: 20_000, investments, expenses: [living] })
+    // 2025 closes with cash 10,000 and the fund at 100,000.
+    expect(project(makePlan(), profile)[0].runwayYears).toBeCloseTo(11, 6)
+    expect(
+      project(makePlan(), { ...profile, runway_withdraw_investments: false })[0].runwayYears,
+    ).toBeCloseTo(1, 6)
+    // With income counted nothing drains.
+    const salary: Income = { ...living, id: 'inc1', name: 'Salary', amount: 30_000 }
+    expect(
+      project(makePlan(), { ...profile, incomes: [salary], runway_include_income: true })[0]
+        .runwayYears,
+    ).toBe(Infinity)
+  })
+
+  it("matches the dashboard's FI percent and runway on the same balances and flows", () => {
+    const profile = makeProfile({
+      cash_amount: 30_000,
+      investments: [{ id: 'i1', name: 'Fund', balance: 200_000, apy: 0 }],
+      expenses: [living],
+      tangible_assets: [
+        {
+          id: 't1',
+          name: 'House',
+          value: 300_000,
+          status: 'financed',
+          outstanding_balance: 100_000,
+          installment_frequency: 'monthly',
+          annual_rate: 0,
+          installment_amount: 500,
+          remaining_term: 20,
+          property_tax_rate: 0.5,
+        },
+      ],
+      liabilities: [
+        {
+          id: 'l1',
+          name: 'Loan',
+          outstanding_balance: 12_000,
+          installment_frequency: 'monthly',
+          annual_rate: 0,
+          installment_amount: 500,
+          remaining_term: 2,
+        },
+      ],
+    })
+    const [first] = project(makePlan(), profile)
+    // 2025 pays 10,000 + 1,500 + 6,000 + 6,000 and closes on these balances.
+    const closing: Profile = {
+      ...profile,
+      cash_amount: 6_500,
+      tangible_assets: [
+        { ...profile.tangible_assets![0], outstanding_balance: 94_000, remaining_term: 19 },
+      ],
+      liabilities: [{ ...profile.liabilities![0], outstanding_balance: 6_000, remaining_term: 1 }],
+    }
+    expect(first.cash).toBe(6_500)
+    expect(first.fiPercent).toBeCloseTo(getFiPercent(closing)!, 6)
+    expect(first.runwayYears).toBeCloseTo(getRunwayYears(closing)!, 6)
+    // Investable 200,500 over (10,000 + 6,000 + 1,500) x 25.
+    expect(first.fiPercent).toBeCloseTo((200_500 / 437_500) * 100, 6)
   })
 
   it('leaves FI percent and runway undefined in years with zero outflows', () => {
@@ -4013,7 +4173,7 @@ describe('per-item cash flows and portfolio value of a year', () => {
       }),
     )
     expect(result[0].netWorth).toBeCloseTo(2_450_000, 6)
-    expect(result[0].portfolioValue).toBeCloseTo(450_000, 6)
+    expect(result[0].investableNetWorth).toBeCloseTo(450_000, 6)
   })
 })
 

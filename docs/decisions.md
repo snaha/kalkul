@@ -10,6 +10,41 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-26 FI % and runway are one calculation each, on investable net worth
+
+**Context.** The same figure was "Current portfolio value" in the FI dialog
+and "FIRE portfolio" in a projection's right sidebar. FI % divided by
+different outflows on the two: the dashboard by the recurring flows
+annualized, the sidebar by whatever the year paid, one-time expenses and loan
+pay-offs included. The runway was a drawdown on the dashboard and a ratio in
+the sidebar (#462). And a loan not secured by an asset was counted twice in
+FI %: its balance came off the numerator and its installments went into the
+outflows. A survey of FIRE blogs, calculators and tracking apps (2026-11-26)
+found "investable net worth" in use for this figure, no use of "portfolio
+value" for a figure net of debt, and no source that counts a loan on both
+sides.
+
+**Decision.** The figure is "Investable net worth" everywhere. FI % is the
+investable net worth over the yearly outflow level × 100 / the withdrawal
+rate, where the level is the recurring expenses, property tax and the
+installments of loans secured by an asset; the installments of other loans
+are left out. Runway is the drawdown everywhere. A projection year computes
+both as the dashboard would on the year's closing balances and the flows
+still running as it closes, with the withdrawal rate and the runway settings
+saved on the dashboard.
+
+**Why.** One name and one calculation mean the dashboard and a projection
+give the same answer for the same balances and flows, and a year's FI % no
+longer jumps because of a one-time purchase or a loan's pay-off. Property tax recurs like an expense, so it
+belongs in the level. A mortgage's installments stay in the level; whether to
+carry a mortgage by its balance instead is left open in
+`docs/product/financial-independence.md`.
+
+**Supersedes.** The 2026-11-19 names ("portfolio value" in the UI,
+"investable net worth" in the code) and the 2026-11-20 label "FIRE
+portfolio"; the part of the 2026-11-05 runway decision that kept a ratio for
+projections. Closes #462 and #469.
+
 ## 2026-11-25 Inflation counts months from the projection's start month
 
 **Context.** An amount that adjusts for inflation rose once a year, from the

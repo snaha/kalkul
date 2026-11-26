@@ -89,9 +89,10 @@ describe('buildSnapshotRows', () => {
   test('states financial independence against the outflows of the day', () => {
     const profile: Profile = { ...PROFILE, snapshots: [captureSnapshot(PROFILE, '2026-06-01')] }
     // Investable net worth 20,000 + 80,000 − 5,000 = 95,000, against yearly
-    // outflows of 12,000 living + 12,000 mortgage + 3,000 card = 27,000.
-    // 95,000 / (27,000 × 25) = 14.074…%
-    expect(buildSnapshotRows(profile)[0].fiPercent).toBeCloseTo(14.0741, 4)
+    // outflows of 12,000 living + 12,000 mortgage = 24,000. The card's 3,000
+    // stays out: its balance already came off the investable net worth.
+    // 95,000 / (24,000 × 25) = 15.833…%
+    expect(buildSnapshotRows(profile)[0].fiPercent).toBeCloseTo(15.8333, 4)
   })
 
   test('leaves financial independence undefined when nothing flows out', () => {
@@ -117,8 +118,8 @@ describe('buildSnapshotRows', () => {
   test('states financial independence when no expenses were recorded as running', () => {
     const snapshot = { ...captureSnapshot(PROFILE, '2026-06-01'), expenses: [] }
     const profile: Profile = { ...PROFILE, snapshots: [snapshot] }
-    // 95,000 / (15,000 × 25) = 25.333…%
-    expect(buildSnapshotRows(profile)[0].fiPercent).toBeCloseTo(25.3333, 4)
+    // Only the mortgage flows out: 95,000 / (12,000 × 25) = 31.666…%
+    expect(buildSnapshotRows(profile)[0].fiPercent).toBeCloseTo(31.6667, 4)
   })
 
   test('nets a row off its own totals, whatever the profile holds today', () => {

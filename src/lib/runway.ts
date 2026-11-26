@@ -8,7 +8,12 @@ import {
   financingToLiability,
   installmentPeriodRate,
 } from '$lib/plan-projection'
-import type { Profile, ProfileLiability, ProfileTangibleAsset } from '$lib/schemas'
+import type {
+  Profile,
+  ProfileInvestment,
+  ProfileLiability,
+  ProfileTangibleAsset,
+} from '$lib/schemas'
 
 /**
  * What the Runway card may draw on after cash. Each key is stored flat on the
@@ -185,32 +190,64 @@ function settle(loan: Loan): void {
 }
 
 /**
- * How long the money lasts against today's outflows, in years.
+ * What a drawdown starts from: the balances on one date and the yearly level
+ * of the recurring flows running then. The dashboard reads them off the
+ * profile; a projection reads them off each year's closing balances.
+ */
+export interface RunwayInputs {
+  cash: Decimal.Value
+  /** Recurring expenses a year, loan installments not included. */
+  annualExpenses: Decimal.Value
+  /** Recurring income a year; counted only when the settings include it. */
+  annualIncome: Decimal.Value
+  investments: ProfileInvestment[]
+  tangibleAssets: ProfileTangibleAsset[]
+  /** Loans not secured by an asset; a financed asset carries its own. */
+  liabilities: ProfileLiability[]
+}
+
+/** The dashboard's runway: the drawdown of the profile as it stands today. */
+export function getRunwayYears(
+  profile: Profile,
+  settings: RunwaySettings = runwaySettingsOf(profile),
+): number | undefined {
+  return runwayYearsOf(
+    {
+      cash: profile.cash_amount ?? 0,
+      annualExpenses: getAnnualExpensesTotal(profile),
+      annualIncome: getAnnualIncomeTotal(profile),
+      investments: profile.investments ?? [],
+      tangibleAssets: profile.tangible_assets ?? [],
+      liabilities: profile.liabilities ?? [],
+    },
+    settings,
+  )
+}
+
+/**
+ * How long the money lasts against the outflows it starts with, in years.
  *
  * A month-by-month drawdown. Expenses and loan installments come out of cash,
  * then out of investments, then out of tangible assets, as far as `settings`
  * allows. Loans run on their own schedule for their remaining term; selling a
  * financed asset settles what is still owed on it. Growth, where switched on,
  * runs at each item's own rate, and tax takes a share of the growth accrued
- * since today only: the balance now is the only cost basis there is. Nothing
+ * since the start only: the opening balance is the only cost basis there is. Nothing
  * else moves, so amounts are nominal and flat. `Infinity` means the money
  * never runs out or outlasts `RUNWAY_CAP_YEARS`, `undefined` that there is
  * nothing to pay.
  */
-export function getRunwayYears(
-  profile: Profile,
-  settings: RunwaySettings = runwaySettingsOf(profile),
-): number | undefined {
+export function runwayYearsOf(inputs: RunwayInputs, settings: RunwaySettings): number | undefined {
   const monthlyIncome = settings.include_income
-    ? new Decimal(getAnnualIncomeTotal(profile)).div(DECIMAL_12)
+    ? new Decimal(inputs.annualIncome).div(DECIMAL_12)
     : DECIMAL_0
-  const monthlyExpenses = new Decimal(getAnnualExpensesTotal(profile)).div(DECIMAL_12)
+  const monthlyExpenses = new Decimal(inputs.annualExpenses).div(DECIMAL_12)
   const loans: Loan[] = []
-  for (const l of profile.liabilities ?? []) {
+  for (const l of inputs.liabilities) {
     const loan = loanOf(l)
     if (loan) loans.push(loan)
   }
-  for (const a of profile.tangible_assets ?? []) {
+  for (const a of inputs.tangibleAssets) {
     const financing = financingToLiability(a)
     const loan = financing && loanOf(financing, a.id)
     if (loan) loans.push(loan)
@@ -220,7 +257,7 @@ export function getRunwayYears(
   const investmentTax = new Decimal(settings.investment_tax_rate).div(DECIMAL_100)
   const tangibleTax = new Decimal(settings.tangible_asset_tax_rate).div(DECIMAL_100)
   const investments = settings.withdraw_investments
-    ? (profile.investments ?? [])
+    ? inputs.investments
         .filter((i) => i.balance > 0)
         .map((i) => ({
           balance: new Decimal(i.balance),
@@ -229,7 +266,7 @@ export function getRunwayYears(
         }))
     : []
   const tangibles = settings.sell_tangible_assets
-    ? (profile.tangible_assets ?? [])
+    ? inputs.tangibleAssets
         .filter((a) => a.value > 0)
         .map((a) => ({
           id: a.id,
@@ -239,7 +276,7 @@ export function getRunwayYears(
           sold: false,
         }))
     : []
-  let cash = new Decimal(profile.cash_amount ?? 0)
+  let cash = new Decimal(inputs.cash)
   // What drains every month once the loans are paid.
   const baseOut = monthlyExpenses.minus(monthlyIncome)
 

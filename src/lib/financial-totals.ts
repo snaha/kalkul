@@ -2,7 +2,7 @@ import Decimal from 'decimal.js'
 
 import { DECIMAL_0 } from '$lib/@snaha/kalkul-maths'
 import { CATEGORY_COLORS } from '$lib/chart-colors'
-import { annualizedAmount } from '$lib/plan-projection'
+import { annualizedAmount, fiPercentOf } from '$lib/plan-projection'
 import { DEFAULT_FI_WITHDRAWAL_RATE, type Frequency, type Profile } from '$lib/schemas'
 import { countedCashFlows, hasAnyBalance, snapshotBalances, snapshotNetWorth } from '$lib/snapshots'
 
@@ -145,31 +145,44 @@ export function getSavingsRate(profile: Profile): SavingsRate | undefined {
 }
 
 // Annualized loan payments (standalone liabilities + financed assets). Debt
-// service is a non-optional outflow, so FI %/runway count it alongside
-// living expenses.
+// service is a non-optional outflow, so the savings rate counts it alongside
+// living expenses. FI % counts only the secured part
+// (`getSecuredDebtServiceTotal`).
 //
 // A loan is only serviced while it still has a balance — the same gate the
 // dashboard's cash accrual applies in `current-values.ts`. A paid-off loan whose
 // installment was never cleared out would otherwise drain phantom money from
 // the savings rate, FI % and runway.
 export function getAnnualDebtServiceTotal(profile: Profile): number {
-  const annualize = (amount: number | undefined, frequency: Frequency | undefined) =>
-    annualizedAmount(new Decimal(amount ?? 0), frequency ?? 'monthly')
   return (profile.liabilities ?? [])
     .filter((l) => (l.outstanding_balance ?? 0) > 0)
     .reduce<Decimal>(
-      (sum, l) => sum.plus(annualize(l.installment_amount, l.installment_frequency)),
+      (sum, l) => sum.plus(annualizedInstallment(l.installment_amount, l.installment_frequency)),
       DECIMAL_0,
     )
-    .plus(
-      (profile.tangible_assets ?? [])
-        .filter((a) => a.status === 'financed' && (a.outstanding_balance ?? 0) > 0)
-        .reduce<Decimal>(
-          (sum, a) => sum.plus(annualize(a.installment_amount, a.installment_frequency)),
-          DECIMAL_0,
-        ),
-    )
+    .plus(getSecuredDebtServiceTotal(profile))
     .toNumber()
+}
+
+const annualizedInstallment = (amount: number | undefined, frequency: Frequency | undefined) =>
+  annualizedAmount(new Decimal(amount ?? 0), frequency ?? 'monthly')
+
+/** Annualized installments of the loans behind financed assets still owing. */
+function getSecuredDebtServiceTotal(profile: Profile): Decimal {
+  return (profile.tangible_assets ?? [])
+    .filter((a) => a.status === 'financed' && (a.outstanding_balance ?? 0) > 0)
+    .reduce<Decimal>(
+      (sum, a) => sum.plus(annualizedInstallment(a.installment_amount, a.installment_frequency)),
+      DECIMAL_0,
+    )
+}
+
+/** A year's property tax on the tangible assets, each on its recorded value. */
+function getAnnualPropertyTaxTotal(profile: Profile): Decimal {
+  return (profile.tangible_assets ?? []).reduce<Decimal>(
+    (sum, a) => sum.plus(new Decimal(a.value).mul(a.property_tax_rate ?? 0).div(100)),
+    DECIMAL_0,
+  )
 }
 
 export function getInvestableNetWorth(profile: Profile): number {
@@ -181,8 +194,17 @@ export function getInvestableNetWorth(profile: Profile): number {
 }
 
 /** Everything the household must pay in a year: expenses plus loan installments. */
+/**
+ * The yearly outflow level FI % is measured against: recurring expenses,
+ * property tax and the installments of loans secured by an asset. A loan not
+ * secured by an asset is left out, since its balance already comes off the
+ * investable net worth (docs/product/financial-independence.md).
+ */
 export function getAnnualOutflowsTotal(profile: Profile): number {
-  return getAnnualExpensesTotal(profile) + getAnnualDebtServiceTotal(profile)
+  return new Decimal(getAnnualExpensesTotal(profile))
+    .plus(getSecuredDebtServiceTotal(profile))
+    .plus(getAnnualPropertyTaxTotal(profile))
+    .toNumber()
 }
 
 /**
@@ -203,12 +225,11 @@ export function getFiPercent(
   profile: Profile,
   withdrawalRate = profile.fi_withdrawal_rate ?? DEFAULT_FI_WITHDRAWAL_RATE,
 ): number | undefined {
-  const fiNumber = getFiNumber(profile, withdrawalRate)
-  if (fiNumber === undefined) return undefined
-  return Decimal.max(
-    0,
-    new Decimal(getInvestableNetWorth(profile)).div(fiNumber).mul(100),
-  ).toNumber()
+  return fiPercentOf(
+    new Decimal(getInvestableNetWorth(profile)),
+    new Decimal(getAnnualOutflowsTotal(profile)),
+    withdrawalRate,
+  )
 }
 
 export function hasAnyFinancialData(profile: Profile): boolean {

@@ -31,7 +31,7 @@ function year(
     transferTaxByItem: [],
     cashFlow: 0,
     transfersByItem: [],
-    portfolioValue: 0,
+    investableNetWorth: 0,
     insufficientFundTransferIds: [],
     insufficientFundAssetIds: [],
     insufficientFundExpenseIds: [],

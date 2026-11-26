@@ -87,9 +87,9 @@
           { help: $_('page.dashboard.finances.fiSettings.livingCostHelp') },
         )}
         {@render figure(
-          $_('page.dashboard.finances.fiSettings.portfolioValue'),
+          $_('page.dashboard.finances.fiSettings.investableNetWorth'),
           appStore.formatCurrencyCode(getInvestableNetWorth(profile)),
-          { help: $_('page.dashboard.finances.fiSettings.portfolioValueHelp') },
+          { help: $_('page.dashboard.finances.fiSettings.investableNetWorthHelp') },
         )}
       </div>
 
