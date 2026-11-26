@@ -235,13 +235,22 @@ export function snapshotFromFields(
       }
     })
 
-  const cashFlows = (id: 'incomes' | 'expenses') =>
-    fieldsOf(id).map((field) => ({
-      id: field.itemId,
-      amount: valueOf(field),
-      // Every cash-flow field carries one; the fallback only satisfies the type.
-      frequency: field.frequency ?? 'monthly',
-    }))
+  // A list `base` never recorded stays unrecorded while its section says
+  // nothing: every field untyped and open at zero.
+  const cashFlows = (id: 'incomes' | 'expenses') => {
+    const fields = fieldsOf(id)
+    const silent = fields.every((field) => edits[field.key] === undefined && field.value === 0)
+    if (base[id] === undefined && silent) return undefined
+    return withMissingEntries(
+      fields.map((field) => ({
+        id: field.itemId,
+        amount: valueOf(field),
+        // Every cash-flow field carries one; the fallback only satisfies the type.
+        frequency: field.frequency ?? 'monthly',
+      })),
+      base[id],
+    )
+  }
 
   const cashField = fieldsOf('cash')[0]
 
@@ -263,8 +272,8 @@ export function snapshotFromFields(
       })),
       base.liabilities,
     ),
-    incomes: withMissingEntries(cashFlows('incomes'), base.incomes),
-    expenses: withMissingEntries(cashFlows('expenses'), base.expenses),
+    incomes: cashFlows('incomes'),
+    expenses: cashFlows('expenses'),
   }
 }
 
