@@ -146,7 +146,7 @@ describe('getCurrentProfile', () => {
     }
     const current = getCurrentProfile(profile, TODAY)
     expect(current.liabilities?.[0].outstanding_balance).toBe(0)
-    expect(current.liabilities?.[0].remaining_term).toBe(0)
+    expect(current.liabilities?.[0].remaining_term).toBeUndefined()
   })
 
   test("amortizes a financed asset's debt while leaving its value alone", () => {
@@ -177,22 +177,24 @@ describe('getCurrentProfile', () => {
     // The same five installments come off as with a term; the term stays empty.
     const profile: Profile = {
       ...PROFILE,
-      liabilities: [{ ...PROFILE.liabilities![0], remaining_term: 0 }],
+      liabilities: [{ ...PROFILE.liabilities![0], remaining_term: undefined }],
     }
     const carried = getCurrentProfile(profile, TODAY).liabilities![0]
     expect(carried.outstanding_balance).toBe(5_118)
-    expect(carried.remaining_term).toBe(0)
+    expect(carried.remaining_term).toBeUndefined()
   })
 
   test('adds the interest to a liability with no term and no installment', () => {
     // Nothing is paid, so five months of interest at 5 % a year are owed on top.
     const profile: Profile = {
       ...PROFILE,
-      liabilities: [{ ...PROFILE.liabilities![0], remaining_term: 0, installment_amount: 0 }],
+      liabilities: [
+        { ...PROFILE.liabilities![0], remaining_term: undefined, installment_amount: 0 },
+      ],
     }
     const carried = getCurrentProfile(profile, TODAY).liabilities![0]
     expect(carried.outstanding_balance).toBe(6_126)
-    expect(carried.remaining_term).toBe(0)
+    expect(carried.remaining_term).toBeUndefined()
   })
 
   test('floors a liability that pays off inside the window at zero', () => {

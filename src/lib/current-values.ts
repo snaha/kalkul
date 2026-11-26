@@ -9,7 +9,6 @@ import {
   applyExitFee,
   effectiveInvestmentApy,
   financingToLiability,
-  hasOpenTerm,
   installmentPeriodRate,
   remainingInstallmentPeriods,
 } from '$lib/plan-projection'
@@ -241,7 +240,8 @@ function periodsToTerm(
 /** Where a loan stands after part of its schedule has been paid. */
 interface AmortizedLoan {
   outstanding_balance: number
-  remaining_term: number
+  /** Absent when the loan has no scheduled end, or has none left. */
+  remaining_term: number | undefined
 }
 
 /**
@@ -270,8 +270,7 @@ function amortizeLoan(liability: ProfileLiability, yearFraction: Decimal): Amort
   // A loan with no term is paid until nothing is owed, or only accrues its
   // interest when it has no installment, as in the projection; its term stays
   // empty.
-  const openTerm = hasOpenTerm(liability)
-  let periodsRemaining = openTerm ? Infinity : remainingInstallmentPeriods(liability)
+  let periodsRemaining = remainingInstallmentPeriods(liability)
   // Never pay past the end of the loan's own term.
   const periods = Math.min(
     Math.floor(yearFraction.mul(periodsPerYear).toNumber()),
@@ -294,9 +293,10 @@ function amortizeLoan(liability: ProfileLiability, yearFraction: Decimal): Amort
 
   return {
     outstanding_balance: Decimal.max(balance, DECIMAL_0).toDecimalPlaces(MONEY_DECIMALS).toNumber(),
-    remaining_term: openTerm
-      ? liability.remaining_term
-      : periodsToTerm(periodsRemaining, periodsPerYear, liability.remaining_term_unit),
+    remaining_term:
+      Number.isFinite(periodsRemaining) && periodsRemaining > 0
+        ? periodsToTerm(periodsRemaining, periodsPerYear, liability.remaining_term_unit)
+        : undefined,
   }
 }
 
@@ -476,12 +476,11 @@ export function withBalancesCarriedForward(
           index.storedLiabilities.get(liability.id),
           index.currentLiabilities.get(liability.id),
         ) ?? liability.outstanding_balance,
-      remaining_term:
-        carried(
-          liability.remaining_term,
-          index.storedLiabilityTerms.get(liability.id),
-          index.currentLiabilityTerms.get(liability.id),
-        ) ?? liability.remaining_term,
+      remaining_term: carried(
+        liability.remaining_term,
+        index.storedLiabilityTerms.get(liability.id),
+        index.currentLiabilityTerms.get(liability.id),
+      ),
     })),
     tangible_assets: next.tangible_assets?.map((asset) => ({
       ...asset,

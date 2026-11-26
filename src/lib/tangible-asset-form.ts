@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js'
 
+import { enteredTerm } from '$lib/loan-pair'
 import type {
   CompoundingFrequency,
   Frequency,
@@ -103,7 +104,7 @@ export function toStoredTangibleAsset(
     installment_frequency: a.status === 'financed' ? a.installment_frequency : undefined,
     annual_rate: a.status === 'financed' ? (a.annual_rate ?? 0) : undefined,
     installment_amount: a.status === 'financed' ? (a.installment_amount ?? 0) : undefined,
-    remaining_term: a.status === 'financed' ? (a.remaining_term ?? 0) : undefined,
+    remaining_term: a.status === 'financed' ? enteredTerm(a.remaining_term) : undefined,
     remaining_term_unit: a.remaining_term_unit,
     // Interest settings live in the plan dialog; drop them with the loan so
     // both writers agree on what a non-financed asset stores.

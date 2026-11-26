@@ -30,6 +30,14 @@ function round2(value: number): number {
  * in place, the term in the loan's own unit. Nothing changes while the anchor
  * cannot describe a loan (empty, or a payment that never covers the interest).
  */
+/**
+ * The term a form field holds, as the schema stores it: a term is positive,
+ * and an empty or zero field means the loan has none.
+ */
+export function enteredTerm(value: number | undefined): number | undefined {
+  return value !== undefined && value > 0 ? value : undefined
+}
+
 export function rederiveLoanPair(loan: LoanPairFields, anchor: LoanPairAnchor): void {
   const terms = {
     outstanding_balance: loan.outstanding_balance ?? 0,
@@ -47,7 +55,7 @@ export function rederiveLoanPair(loan: LoanPairFields, anchor: LoanPairAnchor): 
   } else {
     const amount = loan.installment_amount ?? 0
     if (amount <= 0) return
-    const years = termYearsForLoan({ ...terms, remaining_term: 0, installment_amount: amount })
+    const years = termYearsForLoan({ ...terms, installment_amount: amount })
     if (years !== undefined) loan.remaining_term = round2(years * perYear)
   }
 }
