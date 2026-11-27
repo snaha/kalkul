@@ -127,6 +127,8 @@ Liabilities), with no tabs and no search.
 - A cash flow shows the amount as entered: a rate for a recurring one
   ("1,000 EUR/m"), the bare amount for a one-time one, "Max" for a transfer of
   the whole balance. An icon marks an amount that follows inflation.
+  The amount field in the dialog carries the same unit: "EUR/m" for a
+  recurring flow, following its frequency, and "EUR" for a one-time one.
 - An asset shows its name only. The entered value is just where the plan
   starts; the value in the selected year is in the right sidebar.
 - An item that runs short of funds in any year of the plan is marked in red.

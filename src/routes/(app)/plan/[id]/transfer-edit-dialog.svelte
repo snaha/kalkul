@@ -21,7 +21,7 @@
   import { planRangeOf, planYearOptions, yearWithinPlan } from '$lib/plan-range'
   import { ageRangeEmpty, sameYearMonthsInverted, timingComplete } from '$lib/schemas'
   import type { Transfer, TransferSchedule } from '$lib/schemas'
-  import { getFrequencyItems } from '$lib/select-options'
+  import { getFrequencyItems, getFrequencyShortLabel } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
   import {
@@ -194,6 +194,13 @@
       return undefined
     return summarizeTransfer(transferFromFields(form), plan, appStore.profile.birth_date)
   })
+
+  // A recurring amount is a rate ("EUR/m"), a one-time one the bare currency.
+  let amountUnit = $derived(
+    form.schedule === 'recurring'
+      ? `${currencyLabel}/${getFrequencyShortLabel($_, form.frequency ?? 'monthly')}`
+      : currencyLabel,
+  )
 </script>
 
 {#snippet timeline()}
@@ -311,7 +318,7 @@
           value={form.transfer_all ? undefined : form.amount}
           placeholder={form.transfer_all ? $_('page.plan.transferAuto') : undefined}
           disabled={form.transfer_all}
-          suffix={currencyLabel}
+          suffix={amountUnit}
           formatNumber={appStore.formatNumber}
           onValueChange={(v) => {
             if (!form.transfer_all) form.amount = v

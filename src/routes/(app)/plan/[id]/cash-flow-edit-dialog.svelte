@@ -25,7 +25,7 @@
   import { planRangeOf, planYearOptions, yearWithinPlan } from '$lib/plan-range'
   import { ageRangeEmpty, sameYearMonthsInverted, timingComplete } from '$lib/schemas'
   import type { CashFlowSchedule, Expense, Income } from '$lib/schemas'
-  import { getFrequencyItems } from '$lib/select-options'
+  import { getFrequencyItems, getFrequencyShortLabel } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
   import { getMonthOptions, monthToOption, optionToMonth, yearItemsIncluding } from '$lib/utils'
@@ -150,6 +150,13 @@
     if (form.schedule === 'one_time' && !form.inflation_adjusted) return undefined
     return summarizeCashFlow(cashFlowFromFields(form), plan, appStore.profile.birth_date)
   })
+
+  // A recurring amount is a rate ("EUR/m"), a one-time one the bare currency.
+  let amountUnit = $derived(
+    form.schedule === 'recurring'
+      ? `${currencyLabel}/${getFrequencyShortLabel($_, form.frequency ?? 'monthly')}`
+      : currencyLabel,
+  )
 </script>
 
 {#snippet timeline()}
@@ -244,7 +251,7 @@
       <SuffixedInput
         id="{uid}-amount"
         value={form.amount}
-        suffix={currencyLabel}
+        suffix={amountUnit}
         formatNumber={appStore.formatNumber}
         onValueChange={(v) => (form.amount = v)}
       />
