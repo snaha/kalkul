@@ -189,12 +189,13 @@ function liabilityPayOffYear(liability: ProfileLiability): number | undefined {
 }
 
 /**
- * A per-period amount as a yearly one. Exported so the dashboard totals in
+ * A per-period amount as a yearly one. A flow that repeats every `every`
+ * periods ("every 3 months") is paid that many times less often. Exported so the dashboard totals in
  * `financial-totals.ts` annualize exactly like the projection does instead of
  * keeping their own copy of the periods-per-year table.
  */
-export function annualizedAmount(amount: Decimal, frequency: Frequency): Decimal {
-  return amount.mul(FLOW_PERIODS_PER_YEAR[frequency])
+export function annualizedAmount(amount: Decimal, frequency: Frequency, every = 1): Decimal {
+  return amount.mul(FLOW_PERIODS_PER_YEAR[frequency]).div(every)
 }
 
 function activeMonthFraction(
@@ -820,6 +821,7 @@ type ScheduledCashFlow = {
   transaction_month?: number
   // recurring fields
   frequency?: Frequency
+  repeat_every?: number
   start?: CashFlowStart
   start_year?: number
   start_month?: number
@@ -908,7 +910,7 @@ function transferAmountForYear(
   }
   return recurringAmountForYear(
     transferToTemporal(transfer),
-    annualizedAmount(amount, transfer.frequency ?? 'monthly'),
+    annualizedAmount(amount, transfer.frequency ?? 'monthly', transfer.repeat_every),
     year,
     planStartYear,
     birth,
@@ -1019,7 +1021,8 @@ export function summarizeTransfer(
         birth,
       )
       occurrences += Math.round(
-        FLOW_PERIODS_PER_YEAR[transfer.frequency ?? 'monthly'] * fraction.toNumber(),
+        (FLOW_PERIODS_PER_YEAR[transfer.frequency ?? 'monthly'] * fraction.toNumber()) /
+          (transfer.repeat_every ?? 1),
       )
     }
     const { nominal: amount, real } = transferAmountForYear(
@@ -1088,7 +1091,8 @@ export function summarizeCashFlow(
       const fraction = activeMonthFraction(temporal, year, itemStart, itemEnd, birth)
       if (fraction.isZero()) continue
       occurrences += Math.round(
-        FLOW_PERIODS_PER_YEAR[flow.frequency ?? 'monthly'] * fraction.toNumber(),
+        (FLOW_PERIODS_PER_YEAR[flow.frequency ?? 'monthly'] * fraction.toNumber()) /
+          (flow.repeat_every ?? 1),
       )
     }
     const { nominal, real } = cashFlowAmountForYear(
@@ -1123,7 +1127,7 @@ function cashFlowAmountForYear(
   }
   return recurringAmountForYear(
     cashFlowToTemporal(flow),
-    annualizedAmount(amount, flow.frequency ?? 'monthly'),
+    annualizedAmount(amount, flow.frequency ?? 'monthly', flow.repeat_every),
     year,
     planStartYear,
     birth,

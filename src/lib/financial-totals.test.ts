@@ -265,6 +265,17 @@ describe('getAnnualExpensesTotal', () => {
     expect(getAnnualExpensesTotal(profile)).toBeCloseTo(100 * (365.25 / 7) + 1_200 + 100, 6)
   })
 
+  test('divides by the repeat count: 300 every 3 months is 1,200 a year', () => {
+    const profile: Profile = {
+      ...EMPTY_PROFILE,
+      expenses: [
+        { ...expense(300, 'monthly'), repeat_every: 3 },
+        { ...expense(1000, 'yearly'), repeat_every: 2 },
+      ],
+    }
+    expect(getAnnualExpensesTotal(profile)).toBe(1_700)
+  })
+
   // A one-time expense is an event, not a yearly rate: it must not distort the
   // savings rate, FI % or runway (mirrors one-time transfers).
   test('skips one-time expenses', () => {

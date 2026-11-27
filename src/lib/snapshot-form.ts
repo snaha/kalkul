@@ -37,6 +37,7 @@ export interface SnapshotField {
    * frequency has to survive the round trip.
    */
   frequency?: Frequency
+  repeatEvery?: number
   /**
    * Carried through untouched for a debt, the same way: the design draws no
    * term control, but a snapshot records the term beside the balance, and
@@ -122,6 +123,7 @@ export function buildSnapshotSections(
           label: flow.name,
           kind: 'amount' as const,
           frequency: entry?.frequency ?? flow.frequency,
+          repeatEvery: entry ? entry.repeat_every : flow.repeat_every,
           value: entry?.amount ?? 0,
         }
       }),
@@ -251,6 +253,7 @@ export function snapshotFromFields(
         amount: valueOf(field),
         // Every cash-flow field carries one; the fallback only satisfies the type.
         frequency: field.frequency ?? 'monthly',
+        repeat_every: field.repeatEvery,
       })),
       base[id],
     )

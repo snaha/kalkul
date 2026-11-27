@@ -6,6 +6,9 @@ import { z } from 'zod'
 // --- Enum schemas ---
 
 export const frequencySchema = z.enum(['monthly', 'yearly', 'weekly'])
+// How many periods of its frequency pass between two payments of a recurring
+// flow ("Repeat every 3 months"). Absent means every period.
+const repeatEverySchema = z.number().int().min(1).optional()
 
 export const cashFlowStartSchema = z.enum(['immediately', 'now', 'at_specific_date', 'when_age_is'])
 
@@ -462,8 +465,10 @@ const cashFlowSchema = z
     // one-time fields
     transaction_year: z.number().optional(),
     transaction_month: z.number().optional(),
-    // recurring fields
+    // recurring fields: the flow repeats every `repeat_every` (absent = 1)
+    // periods of `frequency`, e.g. every 3 months.
     frequency: frequencySchema.optional(),
+    repeat_every: repeatEverySchema,
     start: cashFlowStartSchema.optional(),
     start_year: z.number().optional(),
     start_month: z.number().optional(),
@@ -797,6 +802,14 @@ function isRealCalendarDate(dateOnly: string): boolean {
 // investment's name and APY, an income's tax rate and start/end window — stays
 // on the profile, so a snapshot never has to be kept in sync with an edit that
 // changed no figure.
+// What a snapshot records of a recurring income or expense.
+const snapshotCashFlowSchema = z.object({
+  id: z.string(),
+  amount: z.number(),
+  frequency: frequencySchema,
+  repeat_every: repeatEverySchema,
+})
+
 export const snapshotSchema = z.object({
   // Date-only ISO string (`YYYY-MM-DD`) the balances were recorded on. The
   // format is enforced, not just documented: snapshot ordering, the staleness
@@ -843,12 +856,8 @@ export const snapshotSchema = z.object({
   // frequency are recorded: a salary that went from 4,000 monthly to 48,000
   // yearly is the same money, and the History page would otherwise show it as a
   // twelvefold raise.
-  incomes: z
-    .array(z.object({ id: z.string(), amount: z.number(), frequency: frequencySchema }))
-    .optional(),
-  expenses: z
-    .array(z.object({ id: z.string(), amount: z.number(), frequency: frequencySchema }))
-    .optional(),
+  incomes: z.array(snapshotCashFlowSchema).optional(),
+  expenses: z.array(snapshotCashFlowSchema).optional(),
 })
 
 /**
@@ -897,6 +906,7 @@ export const transferSchema = z
     transaction_month: z.number().optional(),
     // recurring fields (mirror income/expense temporal shape)
     frequency: frequencySchema.optional(),
+    repeat_every: repeatEverySchema,
     start: cashFlowStartSchema.optional(),
     start_year: z.number().optional(),
     start_month: z.number().optional(),

@@ -52,11 +52,13 @@ interface AnnualFlows {
  */
 function netAnnualCashFlow(profile: Profile): Decimal {
   const income = (profile.incomes ?? []).reduce<Decimal>(
-    (sum, i) => sum.plus(annualizedAmount(new Decimal(i.amount), i.frequency ?? 'monthly')),
+    (sum, i) =>
+      sum.plus(annualizedAmount(new Decimal(i.amount), i.frequency ?? 'monthly', i.repeat_every)),
     DECIMAL_0,
   )
   const expenses = (profile.expenses ?? []).reduce<Decimal>(
-    (sum, e) => sum.plus(annualizedAmount(new Decimal(e.amount), e.frequency ?? 'monthly')),
+    (sum, e) =>
+      sum.plus(annualizedAmount(new Decimal(e.amount), e.frequency ?? 'monthly', e.repeat_every)),
     DECIMAL_0,
   )
   // A loan is serviced for as long as it still has a balance to pay off.
@@ -121,7 +123,11 @@ function annualFlows(profile: Profile): AnnualFlows {
     if (transfer.schedule !== 'recurring' || transfer.transfer_all) continue
     if (!hasEndpoint(transfer.from_asset_id) || !hasEndpoint(transfer.to_asset_id)) continue
 
-    const gross = annualizedAmount(new Decimal(transfer.amount), transfer.frequency ?? 'monthly')
+    const gross = annualizedAmount(
+      new Decimal(transfer.amount),
+      transfer.frequency ?? 'monthly',
+      transfer.repeat_every,
+    )
     if (gross.isZero()) continue
     flows.transfers.push({
       from: transfer.from_asset_id,

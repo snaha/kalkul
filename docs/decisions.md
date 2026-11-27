@@ -10,6 +10,24 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-27 A recurring flow repeats every N months or years
+
+**Context.** A recurring income, expense or transfer had a Frequency select
+with three values: weekly, monthly, yearly. A quarterly or a two-yearly
+payment had to be converted by hand (#498).
+
+**Decision.** "Repeat every" takes a count and a unit, months or years. The
+count is stored as `repeat_every` beside the existing `frequency`, which is
+now the unit; an absent count is 1, so stored data is unchanged. Weeks are no
+longer offered. A flow already stored as weekly keeps "weeks" as its unit
+until the user picks another, so no stored amount is rewritten. The unit
+after an amount carries the count ("EUR/3m"). A snapshot records the count
+with the frequency. The projection still spreads a flow's yearly total evenly
+over the months; paying it on its own cadence is #490.
+
+**Why.** Months and years with a count cover every real cadence the three
+fixed values could not, in one control.
+
 ## 2026-11-27 Property tax is a yearly amount, not a rate
 
 **Context.** A tangible asset's property tax was `property_tax_rate`, a

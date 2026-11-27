@@ -113,7 +113,6 @@
       "defaultTransferName": "Transfer {index}",
       "pickAsset": "Please select",
       "deleteTransferConfirm": "Delete this transfer? This cannot be undone.",
-      "transferFrequencyLabel": "Frequency",
       "transferMax": "Max",
       "transferMaxDescription": "Turn on to transfer the entire balance. If you’re transferring from an investment, it will be liquidated.",
       "transferAuto": "Auto",
@@ -579,7 +578,11 @@
       },
       "common": {
         "amount": "Amount",
-        "frequency": "Frequency",
+        "repeatEvery": "Repeat every",
+        "repeatUnit": "Unit",
+        "repeatMonths": "{count, plural, one {month} other {months}}",
+        "repeatYears": "{count, plural, one {year} other {years}}",
+        "repeatWeeks": "{count, plural, one {week} other {weeks}}",
         "deleteConfirm": "Delete \"{name}\"? This cannot be undone.",
         "start": "Start",
         "end": "End",
@@ -659,7 +662,6 @@
       "transfers": {
         "defaultName": "Transfer {index}",
         "amount": "Amount",
-        "frequency": "Frequency",
         "from": "From",
         "to": "To",
         "addTransfer": "Add transfer",

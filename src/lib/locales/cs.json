@@ -113,7 +113,6 @@
       "defaultTransferName": "Převod {index}",
       "pickAsset": "Vyberte",
       "deleteTransferConfirm": "Smazat tento převod? Akci nelze vrátit zpět.",
-      "transferFrequencyLabel": "Frekvence",
       "transferMax": "Max",
       "transferMaxDescription": "Zapněte pro převod celého zůstatku. Pokud převádíte z investice, bude prodána.",
       "transferAuto": "Auto",
@@ -579,7 +578,11 @@
       },
       "common": {
         "amount": "Částka",
-        "frequency": "Frekvence",
+        "repeatEvery": "Opakovat každých",
+        "repeatUnit": "Jednotka",
+        "repeatMonths": "{count, plural, one {měsíc} few {měsíce} other {měsíců}}",
+        "repeatYears": "{count, plural, one {rok} few {roky} other {let}}",
+        "repeatWeeks": "{count, plural, one {týden} few {týdny} other {týdnů}}",
         "deleteConfirm": "Smazat „{name}“? Akci nelze vrátit zpět.",
         "start": "Začátek",
         "end": "Konec",
@@ -659,7 +662,6 @@
       "transfers": {
         "defaultName": "Převod {index}",
         "amount": "Částka",
-        "frequency": "Frekvence",
         "from": "Z",
         "to": "Do",
         "addTransfer": "Přidat převod",

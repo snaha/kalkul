@@ -51,10 +51,12 @@ export function getLiabilityPayOffItems($_: Translator): SelectFieldItem<Liabili
   return liabilityPayOffSchema.options.map((value) => ({ value, label: labels[value] }))
 }
 
-export function getFrequencyShortLabel($_: Translator, frequency: Frequency): string {
-  if (frequency === 'monthly') return $_('page.financialData.frequency.short.monthly')
-  if (frequency === 'weekly') return $_('page.financialData.frequency.short.weekly')
-  return $_('page.financialData.frequency.short.yearly')
+/** "m" for monthly, "3m" for every 3 months: the unit after "EUR/". */
+export function getFrequencyShortLabel($_: Translator, frequency: Frequency, every = 1): string {
+  const count = every > 1 ? String(every) : ''
+  if (frequency === 'monthly') return count + $_('page.financialData.frequency.short.monthly')
+  if (frequency === 'weekly') return count + $_('page.financialData.frequency.short.weekly')
+  return count + $_('page.financialData.frequency.short.yearly')
 }
 
 export function getFeeTypeItems($_: Translator): SelectFieldItem<FeeType>[] {

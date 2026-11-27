@@ -113,7 +113,7 @@
 
   function suffixFor(field: SnapshotField): string {
     if (!field.frequency) return currency
-    return `${currency}/${getFrequencyShortLabel($_, field.frequency)}`
+    return `${currency}/${getFrequencyShortLabel($_, field.frequency, field.repeatEvery)}`
   }
 
   function labelFor(field: SnapshotField): string {

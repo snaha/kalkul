@@ -7,13 +7,14 @@
   import EditableItemCard from '$lib/components/editable-item-card.svelte'
   import EditorItemErrors from '$lib/components/editor-item-errors.svelte'
   import InflationAdjustToggle from '$lib/components/inflation-adjust-toggle.svelte'
-  import SelectField, { type SelectFieldItem } from '$lib/components/select-field.svelte'
+  import RepeatEverySelector from '$lib/components/repeat-every-selector.svelte'
+  import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Label } from '$lib/components/ui/label'
   import { createListEditor } from '$lib/list-editor.svelte'
-  import type { Frequency, Transfer as TransferData } from '$lib/schemas'
-  import { getFrequencyItems, getFrequencyShortLabel } from '$lib/select-options'
+  import type { Transfer as TransferData } from '$lib/schemas'
+  import { getFrequencyShortLabel } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import {
     type TransferFields,
@@ -80,12 +81,10 @@
     ...(appStore.profile.investments ?? []).map((inv) => ({ id: inv.id, name: inv.name })),
   ])
 
-  const frequencyItems: SelectFieldItem<Frequency>[] = $derived(getFrequencyItems($_))
-
   function collapsedValue(transfer: TransferUI): string | undefined {
     if (!transfer.amount) return undefined
     const amount = appStore.formatCurrencyCode(transfer.amount)
-    return `${amount} / ${getFrequencyShortLabel($_, transfer.frequency)}`
+    return `${amount} / ${getFrequencyShortLabel($_, transfer.frequency, transfer.repeat_every)}`
   }
 </script>
 
@@ -145,24 +144,29 @@
               <SuffixedInput
                 id="amount-{transfer.id}"
                 value={transfer.amount}
-                suffix={currencyLabel}
+                suffix="{currencyLabel}/{getFrequencyShortLabel(
+                  $_,
+                  transfer.frequency,
+                  transfer.repeat_every,
+                )}"
                 formatNumber={appStore.formatNumber}
                 onValueChange={(v) => {
                   transfer.amount = v
                 }}
               />
             </div>
-            <div class="flex flex-1 flex-col gap-2">
-              <Label for="frequency-{transfer.id}">{$_('page.setup.transfers.frequency')}</Label>
-              <SelectField
-                id="frequency-{transfer.id}"
-                value={transfer.frequency}
-                items={frequencyItems}
-                onValueChange={(v) => {
-                  if (v) transfer.frequency = v
-                }}
-              />
-            </div>
+            <RepeatEverySelector
+              id="repeatEvery-{transfer.id}"
+              every={transfer.repeat_every}
+              frequency={transfer.frequency}
+              formatNumber={appStore.formatNumber}
+              onEveryChange={(v) => {
+                transfer.repeat_every = v
+              }}
+              onFrequencyChange={(v) => {
+                transfer.frequency = v
+              }}
+            />
           </div>
 
           <InflationAdjustToggle

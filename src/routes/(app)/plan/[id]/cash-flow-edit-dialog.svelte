@@ -16,6 +16,7 @@
   import DateAgeSelector from '$lib/components/date-age-selector.svelte'
   import FormSection from '$lib/components/form-section.svelte'
   import InflationAdjustToggle from '$lib/components/inflation-adjust-toggle.svelte'
+  import RepeatEverySelector from '$lib/components/repeat-every-selector.svelte'
   import SelectField, { type SelectFieldItem } from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Input } from '$lib/components/ui/input'
@@ -25,7 +26,7 @@
   import { planRangeOf, planYearOptions, yearWithinPlan } from '$lib/plan-range'
   import { ageRangeEmpty, sameYearMonthsInverted, timingComplete } from '$lib/schemas'
   import type { CashFlowSchedule, Expense, Income } from '$lib/schemas'
-  import { getFrequencyItems, getFrequencyShortLabel } from '$lib/select-options'
+  import { getFrequencyShortLabel } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
   import { getMonthOptions, monthToOption, optionToMonth, yearItemsIncluding } from '$lib/utils'
@@ -51,7 +52,6 @@
   let months = $derived(getMonthOptions($locale ?? undefined))
   let currencyLabel = $derived(appStore.profile.currencyOrDefault)
 
-  let frequencyItems = $derived(getFrequencyItems($_))
   let scheduleItems: SelectFieldItem<CashFlowSchedule>[] = $derived([
     { value: 'one_time', label: $_('page.plan.scheduleOneTime') },
     { value: 'recurring', label: $_('page.plan.scheduleRecurring') },
@@ -154,7 +154,7 @@
   // A recurring amount is a rate ("EUR/m"), a one-time one the bare currency.
   let amountUnit = $derived(
     form.schedule === 'recurring'
-      ? `${currencyLabel}/${getFrequencyShortLabel($_, form.frequency ?? 'monthly')}`
+      ? `${currencyLabel}/${getFrequencyShortLabel($_, form.frequency ?? 'monthly', form.repeat_every)}`
       : currencyLabel,
   )
 </script>
@@ -317,17 +317,18 @@
         {/if}
       </div>
     {:else}
-      <div class="flex flex-1 flex-col gap-2">
-        <Label for="{uid}-frequency">{$_('page.setup.common.frequency')}</Label>
-        <SelectField
-          id="{uid}-frequency"
-          value={form.frequency}
-          items={frequencyItems}
-          onValueChange={(v) => {
-            if (v) form.frequency = v
-          }}
-        />
-      </div>
+      <RepeatEverySelector
+        id="{uid}-repeatEvery"
+        every={form.repeat_every}
+        frequency={form.frequency}
+        formatNumber={appStore.formatNumber}
+        onEveryChange={(v) => {
+          form.repeat_every = v
+        }}
+        onFrequencyChange={(v) => {
+          form.frequency = v
+        }}
+      />
     {/if}
   </div>
 
