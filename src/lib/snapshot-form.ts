@@ -79,6 +79,9 @@ export interface SnapshotSection {
  * flows, would put today's onto that day. A flow opens at what the history
  * recorded for the date whenever it has a snapshot for it.
  *
+ * `estimateOn` is the date the unrecorded figures are estimated for, when it
+ * is not `date`: see `editEstimateDate`.
+ *
  * A figure `source` records as unknown opens at the value History calculates
  * for it once `source` is saved on `date`. `originalDate` is the date an edited
  * snapshot leaves.
@@ -87,9 +90,10 @@ export function buildSnapshotSections(
   profile: Profile,
   source: Snapshot,
   date: string,
+  estimateOn = date,
   originalDate?: string,
 ): SnapshotSection[] {
-  const estimate = seedSnapshotOn(profile, date)
+  const estimate = seedSnapshotOn(profile, estimateOn)
   // Where a cash flow `source` never recorded is read from: see the exception above.
   const flowFallback =
     (profile.snapshots ?? []).find((snapshot) => snapshot.date === date) ?? estimate
@@ -334,4 +338,92 @@ export function seedSnapshotOn(profile: Profile, date: string): Snapshot {
 export function openingDate(seeded: string, takenDates: string[], originalDate?: string): string {
   if (seeded === originalDate) return seeded
   return takenDates.includes(seeded) ? '' : seeded
+}
+
+/**
+ * The date an edited snapshot's unrecorded figures are estimated for while it
+ * is being re-dated to `date`. An edit saves only what was typed, so a field
+ * has to open at what the saved snapshot will hold. Moved to another past
+ * date, an item the snapshot never recorded stays unrecorded, so it reads as
+ * on the snapshot's own date, at zero. Moved onto or past the newest date, it
+ * becomes the baseline and the store fills its holdings in from the profile,
+ * so the estimate for the new date is what it will read.
+ */
+export function editEstimateDate(
+  sourceDate: string,
+  date: string,
+  takenDates: string[],
+  originalDate?: string,
+): string {
+  const laterExists = takenDates.some((taken) => taken !== originalDate && taken > date)
+  return laterExists ? sourceDate : date
+}
+
+/**
+ * `snapshot` with only what the user typed written into it: the History
+ * chart's edit dialog changes the figures it is told to and nothing else.
+ *
+ * Unlike `snapshotFromFields`, a field left alone is not written back, so an
+ * item the snapshot never recorded stays unrecorded rather than taking the
+ * field's seeded figure. An item's fields travel together: editing a financed
+ * asset's value writes its debt beside it, as the snapshot recorded it, since
+ * the two are one entry. A debt the snapshot never recorded is written only
+ * when the user typed one: an asset recorded as owned outright stays so when
+ * its value is edited, whatever the profile says of it today. Entries keep
+ * their place; a newly recorded one is appended. As in `snapshotFromFields`,
+ * a cleared field is not an edit.
+ */
+export function snapshotWithEdits(
+  snapshot: Snapshot,
+  sections: SnapshotSection[],
+  edits: Record<string, number | undefined>,
+): Snapshot {
+  const itemKey = (section: SnapshotSection, field: SnapshotField) =>
+    `${section.id}:${field.itemId}`
+  const editedItems = new Set(
+    sections.flatMap((section) =>
+      section.fields
+        .filter((field) => edits[field.key] !== undefined)
+        .map((field) => itemKey(section, field)),
+    ),
+  )
+  if (editedItems.size === 0) return snapshot
+
+  const recordedDebtIds = new Set(
+    (snapshot.tangible_assets ?? [])
+      .filter((asset) => asset.outstanding_balance !== undefined)
+      .map((asset) => asset.id),
+  )
+  const unrecordedDebt = (section: SnapshotSection, field: SnapshotField) =>
+    section.id === 'tangible_assets' &&
+    field.kind === 'debt' &&
+    edits[field.key] === undefined &&
+    !recordedDebtIds.has(field.itemId)
+  const touched = sections.map((section) => ({
+    ...section,
+    fields: section.fields.filter(
+      (field) => editedItems.has(itemKey(section, field)) && !unrecordedDebt(section, field),
+    ),
+  }))
+  const patch = snapshotFromFields({ date: snapshot.date }, touched, edits, snapshot.date)
+
+  const merge = <T extends { id: string }>(recorded: T[] | undefined, written: T[] | undefined) => {
+    if (!written?.length) return recorded
+    const writtenById = byId(written)
+    const recordedIds = new Set((recorded ?? []).map((entry) => entry.id))
+    return [
+      ...(recorded ?? []).map((entry) => writtenById.get(entry.id) ?? entry),
+      ...written.filter((entry) => !recordedIds.has(entry.id)),
+    ]
+  }
+
+  return {
+    ...snapshot,
+    cash_amount: patch.cash_amount ?? snapshot.cash_amount,
+    investments: merge(snapshot.investments, patch.investments),
+    tangible_assets: merge(snapshot.tangible_assets, patch.tangible_assets),
+    liabilities: merge(snapshot.liabilities, patch.liabilities),
+    incomes: merge(snapshot.incomes, patch.incomes),
+    expenses: merge(snapshot.expenses, patch.expenses),
+  }
 }

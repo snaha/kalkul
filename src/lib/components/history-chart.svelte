@@ -21,6 +21,11 @@
     ariaLabel: string
     /** Called with a recorded point's date when its dot is clicked. */
     onSelect?: (date: string) => void
+    /**
+     * Called when the projected "now" dot is clicked — the estimate for a day
+     * with no snapshot yet — so the caller can offer to record one.
+     */
+    onAdd?: () => void
     class?: string
   }
 
@@ -34,6 +39,7 @@
     nowLabel,
     ariaLabel,
     onSelect,
+    onAdd,
     class: className,
   }: Props = $props()
 
@@ -248,7 +254,7 @@
               'absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px] border-foreground',
               "before:absolute before:-inset-2 before:content-['']",
               point.projected ? 'bg-background' : 'bg-foreground',
-              onSelect && !point.projected ? 'cursor-pointer' : 'cursor-default',
+              (point.projected ? onAdd : onSelect) ? 'cursor-pointer' : 'cursor-default',
             )}
             style:left="{point.x}px"
             style:top="{point.y}px"
@@ -260,7 +266,8 @@
             onfocus={() => (activeDate = point.date)}
             onblur={() => (activeDate = undefined)}
             onclick={() => {
-              if (!point.projected) onSelect?.(point.date)
+              if (point.projected) onAdd?.()
+              else onSelect?.(point.date)
             }}
           ></button>
         {/each}
@@ -277,9 +284,11 @@
           >
             <div class="flex items-center gap-2">
               <span class="flex-1 text-sm">{formatDate(active.date)}</span>
-              {#if onSelect && !active.projected}
+              {#if active.projected ? onAdd : onSelect}
                 <span class="flex-1 text-right text-xs text-muted-foreground">
-                  {$_('page.dashboard.finances.history.tooltip.clickToEdit')}
+                  {active.projected
+                    ? $_('page.dashboard.finances.history.tooltip.clickToAdd')
+                    : $_('page.dashboard.finances.history.tooltip.clickToEdit')}
                 </span>
               {/if}
             </div>

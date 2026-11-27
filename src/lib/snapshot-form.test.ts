@@ -7,9 +7,11 @@ import { parseDateOnly } from '$lib/utils'
 
 import {
   buildSnapshotSections,
+  editEstimateDate,
   openingDate,
   seedSnapshotOn,
   snapshotFromFields,
+  snapshotWithEdits,
 } from './snapshot-form'
 
 const PROFILE: Profile = {
@@ -324,6 +326,136 @@ describe('snapshotFromFields', () => {
   })
 })
 
+describe('editEstimateDate', () => {
+  const taken = ['2026-01-01', '2026-03-01', '2026-06-01']
+
+  test('reads unrecorded figures as on its own date while it stays behind a later snapshot', () => {
+    expect(editEstimateDate('2026-03-01', '2026-03-01', taken, '2026-03-01')).toBe('2026-03-01')
+    expect(editEstimateDate('2026-03-01', '2026-02-01', taken, '2026-03-01')).toBe('2026-03-01')
+  })
+
+  test('reads them for the new date once it is moved onto or past the newest', () => {
+    expect(editEstimateDate('2026-03-01', '2026-07-01', taken, '2026-03-01')).toBe('2026-07-01')
+    expect(editEstimateDate('2026-06-01', '2026-06-01', taken, '2026-06-01')).toBe('2026-06-01')
+  })
+})
+
+describe('snapshotWithEdits', () => {
+  // An older snapshot that recorded only some of what the profile holds today:
+  // no Card liability and no Living expense yet.
+  const RECORDED: Snapshot = {
+    date: '2026-01-01',
+    cash_amount: 15_000,
+    investments: [{ id: 'inv1', balance: 70_000 }],
+    tangible_assets: [
+      { id: 't1', value: 11_000 },
+      {
+        id: 't2',
+        value: 195_000,
+        outstanding_balance: 104_000,
+        remaining_term: 21,
+        remaining_term_unit: 'years',
+      },
+    ],
+    incomes: [{ id: 'i1', amount: 3_800, frequency: 'monthly' }],
+  }
+  const later = captureSnapshot(PROFILE, '2026-06-01')
+  const profile: Profile = { ...PROFILE, snapshots: [RECORDED, later] }
+  const sections = buildSnapshotSections(profile, RECORDED, RECORDED.date)
+
+  test('leaves the snapshot exactly as it was when nothing is edited', () => {
+    expect(snapshotWithEdits(RECORDED, sections, {})).toEqual(RECORDED)
+  })
+
+  test('a cleared field is not an edit', () => {
+    expect(snapshotWithEdits(RECORDED, sections, { cash: undefined })).toEqual(RECORDED)
+  })
+
+  test('writes only the edited figure', () => {
+    expect(snapshotWithEdits(RECORDED, sections, { 'investments:inv1': 72_500 })).toEqual({
+      ...RECORDED,
+      investments: [{ id: 'inv1', balance: 72_500 }],
+    })
+  })
+
+  test('does not fill in items the snapshot never recorded', () => {
+    const saved = snapshotWithEdits(RECORDED, sections, { cash: 16_000 })
+    expect(saved.liabilities).toBeUndefined()
+    expect(saved.expenses).toBeUndefined()
+    expect(saved.cash_amount).toBe(16_000)
+  })
+
+  test("editing an asset's value keeps its recorded debt and term", () => {
+    const saved = snapshotWithEdits(RECORDED, sections, { 'tangible_assets:t2': 198_000 })
+    expect(saved.tangible_assets).toEqual([
+      { id: 't1', value: 11_000 },
+      {
+        id: 't2',
+        value: 198_000,
+        outstanding_balance: 104_000,
+        remaining_term: 21,
+        remaining_term_unit: 'years',
+      },
+    ])
+  })
+
+  test('editing the value of an asset recorded as owned outright records no debt', () => {
+    // The profile's t2 is financed today, so its debt field exists and opens at 0.
+    const owned: Snapshot = { ...RECORDED, tangible_assets: [{ id: 't2', value: 190_000 }] }
+    const ownedSections = buildSnapshotSections(PROFILE, owned, owned.date)
+    expect(
+      snapshotWithEdits(owned, ownedSections, { 'tangible_assets:t2': 195_000 }).tangible_assets,
+    ).toEqual([{ id: 't2', value: 195_000 }])
+    // Typing a debt records it.
+    expect(
+      snapshotWithEdits(owned, ownedSections, { 'tangible_assets:t2:debt': 50_000 })
+        .tangible_assets?.[0],
+    ).toMatchObject({ id: 't2', value: 190_000, outstanding_balance: 50_000 })
+  })
+
+  test('a re-dated edit opens an item the snapshot never recorded at zero, as it will be saved', () => {
+    // January recorded the Card liability; RECORDED, here dated March, did not.
+    const january: Snapshot = {
+      date: '2026-01-01',
+      liabilities: [{ id: 'l1', outstanding_balance: 4_000 }],
+    }
+    const march: Snapshot = { ...RECORDED, date: '2026-03-01' }
+    const history: Profile = { ...PROFILE, snapshots: [january, march, later] }
+    const card = (built: ReturnType<typeof buildSnapshotSections>) =>
+      built.find((section) => section.id === 'liabilities')?.fields[0].value
+    // Moved to February it would read January's 4,000 carried forward.
+    expect(card(buildSnapshotSections(history, march, '2026-02-01'))).toBeGreaterThan(0)
+    const estimateOn = editEstimateDate(
+      march.date,
+      '2026-02-01',
+      ['2026-01-01', '2026-03-01', later.date],
+      march.date,
+    )
+    expect(card(buildSnapshotSections(history, march, '2026-02-01', estimateOn))).toBe(0)
+  })
+
+  test("editing an asset's debt keeps its recorded value", () => {
+    const saved = snapshotWithEdits(RECORDED, sections, { 'tangible_assets:t2:debt': 103_000 })
+    expect(saved.tangible_assets?.[1]).toEqual({
+      id: 't2',
+      value: 195_000,
+      outstanding_balance: 103_000,
+      remaining_term: 21,
+      remaining_term_unit: 'years',
+    })
+  })
+
+  test('an edit to an item the snapshot never recorded adds it', () => {
+    const saved = snapshotWithEdits(RECORDED, sections, { 'expenses:e1': 900 })
+    expect(saved.expenses).toEqual([{ id: 'e1', amount: 900, frequency: 'monthly' }])
+    expect(saved.incomes).toEqual(RECORDED.incomes)
+  })
+
+  test('typing a zero is an edit', () => {
+    expect(snapshotWithEdits(RECORDED, sections, { cash: 0 }).cash_amount).toBe(0)
+  })
+})
+
 describe('seedSnapshotOn', () => {
   // Nothing accrues or compounds, so carrying a snapshot forward changes no
   // figure and the seed can be compared exactly.
@@ -543,36 +675,58 @@ describe('unknown figures in the snapshot dialog', () => {
     expect(seedSnapshotOn(profile, '2026-03-02').cash_amount).toBe(1_590)
   })
 
-  /** What History reads on `date` once the dialog's untouched fields are saved there. */
-  const readsAfterSave = (source: Snapshot, date: string, originalDate?: string) => {
-    const sections = buildSnapshotSections(profile, source, date, originalDate)
-    const saved = withSavedSnapshot(
-      profile,
-      snapshotFromFields(source, sections, {}, date),
-      originalDate,
+  /** The sections of an edit of `source` re-dated to `date`, as the dialog builds them. */
+  const editSections = (history: Profile, source: Snapshot, date: string) =>
+    buildSnapshotSections(
+      history,
+      source,
+      date,
+      editEstimateDate(
+        source.date,
+        date,
+        (history.snapshots ?? []).map((snapshot) => snapshot.date),
+        source.date,
+      ),
+      source.date,
     )
-    return resolveSnapshots(saved).find((snapshot) => snapshot.date === date)
-  }
+
+  /** What History reads on `date` once `saved` is recorded there. */
+  const readsAfterSave = (saved: Snapshot, originalDate?: string) =>
+    resolveSnapshots(withSavedSnapshot(profile, saved, originalDate)).find(
+      (snapshot) => snapshot.date === saved.date,
+    )
 
   test('opens a re-dated unknown figure at its calculated value on the new date', () => {
-    const sections = buildSnapshotSections(profile, MAR, '2026-04-01', MAR.date)
+    const sections = editSections(profile, MAR, '2026-04-01')
     expect(fieldOf(sections, 'cash')?.value).toBe(1_900)
     expect(fieldOf(sections, 'investments:inv1')?.value).toBe(2_500)
   })
 
   test('records a re-dated unknown figure as History reads it on the new date', () => {
-    const read = readsAfterSave(MAR, '2026-04-01', MAR.date)
+    const sections = editSections(profile, MAR, '2026-04-01')
+    const saved = { ...snapshotWithEdits(MAR, sections, {}), date: '2026-04-01' }
+    expect(saved.cash_amount).toBeUndefined()
+    expect(saved.investments).toStrictEqual([{ id: 'inv1' }])
+    const read = readsAfterSave(saved, MAR.date)
     expect(read?.cash_amount).toBe(1_900)
     expect(read?.investments).toEqual([{ id: 'inv1', balance: 2_500 }])
   })
 
   test('opens an unknown figure re-dated past the newest snapshot at the profile figure', () => {
-    const sections = buildSnapshotSections(profile, MAR, '2026-06-01', MAR.date)
+    const sections = editSections(profile, MAR, '2026-06-01')
     expect(fieldOf(sections, 'cash')?.value).toBe(2_200)
     expect(fieldOf(sections, 'investments:inv1')?.value).toBe(3_000)
-    const read = readsAfterSave(MAR, '2026-06-01', MAR.date)
+    const saved = { ...snapshotWithEdits(MAR, sections, {}), date: '2026-06-01' }
+    const read = readsAfterSave(saved, MAR.date)
     expect(read?.cash_amount).toBe(2_200)
     expect(read?.investments).toEqual([{ id: 'inv1', balance: 3_000 }])
+  })
+
+  test('records a figure typed over an unknown one in an edit', () => {
+    const sections = editSections(profile, MAR, MAR.date)
+    const saved = snapshotWithEdits(MAR, sections, { cash: 7 })
+    expect(saved.cash_amount).toBe(7)
+    expect(saved.investments).toStrictEqual([{ id: 'inv1' }])
   })
 
   test('opens a copied unknown figure at the profile figure on a date past the newest snapshot', () => {
@@ -580,7 +734,7 @@ describe('unknown figures in the snapshot dialog', () => {
     const sections = buildSnapshotSections(profile, copy, '2026-06-01')
     expect(fieldOf(sections, 'cash')?.value).toBe(2_200)
     expect(fieldOf(sections, 'investments:inv1')?.value).toBe(3_000)
-    const read = readsAfterSave(copy, '2026-06-01')
+    const read = readsAfterSave(snapshotFromFields(copy, sections, {}, '2026-06-01'))
     expect(read?.cash_amount).toBe(2_200)
     expect(read?.investments).toEqual([{ id: 'inv1', balance: 3_000 }])
   })
@@ -595,7 +749,7 @@ describe('unknown figures in the snapshot dialog', () => {
   test('vacates the original date when calculating a re-dated unknown figure', () => {
     const newest: Snapshot = { date: '2026-05-01', investments: [{ id: 'inv1' }] }
     const history: Profile = { ...profile, snapshots: [JAN, newest] }
-    const sections = buildSnapshotSections(history, newest, '2026-02-01', newest.date)
+    const sections = editSections(history, newest, '2026-02-01')
     expect(fieldOf(sections, 'cash')?.value).toBe(2_200)
     expect(fieldOf(sections, 'investments:inv1')?.value).toBe(3_000)
   })

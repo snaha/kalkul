@@ -476,7 +476,7 @@ describe('getYearlyPlanProjection', () => {
       }),
     )
     // First year: same real income.
-    expect(matched[0].cash).toBeCloseTo(baseline[0].cash, 0)
+    expect(matched[0].totalIncome).toBeCloseTo(baseline[0].totalIncome, 6)
     // Later years: accumulated cash erodes vs the inflation-free baseline,
     // so matched < baseline in real terms, but still grows.
     expect(matched[5].cash).toBeLessThan(baseline[5].cash)
@@ -2972,7 +2972,8 @@ describe('summarizeTransfer', () => {
       undefined,
     )
     expect(result.occurrences).toBe(1)
-    expect(result.nominalTotal).toBeCloseTo(1040.4, 6)
+    // June 2027 is 29 months after the plan starts in January 2025.
+    expect(result.nominalTotal).toBeCloseTo(1000 * 1.02 ** (29 / 12), 6)
     expect(result.realTotal).toBe(1000)
   })
 
@@ -3121,8 +3122,10 @@ describe('summarizeTransfer', () => {
       undefined,
     )
     expect(result.occurrences).toBe(72)
-    // 12000 * (1 + 1.02 + 1.02^2 + ... + 1.02^5)
-    expect(result.nominalTotal).toBeCloseTo(75697.4515584, 6)
+    // Month k of the plan pays 1000 * 1.02^(k/12).
+    let nominal = 0
+    for (let k = 0; k < 72; k++) nominal += 1000 * 1.02 ** (k / 12)
+    expect(result.nominalTotal).toBeCloseTo(nominal, 6)
     expect(result.realTotal).toBe(72000)
   })
 
@@ -3172,7 +3175,8 @@ describe('summarizeCashFlow', () => {
       undefined,
     )
     expect(result.occurrences).toBe(1)
-    expect(result.nominalTotal).toBeCloseTo(1040.4, 6)
+    // June 2027 is 29 months after the plan starts in January 2025.
+    expect(result.nominalTotal).toBeCloseTo(1000 * 1.02 ** (29 / 12), 6)
     expect(result.realTotal).toBe(1000)
   })
 
@@ -3188,6 +3192,21 @@ describe('summarizeCashFlow', () => {
       nominalTotal: 72000,
       realTotal: 72000,
     })
+  })
+
+  it("shrinks a flow that does not follow inflation month by month in today's money", () => {
+    const result = summarizeCashFlow(
+      { ...recurring, end: 'at_specific_date', end_year: 2025, end_month: 3 },
+      makePlan({ inflation_rate: 0.02 }),
+      undefined,
+    )
+    // January to March 2025, paid as entered: 1,000 + 998.35 + 996.70.
+    expect(result.nominalTotal).toBe(3000)
+    expect(result.realTotal).toBeCloseTo(
+      1000 + 1000 / 1.02 ** (1 / 12) + 1000 / 1.02 ** (2 / 12),
+      6,
+    )
+    expect(result.realTotal).toBeCloseTo(2995.06, 2)
   })
 
   it('stops counting at an at_specific_date end (inclusive of the end month)', () => {
@@ -3217,8 +3236,10 @@ describe('summarizeCashFlow', () => {
       undefined,
     )
     expect(result.occurrences).toBe(72)
-    // 12000 * (1 + 1.02 + 1.02^2 + ... + 1.02^5)
-    expect(result.nominalTotal).toBeCloseTo(75697.4515584, 6)
+    // Month k of the plan pays 1000 * 1.02^(k/12).
+    let nominal = 0
+    for (let k = 0; k < 72; k++) nominal += 1000 * 1.02 ** (k / 12)
+    expect(result.nominalTotal).toBeCloseTo(nominal, 6)
     expect(result.realTotal).toBe(72000)
   })
 
@@ -3287,10 +3308,11 @@ describe('one-time cash flows in the projection', () => {
       }),
     )
     const year2027 = result.find((r) => r.year === 2027)
-    // 1000 * 1.02^2 nominal, deflated back by the same factor → 1000 real.
+    // 1000 * 1.02^(29/12) nominal in June 2027, deflated back by the same
+    // factor → 1000 real.
     expect(year2027?.totalExpenses).toBeCloseTo(1000, 4)
-    // Cash is what is left of 10,000 nominal after the 1040.4 payment.
-    expect(year2027?.cash).toBeCloseTo(8959.6 / 1.02 ** 2, 4)
+    // Cash is what is left of 10,000 nominal after that payment.
+    expect(year2027?.cash).toBeCloseTo((10_000 - 1000 * 1.02 ** (29 / 12)) / 1.02 ** 2, 4)
   })
 
   it('adds a one-time income to cash in its transaction year only', () => {
@@ -3992,5 +4014,100 @@ describe('per-item cash flows and portfolio value of a year', () => {
     )
     expect(result[0].netWorth).toBeCloseTo(2_450_000, 6)
     expect(result[0].portfolioValue).toBeCloseTo(450_000, 6)
+  })
+})
+
+describe('inflation by the month', () => {
+  // docs/product/projections.md, "Inflation counts months".
+  const plan = { investments: [], ...makePlan({ start_date: '2026-11-01', inflation_rate: 0.02 }) }
+  const once = (year: number, month: number): Transfer => ({
+    id: 't1',
+    name: 'Once',
+    from_asset_id: 'cash',
+    to_asset_id: 'inv1',
+    amount: 100,
+    schedule: 'one_time',
+    transaction_year: year,
+    transaction_month: month,
+    inflation_adjusted: true,
+  })
+
+  it('inflates a one-time amount by the months since the plan starts', () => {
+    const nominal = (year: number, month: number) =>
+      summarizeTransfer(once(year, month), plan, undefined).nominalTotal
+    expect(nominal(2026, 11)).toBe(100)
+    expect(nominal(2026, 12)).toBeCloseTo(100 * 1.02 ** (1 / 12), 9)
+    expect(nominal(2027, 1)).toBeCloseTo(100 * 1.02 ** (2 / 12), 9)
+    expect(nominal(2027, 12)).toBeCloseTo(100 * 1.02 ** (13 / 12), 9)
+    expect(summarizeTransfer(once(2027, 12), plan, undefined).realTotal).toBeCloseTo(100, 9)
+  })
+
+  it('inflates each month of a recurring flow by its own month', () => {
+    const salary: Income = {
+      id: 'inc1',
+      name: 'Salary',
+      amount: 1000,
+      schedule: 'recurring',
+      frequency: 'monthly',
+      start: 'immediately',
+      end: 'never',
+      change_over_time: 'none',
+      inflation_adjusted: true,
+    }
+    const result = project(makePlan({ inflation_rate: 0.12 }), makeProfile({ incomes: [salary] }))
+    let nominal = 0
+    for (let k = 0; k < 12; k++) nominal += 1000 * 1.12 ** (k / 12)
+    // Plan starts in January 2025: the first year's months are 0..11 months in.
+    expect(result[0].cash).toBeCloseTo(nominal, 6)
+    // In today's money it is the amount entered.
+    expect(result[0].totalIncome).toBeCloseTo(12_000, 6)
+    expect(result[1].totalIncome).toBeCloseTo(12_000, 6)
+  })
+
+  it('pays an inflation-adjusted salary by its month and shows it as entered', () => {
+    // docs/product/projections.md, worked example 10.
+    const salary: Income = {
+      id: 'inc1',
+      name: 'Salary',
+      amount: 1000,
+      schedule: 'recurring',
+      frequency: 'monthly',
+      start: 'at_specific_date',
+      start_year: 2026,
+      start_month: 11,
+      end: 'never',
+      change_over_time: 'none',
+      inflation_adjusted: true,
+    }
+    const result = project(
+      makePlan({ start_date: '2026-11-01', end_date: '2028-01-01', inflation_rate: 0.02 }),
+      makeProfile({ incomes: [salary] }),
+    )
+    // November and December 2026: 1,000 and 1,001.65.
+    expect(result[0].cash).toBeCloseTo(1000 + 1000 * 1.02 ** (1 / 12), 6)
+    expect(1000 * 1.02 ** (1 / 12)).toBeCloseTo(1001.65, 2)
+    expect(1000 * 1.02 ** (2 / 12)).toBeCloseTo(1003.31, 2)
+    expect(result[1].totalIncome).toBeCloseTo(12_000, 6)
+  })
+
+  it('deflates each month of a flow that does not follow inflation', () => {
+    const rent: Expense = {
+      id: 'e1',
+      name: 'Rent',
+      amount: 1000,
+      schedule: 'recurring',
+      frequency: 'monthly',
+      start: 'immediately',
+      end: 'never',
+      change_over_time: 'none',
+    }
+    const result = project(
+      makePlan({ inflation_rate: 0.12 }),
+      makeProfile({ cash_amount: 100_000, expenses: [rent] }),
+    )
+    let real = 0
+    for (let k = 12; k < 24; k++) real += 1000 / 1.12 ** (k / 12)
+    expect(result[1].totalExpenses).toBeCloseTo(real, 6)
+    expect(result[1].expensesByItem[0].value).toBeCloseTo(real, 6)
   })
 })
