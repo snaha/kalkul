@@ -21,7 +21,7 @@
   import { planRangeOf, planYearOptions, yearWithinPlan } from '$lib/plan-range'
   import { ageRangeEmpty, sameYearMonthsInverted, timingComplete } from '$lib/schemas'
   import type { Transfer, TransferSchedule } from '$lib/schemas'
-  import { getFrequencyItems } from '$lib/select-options'
+  import { getFrequencyItems, getFrequencyShortLabel } from '$lib/select-options'
   import { appStore } from '$lib/stores/app.svelte'
   import type { PortfolioStore } from '$lib/stores/portfolio.svelte'
   import {
@@ -194,6 +194,13 @@
       return undefined
     return summarizeTransfer(transferFromFields(form), plan, appStore.profile.birth_date)
   })
+
+  // A recurring amount is a rate ("EUR/m"), a one-time one the bare currency.
+  let amountUnit = $derived(
+    form.schedule === 'recurring'
+      ? `${currencyLabel}/${getFrequencyShortLabel($_, form.frequency ?? 'monthly')}`
+      : currencyLabel,
+  )
 </script>
 
 {#snippet timeline()}
@@ -299,6 +306,69 @@
     </div>
   </div>
 
+  <!-- Amount. One-time (frame 1387): full width with the Max switch beside it;
+       Max has no amount of its own, so the field is disabled and reads "Auto".
+       Recurring (frame 1345): half width with Adjust for inflation beside it. -->
+  <div class="flex flex-col gap-2">
+    <Label for="{uid}-transferAmount">{$_('page.setup.common.amount')}</Label>
+    <div class="flex items-center gap-2">
+      <div class="flex-1">
+        <SuffixedInput
+          id="{uid}-transferAmount"
+          value={form.transfer_all ? undefined : form.amount}
+          placeholder={form.transfer_all ? $_('page.plan.transferAuto') : undefined}
+          disabled={form.transfer_all}
+          suffix={amountUnit}
+          formatNumber={appStore.formatNumber}
+          onValueChange={(v) => {
+            if (!form.transfer_all) form.amount = v
+          }}
+        />
+      </div>
+      {#if form.schedule === 'one_time'}
+        <label class="flex shrink-0 cursor-pointer items-center gap-2">
+          <Switch
+            checked={form.transfer_all}
+            onCheckedChange={(v) => (form.transfer_all = v === true)}
+          />
+          <span class="text-sm font-medium">{$_('page.plan.transferMax')}</span>
+        </label>
+        <Tooltip.Provider delayDuration={150}>
+          <Tooltip.Root bind:open={maxTooltipOpen} disableCloseOnTriggerClick>
+            <Tooltip.Trigger
+              type="button"
+              aria-label={$_('page.plan.transferMaxDescription')}
+              onclick={() => (maxTooltipOpen = !maxTooltipOpen)}
+              class="text-muted-foreground hover:text-foreground shrink-0"
+            >
+              <CircleHelp class="size-4" />
+            </Tooltip.Trigger>
+            <Tooltip.Content>
+              {$_('page.plan.transferMaxDescription')}
+            </Tooltip.Content>
+          </Tooltip.Root>
+        </Tooltip.Provider>
+      {:else}
+        <div class="flex flex-1 items-center">
+          <InflationAdjustToggle
+            checked={form.inflation_adjusted}
+            onCheckedChange={(v) => (form.inflation_adjusted = v)}
+          />
+        </div>
+      {/if}
+    </div>
+  </div>
+
+  <!-- One-time: on its own row under the amount (frames 1340 and 1344). Max
+       moves whatever the source holds, so there is no amount to adjust and
+       the switch is hidden. -->
+  {#if form.schedule === 'one_time' && !form.transfer_all}
+    <InflationAdjustToggle
+      checked={form.inflation_adjusted}
+      onCheckedChange={(v) => (form.inflation_adjusted = v)}
+    />
+  {/if}
+
   <!-- Type + (one-time) Date  /  (recurring) Frequency -->
   <div class="flex items-end gap-2">
     <div class="flex flex-1 flex-col gap-2">
@@ -366,83 +436,16 @@
     {/if}
   </div>
 
-  <!-- Amount. One-time (frame 1387): full width with the Max switch beside it;
-       Max has no amount of its own, so the field is disabled and reads "Auto".
-       Recurring (frame 1345): half width with Adjust for inflation beside it. -->
-  <div class="flex flex-col gap-2">
-    <Label for="{uid}-transferAmount">{$_('page.setup.common.amount')}</Label>
-    <div class="flex items-center gap-2">
-      <div class="flex-1">
-        <SuffixedInput
-          id="{uid}-transferAmount"
-          value={form.transfer_all ? undefined : form.amount}
-          placeholder={form.transfer_all ? $_('page.plan.transferAuto') : undefined}
-          disabled={form.transfer_all}
-          suffix={currencyLabel}
-          formatNumber={appStore.formatNumber}
-          onValueChange={(v) => {
-            if (!form.transfer_all) form.amount = v
-          }}
-        />
-      </div>
-      {#if form.schedule === 'one_time'}
-        <label class="flex shrink-0 cursor-pointer items-center gap-2">
-          <Switch
-            checked={form.transfer_all}
-            onCheckedChange={(v) => (form.transfer_all = v === true)}
-          />
-          <span class="text-sm font-medium">{$_('page.plan.transferMax')}</span>
-        </label>
-        <Tooltip.Provider delayDuration={150}>
-          <Tooltip.Root bind:open={maxTooltipOpen} disableCloseOnTriggerClick>
-            <Tooltip.Trigger
-              type="button"
-              aria-label={$_('page.plan.transferMaxDescription')}
-              onclick={() => (maxTooltipOpen = !maxTooltipOpen)}
-              class="text-muted-foreground hover:text-foreground shrink-0"
-            >
-              <CircleHelp class="size-4" />
-            </Tooltip.Trigger>
-            <Tooltip.Content>
-              {$_('page.plan.transferMaxDescription')}
-            </Tooltip.Content>
-          </Tooltip.Root>
-        </Tooltip.Provider>
-      {:else}
-        <div class="flex flex-1 items-center">
-          <InflationAdjustToggle
-            checked={form.inflation_adjusted}
-            onCheckedChange={(v) => (form.inflation_adjusted = v)}
-          />
-        </div>
-      {/if}
-    </div>
-  </div>
-
-  <!-- One-time: on its own row under the amount (frames 1340 and 1344). Max
-       moves whatever the source holds, so there is no amount to adjust and
-       the switch is hidden. -->
-  {#if form.schedule === 'one_time' && !form.transfer_all}
-    <InflationAdjustToggle
-      checked={form.inflation_adjusted}
-      onCheckedChange={(v) => (form.inflation_adjusted = v)}
-    />
-  {/if}
-
   {#if form.schedule === 'recurring'}
-    {#if imported}
-      <FormSection
-        icon={Calendar}
-        title={$_('page.plan.timeline')}
-        open={form.start !== 'immediately' ||
-          form.end !== 'never' ||
-          form.change_over_time !== 'none'}
-      >
-        {@render timeline()}
-      </FormSection>
-    {:else}
+    <FormSection
+      icon={Calendar}
+      title={$_('page.plan.timeline')}
+      open={form.start !== 'immediately' ||
+        form.end !== 'never' ||
+        form.change_over_time !== 'none'}
+    >
       {@render timeline()}
-    {/if}
+    </FormSection>
   {/if}
 
   <!-- Deduct estimated tax (frames 1340, 1344 and 1345): the switch on its
@@ -450,7 +453,7 @@
        Only an investment has a gain to tax, so cash gets no switch. -->
   {#if sourceApy !== undefined}
     <!-- Frame 1386: a line sets the switch apart from the Timeline section. -->
-    {#if imported}<Separator />{/if}
+    {#if form.schedule === 'recurring'}<Separator />{/if}
     <label class="flex cursor-pointer items-center gap-2">
       <Switch checked={form.deduct_tax} onCheckedChange={(v) => (form.deduct_tax = v === true)} />
       <span class="text-sm font-medium">{$_('page.plan.deductTax')}</span>

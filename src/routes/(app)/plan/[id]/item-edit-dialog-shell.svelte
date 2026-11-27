@@ -19,8 +19,6 @@
     isNew: boolean
     /** Title shown in place of the name while isNew. */
     newTitle?: string
-    /** Replaces the default footer when given. */
-    footer?: Snippet
     /** Extra footer classes, e.g. the muted background some Figma footers have. */
     footerClass?: string
     /** Optional label shown right beside the title, e.g. "Financed". */
@@ -37,7 +35,6 @@
     name,
     isNew,
     newTitle,
-    footer,
     footerClass,
     badge,
     saveDisabled = false,
@@ -76,29 +73,25 @@
     </div>
 
     <Dialog.Footer class={cn('flex flex-row gap-2 border-t p-4', footerClass)}>
-      {#if footer}
-        {@render footer()}
-      {:else}
-        <!-- Figma "Add footer" / "Edit footer" (941-71859, 941-81371). -->
-        <div class="flex flex-1 items-center gap-2">
-          <Button disabled={saveDisabled} onclick={onSave}>
-            {isNew ? $_('page.plan.createItem') : $_('page.plan.saveChanges')}
-          </Button>
-          <Button variant="outline" onclick={close}>{$_('page.plan.cancel')}</Button>
-          {#if !isNew}
-            <div class="flex flex-1 items-center justify-end gap-2">
-              <Button
-                variant="destructive"
-                size="icon"
-                onclick={onDelete}
-                aria-label={$_('page.plan.deleteItem')}
-              >
-                <Trash2 class="size-4" />
-              </Button>
-            </div>
-          {/if}
-        </div>
-      {/if}
+      <!-- Figma "Add footer" / "Edit footer" (941-71859, 941-81371). -->
+      <div class="flex flex-1 items-center gap-2">
+        <Button disabled={saveDisabled} onclick={onSave}>
+          {isNew ? $_('page.plan.createItem') : $_('page.plan.saveChanges')}
+        </Button>
+        <Button variant="outline" onclick={close}>{$_('page.plan.cancel')}</Button>
+        {#if !isNew}
+          <div class="flex flex-1 items-center justify-end gap-2">
+            <Button
+              variant="destructive"
+              size="icon"
+              onclick={onDelete}
+              aria-label={$_('page.plan.deleteItem')}
+            >
+              <Trash2 class="size-4" />
+            </Button>
+          </div>
+        {/if}
+      </div>
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>

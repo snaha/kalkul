@@ -183,8 +183,6 @@
       "investmentStart": "Začátek",
       "investmentStartDescription": "Kdy plánujete tuto investici uskutečnit.",
       "createItem": "Vytvořit",
-      "showAdvancedOptions": "Zobrazit pokročilá nastavení",
-      "hideAdvancedOptions": "Skrýt pokročilá nastavení",
       "interestType": "Typ úroku",
       "interestCompound": "Složený",
       "interestSimple": "Jednoduchý",

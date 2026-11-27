@@ -39,9 +39,9 @@
     idPrefix: string
     /** "Current balance" in the setup card, "Initial amount" in the plan dialog. */
     amountLabel: string
-    /** Copied from financial data: already held, so no start; the fees are a section. */
+    /** Copied from financial data: already held, so no start. */
     imported?: boolean
-    /** Whether the fee fields are revealed; an imported investment's section opens with it. */
+    /** Whether the fee fields are revealed; in a projection it opens their section. */
     showAdvanced: boolean
     currencyLabel: string
     /** The plan's years; the Start selector shows only with it. */
@@ -68,34 +68,6 @@
 
   let exitFeeTypeItems = $derived(getExitFeeTypeItems($_))
 </script>
-
-{#if range && !imported}
-  <DateAgeSelector
-    mode="start"
-    label={$_('page.plan.investmentStart')}
-    description={$_('page.plan.investmentStartDescription')}
-    value={item.start}
-    year={item.start_year}
-    month={item.start_month}
-    age={item.start_age}
-    {range}
-    {months}
-    {birthDateSet}
-    {formatNumber}
-    onValueChange={(v) => {
-      item.start = v
-    }}
-    onYearChange={(v) => {
-      item.start_year = v
-    }}
-    onMonthChange={(v) => {
-      item.start_month = v
-    }}
-    onAgeChange={(v) => {
-      item.start_age = v
-    }}
-  />
-{/if}
 
 <div class="flex items-center gap-2">
   <div class="flex flex-1 flex-col gap-2">
@@ -125,6 +97,34 @@
 </div>
 {#if imported}
   <p class="-mt-2 text-xs text-muted-foreground">{$_('page.plan.initialBalanceDescription')}</p>
+{/if}
+
+{#if range && !imported}
+  <DateAgeSelector
+    mode="start"
+    label={$_('page.plan.investmentStart')}
+    description={$_('page.plan.investmentStartDescription')}
+    value={item.start}
+    year={item.start_year}
+    month={item.start_month}
+    age={item.start_age}
+    {range}
+    {months}
+    {birthDateSet}
+    {formatNumber}
+    onValueChange={(v) => {
+      item.start = v
+    }}
+    onYearChange={(v) => {
+      item.start_year = v
+    }}
+    onMonthChange={(v) => {
+      item.start_month = v
+    }}
+    onAgeChange={(v) => {
+      item.start_age = v
+    }}
+  />
 {/if}
 
 {#snippet feeRows()}
@@ -201,7 +201,9 @@
   </div>
 {/snippet}
 
-{#if imported}
+<!-- A projection's dialog (it passes the plan's years) keeps the fees in a
+     section; the setup card reveals them with its own switch. -->
+{#if range || imported}
   <FormSection icon={Percent} title={$_('page.plan.fees')} open={showAdvanced}
     >{@render feeRows()}</FormSection
   >
