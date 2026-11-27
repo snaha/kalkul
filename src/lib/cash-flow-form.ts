@@ -27,6 +27,7 @@ export interface CashFlowFields {
   transaction_month: number | undefined
   // recurring
   frequency: Frequency
+  repeat_every: number | undefined
   start: CashFlowStart
   start_year: number | undefined
   start_month: number | undefined
@@ -62,6 +63,7 @@ export function blankCashFlowFields(
     // terms, so this matches user intent for the common case.
     inflation_adjusted: true,
     frequency: 'monthly',
+    repeat_every: undefined,
     start: 'immediately',
     // Timing fields start empty so 'at_specific_date'/'when_age_is' force an
     // explicit choice instead of silently defaulting to "now" (= plan year 1).
@@ -87,6 +89,7 @@ export function cashFlowToFields(src: Income | Expense): CashFlowFields {
   f.transaction_year = src.transaction_year ?? f.transaction_year
   f.transaction_month = src.transaction_month ?? f.transaction_month
   f.frequency = src.frequency ?? 'monthly'
+  f.repeat_every = src.repeat_every
   f.start = src.start ?? 'immediately'
   f.start_year = src.start_year
   f.start_month = src.start_month
@@ -124,6 +127,7 @@ export function cashFlowFromFields(f: CashFlowFields): Income | Expense {
     ...common,
     schedule: 'recurring',
     frequency: f.frequency,
+    repeat_every: f.repeat_every,
     start: f.start,
     start_year: f.start === 'at_specific_date' ? f.start_year : undefined,
     start_month: f.start === 'at_specific_date' ? f.start_month : undefined,

@@ -101,7 +101,8 @@ export function getOverviewSegments(profile: Profile): OverviewSegment[] {
 export function getAnnualExpensesTotal(profile: Profile): number {
   return countedCashFlows(profile.expenses)
     .reduce<Decimal>(
-      (sum, e) => sum.plus(annualizedAmount(new Decimal(e.amount), e.frequency ?? 'monthly')),
+      (sum, e) =>
+        sum.plus(annualizedAmount(new Decimal(e.amount), e.frequency ?? 'monthly', e.repeat_every)),
       DECIMAL_0,
     )
     .toNumber()
@@ -118,7 +119,8 @@ export function getAnnualExpensesTotal(profile: Profile): number {
 export function getAnnualIncomeTotal(profile: Profile): number {
   return countedCashFlows(profile.incomes)
     .reduce<Decimal>(
-      (sum, i) => sum.plus(annualizedAmount(new Decimal(i.amount), i.frequency ?? 'monthly')),
+      (sum, i) =>
+        sum.plus(annualizedAmount(new Decimal(i.amount), i.frequency ?? 'monthly', i.repeat_every)),
       DECIMAL_0,
     )
     .toNumber()

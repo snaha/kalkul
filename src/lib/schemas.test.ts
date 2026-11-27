@@ -164,6 +164,19 @@ const sameYearInverted: TemporalFields = {
   end_month: 3,
 }
 
+describe('repeat_every on a recurring cash flow', () => {
+  it.each([
+    [1, true],
+    [3, true],
+    [0, false],
+    [1.5, false],
+    [-2, false],
+  ])('%s is valid: %s', (repeat_every, expected) => {
+    expect(incomeSchema.safeParse({ ...baseIncome, repeat_every }).success).toBe(expected)
+    expect(expenseSchema.safeParse({ ...baseExpense, repeat_every }).success).toBe(expected)
+  })
+})
+
 describe('cash flow month order validation', () => {
   it('rejects an income with start month after end month in the same year', () => {
     const result = incomeSchema.safeParse({ ...baseIncome, ...sameYearInverted })

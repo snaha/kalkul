@@ -30,6 +30,7 @@ export interface TransferFields {
   transaction_month: number | undefined
   // recurring
   frequency: Frequency
+  repeat_every: number | undefined
   start: CashFlowStart
   start_year: number | undefined
   start_month: number | undefined
@@ -66,6 +67,7 @@ export function blankTransferFields(
     transaction_year: range ? clampYearToPlan(range, year) : year,
     transaction_month: now.getMonth() + 1,
     frequency: 'monthly',
+    repeat_every: undefined,
     start: 'immediately',
     // Timing fields start empty so 'at_specific_date'/'when_age_is' force an
     // explicit choice instead of silently defaulting to plan year 1.
@@ -94,6 +96,7 @@ export function transferToFields(src: Transfer): TransferFields {
   f.transaction_year = src.transaction_year ?? f.transaction_year
   f.transaction_month = src.transaction_month ?? f.transaction_month
   f.frequency = src.frequency ?? 'monthly'
+  f.repeat_every = src.repeat_every
   f.start = src.start ?? 'immediately'
   f.start_year = src.start_year
   f.start_month = src.start_month
@@ -136,6 +139,7 @@ export function transferFromFields(f: TransferFields): Transfer {
     ...common,
     schedule: 'recurring',
     frequency: f.frequency,
+    repeat_every: f.repeat_every,
     start: f.start,
     start_year: f.start === 'at_specific_date' ? f.start_year : undefined,
     start_month: f.start === 'at_specific_date' ? f.start_month : undefined,

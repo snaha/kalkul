@@ -76,8 +76,8 @@ export function countedCashFlows<T extends CashFlow>(flows: T[] | undefined): T[
 /** The figures a cash flow contributes to a snapshot; the rest stays on the profile. */
 function recordedFlows(flows: CashFlow[] | undefined): SnapshotCashFlow[] {
   // A recurring flow always has a frequency; the check only satisfies the type.
-  return countedCashFlows(flows).flatMap(({ id, amount, frequency }) =>
-    frequency === undefined ? [] : [{ id, amount, frequency }],
+  return countedCashFlows(flows).flatMap(({ id, amount, frequency, repeat_every }) =>
+    frequency === undefined ? [] : [{ id, amount, frequency, repeat_every }],
   )
 }
 
@@ -301,6 +301,7 @@ const withRecordedAmount = (item: CashFlow, entry: SnapshotCashFlow): CashFlow =
   ...item,
   amount: entry.amount,
   frequency: entry.frequency,
+  repeat_every: entry.repeat_every,
 })
 
 /**

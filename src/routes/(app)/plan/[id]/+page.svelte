@@ -266,7 +266,7 @@
   // ("1,000 EUR/m"), the bare amount for a one-time one.
   function entered(amount: string, flow: Income | Expense | Transfer): string {
     if (flow.schedule === 'one_time') return amount
-    return `${amount}/${getFrequencyShortLabel($_, flow.frequency ?? 'monthly')}`
+    return `${amount}/${getFrequencyShortLabel($_, flow.frequency ?? 'monthly', flow.repeat_every)}`
   }
 
   // Nothing on the Current projection can be edited: its rows open nothing

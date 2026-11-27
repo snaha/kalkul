@@ -440,6 +440,28 @@ describe('getYearlyPlanProjection', () => {
     expect(result[1].cash).toBeCloseTo(2000, 6)
   })
 
+  it('pays 300 every 3 months like 100 every month', () => {
+    const salary = (amount: number, repeat_every?: number) =>
+      project(
+        makePlan(),
+        makeProfile({
+          incomes: [
+            {
+              id: 'inc1',
+              name: 'Salary',
+              amount,
+              schedule: 'recurring',
+              frequency: 'monthly',
+              repeat_every,
+            },
+          ],
+        }),
+      )
+    const quarterly = salary(300, 3)
+    expect(quarterly[1].cash).toBeCloseTo(salary(100)[1].cash, 6)
+    expect(quarterly[1].cash).not.toBeCloseTo(salary(300)[1].cash, 6)
+  })
+
   it('grows real income with inflation when change_over_time = match_inflation', () => {
     const baseline = project(
       makePlan({ inflation_rate: 0 }),

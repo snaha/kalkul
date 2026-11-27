@@ -129,6 +129,12 @@ Liabilities), with no tabs and no search.
   the whole balance. An icon marks an amount that follows inflation.
   The amount field in the dialog carries the same unit: "EUR/m" for a
   recurring flow, following its frequency, and "EUR" for a one-time one.
+- A recurring flow repeats every so many months or years ("Repeat every",
+  `repeat_every` periods of `frequency`; an absent count is 1). Its unit
+  shows the count when it is not 1: 300 every 3 months reads "300 EUR/3m".
+  The projection does not yet pay it on that cadence: it spreads the yearly
+  total evenly over the months, so 300 every 3 months is paid as 100 a month
+  (#490).
 - An asset shows its name only. The entered value is just where the plan
   starts; the value in the selected year is in the right sidebar.
 - An item that runs short of funds in any year of the plan is marked in red.
