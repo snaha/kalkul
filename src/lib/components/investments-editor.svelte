@@ -55,8 +55,7 @@
       start_year: undefined,
       start_month: undefined,
       start_age: undefined,
-      // Reveal the fees when the investment already has some, so values set in
-      // the plan dialog are not hidden here.
+      // The Fees section opens when the investment already has some.
       showAdvanced:
         positive(inv.ter) !== undefined ||
         positive(inv.entry_fee) !== undefined ||
@@ -128,10 +127,6 @@
       <EditableItemCard
         item={investment}
         collapsedValue={formatBalance(investment.balance)}
-        advancedChecked={investment.showAdvanced}
-        onAdvancedChange={(checked) => {
-          investment.showAdvanced = checked
-        }}
         onToggleEditing={() => {
           investment.editing = !investment.editing
         }}

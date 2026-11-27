@@ -3,16 +3,18 @@
   import { _ } from 'svelte-i18n'
 
   import ArrowLeftRight from '@lucide/svelte/icons/arrow-left-right'
+  import HandCoins from '@lucide/svelte/icons/hand-coins'
+  import Percent from '@lucide/svelte/icons/percent'
   import Plus from '@lucide/svelte/icons/plus'
 
   import EditableItemCard from '$lib/components/editable-item-card.svelte'
   import EditorItemErrors from '$lib/components/editor-item-errors.svelte'
+  import FormSection from '$lib/components/form-section.svelte'
   import HelpTooltip from '$lib/components/help-tooltip.svelte'
   import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Label } from '$lib/components/ui/label'
-  import { Separator } from '$lib/components/ui/separator'
   import { createListEditor } from '$lib/list-editor.svelte'
   import { rederiveLoanPair } from '$lib/loan-pair'
   import type { ProfileTangibleAsset } from '$lib/schemas'
@@ -51,8 +53,7 @@
         value_over_time: a.value_over_time ?? 'appreciate',
         value_rate: a.value_rate,
         property_tax_rate: a.property_tax_rate,
-        // Reveal the options when the asset already has them set, so values are
-        // not hidden here.
+        // Open the Value & tax section when the asset already has them set.
         showAdvanced: a.value_rate !== undefined || a.property_tax_rate !== undefined,
         editing: false,
         derivedFrom: 'term',
@@ -117,10 +118,6 @@
         item={asset}
         collapsedValue={formatValue(asset.value)}
         badge={asset.status === 'financed' ? $_('page.setup.tangibleAssets.financed') : undefined}
-        advancedChecked={asset.showAdvanced}
-        onAdvancedChange={(checked) => {
-          asset.showAdvanced = checked
-        }}
         onToggleEditing={() => {
           asset.editing = !asset.editing
         }}
@@ -157,105 +154,105 @@
           </div>
 
           {#if asset.status === 'financed'}
-            <div class="flex flex-col gap-2">
-              <Label for="outstandingBalance-{asset.id}"
-                >{$_('page.setup.tangibleAssets.outstandingBalance')}</Label
-              >
-              <SuffixedInput
-                id="outstandingBalance-{asset.id}"
-                value={asset.outstanding_balance}
-                suffix={currencyLabel}
-                formatNumber={appStore.formatNumber}
-                onValueChange={(v) => {
-                  asset.outstanding_balance = v
-                  rederiveLoanPair(asset, asset.derivedFrom)
-                }}
-              />
-            </div>
-            <div class="flex items-center gap-2">
-              <div class="flex flex-1 flex-col gap-2">
-                <Label for="installmentFrequency-{asset.id}"
-                  >{$_('page.setup.tangibleAssets.installmentFrequency')}</Label
-                >
-                <SelectField
-                  id="installmentFrequency-{asset.id}"
-                  value={asset.installment_frequency}
-                  items={frequencyItems}
-                  onValueChange={(v) => {
-                    asset.installment_frequency = v
-                    rederiveLoanPair(asset, asset.derivedFrom)
-                  }}
-                />
-              </div>
-              <div class="flex flex-1 flex-col gap-2">
-                <Label for="annualRate-{asset.id}"
-                  >{$_('page.setup.tangibleAssets.annualRate')}</Label
+            <FormSection icon={HandCoins} title={$_('page.plan.financingDetails')} open>
+              <div class="flex flex-col gap-2">
+                <Label for="outstandingBalance-{asset.id}"
+                  >{$_('page.setup.tangibleAssets.outstandingBalance')}</Label
                 >
                 <SuffixedInput
-                  id="annualRate-{asset.id}"
-                  value={asset.annual_rate}
-                  suffix="%"
-                  formatNumber={appStore.formatNumber}
-                  onValueChange={(v) => {
-                    asset.annual_rate = v
-                    rederiveLoanPair(asset, asset.derivedFrom)
-                  }}
-                />
-              </div>
-            </div>
-            <div class="flex items-center gap-2">
-              <div class="flex flex-1 flex-col gap-2">
-                <Label for="installmentAmount-{asset.id}"
-                  >{$_('page.setup.tangibleAssets.installmentAmount')}</Label
-                >
-                <SuffixedInput
-                  id="installmentAmount-{asset.id}"
-                  value={asset.installment_amount}
+                  id="outstandingBalance-{asset.id}"
+                  value={asset.outstanding_balance}
                   suffix={currencyLabel}
                   formatNumber={appStore.formatNumber}
                   onValueChange={(v) => {
-                    asset.installment_amount = v
-                    asset.derivedFrom = 'amount'
+                    asset.outstanding_balance = v
                     rederiveLoanPair(asset, asset.derivedFrom)
                   }}
                 />
               </div>
-              <span class="inline-flex h-8 items-center text-muted-foreground">
-                <ArrowLeftRight class="size-4" />
-              </span>
-              <div class="flex flex-1 flex-col gap-2">
-                <Label for="remainingTerm-{asset.id}"
-                  >{$_('page.setup.tangibleAssets.remainingTerm')}</Label
-                >
-                <div class="flex items-center gap-2">
-                  <SuffixedInput
-                    id="remainingTerm-{asset.id}"
-                    value={asset.remaining_term}
-                    formatNumber={appStore.formatNumber}
-                    class="w-24"
+              <div class="flex items-center gap-2">
+                <div class="flex flex-1 flex-col gap-2">
+                  <Label for="installmentFrequency-{asset.id}"
+                    >{$_('page.setup.tangibleAssets.installmentFrequency')}</Label
+                  >
+                  <SelectField
+                    id="installmentFrequency-{asset.id}"
+                    value={asset.installment_frequency}
+                    items={frequencyItems}
                     onValueChange={(v) => {
-                      asset.remaining_term = v
-                      asset.derivedFrom = 'term'
+                      asset.installment_frequency = v
                       rederiveLoanPair(asset, asset.derivedFrom)
                     }}
                   />
-                  <SelectField
-                    id="remainingTermUnit-{asset.id}"
-                    value={asset.remaining_term_unit}
-                    items={remainingTermUnitItems}
+                </div>
+                <div class="flex flex-1 flex-col gap-2">
+                  <Label for="annualRate-{asset.id}"
+                    >{$_('page.setup.tangibleAssets.annualRate')}</Label
+                  >
+                  <SuffixedInput
+                    id="annualRate-{asset.id}"
+                    value={asset.annual_rate}
+                    suffix="%"
+                    formatNumber={appStore.formatNumber}
                     onValueChange={(v) => {
-                      if (v) asset.remaining_term_unit = v
+                      asset.annual_rate = v
                       rederiveLoanPair(asset, asset.derivedFrom)
                     }}
                   />
                 </div>
               </div>
-            </div>
+              <div class="flex items-center gap-2">
+                <div class="flex flex-1 flex-col gap-2">
+                  <Label for="installmentAmount-{asset.id}"
+                    >{$_('page.setup.tangibleAssets.installmentAmount')}</Label
+                  >
+                  <SuffixedInput
+                    id="installmentAmount-{asset.id}"
+                    value={asset.installment_amount}
+                    suffix={currencyLabel}
+                    formatNumber={appStore.formatNumber}
+                    onValueChange={(v) => {
+                      asset.installment_amount = v
+                      asset.derivedFrom = 'amount'
+                      rederiveLoanPair(asset, asset.derivedFrom)
+                    }}
+                  />
+                </div>
+                <span class="inline-flex h-8 items-center text-muted-foreground">
+                  <ArrowLeftRight class="size-4" />
+                </span>
+                <div class="flex flex-1 flex-col gap-2">
+                  <Label for="remainingTerm-{asset.id}"
+                    >{$_('page.setup.tangibleAssets.remainingTerm')}</Label
+                  >
+                  <div class="flex items-center gap-2">
+                    <SuffixedInput
+                      id="remainingTerm-{asset.id}"
+                      value={asset.remaining_term}
+                      formatNumber={appStore.formatNumber}
+                      class="w-24"
+                      onValueChange={(v) => {
+                        asset.remaining_term = v
+                        asset.derivedFrom = 'term'
+                        rederiveLoanPair(asset, asset.derivedFrom)
+                      }}
+                    />
+                    <SelectField
+                      id="remainingTermUnit-{asset.id}"
+                      value={asset.remaining_term_unit}
+                      items={remainingTermUnitItems}
+                      onValueChange={(v) => {
+                        if (v) asset.remaining_term_unit = v
+                        rederiveLoanPair(asset, asset.derivedFrom)
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </FormSection>
           {/if}
 
-          {#if asset.showAdvanced}
-            <Separator />
-
+          <FormSection icon={Percent} title={$_('page.plan.valueAndTax')} open={asset.showAdvanced}>
             <div class="flex items-end gap-2">
               <div class="flex flex-1 flex-col gap-2">
                 <Label for="valueOverTime-{asset.id}">{$_('page.plan.valueOverTime')}</Label>
@@ -297,7 +294,7 @@
               </div>
               <HelpTooltip text={$_('page.plan.propertyTaxDescription')} class="mb-2" />
             </div>
-          {/if}
+          </FormSection>
         {/snippet}
       </EditableItemCard>
       <EditorItemErrors messages={editor.errors[asset.id]} />

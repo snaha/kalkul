@@ -1,11 +1,10 @@
 <script lang="ts">
-  import { type Snippet, tick } from 'svelte'
+  import type { Snippet } from 'svelte'
   import { _ } from 'svelte-i18n'
 
   import ChevronsUpDown from '@lucide/svelte/icons/chevrons-up-down'
   import Copy from '@lucide/svelte/icons/copy'
-  import EllipsisVertical from '@lucide/svelte/icons/ellipsis-vertical'
-  import SquarePen from '@lucide/svelte/icons/square-pen'
+  import Ellipsis from '@lucide/svelte/icons/ellipsis'
   import Trash2 from '@lucide/svelte/icons/trash-2'
 
   import { Badge } from '$lib/components/ui/badge'
@@ -13,8 +12,10 @@
   import { Card, CardContent } from '$lib/components/ui/card'
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
   import { Input } from '$lib/components/ui/input'
+  import { Label } from '$lib/components/ui/label'
 
   interface EditableItem {
+    id: string
     editing: boolean
     name: string
   }
@@ -23,11 +24,8 @@
     item: EditableItem
     collapsedValue?: string
     collapsedValueClass?: string
-    /** Optional label (e.g. "Financed") shown next to the name when collapsed. */
+    /** Optional label (e.g. "Financed") shown next to the name. */
     badge?: string
-    /** When `onAdvancedChange` is given, the menu gets an "Advanced options" toggle. */
-    advancedChecked?: boolean
-    onAdvancedChange?: (checked: boolean) => void
     onToggleEditing: () => void
     onDuplicate: () => void
     onDelete: () => void
@@ -39,105 +37,54 @@
     collapsedValue,
     collapsedValueClass,
     badge,
-    advancedChecked,
-    onAdvancedChange,
     onToggleEditing,
     onDuplicate,
     onDelete,
     expandedContent,
   }: Props = $props()
-
-  // Whether the name is shown as an editable input. Separate from the card's
-  // collapsed/expanded state.
-  let renaming = $state(false)
-
-  // Snapshot for Escape-to-revert; inputs commit live via oninput.
-  let nameBeforeEdit = ''
-
-  let nameInputRef: HTMLInputElement | undefined = $state()
-
-  // Close the rename input whenever the card collapses.
-  $effect(() => {
-    if (!item.editing) renaming = false
-  })
-
-  // Show the rename input, then focus it and select its text once tick() has mounted it.
-  async function startRename() {
-    nameBeforeEdit = item.name
-    renaming = true
-    await tick()
-    nameInputRef?.focus()
-    nameInputRef?.select()
-  }
 </script>
+
+<!-- Figma 897:67838. The whole header opens and closes the card; the chevrons
+     at its right are an icon, not a button of their own. An open card has the
+     "..." menu beside them and the Label field first. -->
+{#snippet title()}
+  <span class="flex min-w-0 flex-1 items-center gap-2">
+    <span class="truncate text-base font-medium">{item.name}</span>
+    {#if badge}
+      <Badge variant="secondary" class="shrink-0">{badge}</Badge>
+    {/if}
+  </span>
+{/snippet}
 
 <Card class="gap-0 py-0">
   <CardContent class="p-4">
     {#if item.editing}
       <div class="flex flex-col gap-4">
-        <!-- Header row -->
+        <!-- Header row. The menu sits between the two halves of the header, so
+             the chevrons are a second, mouse-only handle on the same action. -->
         <div class="flex items-center gap-2">
-          <Button variant="ghost" size="icon" class="shrink-0" onclick={onToggleEditing}>
-            <ChevronsUpDown class="size-4" />
-          </Button>
-          {#if renaming}
-            <Input
-              bind:ref={nameInputRef}
-              value={item.name}
-              oninput={(e) => {
-                item.name = (e.target as HTMLInputElement).value
-              }}
-              onkeydown={(e) => {
-                if (e.key === 'Enter' || e.key === 'Escape') {
-                  if (e.key === 'Escape') item.name = nameBeforeEdit
-                  ;(e.target as HTMLInputElement).blur()
-                  renaming = false
-                }
-              }}
-              onblur={() => {
-                renaming = false
-              }}
-              class="min-w-0 flex-1"
-            />
-          {:else}
-            <button
-              type="button"
-              tabindex="-1"
-              class="flex h-8 min-w-0 flex-1 cursor-text items-center text-left text-base font-medium"
-              title={$_('page.setup.common.rename')}
-              onclick={startRename}
-            >
-              <span class="truncate">{item.name}</span>
-            </button>
-          {/if}
-          <Button
-            variant="ghost"
-            size="icon"
-            class="shrink-0"
-            aria-label={$_('page.setup.common.rename')}
-            title={$_('page.setup.common.rename')}
-            onclick={startRename}
+          <button
+            type="button"
+            class="flex h-8 min-w-0 flex-1 cursor-pointer items-center text-left"
+            aria-expanded="true"
+            onclick={onToggleEditing}
           >
-            <SquarePen class="size-4" />
-          </Button>
+            {@render title()}
+          </button>
           <DropdownMenu.Root>
             <DropdownMenu.Trigger>
               {#snippet child({ props })}
-                <Button variant="ghost" size="icon" {...props}>
-                  <EllipsisVertical class="size-4" />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={$_('page.setup.common.moreActions')}
+                  {...props}
+                >
+                  <Ellipsis class="size-4" />
                 </Button>
               {/snippet}
             </DropdownMenu.Trigger>
             <DropdownMenu.Content align="end">
-              {#if onAdvancedChange}
-                <DropdownMenu.CheckboxItem
-                  checked={advancedChecked ?? false}
-                  onCheckedChange={onAdvancedChange}
-                >
-                  {$_('page.setup.common.advancedOptions')}
-                </DropdownMenu.CheckboxItem>
-                <DropdownMenu.Separator />
-              {/if}
               <DropdownMenu.Item onclick={onDuplicate}>
                 <Copy class="size-4" />
                 {$_('page.setup.common.duplicate')}
@@ -160,6 +107,20 @@
               </DropdownMenu.Item>
             </DropdownMenu.Content>
           </DropdownMenu.Root>
+          <button
+            type="button"
+            tabindex="-1"
+            aria-hidden="true"
+            class="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center"
+            onclick={onToggleEditing}
+          >
+            <ChevronsUpDown class="size-4" />
+          </button>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <Label for="label-{item.id}">{$_('page.plan.investmentLabel')}</Label>
+          <Input id="label-{item.id}" bind:value={item.name} />
         </div>
 
         {@render expandedContent()}
@@ -169,26 +130,18 @@
       <button
         type="button"
         class="flex w-full cursor-pointer items-center gap-2 text-left"
+        aria-expanded="false"
         onclick={onToggleEditing}
       >
-        <span
-          class="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground"
-        >
-          <ChevronsUpDown class="size-4" />
-        </span>
-        <span class="flex min-w-0 flex-1 items-center gap-2">
-          <span class="truncate text-base font-medium">
-            {item.name}
-          </span>
-          {#if badge}
-            <Badge variant="secondary" class="shrink-0">{badge}</Badge>
-          {/if}
-        </span>
+        {@render title()}
         {#if collapsedValue}
           <span class="shrink-0 text-sm {collapsedValueClass ?? 'text-foreground'}">
             {collapsedValue}
           </span>
         {/if}
+        <span class="inline-flex size-8 shrink-0 items-center justify-center">
+          <ChevronsUpDown class="size-4" />
+        </span>
       </button>
     {/if}
   </CardContent>
