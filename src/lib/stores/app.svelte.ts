@@ -321,14 +321,13 @@ function withAppStore() {
     )
 
     const captured = captureSnapshot(validated, todayDate)
-    const replaced = validated.snapshots?.find((snapshot) => snapshot.date === todayDate)
     profile = enrichProfile(
       recording
         ? {
             ...validated,
             snapshots: upsertSnapshot(
               validated.snapshots,
-              entered ? withUnknownBalances(captured, entered, replaced) : captured,
+              entered ? withUnknownBalances(captured, entered) : captured,
             ),
           }
         : // Nothing recorded, but a loan term may still have changed — it moves

@@ -10,6 +10,7 @@ yet.
 | -------------------------- | -------------------------------------------- | --------------------------- |
 | Cash, bold in Quick update | `cash_amount: 1000`                          | The figure the user gave    |
 | Cash, regular              | `cash_amount` missing                        | Unknown: calculated on read |
+| Cash of 0                  | `cash_amount: 0`                             | No cash on the date         |
 | Investment, bold           | `investments: [{ id, balance: 1000 }]`       | The figure the user gave    |
 | Investment, regular        | `investments: [{ id }]`                      | Unknown: calculated on read |
 | None                       | No entry for the investment in `investments` | Not held on the date        |
@@ -21,13 +22,11 @@ yet.
   bold.
 - Confirm stores a row left untouched or erased as unknown. Erasing a row or
   pressing Reset values returns it to its estimate at regular weight.
-- A figure that is already a number on today's snapshot stays a number when a
-  later Confirm that day leaves it untouched. Its row shows at regular weight,
-  as bold only marks what is typed in the open dialog. Typing a figure replaces
-  it.
 - The profile still moves to the estimate, so the dashboard reads a number.
 - Only Quick update writes unknowns from the app, and only for cash and
   investments. An AI client can write the same forms through `update_profile`.
+- A missing `cash_amount` is unknown in every snapshot, whoever wrote it: the
+  app, a backup or an AI client. No cash is `cash_amount: 0`.
 - An unknown figure is calculated when read, linearly by date between its
   nearest known values, rounded to whole currency units.
 - On the newest date the profile states the figure, so it counts as known for
@@ -38,9 +37,12 @@ yet.
   before a date the investment was not held. A sold position stays at its last
   known value up to the sale.
 - Deleting the newest snapshot rewinds the profile to the calculated value of
-  any unknown figure on the snapshot before it. The figure stays unknown.
-- The snapshot dialog opens an unknown figure at its calculated value and keeps
-  it unknown unless a figure is typed.
+  any unknown figure on the snapshot before it. The figure stays unknown. An
+  unknown with no earlier number leaves the profile's figure as it is.
+- The snapshot dialog opens an unknown figure at the value History calculates
+  for it on the date being saved, and keeps it unknown unless a figure is
+  typed. Changing the date, or duplicating the snapshot, recalculates it for
+  the new date.
 
 ## Worked examples
 
@@ -52,12 +54,17 @@ nothing newer exists. The snapshot stores no cash, the profile holds 2,200, and
 1 May reads 2,200. If the user later enters 3,000 on 1 June, 1 May is calculated
 between 1 January and 1 June instead.
 
-Quick update at 09:00 enters cash at 16,000. Quick update at 17:00 the same day
-opens cash at 16,000 at regular weight and Confirm leaves it untouched. The
-snapshot keeps 16,000, so a later figure does not recalculate it.
-
 Deleting the 1 May snapshot above, with 1 March unknown, sets the profile's cash
 to 1,590.
+
+With only 1 March, cash unknown, and 1 May at 2,200 in the history, deleting
+1 May leaves the profile's cash at 2,200. 1 March is then the newest date and
+reads 2,200.
+
+Editing the 1 March snapshot of the first example and moving it to 1 April
+shows cash at 1,000 + 1,200 x 90 / 120 = 1,900 and saves it unknown. Moving it
+to 1 June makes it the newest snapshot, so it shows the profile's 2,200.
+Duplicating it onto 1 June shows 2,200 the same way.
 
 An ETF is 50,000 on 15 January and unknown on 15 March and 15 May, with cash
 entered at 10,000 on all three dates. It is sold on 15 July, leaving cash at

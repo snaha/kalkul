@@ -150,6 +150,12 @@ describe('snapshotNetWorth', () => {
   test('is zero for a snapshot with no balances', () => {
     expect(snapshotNetWorth({})).toBe(0)
   })
+
+  test('sums decimal figures exactly', () => {
+    expect(
+      snapshotNetWorth({ cash_amount: 0.1, investments: [{ id: 'inv1', balance: 0.2 }] }),
+    ).toBe(0.3)
+  })
 })
 
 describe('upsertSnapshot', () => {
@@ -804,21 +810,6 @@ describe('withUnknownBalances', () => {
   test('keeps entered cash', () => {
     expect(withUnknownBalances(snapshot, { cash: true }).cash_amount).toBe(100)
   })
-
-  test('keeps the figures that are numbers on the snapshot it replaces', () => {
-    const replaced: Snapshot = {
-      date: '2026-05-01',
-      cash_amount: 100,
-      investments: [{ id: 'inv1', balance: 200 }, { id: 'inv2' }],
-    }
-
-    expect(withUnknownBalances(snapshot, {}, replaced)).toEqual({
-      date: '2026-05-01',
-      cash_amount: 100,
-      investments: [{ id: 'inv1', balance: 200 }, { id: 'inv2' }],
-      liabilities: [{ id: 'l1', outstanding_balance: 50 }],
-    })
-  })
 })
 
 describe('unknown figures in the history', () => {
@@ -838,6 +829,36 @@ describe('unknown figures in the history', () => {
 
   test('keeps the figure unknown after a rewind', () => {
     expect(withDeletedSnapshot(profile, MAY.date).snapshots?.at(-1)).toEqual(MAR)
+  })
+
+  test('rewinding onto unknown cash with no number before it keeps the profile cash', () => {
+    const history = { ...profile, snapshots: [MAR, MAY] }
+    expect(withDeletedSnapshot(history, MAY.date).cash_amount).toBe(2_200)
+  })
+
+  test('rewinding onto an unknown balance with no number before it keeps the profile balance', () => {
+    const history: Profile = {
+      ...profile,
+      investments: [{ id: 'inv1', name: 'ETF', balance: 3_000, apy: 5 }],
+      snapshots: [
+        { date: '2026-03-01', cash_amount: 2_200, investments: [{ id: 'inv1' }] },
+        { date: '2026-05-01', cash_amount: 2_200, investments: [{ id: 'inv1', balance: 3_000 }] },
+      ],
+    }
+    expect(withDeletedSnapshot(history, '2026-05-01').investments?.[0].balance).toBe(3_000)
+  })
+
+  test('rewinding onto a balance unknown right after a date it was not held keeps the profile balance', () => {
+    const history: Profile = {
+      ...profile,
+      investments: [{ id: 'inv1', name: 'ETF', balance: 3_000, apy: 5 }],
+      snapshots: [
+        { date: '2026-01-01', cash_amount: 2_200, investments: [] },
+        { date: '2026-03-01', cash_amount: 2_200, investments: [{ id: 'inv1' }] },
+        { date: '2026-05-01', cash_amount: 2_200, investments: [{ id: 'inv1', balance: 3_000 }] },
+      ],
+    }
+    expect(withDeletedSnapshot(history, '2026-05-01').investments?.[0].balance).toBe(3_000)
   })
 
   test('saving an older snapshot keeps the profile on an unknown newest figure', () => {

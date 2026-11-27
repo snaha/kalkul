@@ -1,6 +1,6 @@
 import Decimal from 'decimal.js'
 
-import { daysBetween } from '$lib/@snaha/kalkul-maths'
+import { DECIMAL_0, daysBetween } from '$lib/@snaha/kalkul-maths'
 import type { ExplicitBalances } from '$lib/current-values'
 import {
   type Expense,
@@ -95,14 +95,18 @@ function recordedFlows(flows: CashFlow[] | undefined): SnapshotCashFlow[] {
  * drift apart.
  */
 export function snapshotNetWorth(snapshot: SnapshotBalances): number {
-  const assets =
-    (snapshot.cash_amount ?? 0) +
-    (snapshot.investments ?? []).reduce((sum, i) => sum + (i.balance ?? 0), 0) +
-    (snapshot.tangible_assets ?? []).reduce((sum, a) => sum + a.value, 0)
-  const liabilities =
-    (snapshot.liabilities ?? []).reduce((sum, l) => sum + l.outstanding_balance, 0) +
-    (snapshot.tangible_assets ?? []).reduce((sum, a) => sum + (a.outstanding_balance ?? 0), 0)
-  return assets - liabilities
+  const total = (figures: (number | undefined)[]) =>
+    figures.reduce<Decimal>((sum, figure) => sum.plus(figure ?? 0), DECIMAL_0)
+  const assets = total([
+    snapshot.cash_amount,
+    ...(snapshot.investments ?? []).map((i) => i.balance),
+    ...(snapshot.tangible_assets ?? []).map((a) => a.value),
+  ])
+  const liabilities = total([
+    ...(snapshot.liabilities ?? []).map((l) => l.outstanding_balance),
+    ...(snapshot.tangible_assets ?? []).map((a) => a.outstanding_balance),
+  ])
+  return assets.minus(liabilities).toNumber()
 }
 
 /**
@@ -123,18 +127,19 @@ const NOT_HELD = 'not held'
 /**
  * A figure's value on every date, in date order, with each unknown calculated:
  * linearly by date between the nearest known values. With no number before it
- * the figure is 0, and with no number after it the earlier value holds.
+ * the figure is `unanchored`, and with no number after it the earlier value holds.
  */
 function withUnknownsCalculated(
   dates: string[],
   figures: (number | undefined | typeof NOT_HELD)[],
+  unanchored: number | undefined,
 ): (number | undefined)[] {
   return figures.map((figure, index) => {
     if (figure === NOT_HELD) return undefined
     if (figure !== undefined) return figure
     const before = figures.findLastIndex((f, i) => i < index && f !== undefined)
     const from = figures[before]
-    if (typeof from !== 'number') return 0
+    if (typeof from !== 'number') return unanchored
     const after = figures.findIndex((f, i) => i > index && f !== undefined)
     const to = figures[after]
     if (typeof to !== 'number') return from
@@ -152,9 +157,10 @@ function withUnknownsCalculated(
 
 /**
  * The history in date order with every unknown figure calculated. The profile
- * holds the figures as of the newest date, so it states any unknown there.
+ * holds the figures as of the newest date, so it states any unknown there. An
+ * unknown with no number before it is `unanchored`.
  */
-export function resolveSnapshots(profile: Profile): Snapshot[] {
+function calculatedSnapshots(profile: Profile, unanchored: number | undefined): Snapshot[] {
   const snapshots = normalizeSnapshots(profile.snapshots ?? [])
   const hasUnknown = snapshots.some(
     (snapshot) =>
@@ -171,6 +177,7 @@ export function resolveSnapshots(profile: Profile): Snapshot[] {
     snapshots.map((snapshot, index) =>
       index === newest ? (snapshot.cash_amount ?? profile.cash_amount ?? 0) : snapshot.cash_amount,
     ),
+    unanchored,
   )
 
   const held = byId(profile.investments)
@@ -190,6 +197,7 @@ export function resolveSnapshots(profile: Profile): Snapshot[] {
           if (!entry) return NOT_HELD
           return index === newest ? (entry.balance ?? held.get(id)?.balance) : entry.balance
         }),
+        unanchored,
       ),
     ]),
   )
@@ -204,24 +212,21 @@ export function resolveSnapshots(profile: Profile): Snapshot[] {
   }))
 }
 
+/** The history in date order, an unknown figure with no number before it as 0. */
+export function resolveSnapshots(profile: Profile): Snapshot[] {
+  return calculatedSnapshots(profile, 0)
+}
+
 /**
  * `snapshot` with every cash and investment figure unknown, except those in
- * `entered` and those that are numbers on `replaced`, the snapshot it replaces.
+ * `entered`.
  */
-export function withUnknownBalances(
-  snapshot: Snapshot,
-  entered: ExplicitBalances,
-  replaced?: Snapshot,
-): Snapshot {
-  const recorded = byId(replaced?.investments)
-  const keepsCash = entered.cash || replaced?.cash_amount !== undefined
+export function withUnknownBalances(snapshot: Snapshot, entered: ExplicitBalances): Snapshot {
   return {
     ...snapshot,
-    cash_amount: keepsCash ? snapshot.cash_amount : undefined,
+    cash_amount: entered.cash ? snapshot.cash_amount : undefined,
     investments: snapshot.investments?.map((entry) =>
-      entered.investmentIds?.has(entry.id) || recorded.get(entry.id)?.balance !== undefined
-        ? entry
-        : { id: entry.id },
+      entered.investmentIds?.has(entry.id) ? entry : { id: entry.id },
     ),
   }
 }
@@ -461,7 +466,8 @@ const MISSING_CASH_FLOW = {
  * Every section reads an omission the same way: nothing was recorded, so
  * nothing counts.
  *
- * Takes a snapshot from `resolveSnapshots`: an unknown figure counts as nothing.
+ * Takes a snapshot from `resolveSnapshots`. On a raw one, unknown cash reads as
+ * 0 and an unknown investment keeps the profile's balance.
  */
 export function profileAtSnapshot(profile: Profile, snapshot: Snapshot): Profile {
   const investments = byId(profile.investments)
@@ -578,12 +584,15 @@ function withUnrecordedHoldings(snapshot: Snapshot, profile: Profile): Snapshot 
  * re-date the baseline.
  *
  * An unknown figure takes its calculated value from the history as it stood,
- * which is what a rewind onto that date restores.
+ * which is what a rewind onto that date restores. One with no number before it
+ * leaves the profile's figure as it is.
  */
 function withHistory(profile: Profile, snapshots: Snapshot[]): Profile {
   const latest = latestSnapshot(snapshots)
   if (!latest) return { ...profile, snapshots }
-  const calculated = resolveSnapshots(profile).find((snapshot) => snapshot.date === latest.date)
+  const calculated = calculatedSnapshots(profile, undefined).find(
+    (snapshot) => snapshot.date === latest.date,
+  )
   const rebased = withSnapshotValues(
     calculated ? withSnapshotValues(profile, calculated) : profile,
     latest,

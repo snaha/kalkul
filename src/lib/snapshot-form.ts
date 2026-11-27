@@ -8,6 +8,7 @@ import {
   recordsDebt,
   resolveSnapshots,
   withMissingEntries,
+  withSavedSnapshot,
 } from '$lib/snapshots'
 import { parseDateOnly } from '$lib/utils'
 
@@ -78,12 +79,15 @@ export interface SnapshotSection {
  * flows, would put today's onto that day. A flow opens at what the history
  * recorded for the date whenever it has a snapshot for it.
  *
- * A figure `source` records as unknown opens at its calculated value.
+ * A figure `source` records as unknown opens at the value History calculates
+ * for it once `source` is saved on `date`. `originalDate` is the date an edited
+ * snapshot leaves.
  */
 export function buildSnapshotSections(
   profile: Profile,
   source: Snapshot,
   date: string,
+  originalDate?: string,
 ): SnapshotSection[] {
   const estimate = seedSnapshotOn(profile, date)
   // Where a cash flow `source` never recorded is read from: see the exception above.
@@ -99,7 +103,9 @@ export function buildSnapshotSections(
     const inEstimate = byId(estimated)
     return (id: string) => inSource.get(id) ?? inEstimate.get(id)
   }
-  const calculated = resolveSnapshots(profile).find((snapshot) => snapshot.date === source.date)
+  const calculated = resolveSnapshots(
+    withSavedSnapshot(profile, { ...source, date }, originalDate),
+  ).find((snapshot) => snapshot.date === date)
   const sourceInvestments = byId(source.investments)
   const investmentEntry = lookup(source.investments, estimate.investments)
   const calculatedEntry = lookup(calculated?.investments, estimate.investments)

@@ -10,6 +10,31 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-27 An unknown figure puts no invented number on the profile and follows its snapshot's date
+
+**Context.** Review of the unknown figures of 2026-11-05 found two cases where
+one became a wrong number. A rewind onto an unknown with no number before it
+set the profile's cash and balances to 0. A re-dated or duplicated snapshot
+showed the value calculated for its old date, and History then calculated
+another for the new one. The review also asked whether a missing `cash_amount`
+is unknown on snapshots the app did not write.
+
+**Decision.** A rewind leaves the profile's figure as it is when the unknown
+has no number before it. The snapshot dialog shows an unknown figure at the
+value History calculates on the date being saved, and the figure stays unknown
+when its snapshot is re-dated or duplicated. A missing `cash_amount` is unknown
+in every snapshot, whoever wrote it; no cash is `cash_amount: 0`. The rule of
+2026-11-05 that a number on today's snapshot survives a second Confirm that day
+is dropped.
+
+**Why.** The 0 an unknown reads as without an earlier number is a placeholder
+on History, still open on #372, and not a figure to project from. Saving the
+displayed estimate as a number would turn a guess into a checked figure, which
+is what unknown prevents. The app always writes cash, so only an imported
+history omits it, and that is the case #372 was opened for. Quick update does
+not open on a day that already has a snapshot, so the second Confirm cannot
+happen.
+
 ## 2026-11-24 The projection's cash flow lists installments and fees and taxes apart from expenses
 
 **Context.** The right sidebar's Expense group listed a financed asset's

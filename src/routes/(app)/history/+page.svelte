@@ -79,8 +79,8 @@
     const snapshot = snapshotOn(date)
     if (!snapshot) return
     // A copy is a new snapshot, so it starts at today and leaves the original
-    // where it is — the user re-dates it if they meant another day. Its figures
-    // are the copied ones whatever the date, so it is not re-seeded.
+    // where it is — the user re-dates it if they meant another day. It keeps
+    // the copied figures, unknown ones as unknown, and is not re-seeded.
     snapshotMode = 'add'
     snapshotSource = { ...snapshot, date: todayDate }
     snapshotSeedOn = undefined

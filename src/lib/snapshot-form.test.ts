@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 
 import { getCurrentProfile } from '$lib/current-values'
 import type { Profile, Snapshot } from '$lib/schemas'
-import { captureSnapshot } from '$lib/snapshots'
+import { captureSnapshot, resolveSnapshots, withSavedSnapshot } from '$lib/snapshots'
 import { parseDateOnly } from '$lib/utils'
 
 import {
@@ -541,5 +541,62 @@ describe('unknown figures in the snapshot dialog', () => {
 
   test('seeds a date from the calculated value of the snapshot before it', () => {
     expect(seedSnapshotOn(profile, '2026-03-02').cash_amount).toBe(1_590)
+  })
+
+  /** What History reads on `date` once the dialog's untouched fields are saved there. */
+  const readsAfterSave = (source: Snapshot, date: string, originalDate?: string) => {
+    const sections = buildSnapshotSections(profile, source, date, originalDate)
+    const saved = withSavedSnapshot(
+      profile,
+      snapshotFromFields(source, sections, {}, date),
+      originalDate,
+    )
+    return resolveSnapshots(saved).find((snapshot) => snapshot.date === date)
+  }
+
+  test('opens a re-dated unknown figure at its calculated value on the new date', () => {
+    const sections = buildSnapshotSections(profile, MAR, '2026-04-01', MAR.date)
+    expect(fieldOf(sections, 'cash')?.value).toBe(1_900)
+    expect(fieldOf(sections, 'investments:inv1')?.value).toBe(2_500)
+  })
+
+  test('records a re-dated unknown figure as History reads it on the new date', () => {
+    const read = readsAfterSave(MAR, '2026-04-01', MAR.date)
+    expect(read?.cash_amount).toBe(1_900)
+    expect(read?.investments).toEqual([{ id: 'inv1', balance: 2_500 }])
+  })
+
+  test('opens an unknown figure re-dated past the newest snapshot at the profile figure', () => {
+    const sections = buildSnapshotSections(profile, MAR, '2026-06-01', MAR.date)
+    expect(fieldOf(sections, 'cash')?.value).toBe(2_200)
+    expect(fieldOf(sections, 'investments:inv1')?.value).toBe(3_000)
+    const read = readsAfterSave(MAR, '2026-06-01', MAR.date)
+    expect(read?.cash_amount).toBe(2_200)
+    expect(read?.investments).toEqual([{ id: 'inv1', balance: 3_000 }])
+  })
+
+  test('opens a copied unknown figure at the profile figure on a date past the newest snapshot', () => {
+    const copy: Snapshot = { ...MAR, date: '2026-06-01' }
+    const sections = buildSnapshotSections(profile, copy, '2026-06-01')
+    expect(fieldOf(sections, 'cash')?.value).toBe(2_200)
+    expect(fieldOf(sections, 'investments:inv1')?.value).toBe(3_000)
+    const read = readsAfterSave(copy, '2026-06-01')
+    expect(read?.cash_amount).toBe(2_200)
+    expect(read?.investments).toEqual([{ id: 'inv1', balance: 3_000 }])
+  })
+
+  test('opens a copied unknown figure at its calculated value on an earlier date', () => {
+    const copy: Snapshot = { ...MAR, date: '2026-06-01' }
+    const sections = buildSnapshotSections(profile, copy, '2026-04-01')
+    expect(fieldOf(sections, 'cash')?.value).toBe(1_900)
+    expect(fieldOf(sections, 'investments:inv1')?.value).toBe(2_500)
+  })
+
+  test('vacates the original date when calculating a re-dated unknown figure', () => {
+    const newest: Snapshot = { date: '2026-05-01', investments: [{ id: 'inv1' }] }
+    const history: Profile = { ...profile, snapshots: [JAN, newest] }
+    const sections = buildSnapshotSections(history, newest, '2026-02-01', newest.date)
+    expect(fieldOf(sections, 'cash')?.value).toBe(2_200)
+    expect(fieldOf(sections, 'investments:inv1')?.value).toBe(3_000)
   })
 })

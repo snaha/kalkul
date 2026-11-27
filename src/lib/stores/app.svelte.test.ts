@@ -285,69 +285,6 @@ describe('appStore.confirmBalances', () => {
     expect(appStore.profile.investments?.[0].balance).toBe(184_974)
   })
 
-  describe('confirming twice on one day', () => {
-    const LATER_TODAY = new Date(2026, 5, 15, 17, 0, 0)
-
-    beforeEach(() => {
-      appStore.updateProfile({
-        cash_amount: 15_000,
-        investments: [{ id: 'inv1', name: 'ETF', balance: 100_000, apy: 10 }],
-        snapshots: [{ ...STALE, investments: [{ id: 'inv1', balance: 100_000 }] }],
-      })
-    })
-
-    const confirmTyped = (cash?: number, etf?: number) => {
-      const investments = appStore.profile.toJSON().investments ?? []
-      appStore.confirmBalances(
-        {
-          ...(cash === undefined ? {} : { cash_amount: cash }),
-          investments: investments.map((i) => ({ ...i, balance: etf ?? i.balance })),
-        },
-        { cash: cash !== undefined, investmentIds: new Set(etf === undefined ? [] : ['inv1']) },
-      )
-    }
-
-    it('keeps figures typed earlier today when a later Confirm leaves them untouched', () => {
-      confirmTyped(16_000, 110_000)
-      vi.setSystemTime(LATER_TODAY)
-      confirmTyped()
-
-      const recorded = appStore.profile.snapshots?.at(-1)
-      expect(recorded?.cash_amount).toBe(16_000)
-      expect(recorded?.investments).toEqual([{ id: 'inv1', balance: 110_000 }])
-    })
-
-    it('replaces a figure typed earlier today with one typed later', () => {
-      confirmTyped(16_000, 110_000)
-      vi.setSystemTime(LATER_TODAY)
-      confirmTyped(17_000, 120_000)
-
-      const recorded = appStore.profile.snapshots?.at(-1)
-      expect(recorded?.cash_amount).toBe(17_000)
-      expect(recorded?.investments).toEqual([{ id: 'inv1', balance: 120_000 }])
-    })
-
-    it('keeps a figure unknown when neither Confirm enters it', () => {
-      confirmTyped()
-      vi.setSystemTime(LATER_TODAY)
-      confirmTyped()
-
-      const recorded = appStore.profile.snapshots?.at(-1)
-      expect(recorded?.cash_amount).toBeUndefined()
-      expect(recorded?.investments).toEqual([{ id: 'inv1' }])
-    })
-
-    it('records a figure typed on the second Confirm of the day', () => {
-      confirmTyped()
-      vi.setSystemTime(LATER_TODAY)
-      confirmTyped(16_000, 110_000)
-
-      const recorded = appStore.profile.snapshots?.at(-1)
-      expect(recorded?.cash_amount).toBe(16_000)
-      expect(recorded?.investments).toEqual([{ id: 'inv1', balance: 110_000 }])
-    })
-  })
-
   it('does not read an unknown baseline figure as a moved balance', () => {
     appStore.updateProfile({ cash_amount: 15_000, snapshots: [STALE] })
     appStore.confirmBalances({}, { cash: false, investmentIds: new Set() })
