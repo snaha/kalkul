@@ -12,8 +12,7 @@
     CashFlowEnd,
     CashFlowStart,
     CompoundingFrequency,
-    EntryFeeType,
-    ExitFeeType,
+    FeeType,
     Frequency,
     InterestType,
     ProfileInvestment,
@@ -72,9 +71,9 @@
     apy: number | undefined
     ter: number | undefined
     entry_fee: number | undefined
-    entry_fee_type: EntryFeeType
+    entry_fee_type: FeeType
     exit_fee: number | undefined
-    exit_fee_type: ExitFeeType
+    exit_fee_type: FeeType
     start: CashFlowStart
     start_year: number | undefined
     start_month: number | undefined
@@ -136,7 +135,7 @@
       apy: undefined,
       ter: undefined,
       entry_fee: undefined,
-      entry_fee_type: 'ongoing',
+      entry_fee_type: 'fixed',
       exit_fee: undefined,
       exit_fee_type: 'percentage',
       start: 'immediately',
@@ -179,7 +178,7 @@
       f.apy = inv.apy > 0 ? inv.apy : undefined
       f.ter = inv.ter !== undefined && inv.ter > 0 ? inv.ter : undefined
       f.entry_fee = inv.entry_fee !== undefined && inv.entry_fee > 0 ? inv.entry_fee : undefined
-      f.entry_fee_type = inv.entry_fee_type ?? 'ongoing'
+      f.entry_fee_type = inv.entry_fee_type ?? 'fixed'
       f.exit_fee = inv.exit_fee !== undefined && inv.exit_fee > 0 ? inv.exit_fee : undefined
       f.exit_fee_type = inv.exit_fee_type ?? 'percentage'
       f.start = inv.start ?? 'immediately'
@@ -255,7 +254,7 @@
 
   function projectInvestment(f: FormState): ProfileInvestment {
     // Persist only the fee fields that the user actually touched; default
-    // values (0 / ongoing / percentage) collapse back to undefined so the
+    // values (0 / fixed / percentage) collapse back to undefined so the
     // stored shape stays minimal and migrations are easier later.
     return {
       id: f.id,
@@ -265,7 +264,7 @@
       ter: f.ter && f.ter > 0 ? f.ter : undefined,
       entry_fee: f.entry_fee && f.entry_fee > 0 ? f.entry_fee : undefined,
       entry_fee_type:
-        f.entry_fee && f.entry_fee > 0 && f.entry_fee_type !== 'ongoing'
+        f.entry_fee && f.entry_fee > 0 && f.entry_fee_type !== 'fixed'
           ? f.entry_fee_type
           : undefined,
       exit_fee: f.exit_fee && f.exit_fee > 0 ? f.exit_fee : undefined,

@@ -85,9 +85,8 @@ export interface YearlyProjection {
   propertyTaxByItem: YearlyProjectionItem[]
   installmentsByItem: YearlyProjectionItem[]
   totalInstallments: number
-  // What each investment loses to fees in the year: the TER and ongoing entry
-  // fee taken off its growth, plus the upfront entry fee on what is paid in and
-  // the exit fee on what is taken out, planned buys and sells included.
+  // What each investment loses to fees in the year: the TER taken off
+  // its growth, plus the entry fee on what is paid in and the exit fee on what is taken out, planned buys and sells included.
   investmentFeesByItem: YearlyProjectionItem[]
   // The tax each of the plan's own transfers deducts in the year.
   transferTaxByItem: YearlyProjectionItem[]
@@ -1205,21 +1204,14 @@ function birthOf(dateString: string | undefined): Birth | undefined {
 }
 
 /**
- * Effective APY = APY − TER − ongoing portion of the entry fee. The ongoing
- * entry-fee component models the year-after-year drag (whole fee for
- * 'ongoing', 60% for 'forty-sixty', 0 for 'upfront'). Floored at −100% (a
- * total loss) so the yearly multiplier bottoms out at 0 — fees exceeding
- * 100 + APY would otherwise flip the multiplier negative and make the
- * balance oscillate in sign.
+ * Effective APY = APY − TER. Floored at −100% (a total loss) so the yearly
+ * multiplier bottoms out at 0 — a TER exceeding 100 + APY would otherwise
+ * flip the multiplier negative and make the balance oscillate in sign.
  */
 export function effectiveInvestmentApy(investment: ProfileInvestment): Decimal {
   const apy = new Decimal(investment.apy)
   const ter = new Decimal(investment.ter ?? 0)
-  const entryFee = new Decimal(investment.entry_fee ?? 0)
-  let ongoingDrag = DECIMAL_0
-  if (investment.entry_fee_type === 'ongoing') ongoingDrag = entryFee
-  else if (investment.entry_fee_type === 'forty-sixty') ongoingDrag = entryFee.mul(0.6)
-  return Decimal.max(apy.minus(ter).minus(ongoingDrag), DECIMAL_MINUS_100)
+  return Decimal.max(apy.minus(ter), DECIMAL_MINUS_100)
 }
 
 /**
@@ -1242,19 +1234,18 @@ export function applyExitFee(investment: ProfileInvestment | undefined, amount: 
 }
 
 /**
- * Entry fee on a deposit — for 'upfront' the whole fee comes out of the
- * inflow; 'forty-sixty' takes 40 % upfront and amortizes the rest through the
- * APY drag in `effectiveInvestmentApy`; 'ongoing' takes none here (all drag).
- * `undefined` (cash, or an id that is not an investment) is free to pay into.
+ * Entry fee on a deposit: the investment receives the deposit less the fee, a
+ * fixed currency amount or a percentage of the deposit. `undefined` (cash, or
+ * an id that is not an investment) is free to pay into.
  */
 export function applyEntryFee(investment: ProfileInvestment | undefined, amount: Decimal): Decimal {
   if (!investment || !investment.entry_fee) return amount
   const entryFee = new Decimal(investment.entry_fee)
-  let upfrontPct = DECIMAL_0
-  if (investment.entry_fee_type === 'upfront') upfrontPct = entryFee
-  else if (investment.entry_fee_type === 'forty-sixty') upfrontPct = entryFee.mul(0.4)
-  if (upfrontPct.isZero()) return amount
-  return Decimal.max(amount.mul(DECIMAL_1.minus(upfrontPct.div(100))), DECIMAL_0)
+  if (investment.entry_fee_type === 'percentage') {
+    return Decimal.max(amount.mul(DECIMAL_1.minus(entryFee.div(100))), DECIMAL_0)
+  }
+  // Default to fixed (matches the form default and Figma).
+  return Decimal.max(amount.minus(entryFee), DECIMAL_0)
 }
 
 export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): YearlyProjection[] {
@@ -1601,7 +1592,7 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
       // Source loses the full `amount`; the destination receives what is left
       // after the fees and the estimated tax, each booked to what it is lost
       // to: the exit fee and the estimated tax come off on the way out, the
-      // upfront entry fee on the way in. The tax is on the gross gain share,
+      // entry fee on the way in. The tax is on the gross gain share,
       // before the exit fee: a modelling choice, real brokers usually tax net
       // proceeds.
       withdraw(transfer.from_asset_id, amount)

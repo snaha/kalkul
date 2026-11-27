@@ -90,7 +90,7 @@ function netAnnualCashFlow(profile: Profile): Decimal {
  * that split as their own word on the balances.
  *
  * The source loses the full amount and the destination receives what is left
- * after the exit fee on the way out and the upfront entry fee on the way in,
+ * after the exit fee on the way out and the entry fee on the way in,
  * charged with `plan-projection`'s own helpers so the two agree. Transfers
  * only ever run between cash and investments, which is what the editor
  * offers, so anything pointing elsewhere — including at an asset the profile

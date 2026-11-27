@@ -10,6 +10,22 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-27 An entry fee is Fixed or Percentage, like an exit fee
+
+**Context.** An investment's entry fee was a percentage with a payment type:
+Upfront took it off each deposit, Ongoing took it off the yearly growth
+instead, and 40 / 60 split it between the two. The exit fee beside it was a
+plain Fixed or Percentage (#500).
+
+**Decision.** The entry fee has the same two types as the exit fee. Fixed, the
+default, takes an amount off each deposit; Percentage takes a share of it. No
+entry fee is taken off the growth any more, which is the TER's job. Stored
+data with an old payment type is read as Percentage. Supersedes the three
+payment types.
+
+**Why.** One model for both fees that says what a deposit costs. Ongoing was a
+second TER under another name, and 40 / 60 a split few users could place.
+
 ## 2026-11-27 An added item's less-used fields are sections, not a switch
 
 **Context.** An imported asset or liability kept its less-used fields in

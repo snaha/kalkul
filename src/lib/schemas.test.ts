@@ -293,6 +293,29 @@ describe('profileSchema birth date', () => {
   })
 })
 
+describe('repairStoredData: entry fee types from before Fixed / Percentage', () => {
+  it('reads an old payment type as a percentage, in a profile, a plan and its base', () => {
+    const fund = (type: string) => ({
+      id: 'i1',
+      name: 'Fund',
+      balance: 0,
+      apy: 5,
+      entry_fee: 2,
+      entry_fee_type: type,
+    })
+    const stored = {
+      profile: { investments: [fund('upfront')] },
+      portfolios: [
+        { investments: [fund('forty-sixty')], base: { investments: [fund('ongoing')] } },
+      ],
+    }
+    repairStoredData(stored)
+    expect(stored.profile.investments[0].entry_fee_type).toBe('percentage')
+    expect(stored.portfolios[0].investments[0].entry_fee_type).toBe('percentage')
+    expect(stored.portfolios[0].base.investments[0].entry_fee_type).toBe('percentage')
+  })
+})
+
 describe('repairStoredData: inverted cash-flow months', () => {
   function storedWithInverted() {
     return {
@@ -972,7 +995,7 @@ describe('storedDataSchema golden fixture', () => {
             apy: 7,
             ter: 0.2,
             entry_fee: 1,
-            entry_fee_type: 'forty-sixty',
+            entry_fee_type: 'fixed',
             exit_fee: 0.5,
             exit_fee_type: 'percentage',
           },
