@@ -77,6 +77,7 @@
       figures,
       heldOn,
       mode === 'edit' ? editEstimateDate(source.date, heldOn, takenDates, originalDate) : heldOn,
+      originalDate,
     ),
   )
 

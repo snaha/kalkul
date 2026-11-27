@@ -1,18 +1,14 @@
 import { getCurrentProfile } from '$lib/current-values'
-import {
-  type Frequency,
-  type Profile,
-  type RemainingTermUnit,
-  type Snapshot,
-  normalizeSnapshots,
-} from '$lib/schemas'
+import type { Frequency, Profile, RemainingTermUnit, Snapshot } from '$lib/schemas'
 import {
   byId,
   captureSnapshot,
   countedCashFlows,
   profileAtSnapshot,
   recordsDebt,
+  resolveSnapshots,
   withMissingEntries,
+  withSavedSnapshot,
 } from '$lib/snapshots'
 import { parseDateOnly } from '$lib/utils'
 
@@ -46,6 +42,8 @@ export interface SnapshotField {
   remaining_term_unit?: RemainingTermUnit
   /** Figure the field opens with, and what it falls back to when cleared. */
   value: number
+  /** The snapshot records this figure as unknown; it stays so unless edited. */
+  unknown?: boolean
 }
 
 export interface SnapshotSection {
@@ -83,12 +81,17 @@ export interface SnapshotSection {
  *
  * `estimateOn` is the date the unrecorded figures are estimated for, when it
  * is not `date`: see `editEstimateDate`.
+ *
+ * A figure `source` records as unknown opens at the value History calculates
+ * for it once `source` is saved on `date`. `originalDate` is the date an edited
+ * snapshot leaves.
  */
 export function buildSnapshotSections(
   profile: Profile,
   source: Snapshot,
   date: string,
   estimateOn = date,
+  originalDate?: string,
 ): SnapshotSection[] {
   const estimate = seedSnapshotOn(profile, estimateOn)
   // Where a cash flow `source` never recorded is read from: see the exception above.
@@ -104,7 +107,12 @@ export function buildSnapshotSections(
     const inEstimate = byId(estimated)
     return (id: string) => inSource.get(id) ?? inEstimate.get(id)
   }
+  const calculated = resolveSnapshots(
+    withSavedSnapshot(profile, { ...source, date }, originalDate),
+  ).find((snapshot) => snapshot.date === date)
+  const sourceInvestments = byId(source.investments)
   const investmentEntry = lookup(source.investments, estimate.investments)
+  const calculatedEntry = lookup(calculated?.investments, estimate.investments)
   const assetEntry = lookup(source.tangible_assets, estimate.tangible_assets)
   const liabilityEntry = lookup(source.liabilities, estimate.liabilities)
 
@@ -165,19 +173,25 @@ export function buildSnapshotSections(
           itemId: 'cash',
           label: '',
           kind: 'cash',
-          value: source.cash_amount ?? estimate.cash_amount ?? 0,
+          value: source.cash_amount ?? calculated?.cash_amount ?? estimate.cash_amount ?? 0,
+          unknown: source.cash_amount === undefined,
         },
       ],
     },
     {
       id: 'investments',
-      fields: (profile.investments ?? []).map((investment) => ({
-        key: `investments:${investment.id}`,
-        itemId: investment.id,
-        label: investment.name,
-        kind: 'balance',
-        value: investmentEntry(investment.id)?.balance ?? 0,
-      })),
+      fields: (profile.investments ?? []).map((investment) => {
+        const recorded = sourceInvestments.get(investment.id)
+        return {
+          key: `investments:${investment.id}`,
+          itemId: investment.id,
+          label: investment.name,
+          kind: 'balance',
+          value:
+            investmentEntry(investment.id)?.balance ?? calculatedEntry(investment.id)?.balance ?? 0,
+          unknown: recorded !== undefined && recorded.balance === undefined,
+        }
+      }),
     },
     { id: 'tangible_assets', fields: tangibleFields },
     {
@@ -208,6 +222,7 @@ export function buildSnapshotSections(
  * missing or cleared falls back to the field's seeded value — an empty box
  * means "I have not said", the same convention Quick update uses. Recording a
  * balance of zero therefore takes a typed `0`; clearing the box does not do it.
+ * An unknown cash or investment figure stays unknown unless the user typed one.
  */
 export function snapshotFromFields(
   base: Snapshot,
@@ -218,6 +233,7 @@ export function snapshotFromFields(
   const fieldsOf = (id: SnapshotSectionId) =>
     sections.find((section) => section.id === id)?.fields ?? []
   const valueOf = (field: SnapshotField) => edits[field.key] ?? field.value
+  const figureOf = (field: SnapshotField) => (field.unknown ? edits[field.key] : valueOf(field))
 
   // The dialog edits no loan terms — the design draws none — so each debt is
   // written back with the term its field carried, which is the one recorded
@@ -261,9 +277,12 @@ export function snapshotFromFields(
   // Entries the dialog wrote, followed by the ones from `base` it never covered.
   return {
     date,
-    cash_amount: cashField ? valueOf(cashField) : base.cash_amount,
+    cash_amount: cashField ? figureOf(cashField) : base.cash_amount,
     investments: withMissingEntries(
-      fieldsOf('investments').map((field) => ({ id: field.itemId, balance: valueOf(field) })),
+      fieldsOf('investments').map((field) => {
+        const balance = figureOf(field)
+        return balance === undefined ? { id: field.itemId } : { id: field.itemId, balance }
+      }),
       base.investments,
     ),
     tangible_assets: withMissingEntries(tangible, base.tangible_assets),
@@ -300,7 +319,7 @@ export function snapshotFromFields(
  * agrees with the figures the user sees there.
  */
 export function seedSnapshotOn(profile: Profile, date: string): Snapshot {
-  const snapshots = normalizeSnapshots(profile.snapshots ?? [])
+  const snapshots = resolveSnapshots(profile)
   const latest = snapshots.at(-1)
   if (!latest || date >= latest.date) {
     return captureSnapshot(getCurrentProfile(profile, parseDateOnly(date)), date)

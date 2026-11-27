@@ -10,6 +10,31 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-27 An unknown figure puts no invented number on the profile and follows its snapshot's date
+
+**Context.** Review of the unknown figures of 2026-11-05 found two cases where
+one became a wrong number. A rewind onto an unknown with no number before it
+set the profile's cash and balances to 0. A re-dated or duplicated snapshot
+showed the value calculated for its old date, and History then calculated
+another for the new one. The review also asked whether a missing `cash_amount`
+is unknown on snapshots the app did not write.
+
+**Decision.** A rewind leaves the profile's figure as it is when the unknown
+has no number before it. The snapshot dialog shows an unknown figure at the
+value History calculates on the date being saved, and the figure stays unknown
+when its snapshot is re-dated or duplicated. A missing `cash_amount` is unknown
+in every snapshot, whoever wrote it; no cash is `cash_amount: 0`. The rule of
+2026-11-05 that a number on today's snapshot survives a second Confirm that day
+is dropped.
+
+**Why.** The 0 an unknown reads as without an earlier number is a placeholder
+on History, still open on #372, and not a figure to project from. Saving the
+displayed estimate as a number would turn a guess into a checked figure, which
+is what unknown prevents. The app always writes cash, so only an imported
+history omits it, and that is the case #372 was opened for. Quick update does
+not open on a day that already has a snapshot, so the second Confirm cannot
+happen.
+
 ## 2026-11-25 Inflation counts months from the projection's start month
 
 **Context.** An amount that adjusts for inflation rose once a year, from the
@@ -325,6 +350,32 @@ as a net figure, which is now the amount itself. (#406 follow-up)
 work out the tax, not the other way round. Grossing up for the fees as well
 would be consistent but changes a rule older than the tax switch, so it is
 left as it is for now; showing what actually arrives with fees on is #413.
+
+## 2026-11-05 A figure Quick update did not get from the user is stored as unknown
+
+**Context.** Quick update saved its own prediction for every row the user left
+alone, so a guess and a checked figure looked the same in the history. A
+snapshot could not say "I don't know this figure" (#372).
+
+**Decision.** A cash or investment row left untouched or erased in Quick update
+is stored with no number. History calculates it on read, linearly by date
+between the nearest known values, and the newest date reads the profile. An
+unknown just before an investment is sold keeps its last known value. A number
+on today's snapshot stays a number when a later Confirm that day leaves it
+untouched. The dialog shows a typed figure and its change in bold and an
+estimate at regular weight. Nothing else changes: no estimated or incomplete
+state on the chart or in the table, no unknown control in the snapshot dialog,
+and other figures stay recorded as numbers. An unknown with no earlier number
+reading as 0, and the marking of calculated figures, stay open on #372.
+
+**Why.** No marker is needed: a missing number already says the figure was not
+given, and a stored prediction would go stale once a later figure arrives.
+Linear works for cash, which has no APY, and always meets both known values.
+A sale is a jump, so sloping towards the 0 after it would show a dip in net
+worth that never happened. Confirming again the same day says nothing new about
+a figure already given that day, so it must not lose it.
+This replaces the rule proposed in the issue that the newest snapshot states
+every figure; the profile states them instead.
 
 ## 2026-11-05 A transfer deducts an estimated tax on its gain
 
