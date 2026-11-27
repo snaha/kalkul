@@ -49,6 +49,19 @@ export interface ListEditorConfig<TStored extends { id: string }, TUI extends Li
   onChange: (listener: () => void) => () => void
 }
 
+/** Editors holding edits they have not saved yet. */
+// eslint-disable-next-line svelte/prefer-svelte-reactivity -- read on demand, never rendered
+const unsavedEditors = new Set<object>()
+
+/**
+ * Whether any list editor holds edits it has not saved yet: waiting out the
+ * debounce, or rejected by its last save. Data replaced meanwhile would have
+ * the editor write its old copy of the list back over it.
+ */
+export function hasUnsavedListEdits(): boolean {
+  return unsavedEditors.size > 0
+}
+
 export interface ListEditor<TUI extends ListEditorItem> {
   readonly items: TUI[]
   /** Localized validation messages per item id from the last failed save. */
@@ -172,6 +185,13 @@ export function createListEditor<TStored extends { id: string }, TUI extends Lis
   // viewed, rewriting the profile and bumping "last updated" with no actual
   // change — the same thing the mount skip below exists to prevent.
   let pendingSave = false
+  const self = {}
+  function setPendingSave(pending: boolean): void {
+    pendingSave = pending
+    if (pending) unsavedEditors.add(self)
+    else unsavedEditors.delete(self)
+  }
+  $effect(() => () => unsavedEditors.delete(self))
   function flushSave(): void {
     if (saveTimer !== undefined) {
       clearTimeout(saveTimer)
@@ -180,7 +200,7 @@ export function createListEditor<TStored extends { id: string }, TUI extends Lis
     if (!pendingSave) return
     // Stay pending when the write was rejected, so the onDestroy flush still
     // gets a chance to persist edits that a transient failure held back.
-    if (save()) pendingSave = false
+    if (save()) setPendingSave(false)
   }
   let autoSaveArmed = false
   $effect(() => {
@@ -194,7 +214,7 @@ export function createListEditor<TStored extends { id: string }, TUI extends Lis
       return
     }
     if (saveTimer !== undefined) clearTimeout(saveTimer)
-    pendingSave = true
+    setPendingSave(true)
     saveTimer = setTimeout(flushSave, 300)
   })
 

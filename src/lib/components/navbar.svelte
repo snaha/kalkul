@@ -14,6 +14,7 @@
   import * as Dialog from '$lib/components/ui/dialog'
   import { exitDemo } from '$lib/demo'
   import externalLinks from '$lib/external-links'
+  import { pluginStore } from '$lib/plugins/plugins.svelte'
   import routes from '$lib/routes'
   import { appStore } from '$lib/stores/app.svelte'
 
@@ -44,6 +45,11 @@
     </div>
   {:else}
     <div class="flex items-center gap-4">
+      {#each pluginStore.active as plugin (plugin.id)}
+        {#if plugin.navbar}
+          <plugin.navbar class={buttonClass} />
+        {/if}
+      {/each}
       <Button variant="ghost" size="sm" class={buttonClass} onclick={() => (feedbackOpen = true)}>
         <LifeBuoy class="size-4" />
         {$_('navbar.help')}

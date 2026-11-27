@@ -29,4 +29,6 @@ export default {
   STALE_DISMISSED: 'kalkul-stale-dismissed',
   /** sessionStorage — prefix, followed by a plan id: the financial data that plan's outdated bar was dismissed on. */
   OUTDATED_DISMISSED: 'kalkul-outdated-dismissed:',
+  /** localStorage — JSON array of the plugin ids turned on from the dev page (src/lib/plugins). */
+  PLUGINS: 'kalkul-plugins',
 } as const
