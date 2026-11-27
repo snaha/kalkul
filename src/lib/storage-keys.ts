@@ -15,6 +15,8 @@ export default {
   DATA: 'kalkul-data',
   /** localStorage — id of the demo persona in use; absent outside the demo. */
   DEMO: 'kalkul-demo',
+  /** localStorage — prefix for copies of unreadable `DATA`, suffixed with an ISO timestamp. */
+  UNREADABLE_DATA_PREFIX: 'kalkul-data-unreadable-',
   /** localStorage — selected color theme ('light' | 'dark' | 'system'). */
   THEME: 'theme',
   /** localStorage — selected UI language override. */
