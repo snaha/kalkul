@@ -168,7 +168,7 @@ chart's terms: real, deflated to the plan's first year.
   the loan behind a financed asset by the asset's.
 - Fees and taxes lists, in this order:
   - "<investment> fees": what an investment lost to fees in the year, its TER
-    and ongoing entry fee taken off its growth plus the upfront entry fee on
+    taken off its growth plus the entry fee on
     what was paid in and the exit fee on what was taken out, the planned buy
     and sell of the investment included. The first year is not compounded, so
     it has no TER.
@@ -368,8 +368,10 @@ rather than papering over it.
    shows 21.4% up and its tooltip "+6,000 vs" the year before.
 10. **Fees and taxes.** An ETF of 10,000 at 5% with a 1% TER: its first year
     has no fees; the second lists "ETF fees" at 100 and the cash flow is −100.
-    Paying 1,000 into an ETF with a 2% upfront entry fee lists "ETF fees" at
-    20 in that year. A transfer named "Sell" that takes 1,000 out of an
+    Paying 1,000 into an ETF with a 2% entry fee lists "ETF fees" at 20 in
+    that year, and so does a fixed entry fee of 20: an entry fee, like an exit
+    fee, is Fixed (an amount per deposit, the default) or Percentage (a share
+    of the deposit), and never more than the deposit itself. A transfer named "Sell" that takes 1,000 out of an
     investment and deducts tax takes the tax on top of the 1,000 from the
     investment; that tax is listed as "Sell tax" and comes off the cash flow.
     With the ETF at 10% and a 15% tax rate, two years in the gain is

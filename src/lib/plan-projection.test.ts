@@ -1924,7 +1924,7 @@ describe('getYearlyPlanProjection', () => {
         balance: 1000,
         apy: 0,
         entry_fee: 10,
-        entry_fee_type: 'upfront',
+        entry_fee_type: 'percentage',
         start: 'at_specific_date',
         start_year: 2026,
       },
@@ -2303,29 +2303,20 @@ describe('getYearlyPlanProjection', () => {
     expect(result[2].investments).toBeCloseTo(1060 * 1.06, 6)
   })
 
-  it('treats an ongoing entry fee as additional APY drag', () => {
+  it('leaves the growth alone: an entry fee is charged on deposits only', () => {
     const investments: ProfileInvestment[] = [
-      { id: 'i1', name: 'Fund', balance: 1000, apy: 7, entry_fee: 1, entry_fee_type: 'ongoing' },
+      { id: 'i1', name: 'Fund', balance: 1000, apy: 7, entry_fee: 1, entry_fee_type: 'percentage' },
     ]
     const result = project(makePlan(), makeProfile({ investments }))
-    // Effective APY = 7 − 1 = 6 % (whole entry_fee as drag, no upfront cut).
-    expect(result[1].investments).toBeCloseTo(1060, 6)
+    expect(result[1].investments).toBeCloseTo(1070, 6)
   })
 
-  it('floors the effective APY at −100 % so extreme fees decay the balance to 0', () => {
-    // TER + ongoing fee = 250 % ≫ 100 + APY: without the floor the yearly
-    // multiplier would be 1 + (5 − 250)/100 = −1.45 and the balance would
-    // oscillate in sign; with it the multiplier is 0.
+  it('floors the effective APY at −100 % so an extreme TER decays the balance to 0', () => {
+    // TER = 250 % ≫ 100 + APY: without the floor the yearly multiplier would
+    // be 1 + (5 − 250)/100 = −1.45 and the balance would oscillate in sign;
+    // with it the multiplier is 0.
     const investments: ProfileInvestment[] = [
-      {
-        id: 'i1',
-        name: 'Fund',
-        balance: 1000,
-        apy: 5,
-        ter: 200,
-        entry_fee: 50,
-        entry_fee_type: 'ongoing',
-      },
+      { id: 'i1', name: 'Fund', balance: 1000, apy: 5, ter: 250 },
     ]
     const result = project(makePlan(), makeProfile({ investments }))
     expect(result[0].investments).toBeCloseTo(1000, 6)
@@ -2334,16 +2325,9 @@ describe('getYearlyPlanProjection', () => {
     }
   })
 
-  it('splits a forty-sixty entry fee 40% upfront + 60% ongoing drag', () => {
+  it('takes a fixed entry fee off a deposit', () => {
     const investments: ProfileInvestment[] = [
-      {
-        id: 'i1',
-        name: 'Fund',
-        balance: 0,
-        apy: 0,
-        entry_fee: 5,
-        entry_fee_type: 'forty-sixty',
-      },
+      { id: 'i1', name: 'Fund', balance: 0, apy: 0, entry_fee: 20, entry_fee_type: 'fixed' },
     ]
     const transfers: Transfer[] = [
       {
@@ -2358,15 +2342,55 @@ describe('getYearlyPlanProjection', () => {
       },
     ]
     const result = project(makePlan(), makeProfile({ cash_amount: 1000, investments, transfers }))
-    // 40 % of 5 % = 2 % upfront cut → 1000 → 980 lands in the investment.
-    // Source loses the full 1000; the broker pockets the missing 20.
+    // Cash loses the full 1000; 20 is the fee, 980 lands in the investment.
     expect(result[0].investments).toBeCloseTo(980, 6)
     expect(result[0].cash).toBeCloseTo(0, 6)
   })
 
-  it('takes the full entry fee upfront when payment type is upfront', () => {
+  it('reads an entry fee without a type as fixed', () => {
     const investments: ProfileInvestment[] = [
-      { id: 'i1', name: 'Fund', balance: 0, apy: 0, entry_fee: 2, entry_fee_type: 'upfront' },
+      { id: 'i1', name: 'Fund', balance: 0, apy: 0, entry_fee: 20 },
+    ]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'Deposit',
+        from_asset_id: 'cash',
+        to_asset_id: 'i1',
+        amount: 1000,
+        schedule: 'one_time',
+        transaction_year: 2025,
+        transaction_month: 1,
+      },
+    ]
+    const result = project(makePlan(), makeProfile({ cash_amount: 1000, investments, transfers }))
+    expect(result[0].investments).toBeCloseTo(980, 6)
+  })
+
+  it('floors a deposit at 0 when the fixed entry fee exceeds it', () => {
+    const investments: ProfileInvestment[] = [
+      { id: 'i1', name: 'Fund', balance: 0, apy: 0, entry_fee: 5000, entry_fee_type: 'fixed' },
+    ]
+    const transfers: Transfer[] = [
+      {
+        id: 't1',
+        name: 'Deposit',
+        from_asset_id: 'cash',
+        to_asset_id: 'i1',
+        amount: 1000,
+        schedule: 'one_time',
+        transaction_year: 2025,
+        transaction_month: 1,
+      },
+    ]
+    const result = project(makePlan(), makeProfile({ cash_amount: 1000, investments, transfers }))
+    expect(result[0].investments).toBe(0)
+    expect(result[0].cash).toBeCloseTo(0, 6)
+  })
+
+  it('takes a percentage entry fee off a deposit', () => {
+    const investments: ProfileInvestment[] = [
+      { id: 'i1', name: 'Fund', balance: 0, apy: 0, entry_fee: 2, entry_fee_type: 'percentage' },
     ]
     const transfers: Transfer[] = [
       {
@@ -3013,7 +3037,7 @@ describe('summarizeTransfer', () => {
         exit_fee: 2,
         exit_fee_type: 'percentage',
       },
-      { id: 'inv2', name: 'Other', balance: 0, apy: 0, entry_fee: 1, entry_fee_type: 'upfront' },
+      { id: 'inv2', name: 'Other', balance: 0, apy: 0, entry_fee: 1, entry_fee_type: 'percentage' },
     ]
     const sale: Transfer = {
       ...oneTime,
@@ -3956,7 +3980,7 @@ describe('per-item cash flows and portfolio value of a year', () => {
             balance: 0,
             apy: 0,
             entry_fee: 2,
-            entry_fee_type: 'upfront',
+            entry_fee_type: 'percentage',
           },
           { id: 'inv2', name: 'Bonds', balance: 1000, apy: 0, exit_fee: 1 },
         ],

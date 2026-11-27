@@ -14,7 +14,7 @@
         "balance": 2100000,
         "apy": 6.5,
         "entry_fee": 0.75,
-        "entry_fee_type": "upfront"
+        "entry_fee_type": "percentage"
       }
     ],
     "has_tangible_assets": true,
@@ -121,7 +121,7 @@
           "balance": 2100000,
           "apy": 6.5,
           "entry_fee": 0.75,
-          "entry_fee_type": "upfront"
+          "entry_fee_type": "percentage"
         }
       ],
       "tangible_assets": [
@@ -221,7 +221,7 @@
             "balance": 2100000,
             "apy": 6.5,
             "entry_fee": 0.75,
-            "entry_fee_type": "upfront"
+            "entry_fee_type": "percentage"
           }
         ],
         "tangible_assets": [

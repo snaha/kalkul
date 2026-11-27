@@ -218,7 +218,7 @@ function repairZeroMonths(item: unknown): void {
  * make `loadData()` fall back to the empty default profile and overwrite the
  * user's entire dataset on the next persist.
  *
- * Four repairs today. Data persisted before the same-year month-order rule
+ * Five repairs today. Data persisted before the same-year month-order rule
  * existed may hold a cash flow whose start month is after its end month, which
  * `storedDataSchema` now rejects; the two months are swapped, so both
  * user-entered values survive and the flow spans the range the user visibly
@@ -226,8 +226,9 @@ function repairZeroMonths(item: unknown): void {
  * `cashFlowTemporalRefinement` applies to: incomes, expenses and transfers. A
  * timing month stored as 0 by the old zero-based selector becomes January
  * (`repairZeroMonths`). A transfer stored with an empty endpoint, from before
- * the schema required both (#305), is dropped. And a plan without a `base` gets
- * its copy of financial data (`materializePlans`).
+ * the schema required both (#305), is dropped. An entry fee's old payment type
+ * becomes a percentage. And a plan without a `base` gets its copy of financial
+ * data (`materializePlans`).
  */
 export function repairStoredData(data: unknown, today = new Date()): unknown {
   if (!isRecord(data)) return data
@@ -244,6 +245,16 @@ export function repairStoredData(data: unknown, today = new Date()): unknown {
       const items = owner[key]
       if (Array.isArray(items)) for (const item of items) repairZeroMonths(item)
     }
+  }
+  // The payment types an entry fee had before it became Fixed / Percentage
+  // (ongoing, upfront, 40 / 60) were all percentages. A plan's base holds
+  // investments too.
+  const bases = owners.map((o) => (isRecord(o) ? o.base : undefined))
+  for (const owner of [...owners, ...bases]) {
+    if (!isRecord(owner) || !Array.isArray(owner.investments)) continue
+    for (const i of owner.investments)
+      if (isRecord(i) && ['ongoing', 'upfront', 'forty-sixty'].includes(String(i.entry_fee_type)))
+        i.entry_fee_type = 'percentage'
   }
   if (isRecord(profile)) {
     // Transfers stored before endpoint ids were required (#305): an unfinished
@@ -557,8 +568,7 @@ function refineTimingEdge(
   }
 }
 
-export const entryFeeTypeSchema = z.enum(['ongoing', 'upfront', 'forty-sixty'])
-export const exitFeeTypeSchema = z.enum(['percentage', 'fixed'])
+export const feeTypeSchema = z.enum(['percentage', 'fixed'])
 
 export const profileInvestmentSchema = z
   .object({
@@ -568,15 +578,14 @@ export const profileInvestmentSchema = z
     apy: z.number(),
     // Total expense ratio (annual %): drag on compounding APY.
     ter: z.number().optional(),
-    // Entry fee charged when money is transferred INTO this investment. The
-    // payment type controls whether the fee is deducted up front from the
-    // deposit, spread out over the holding period (ongoing), or split 40/60.
+    // Entry fee charged when money is transferred INTO this investment. Can be
+    // a fixed currency amount (the default) or a percentage of the deposit.
     entry_fee: z.number().optional(),
-    entry_fee_type: entryFeeTypeSchema.optional(),
+    entry_fee_type: feeTypeSchema.optional(),
     // Exit fee charged when money is transferred OUT of this investment. Can
     // be a percentage of the withdrawal or a fixed currency amount.
     exit_fee: z.number().optional(),
-    exit_fee_type: exitFeeTypeSchema.optional(),
+    exit_fee_type: feeTypeSchema.optional(),
     // Planned timing. An absent start means the investment is already held from
     // the plan's first year; an absent exit means it is held for the whole plan.
     // When the start is in the future the initial amount is bought out of cash;
@@ -1119,8 +1128,7 @@ export const storedDataSchema = z.object({
 // --- Derived types ---
 
 export type ValueOverTime = z.infer<typeof valueOverTimeSchema>
-export type EntryFeeType = z.infer<typeof entryFeeTypeSchema>
-export type ExitFeeType = z.infer<typeof exitFeeTypeSchema>
+export type FeeType = z.infer<typeof feeTypeSchema>
 export type InterestType = z.infer<typeof interestTypeSchema>
 export type CompoundingFrequency = z.infer<typeof compoundingFrequencySchema>
 export type Snapshot = z.infer<typeof snapshotSchema>

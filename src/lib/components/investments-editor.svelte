@@ -9,7 +9,7 @@
   import InvestmentFields from '$lib/components/investment-fields.svelte'
   import { Button } from '$lib/components/ui/button'
   import { createListEditor } from '$lib/list-editor.svelte'
-  import type { CashFlowStart, EntryFeeType, ExitFeeType, ProfileInvestment } from '$lib/schemas'
+  import type { CashFlowStart, FeeType, ProfileInvestment } from '$lib/schemas'
   import { appStore } from '$lib/stores/app.svelte'
 
   interface InvestmentUI {
@@ -19,9 +19,9 @@
     apy: number | undefined
     ter: number | undefined
     entry_fee: number | undefined
-    entry_fee_type: EntryFeeType
+    entry_fee_type: FeeType
     exit_fee: number | undefined
-    exit_fee_type: ExitFeeType
+    exit_fee_type: FeeType
     // Required by InvestmentFields. The setup card has no timing controls and
     // financial data carries no timing, so they stay at their defaults.
     start: CashFlowStart
@@ -48,7 +48,7 @@
       apy: inv.apy > 0 ? inv.apy : undefined,
       ter: positive(inv.ter),
       entry_fee: positive(inv.entry_fee),
-      entry_fee_type: inv.entry_fee_type ?? 'ongoing',
+      entry_fee_type: inv.entry_fee_type ?? 'fixed',
       exit_fee: positive(inv.exit_fee),
       exit_fee_type: inv.exit_fee_type ?? 'percentage',
       start: 'immediately',
@@ -70,7 +70,7 @@
       apy: undefined,
       ter: undefined,
       entry_fee: undefined,
-      entry_fee_type: 'ongoing',
+      entry_fee_type: 'fixed',
       exit_fee: undefined,
       exit_fee_type: 'percentage',
       start: 'immediately',
@@ -94,7 +94,7 @@
       entry_fee: positive(i.entry_fee),
       // Only store a type when its fee is set and the type is not the default.
       entry_fee_type:
-        positive(i.entry_fee) !== undefined && i.entry_fee_type !== 'ongoing'
+        positive(i.entry_fee) !== undefined && i.entry_fee_type !== 'fixed'
           ? i.entry_fee_type
           : undefined,
       exit_fee: positive(i.exit_fee),

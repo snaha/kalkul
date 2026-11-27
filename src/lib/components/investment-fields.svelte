@@ -11,8 +11,8 @@
   import { Label } from '$lib/components/ui/label'
   import { Separator } from '$lib/components/ui/separator'
   import { type PlanRange } from '$lib/plan-range'
-  import type { CashFlowStart, EntryFeeType, ExitFeeType } from '$lib/schemas'
-  import { getEntryFeeTypeItems, getExitFeeTypeItems } from '$lib/select-options'
+  import type { CashFlowStart, FeeType } from '$lib/schemas'
+  import { getFeeTypeItems } from '$lib/select-options'
 
   /**
    * The editable shape both call sites share. The setup card and the plan
@@ -23,9 +23,9 @@
     apy: number | undefined
     ter: number | undefined
     entry_fee: number | undefined
-    entry_fee_type: EntryFeeType
+    entry_fee_type: FeeType
     exit_fee: number | undefined
-    exit_fee_type: ExitFeeType
+    exit_fee_type: FeeType
     start: CashFlowStart
     start_year: number | undefined
     start_month: number | undefined
@@ -64,9 +64,7 @@
     formatNumber,
   }: Props = $props()
 
-  let entryFeeTypeItems = $derived(getEntryFeeTypeItems($_))
-
-  let exitFeeTypeItems = $derived(getExitFeeTypeItems($_))
+  let feeTypeItems = $derived(getFeeTypeItems($_))
 </script>
 
 <div class="flex items-center gap-2">
@@ -145,28 +143,27 @@
     <HelpTooltip text={$_('page.plan.totalExpenseRatioDescription')} class="mb-2" />
   </div>
 
-  <!-- Entry fee + payment type -->
+  <!-- Entry fee type + value -->
   <div class="flex items-end gap-2">
     <div class="flex flex-1 flex-col gap-2">
-      <Label for="{idPrefix}-entryFee">{$_('page.plan.entryFee')}</Label>
-      <SuffixedInput
-        id="{idPrefix}-entryFee"
-        value={item.entry_fee}
-        suffix="%"
-        {formatNumber}
+      <Label for="{idPrefix}-entryFeeType">{$_('page.plan.entryFee')}</Label>
+      <SelectField
+        id="{idPrefix}-entryFeeType"
+        value={item.entry_fee_type}
+        items={feeTypeItems}
         onValueChange={(v) => {
-          item.entry_fee = v
+          if (v) item.entry_fee_type = v
         }}
       />
     </div>
     <div class="flex flex-1 flex-col gap-2">
-      <Label for="{idPrefix}-entryFeeType">{$_('page.plan.entryFeePaymentType')}</Label>
-      <SelectField
-        id="{idPrefix}-entryFeeType"
-        value={item.entry_fee_type}
-        items={entryFeeTypeItems}
+      <SuffixedInput
+        value={item.entry_fee}
+        aria-label={$_('page.plan.entryFee')}
+        suffix={item.entry_fee_type === 'fixed' ? currencyLabel : '%'}
+        {formatNumber}
         onValueChange={(v) => {
-          if (v) item.entry_fee_type = v
+          item.entry_fee = v
         }}
       />
     </div>
@@ -180,7 +177,7 @@
       <SelectField
         id="{idPrefix}-exitFeeType"
         value={item.exit_fee_type}
-        items={exitFeeTypeItems}
+        items={feeTypeItems}
         onValueChange={(v) => {
           if (v) item.exit_fee_type = v
         }}

@@ -258,11 +258,11 @@ describe('getCurrentProfile with transfers', () => {
     expect(current.cash_amount).toBe(26_301)
   })
 
-  test('charges the upfront entry fee on the way in', () => {
+  test('charges the entry fee on the way in', () => {
     const profile: Profile = {
       ...PROFILE,
       investments: [
-        { ...PROFILE.investments![0], entry_fee: 5, entry_fee_type: 'upfront' },
+        { ...PROFILE.investments![0], entry_fee: 5, entry_fee_type: 'percentage' },
         PROFILE.investments![1],
       ],
       transfers: [{ ...CONTRIBUTION, amount: 100 }],

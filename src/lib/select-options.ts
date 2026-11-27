@@ -1,8 +1,7 @@
 import type { SelectFieldItem } from '$lib/components/select-field.svelte'
 import {
   type CompoundingFrequency,
-  type EntryFeeType,
-  type ExitFeeType,
+  type FeeType,
   type Frequency,
   type InterestType,
   type LiabilityPayOff,
@@ -10,8 +9,7 @@ import {
   type TangibleAssetStatus,
   type ValueOverTime,
   compoundingFrequencySchema,
-  entryFeeTypeSchema,
-  exitFeeTypeSchema,
+  feeTypeSchema,
   frequencySchema,
   interestTypeSchema,
   liabilityPayOffSchema,
@@ -59,21 +57,12 @@ export function getFrequencyShortLabel($_: Translator, frequency: Frequency): st
   return $_('page.financialData.frequency.short.yearly')
 }
 
-export function getEntryFeeTypeItems($_: Translator): SelectFieldItem<EntryFeeType>[] {
+export function getFeeTypeItems($_: Translator): SelectFieldItem<FeeType>[] {
   const labels = {
-    ongoing: $_('page.plan.entryFeeOngoing'),
-    upfront: $_('page.plan.entryFeeUpfront'),
-    'forty-sixty': $_('page.plan.entryFeeFortySixty'),
-  } satisfies Record<EntryFeeType, string>
-  return entryFeeTypeSchema.options.map((value) => ({ value, label: labels[value] }))
-}
-
-export function getExitFeeTypeItems($_: Translator): SelectFieldItem<ExitFeeType>[] {
-  const labels = {
-    percentage: $_('page.plan.exitFeePercentage'),
-    fixed: $_('page.plan.exitFeeFixed'),
-  } satisfies Record<ExitFeeType, string>
-  return exitFeeTypeSchema.options.map((value) => ({ value, label: labels[value] }))
+    percentage: $_('page.plan.feePercentage'),
+    fixed: $_('page.plan.feeFixed'),
+  } satisfies Record<FeeType, string>
+  return feeTypeSchema.options.map((value) => ({ value, label: labels[value] }))
 }
 
 export function getInterestTypeItems($_: Translator): SelectFieldItem<InterestType>[] {

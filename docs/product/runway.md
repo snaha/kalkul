@@ -34,7 +34,7 @@ Runway card on the dashboard and its settings dialog.
 - Selling a financed asset nets the asset's value less what the loan still
   owes at that point, settles the loan and ends its installments. An asset
   worth less than its loan is not sold.
-- Investments grow by their effective APY (after TER and ongoing fees), applied
+- Investments grow by their effective APY (after TER), applied
   monthly, only when "Include investment growth" is on. Tangible assets follow
   their own value-over-time rate, appreciation or depreciation, only when
   "Include value growth" is on; an asset with no rate set stays put. Nothing
