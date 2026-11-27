@@ -21,7 +21,7 @@ const base: TangibleAssetUI = {
   remaining_term_unit: 'years',
   value_over_time: 'appreciate',
   value_rate: undefined,
-  property_tax_rate: undefined,
+  property_tax: undefined,
   showAdvanced: false,
   editing: false,
   derivedFrom: 'term',

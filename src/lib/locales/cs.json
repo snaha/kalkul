@@ -164,7 +164,7 @@
       "valueDepreciate": "Znehodnocení",
       "valueAnnualRate": "Roční sazba",
       "propertyTax": "Roční daň z nemovitosti",
-      "propertyTaxDescription": "Roční daň z majetku jako procento z kupní ceny. Platí se z hotovosti každý rok, kdy majetek vlastníte.",
+      "propertyTaxDescription": "Roční daň z majetku jako částka. Platí se z hotovosti každý rok, kdy majetek vlastníte.",
       "addInvestmentTitle": "Přidat investici",
       "investmentLabel": "Název",
       "liabilityLabel": "Název",

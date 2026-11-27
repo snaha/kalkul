@@ -218,7 +218,7 @@ function repairZeroMonths(item: unknown): void {
  * make `loadData()` fall back to the empty default profile and overwrite the
  * user's entire dataset on the next persist.
  *
- * Five repairs today. Data persisted before the same-year month-order rule
+ * Six repairs today. Data persisted before the same-year month-order rule
  * existed may hold a cash flow whose start month is after its end month, which
  * `storedDataSchema` now rejects; the two months are swapped, so both
  * user-entered values survive and the flow spans the range the user visibly
@@ -227,7 +227,8 @@ function repairZeroMonths(item: unknown): void {
  * timing month stored as 0 by the old zero-based selector becomes January
  * (`repairZeroMonths`). A transfer stored with an empty endpoint, from before
  * the schema required both (#305), is dropped. An entry fee's old payment type
- * becomes a percentage. And a plan without a `base` gets its copy of financial
+ * becomes a percentage, and a property tax stored as a rate becomes the yearly
+ * amount it came to. And a plan without a `base` gets its copy of financial
  * data (`materializePlans`).
  */
 export function repairStoredData(data: unknown, today = new Date()): unknown {
@@ -251,10 +252,19 @@ export function repairStoredData(data: unknown, today = new Date()): unknown {
   // investments too.
   const bases = owners.map((o) => (isRecord(o) ? o.base : undefined))
   for (const owner of [...owners, ...bases]) {
-    if (!isRecord(owner) || !Array.isArray(owner.investments)) continue
-    for (const i of owner.investments)
+    if (!isRecord(owner)) continue
+    for (const i of Array.isArray(owner.investments) ? owner.investments : [])
       if (isRecord(i) && ['ongoing', 'upfront', 'forty-sixty'].includes(String(i.entry_fee_type)))
         i.entry_fee_type = 'percentage'
+    // Property tax was a percentage of the asset's value before it became a
+    // yearly amount: keep what that rate came to.
+    if (!Array.isArray(owner.tangible_assets)) continue
+    for (const a of owner.tangible_assets) {
+      if (!isRecord(a) || typeof a.property_tax_rate !== 'number') continue
+      if (typeof a.value === 'number' && a.property_tax_rate > 0)
+        a.property_tax = (a.value * a.property_tax_rate) / 100
+      delete a.property_tax_rate
+    }
   }
   if (isRecord(profile)) {
     // Transfers stored before endpoint ids were required (#305): an unfinished
@@ -658,9 +668,9 @@ export const profileTangibleAssetSchema = z
     // inflation tracking when set.
     value_over_time: valueOverTimeSchema.optional(),
     value_rate: z.number().optional(),
-    // Annual tax on the asset, as a percentage of its purchase price, paid
-    // from cash every year the asset is held.
-    property_tax_rate: z.number().optional(),
+    // Yearly tax on the asset, an amount in the profile's currency, paid from
+    // cash every year the asset is held.
+    property_tax: z.number().optional(),
   })
   .superRefine((obj, ctx) => {
     refineTimingEdge(

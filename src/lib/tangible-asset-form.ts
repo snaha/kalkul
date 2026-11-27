@@ -76,7 +76,7 @@ export interface TangibleAssetUI {
   // belong to the plan dialog; the loan's interest type round-trips via prev.
   value_over_time: ValueOverTime
   value_rate: number | undefined
-  property_tax_rate: number | undefined
+  property_tax: number | undefined
   // UI-only: whether the Value & tax section starts open.
   showAdvanced: boolean
   editing: boolean
@@ -112,6 +112,6 @@ export function toStoredTangibleAsset(
     // the asset keeps tracking inflation (mirrors the plan dialog).
     value_over_time: a.value_rate ? a.value_over_time : undefined,
     value_rate: a.value_rate,
-    property_tax_rate: a.property_tax_rate,
+    property_tax: a.property_tax,
   }
 }

@@ -316,6 +316,33 @@ describe('repairStoredData: entry fee types from before Fixed / Percentage', () 
   })
 })
 
+describe('repairStoredData: property tax stored as a rate', () => {
+  it('becomes the yearly amount that rate was, in a profile, a plan and its base', () => {
+    const house = (): Record<string, unknown> => ({
+      id: 't1',
+      name: 'House',
+      value: 200_000,
+      status: 'fully_owned',
+      property_tax_rate: 0.5,
+    })
+    const stored = {
+      profile: { tangible_assets: [house()] },
+      portfolios: [{ tangible_assets: [house()], base: { tangible_assets: [house()] } }],
+    }
+    repairStoredData(stored)
+    const expected = {
+      id: 't1',
+      name: 'House',
+      value: 200_000,
+      status: 'fully_owned',
+      property_tax: 1000,
+    }
+    expect(stored.profile.tangible_assets[0]).toEqual(expected)
+    expect(stored.portfolios[0].tangible_assets[0]).toEqual(expected)
+    expect(stored.portfolios[0].base.tangible_assets[0]).toEqual(expected)
+  })
+})
+
 describe('repairStoredData: inverted cash-flow months', () => {
   function storedWithInverted() {
     return {
@@ -1015,7 +1042,7 @@ describe('storedDataSchema golden fixture', () => {
             compounding_frequency: 'monthly',
             value_over_time: 'appreciate',
             value_rate: 1.5,
-            property_tax_rate: 0.2,
+            property_tax: 900,
           },
           { id: 'asset-2', name: 'Car', value: 250_000, status: 'fully_owned' },
         ],
@@ -1116,7 +1143,7 @@ describe('storedDataSchema golden fixture', () => {
               sale_age: 70,
               value_over_time: 'appreciate',
               value_rate: 1.5,
-              property_tax_rate: 0.2,
+              property_tax: 900,
             },
           ],
           incomes: [
@@ -1168,7 +1195,7 @@ describe('storedDataSchema golden fixture', () => {
       compounding_frequency: 'monthly',
       value_over_time: 'appreciate',
       value_rate: 1.5,
-      property_tax_rate: 0.2,
+      property_tax: 900,
     })
     expect(result.data?.portfolios[0].tangible_assets?.[0]).toMatchObject({
       purchase: 'at_specific_date',

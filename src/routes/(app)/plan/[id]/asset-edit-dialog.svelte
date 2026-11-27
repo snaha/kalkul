@@ -91,7 +91,7 @@
     sale_age: number | undefined
     value_over_time: ValueOverTime
     value_rate: number | undefined
-    property_tax_rate: number | undefined
+    property_tax: number | undefined
     // Tangible asset (financed) only: what the purchase cost in cash.
     down_payment: number | undefined
     // Tangible asset (financed) + liability share these
@@ -154,7 +154,7 @@
       sale_age: undefined,
       value_over_time: 'appreciate',
       value_rate: undefined,
-      property_tax_rate: undefined,
+      property_tax: undefined,
       down_payment: undefined,
       outstanding_balance: undefined,
       installment_frequency: 'monthly',
@@ -215,7 +215,7 @@
       f.sale_age = a.sale_age
       f.value_over_time = a.value_over_time ?? 'appreciate'
       f.value_rate = a.value_rate
-      f.property_tax_rate = a.property_tax_rate
+      f.property_tax = a.property_tax
       // An asset saved with a term but no installment would otherwise be paid
       // as one lump in its last period; give it the installment on open.
       if (!f.installment_amount) rederiveLoanPair(f, 'term')
@@ -305,7 +305,7 @@
       // The rate only means something once one is entered.
       value_over_time: f.value_rate ? f.value_over_time : undefined,
       value_rate: f.value_rate,
-      property_tax_rate: f.property_tax_rate,
+      property_tax: f.property_tax,
       // Same rule as a standalone liability, scoped to the financing.
       interest_type:
         f.status === 'financed' && f.interest_type !== 'compound' ? f.interest_type : undefined,

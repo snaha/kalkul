@@ -58,7 +58,7 @@
     sale_age: number | undefined
     value_over_time: ValueOverTime
     value_rate: number | undefined
-    property_tax_rate: number | undefined
+    property_tax: number | undefined
   }
 
   interface Props {
@@ -263,11 +263,11 @@
       <Label for="{idPrefix}-propertyTax">{$_('page.plan.propertyTax')}</Label>
       <SuffixedInput
         id="{idPrefix}-propertyTax"
-        value={item.property_tax_rate}
-        suffix="%"
+        value={item.property_tax}
+        suffix={currencyLabel}
         {formatNumber}
         onValueChange={(v) => {
-          item.property_tax_rate = v
+          item.property_tax = v
         }}
       />
     </div>
@@ -436,7 +436,7 @@
 <FormSection
   icon={Percent}
   title={$_('page.plan.valueAndTax')}
-  open={item.value_rate !== undefined || item.property_tax_rate !== undefined}
+  open={item.value_rate !== undefined || item.property_tax !== undefined}
 >
   {@render valueTaxRows()}
 </FormSection>

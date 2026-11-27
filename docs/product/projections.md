@@ -173,7 +173,9 @@ chart's terms: real, deflated to the plan's first year.
     and sell of the investment included. The first year is not compounded, so
     it has no TER.
   - "<transfer> tax": the estimated tax a transfer deducted.
-  - "<asset> property tax": the property tax of a taxed asset.
+  - "<asset> property tax": the property tax of a taxed asset. It is the
+    yearly amount entered as "Yearly property tax" (`property_tax`), paid as
+    entered: it does not follow inflation or the asset's value.
 - A row opens the dialog of its item, the same one its row in the left
   sidebar opens: Cash opens the cash balance, a fees row its investment, a
   tax row its transfer, and a property tax row, the loan behind a financed
