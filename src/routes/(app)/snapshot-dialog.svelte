@@ -13,7 +13,13 @@
   import type { Snapshot } from '$lib/schemas'
   import { getFrequencyShortLabel } from '$lib/select-options'
   import type { SnapshotField, SnapshotSectionId } from '$lib/snapshot-form'
-  import { buildSnapshotSections, openingDate, snapshotFromFields } from '$lib/snapshot-form'
+  import {
+    buildSnapshotSections,
+    editEstimateDate,
+    openingDate,
+    snapshotFromFields,
+    snapshotWithEdits,
+  } from '$lib/snapshot-form'
   import { appStore } from '$lib/stores/app.svelte'
 
   interface Props {
@@ -63,7 +69,16 @@
   const heldOn = $derived(date || figures.date || today)
   // The stored profile decides which items the dialog offers a field for; the
   // figures supply the values.
-  const sections = $derived(buildSnapshotSections(appStore.profile.toJSON(), figures, heldOn))
+  // An edit saves only what was typed, so its untyped fields open at what the
+  // saved snapshot will hold, wherever the date has been moved to.
+  const sections = $derived(
+    buildSnapshotSections(
+      appStore.profile.toJSON(),
+      figures,
+      heldOn,
+      mode === 'edit' ? editEstimateDate(source.date, heldOn, takenDates, originalDate) : heldOn,
+    ),
+  )
 
   function reset(): void {
     date = openingDate(source.date, takenDates, originalDate)
@@ -153,13 +168,21 @@
 
   function confirm(): void {
     if (dateError || !date) return
-    onConfirm(snapshotFromFields(figures, sections, edits, date), originalDate)
+    // An edit corrects a recorded snapshot: only the figures the user typed are
+    // written, so seeded estimates for items it never recorded stay out. A new
+    // snapshot (Add, Duplicate) records every field.
+    onConfirm(
+      mode === 'edit'
+        ? { ...snapshotWithEdits(source, sections, edits), date }
+        : snapshotFromFields(figures, sections, edits, date),
+      originalDate,
+    )
     open = false
   }
 </script>
 
 <Dialog.Root bind:open>
-  <Dialog.Content class="gap-0 p-0 sm:max-w-[576px]">
+  <Dialog.Content class="flex max-h-[calc(100dvh-4rem)] flex-col gap-0 p-0 sm:max-w-[576px]">
     <Dialog.Header class="p-4">
       <Dialog.Title class="text-base font-normal">
         {mode === 'add' ? $_('page.history.dialog.addTitle') : $_('page.history.dialog.editTitle')}
@@ -171,7 +194,8 @@
       </Dialog.Description>
     </Dialog.Header>
 
-    <div class="flex max-h-[70vh] flex-col gap-6 overflow-y-auto px-4 pb-4">
+    <!-- Header and footer stay put; the sections scroll between them. -->
+    <div class="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pb-4">
       <section class="flex flex-col gap-2">
         <div class="flex flex-col">
           <Label for="snapshot-date" class="text-lg font-bold">

@@ -11,8 +11,6 @@
   import { getCurrentProfile } from '$lib/current-values'
   import { buildHistorySeries, hasHistoryToShow } from '$lib/history-series'
   import routes from '$lib/routes'
-  import type { Snapshot } from '$lib/schemas'
-  import { seedSnapshotOn } from '$lib/snapshot-form'
   import { buildSnapshotRows } from '$lib/snapshot-rows'
   import { staleSince as staleSinceOf } from '$lib/snapshots'
   import { appStore } from '$lib/stores/app.svelte'
@@ -20,8 +18,9 @@
   import { toDateOnlyString } from '$lib/utils'
 
   import QuickUpdateDialog from '../quick-update-dialog.svelte'
+  import { snapshotDialogState } from '../snapshot-dialog-state.svelte'
+  import SnapshotDialog from '../snapshot-dialog.svelte'
   import StaleDataAlert from '../stale-data-alert.svelte'
-  import SnapshotDialog from './snapshot-dialog.svelte'
   import SnapshotsTable from './snapshots-table.svelte'
 
   // One clock for the whole page, following the calendar past midnight.
@@ -39,54 +38,11 @@
 
   const historyPoints = $derived(buildHistorySeries(storedProfile, today))
   const rows = $derived(buildSnapshotRows(storedProfile))
-  const takenDates = $derived((storedProfile.snapshots ?? []).map((s) => s.date))
-
   let quickUpdateOpen = $state(false)
-  let snapshotOpen = $state(false)
-  let snapshotMode = $state<'add' | 'edit'>('add')
-  // Placeholder until one of the openers below fills it in.
-  let snapshotSource = $state<Snapshot>({ date: '' })
-  let snapshotOriginalDate = $state<string | undefined>(undefined)
-  let snapshotSeedOn = $state<((date: string) => Snapshot) | undefined>(undefined)
-
-  const snapshotOn = (date: string) =>
-    (storedProfile.snapshots ?? []).find((snapshot) => snapshot.date === date)
-
-  function openAdd(): void {
-    snapshotMode = 'add'
-    // Seeded with the app's own estimate for the date — today's projected
-    // balances to begin with, the same figures Quick update starts from — and
-    // re-seeded when the user picks another day. A blank form would ask them to
-    // retype everything they already told the app.
-    const seedOn = (date: string) => seedSnapshotOn(storedProfile, date)
-    snapshotSource = seedOn(todayDate)
-    snapshotSeedOn = seedOn
-    snapshotOriginalDate = undefined
-    snapshotOpen = true
-  }
-
-  function openEdit(date: string): void {
-    const snapshot = snapshotOn(date)
-    if (!snapshot) return
-    snapshotMode = 'edit'
-    snapshotSource = snapshot
-    snapshotSeedOn = undefined
-    snapshotOriginalDate = date
-    snapshotOpen = true
-  }
-
-  function openDuplicate(date: string): void {
-    const snapshot = snapshotOn(date)
-    if (!snapshot) return
-    // A copy is a new snapshot, so it starts at today and leaves the original
-    // where it is — the user re-dates it if they meant another day. Its figures
-    // are the copied ones whatever the date, so it is not re-seeded.
-    snapshotMode = 'add'
-    snapshotSource = { ...snapshot, date: todayDate }
-    snapshotSeedOn = undefined
-    snapshotOriginalDate = undefined
-    snapshotOpen = true
-  }
+  const dialog = snapshotDialogState(
+    () => storedProfile,
+    () => todayDate,
+  )
 
   function confirmDelete(date: string): void {
     const label = appStore.formatDateOnly(date)
@@ -134,7 +90,8 @@
             formatNumber={appStore.formatNumber}
             nowLabel={$_('page.history.now')}
             ariaLabel={$_('page.history.chartLabel')}
-            onSelect={rows.length > 0 ? openEdit : undefined}
+            onSelect={rows.length > 0 ? dialog.openEdit : undefined}
+            onAdd={dialog.openAdd}
             class="h-96"
           />
         </div>
@@ -144,7 +101,7 @@
             <h2 class="flex-1 text-base font-bold">{$_('page.history.snapshots')}</h2>
             <!-- Not drawn in the spec, which shows the Add snapshot dialog
                  without an entry point to it. -->
-            <Button variant="outline" size="sm" onclick={openAdd}>
+            <Button variant="outline" size="sm" onclick={dialog.openAdd}>
               <Plus />
               {$_('page.history.addSnapshot')}
             </Button>
@@ -153,8 +110,8 @@
           {#if rows.length > 0}
             <SnapshotsTable
               {rows}
-              onEdit={openEdit}
-              onDuplicate={openDuplicate}
+              onEdit={dialog.openEdit}
+              onDuplicate={dialog.openDuplicate}
               onDelete={confirmDelete}
             />
           {:else}
@@ -187,12 +144,12 @@
 {/if}
 
 <SnapshotDialog
-  bind:open={snapshotOpen}
-  mode={snapshotMode}
-  source={snapshotSource}
-  originalDate={snapshotOriginalDate}
-  {takenDates}
+  bind:open={dialog.open}
+  mode={dialog.mode}
+  source={dialog.source}
+  originalDate={dialog.originalDate}
+  takenDates={dialog.takenDates}
   today={todayDate}
-  seedOn={snapshotSeedOn}
+  seedOn={dialog.seedOn}
   onConfirm={(snapshot, original) => appStore.saveSnapshot(snapshot, original)}
 />

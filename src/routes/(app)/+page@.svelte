@@ -147,7 +147,7 @@
               </div>
             </div>
 
-            <HistorySection points={historyPoints} />
+            <HistorySection points={historyPoints} {todayDate} />
           </div>
         {:else}
           <!-- Nothing entered yet. Not drawn in the spec, which only covers a
