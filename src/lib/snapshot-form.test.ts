@@ -7,6 +7,7 @@ import { parseDateOnly } from '$lib/utils'
 
 import {
   buildSnapshotSections,
+  editEstimateDate,
   openingDate,
   seedSnapshotOn,
   snapshotFromFields,
@@ -318,6 +319,20 @@ describe('snapshotFromFields', () => {
   })
 })
 
+describe('editEstimateDate', () => {
+  const taken = ['2026-01-01', '2026-03-01', '2026-06-01']
+
+  test('reads unrecorded figures as on its own date while it stays behind a later snapshot', () => {
+    expect(editEstimateDate('2026-03-01', '2026-03-01', taken, '2026-03-01')).toBe('2026-03-01')
+    expect(editEstimateDate('2026-03-01', '2026-02-01', taken, '2026-03-01')).toBe('2026-03-01')
+  })
+
+  test('reads them for the new date once it is moved onto or past the newest', () => {
+    expect(editEstimateDate('2026-03-01', '2026-07-01', taken, '2026-03-01')).toBe('2026-07-01')
+    expect(editEstimateDate('2026-06-01', '2026-06-01', taken, '2026-06-01')).toBe('2026-06-01')
+  })
+})
+
 describe('snapshotWithEdits', () => {
   // An older snapshot that recorded only some of what the profile holds today:
   // no Card liability and no Living expense yet.
@@ -375,6 +390,41 @@ describe('snapshotWithEdits', () => {
         remaining_term_unit: 'years',
       },
     ])
+  })
+
+  test('editing the value of an asset recorded as owned outright records no debt', () => {
+    // The profile's t2 is financed today, so its debt field exists and opens at 0.
+    const owned: Snapshot = { ...RECORDED, tangible_assets: [{ id: 't2', value: 190_000 }] }
+    const ownedSections = buildSnapshotSections(PROFILE, owned, owned.date)
+    expect(
+      snapshotWithEdits(owned, ownedSections, { 'tangible_assets:t2': 195_000 }).tangible_assets,
+    ).toEqual([{ id: 't2', value: 195_000 }])
+    // Typing a debt records it.
+    expect(
+      snapshotWithEdits(owned, ownedSections, { 'tangible_assets:t2:debt': 50_000 })
+        .tangible_assets?.[0],
+    ).toMatchObject({ id: 't2', value: 190_000, outstanding_balance: 50_000 })
+  })
+
+  test('a re-dated edit opens an item the snapshot never recorded at zero, as it will be saved', () => {
+    // January recorded the Card liability; RECORDED, here dated March, did not.
+    const january: Snapshot = {
+      date: '2026-01-01',
+      liabilities: [{ id: 'l1', outstanding_balance: 4_000 }],
+    }
+    const march: Snapshot = { ...RECORDED, date: '2026-03-01' }
+    const history: Profile = { ...PROFILE, snapshots: [january, march, later] }
+    const card = (built: ReturnType<typeof buildSnapshotSections>) =>
+      built.find((section) => section.id === 'liabilities')?.fields[0].value
+    // Moved to February it would read January's 4,000 carried forward.
+    expect(card(buildSnapshotSections(history, march, '2026-02-01'))).toBeGreaterThan(0)
+    const estimateOn = editEstimateDate(
+      march.date,
+      '2026-02-01',
+      ['2026-01-01', '2026-03-01', later.date],
+      march.date,
+    )
+    expect(card(buildSnapshotSections(history, march, '2026-02-01', estimateOn))).toBe(0)
   })
 
   test("editing an asset's debt keeps its recorded value", () => {

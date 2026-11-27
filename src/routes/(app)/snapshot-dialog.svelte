@@ -15,6 +15,7 @@
   import type { SnapshotField, SnapshotSectionId } from '$lib/snapshot-form'
   import {
     buildSnapshotSections,
+    editEstimateDate,
     openingDate,
     snapshotFromFields,
     snapshotWithEdits,
@@ -68,7 +69,16 @@
   const heldOn = $derived(date || figures.date || today)
   // The stored profile decides which items the dialog offers a field for; the
   // figures supply the values.
-  const sections = $derived(buildSnapshotSections(appStore.profile.toJSON(), figures, heldOn))
+  // An edit saves only what was typed, so its untyped fields open at what the
+  // saved snapshot will hold, wherever the date has been moved to.
+  const sections = $derived(
+    buildSnapshotSections(
+      appStore.profile.toJSON(),
+      figures,
+      heldOn,
+      mode === 'edit' ? editEstimateDate(source.date, heldOn, takenDates, originalDate) : heldOn,
+    ),
+  )
 
   function reset(): void {
     date = openingDate(source.date, takenDates, originalDate)

@@ -7,10 +7,9 @@
   import { Button } from '$lib/components/ui/button'
   import type { HistoryPoint } from '$lib/history-series'
   import routes from '$lib/routes'
-  import type { Snapshot } from '$lib/schemas'
-  import { seedSnapshotOn } from '$lib/snapshot-form'
   import { appStore } from '$lib/stores/app.svelte'
 
+  import { snapshotDialogState } from './snapshot-dialog-state.svelte'
   import SnapshotDialog from './snapshot-dialog.svelte'
 
   interface Props {
@@ -26,31 +25,10 @@
   // "now" dot — today, not yet recorded — offers to add one.
   const storedProfile = $derived(appStore.profile.toJSON())
   const snapshots = $derived(storedProfile.snapshots ?? [])
-  const takenDates = $derived(snapshots.map((snapshot) => snapshot.date))
-  let dialogOpen = $state(false)
-  let dialogMode = $state<'add' | 'edit'>('edit')
-  // Placeholder until a dot fills it in.
-  let dialogSource = $state<Snapshot>({ date: '' })
-  let seedOn = $state<((date: string) => Snapshot) | undefined>(undefined)
-
-  function openEdit(date: string): void {
-    const snapshot = snapshots.find((s) => s.date === date)
-    if (!snapshot) return
-    dialogMode = 'edit'
-    dialogSource = snapshot
-    seedOn = undefined
-    dialogOpen = true
-  }
-
-  function openAdd(): void {
-    // Seeded with the app's estimate for the date, as the History page's Add
-    // is, and re-seeded if the user picks another day.
-    const seed = (date: string) => seedSnapshotOn(storedProfile, date)
-    dialogMode = 'add'
-    dialogSource = seed(todayDate)
-    seedOn = seed
-    dialogOpen = true
-  }
+  const dialog = snapshotDialogState(
+    () => storedProfile,
+    () => todayDate,
+  )
 </script>
 
 <div class="flex min-h-0 flex-1 flex-col gap-4">
@@ -69,19 +47,19 @@
     formatNumber={appStore.formatNumber}
     nowLabel={$_('page.dashboard.finances.history.now')}
     ariaLabel={$_('page.dashboard.finances.history.chartLabel')}
-    onSelect={snapshots.length > 0 ? openEdit : undefined}
-    onAdd={openAdd}
+    onSelect={snapshots.length > 0 ? dialog.openEdit : undefined}
+    onAdd={dialog.openAdd}
     class="min-h-0 flex-1"
   />
 </div>
 
 <SnapshotDialog
-  bind:open={dialogOpen}
-  mode={dialogMode}
-  source={dialogSource}
-  originalDate={dialogMode === 'edit' ? dialogSource.date : undefined}
-  {takenDates}
+  bind:open={dialog.open}
+  mode={dialog.mode}
+  source={dialog.source}
+  originalDate={dialog.originalDate}
+  takenDates={dialog.takenDates}
   today={todayDate}
-  {seedOn}
+  seedOn={dialog.seedOn}
   onConfirm={(snapshot, original) => appStore.saveSnapshot(snapshot, original)}
 />

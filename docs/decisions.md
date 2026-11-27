@@ -228,7 +228,7 @@ liabilities, higher as they grow. Grid lines stay evenly spaced and are
 anchored on the baseline. The plan card thumbnail follows the same rule.
 
 **Supersedes.** The fixed 75/25 split between assets and liabilities.
-## 2026-11-12 A History chart dot opens a one-column edit of its snapshot
+
 ## 2026-11-12 A History chart dot edits its snapshot, and an edit saves only what was typed
 
 **Context.** #345 asks for a click on a History chart dot to edit that
@@ -241,11 +241,13 @@ recorded.
 **Decision.** Clicking a recorded dot, on either chart, opens that dialog in
 edit mode for the dot's snapshot. The projected "now" dot, shown when today
 has no snapshot, opens it in add mode for today, seeded with today's
-estimate as the History page's Add is; its tooltip reads "click to add". In edit mode Confirm writes only the
-figures the user typed; everything else in the snapshot stays as recorded,
-and an item it never recorded stays unrecorded unless the user types a
-figure for it. A financed asset's value and debt are one entry, so editing
-either writes both. Adding or duplicating a snapshot still records every
+estimate as the History page's Add is; its tooltip reads "click to add". In
+edit mode Confirm writes only the figures the user typed; everything else in
+the snapshot stays as recorded, and an item it never recorded stays unrecorded
+unless the user types a figure for it. A financed asset's value and debt are
+one entry, so editing either writes both; a debt the snapshot never recorded
+is written only when the user types one. An untyped field opens at what the
+saved snapshot will hold, also after a re-date. Adding or duplicating a snapshot still records every
 field. The dialog grows to the window's height less 32px at the top and the
 bottom; its title bar and footer stay put and the sections scroll between
 them. It edits only what a snapshot records (cash, balances, asset values and
