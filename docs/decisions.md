@@ -10,6 +10,21 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-27 An added asset's less-used fields are sections, not a switch
+
+**Context.** An imported asset or liability kept its less-used fields in
+collapsible sections, while one added in the plan revealed them all at once
+with a "Show advanced options" switch in the dialog's footer (#480, #482).
+
+**Decision.** The switch is gone. An investment, tangible asset or liability
+added in a projection has the same sections as an imported one, closed until
+opened or until they hold a value that is not the default. Financing details
+also holds the down payment and opens when Financed is picked. Supersedes the
+"full dialog with the switch" of the imported-items dialogs.
+
+**Why.** One way to reach the fields in every dialog, each group under its own
+title, and nothing the user set is hidden when the item is opened again.
+
 ## 2026-11-25 Inflation counts months from the projection's start month
 
 **Context.** An amount that adjusts for inflation rose once a year, from the

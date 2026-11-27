@@ -1,14 +1,10 @@
 <script lang="ts">
   import { _, locale } from 'svelte-i18n'
 
-  import Trash2 from '@lucide/svelte/icons/trash-2'
-
   import InvestmentFields from '$lib/components/investment-fields.svelte'
   import TangibleAssetFields from '$lib/components/tangible-asset-fields.svelte'
-  import { Button } from '$lib/components/ui/button'
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
-  import { Switch } from '$lib/components/ui/switch'
   import { rederiveLoanPair } from '$lib/loan-pair'
   import { isImportedPlanItem, removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
   import { planRangeOf, timingWithinPlan } from '$lib/plan-range'
@@ -244,26 +240,11 @@
   // An investment may open empty and be fed by transfers; a tangible asset
   // needs its value, and a financed one what is owed on it.
   const canSave = $derived(timingWithin && (kind === 'investment' || tangibleAssetComplete(form)))
-  // "Show advanced options" disclosure for a liability and for the financing
-  // of a financed tangible asset. Auto-expands when the item already carries
-  // non-default interest settings so the user can see what's driving the math.
-  let showAdvanced = $state(false)
-
   // Re-seed form whenever the dialog opens.
   let wasOpen = false
   $effect(() => {
     if (open && !wasOpen) {
       form = seedForm(target)
-      if (target.kind === 'tangibleAsset') {
-        const a = target.initial
-        showAdvanced = a?.value_over_time !== undefined || a?.property_tax_rate !== undefined
-      } else {
-        // Auto-open when the investment already carries fees, so editing it
-        // never hides values that drive the math.
-        const inv = target.initial
-        showAdvanced =
-          inv?.ter !== undefined || inv?.entry_fee !== undefined || inv?.exit_fee !== undefined
-      }
     }
     wasOpen = open
   })
@@ -367,38 +348,6 @@
   }
 </script>
 
-{#snippet assetFooter()}
-  <!-- Figma 1320-1330: primary + cancel on the left, and on the right the
-       advanced switch when adding or the delete button when editing. -->
-  <div class="flex flex-1 items-center gap-2">
-    <Button disabled={!canSave} onclick={save}>
-      {isNew ? $_('page.plan.createItem') : $_('page.plan.saveChanges')}
-    </Button>
-    <Button variant="secondary" onclick={() => onOpenChange(false)}>
-      {$_('page.plan.cancel')}
-    </Button>
-    <div class="flex flex-1 items-center justify-end gap-2">
-      <label class="flex cursor-pointer items-center gap-2">
-        <Switch checked={showAdvanced} onCheckedChange={(v) => (showAdvanced = v)} />
-        <span class="text-sm">
-          {showAdvanced ? $_('page.plan.hideAdvancedOptions') : $_('page.plan.showAdvancedOptions')}
-        </span>
-      </label>
-      {#if !isNew}
-        <Button
-          variant="ghost"
-          size="icon"
-          class="text-destructive"
-          onclick={remove}
-          aria-label={$_('page.plan.deleteItem')}
-        >
-          <Trash2 class="size-4" />
-        </Button>
-      {/if}
-    </div>
-  </div>
-{/snippet}
-
 <ItemEditDialogShell
   bind:open
   {onOpenChange}
@@ -411,8 +360,7 @@
   newTitle={kind === 'investment'
     ? $_('page.plan.addInvestmentTitle')
     : $_('page.plan.addTangibleAssetTitle')}
-  footer={imported ? undefined : assetFooter}
-  footerClass={imported ? 'bg-muted' : undefined}
+  footerClass="bg-muted"
   onSave={save}
   onDelete={remove}
 >
@@ -435,7 +383,9 @@
       idPrefix={uid}
       {imported}
       amountLabel={imported ? $_('page.plan.initialBalance') : $_('page.plan.initialAmount')}
-      {showAdvanced}
+      showAdvanced={form.ter !== undefined ||
+        form.entry_fee !== undefined ||
+        form.exit_fee !== undefined}
       {currencyLabel}
       {range}
       {months}
@@ -460,7 +410,6 @@
       bind:item={form}
       idPrefix={uid}
       {imported}
-      {showAdvanced}
       {currencyLabel}
       {range}
       {months}

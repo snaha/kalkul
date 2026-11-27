@@ -9,11 +9,8 @@
   import HelpTooltip from '$lib/components/help-tooltip.svelte'
   import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
-  import { Button } from '$lib/components/ui/button'
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
-  import { Separator } from '$lib/components/ui/separator'
-  import { Switch } from '$lib/components/ui/switch'
   import { type LoanPairAnchor, rederiveLoanPair } from '$lib/loan-pair'
   import { isImportedPlanItem, removePlanItem, saveEditedPlanItem } from '$lib/plan-items'
   import { planRangeOf, planYearOptions, timingWithinPlan } from '$lib/plan-range'
@@ -156,15 +153,10 @@
   }
 
   let form = $state<FormState>(blankForm())
-  // Add reveals the advanced block through the footer switch; Edit shows it by
-  // default (the Figma edit frame has no switch, only a delete button).
-  let showAdvanced = $state(false)
-
   let wasOpen = false
   $effect(() => {
     if (open && !wasOpen) {
       form = seedForm(initial)
-      showAdvanced = initial !== undefined
       derivedFrom = 'term'
     }
     wasOpen = open
@@ -235,20 +227,6 @@
     close()
   }
 </script>
-
-{#snippet newLiabilityFooter()}
-  <!-- Figma 1327: Create + Cancel on the left, the advanced switch on the right. -->
-  <div class="flex flex-1 items-center gap-2">
-    <Button disabled={!canSave} onclick={save}>{$_('page.plan.createItem')}</Button>
-    <Button variant="outline" onclick={close}>{$_('page.plan.cancel')}</Button>
-    <div class="flex flex-1 items-center justify-end gap-2">
-      <label class="flex cursor-pointer items-center gap-2">
-        <Switch checked={showAdvanced} onCheckedChange={(v) => (showAdvanced = v === true)} />
-        <span class="text-sm">{$_('page.plan.showAdvancedOptions')}</span>
-      </label>
-    </div>
-  </div>
-{/snippet}
 
 {#snippet advancedRows()}
   <!-- Pay-off -->
@@ -344,7 +322,6 @@
   name={form.name}
   {isNew}
   newTitle={$_('page.setup.liabilities.addLiability')}
-  footer={isNew ? newLiabilityFooter : undefined}
   footerClass="bg-muted"
   saveDisabled={!canSave}
   onSave={save}
@@ -494,17 +471,11 @@
     </div>
   </div>
 
-  {#if imported}
-    <FormSection
-      icon={FileText}
-      title={$_('page.plan.payOffAndInterest')}
-      open={form.pay_off !== 'at_term' || form.interest_type !== 'simple'}
-    >
-      {@render advancedRows()}
-    </FormSection>
-  {:else if showAdvanced}
-    <Separator />
-
+  <FormSection
+    icon={FileText}
+    title={$_('page.plan.payOffAndInterest')}
+    open={form.pay_off !== 'at_term' || form.interest_type !== 'simple'}
+  >
     {@render advancedRows()}
-  {/if}
+  </FormSection>
 </ItemEditDialogShell>

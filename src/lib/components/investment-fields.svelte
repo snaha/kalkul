@@ -39,9 +39,9 @@
     idPrefix: string
     /** "Current balance" in the setup card, "Initial amount" in the plan dialog. */
     amountLabel: string
-    /** Copied from financial data: already held, so no start; the fees are a section. */
+    /** Copied from financial data: already held, so no start. */
     imported?: boolean
-    /** Whether the fee fields are revealed; an imported investment's section opens with it. */
+    /** Whether the fee fields are revealed; in a projection it opens their section. */
     showAdvanced: boolean
     currencyLabel: string
     /** The plan's years; the Start selector shows only with it. */
@@ -201,7 +201,9 @@
   </div>
 {/snippet}
 
-{#if imported}
+<!-- A projection's dialog (it passes the plan's years) keeps the fees in a
+     section; the setup card reveals them with its own switch. -->
+{#if range || imported}
   <FormSection icon={Percent} title={$_('page.plan.fees')} open={showAdvanced}
     >{@render feeRows()}</FormSection
   >

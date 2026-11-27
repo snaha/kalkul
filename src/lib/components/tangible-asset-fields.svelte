@@ -12,7 +12,6 @@
   import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Label } from '$lib/components/ui/label'
-  import { Separator } from '$lib/components/ui/separator'
   import { type LoanPairAnchor, rederiveLoanPair } from '$lib/loan-pair'
   import { type PlanRange } from '$lib/plan-range'
   import type {
@@ -73,8 +72,6 @@
      * payment, only its value and the balance owed at the projection's start.
      */
     imported?: boolean
-    /** Whether the value/tax fields are revealed; an imported asset has a section for them. */
-    showAdvanced: boolean
     currencyLabel: string
     /** The plan's years; the Purchase and Sale selectors show only with it. */
     range?: PlanRange
@@ -89,7 +86,6 @@
     item = $bindable(),
     idPrefix,
     imported = false,
-    showAdvanced,
     currencyLabel,
     range,
     months = [],
@@ -344,16 +340,6 @@
       {@render financingRows()}
     </FormSection>
   {/if}
-
-  <FormSection icon={Percent} title={$_('page.plan.valueAndTax')} open={showAdvanced}>
-    {@render valueTaxRows()}
-  </FormSection>
-
-  {#if range}
-    <FormSection icon={Gavel} title={$_('page.plan.sale')} open={item.sale !== 'never'}>
-      {@render saleSelector()}
-    </FormSection>
-  {/if}
 {:else}
   {#if range}
     <DateAgeSelector
@@ -412,44 +398,51 @@
   </div>
 
   {#if item.status === 'financed'}
-    <div class="flex items-end gap-2">
-      <div class="flex flex-1 flex-col gap-2">
-        <Label for="{idPrefix}-downPayment">{$_('page.plan.downPayment')}</Label>
-        <SuffixedInput
-          id="{idPrefix}-downPayment"
-          value={item.down_payment}
-          suffix={currencyLabel}
-          {formatNumber}
-          onValueChange={(v) => {
-            item.down_payment = v
-            syncFinanced()
-          }}
-        />
+    <!-- Opens as soon as Financed is picked: Save waits for these. -->
+    <FormSection icon={HandCoins} title={$_('page.plan.financingDetails')} open>
+      <div class="flex items-end gap-2">
+        <div class="flex flex-1 flex-col gap-2">
+          <Label for="{idPrefix}-downPayment">{$_('page.plan.downPayment')}</Label>
+          <SuffixedInput
+            id="{idPrefix}-downPayment"
+            value={item.down_payment}
+            suffix={currencyLabel}
+            {formatNumber}
+            onValueChange={(v) => {
+              item.down_payment = v
+              syncFinanced()
+            }}
+          />
+        </div>
+        {#if item.value && !item.outstanding_balance}
+          <!-- Nothing is left to finance, and Save waits for a balance owed. -->
+          <p class="flex min-h-8 flex-1 items-center text-xs text-destructive">
+            {$_('page.plan.downPaymentCoversPrice')}
+          </p>
+        {:else}
+          <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">
+            {$_('page.plan.downPaymentDescription', {
+              values: { amount: formatCurrency(item.outstanding_balance ?? 0) },
+            })}
+          </p>
+        {/if}
       </div>
-      {#if item.value && !item.outstanding_balance}
-        <!-- Nothing is left to finance, and Save waits for a balance owed. -->
-        <p class="flex min-h-8 flex-1 items-center text-xs text-destructive">
-          {$_('page.plan.downPaymentCoversPrice')}
-        </p>
-      {:else}
-        <p class="flex min-h-8 flex-1 items-center text-xs text-muted-foreground">
-          {$_('page.plan.downPaymentDescription', {
-            values: { amount: formatCurrency(item.outstanding_balance ?? 0) },
-          })}
-        </p>
-      {/if}
-    </div>
 
-    {@render financingRows()}
+      {@render financingRows()}
+    </FormSection>
   {/if}
+{/if}
 
-  {#if range}
+<FormSection
+  icon={Percent}
+  title={$_('page.plan.valueAndTax')}
+  open={item.value_rate !== undefined || item.property_tax_rate !== undefined}
+>
+  {@render valueTaxRows()}
+</FormSection>
+
+{#if range}
+  <FormSection icon={Gavel} title={$_('page.plan.sale')} open={item.sale !== 'never'}>
     {@render saleSelector()}
-  {/if}
-
-  {#if showAdvanced}
-    <Separator />
-
-    {@render valueTaxRows()}
-  {/if}
+  </FormSection>
 {/if}

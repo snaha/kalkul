@@ -183,8 +183,6 @@
       "investmentStart": "Start",
       "investmentStartDescription": "When you plan to make this investment.",
       "createItem": "Create",
-      "showAdvancedOptions": "Show advanced options",
-      "hideAdvancedOptions": "Hide advanced options",
       "interestType": "Interest type",
       "interestCompound": "Compound",
       "interestSimple": "Simple",
