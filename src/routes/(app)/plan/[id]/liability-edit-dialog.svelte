@@ -359,24 +359,6 @@
       />
     </div>
 
-    <!-- Start -->
-    <DateAgeSelector
-      mode="start"
-      value={form.start}
-      year={form.start_year}
-      month={form.start_month}
-      age={form.start_age}
-      {range}
-      {months}
-      birthDateSet={appStore.profile.birth_date !== undefined}
-      description={$_('page.plan.liabilityStartDescription')}
-      formatNumber={appStore.formatNumber}
-      onValueChange={(v) => (form.start = v)}
-      onYearChange={(v) => (form.start_year = v)}
-      onMonthChange={(v) => (form.start_month = v)}
-      onAgeChange={(v) => (form.start_age = v)}
-    />
-
     <!-- Principal -->
     <div class="flex items-end gap-2">
       <div class="flex flex-1 flex-col gap-2">
@@ -396,6 +378,23 @@
         {$_('page.plan.principalDescription')}
       </p>
     </div>
+    <!-- Start -->
+    <DateAgeSelector
+      mode="start"
+      value={form.start}
+      year={form.start_year}
+      month={form.start_month}
+      age={form.start_age}
+      {range}
+      {months}
+      birthDateSet={appStore.profile.birth_date !== undefined}
+      description={$_('page.plan.liabilityStartDescription')}
+      formatNumber={appStore.formatNumber}
+      onValueChange={(v) => (form.start = v)}
+      onYearChange={(v) => (form.start_year = v)}
+      onMonthChange={(v) => (form.start_month = v)}
+      onAgeChange={(v) => (form.start_age = v)}
+    />
   {/if}
 
   <!-- Installment frequency | Annual percentage rate -->

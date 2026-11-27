@@ -341,34 +341,6 @@
     </FormSection>
   {/if}
 {:else}
-  {#if range}
-    <DateAgeSelector
-      mode="start"
-      label={$_('page.plan.purchase')}
-      description={$_('page.plan.purchaseDescription')}
-      value={item.purchase}
-      year={item.purchase_year}
-      month={item.purchase_month}
-      age={item.purchase_age}
-      {range}
-      {months}
-      {birthDateSet}
-      {formatNumber}
-      onValueChange={(v) => {
-        item.purchase = v
-      }}
-      onYearChange={(v) => {
-        item.purchase_year = v
-      }}
-      onMonthChange={(v) => {
-        item.purchase_month = v
-      }}
-      onAgeChange={(v) => {
-        item.purchase_age = v
-      }}
-    />
-  {/if}
-
   <div class="flex items-end gap-2">
     <div class="flex flex-1 flex-col gap-2">
       <Label for="{idPrefix}-purchasePrice">{$_('page.plan.purchasePrice')}</Label>
@@ -396,6 +368,34 @@
       />
     </div>
   </div>
+
+  {#if range}
+    <DateAgeSelector
+      mode="start"
+      label={$_('page.plan.purchase')}
+      description={$_('page.plan.purchaseDescription')}
+      value={item.purchase}
+      year={item.purchase_year}
+      month={item.purchase_month}
+      age={item.purchase_age}
+      {range}
+      {months}
+      {birthDateSet}
+      {formatNumber}
+      onValueChange={(v) => {
+        item.purchase = v
+      }}
+      onYearChange={(v) => {
+        item.purchase_year = v
+      }}
+      onMonthChange={(v) => {
+        item.purchase_month = v
+      }}
+      onAgeChange={(v) => {
+        item.purchase_age = v
+      }}
+    />
+  {/if}
 
   {#if item.status === 'financed'}
     <!-- Opens as soon as Financed is picked: Save waits for these. -->

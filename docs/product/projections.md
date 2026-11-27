@@ -200,9 +200,8 @@ not. The plan dialogs tell them apart by one fact: whether the item's id is in
 its list in `base` (`isImportedPlanItem`), the same fact the engine uses for
 existing debt. An imported item's dialog opens with a "Local override" notice
 (edits stay in this projection; it calls an income, expense or transfer "this
-cash flow" and anything else "this asset") and has no name field. Every asset and liability dialog,
-imported or not, keeps its less-used fields in sections, and so does an imported income, expense or
-transfer. A section starts closed unless it holds a stored value that is not the default (a fee, a
+cash flow" and anything else "this asset") and has no name field. Every dialog, imported or not,
+keeps its less-used fields in sections. A section starts closed unless it holds a stored value that is not the default (a fee, a
 value rate or property tax, a planned sale, a pay-off date or compound interest, a start, end or
 change over time) or an empty one that keeps the dialog from being saved (a financed asset with
 neither a term nor an installment). For an imported item:
@@ -226,8 +225,9 @@ shown keeps whatever the item stores. An imported item is not renamed in a
 projection: its name is the one financial data gives it. An item added in the
 plan keeps the name and its start or purchase, with the same sections: Fees for an investment,
 Financing details (financed), Value & tax and Sale for a tangible asset, Pay-off & interest for a
-liability. Financing details holds the down payment too, and opens as soon as Financed is picked.
-A recurring income, expense or transfer added in the plan shows its timeline without a section.
+liability, Timeline for a recurring income, expense or transfer. Financing details holds the down
+payment too, and opens as soon as Financed is picked. The amount comes first, right under the name
+(under From and To for a transfer), and the start or purchase after it.
 The cash dialog always shows the notice, since
 a plan's opening cash is always copied from financial data. The planned sale of a tangible asset is
 the same field for both. An investment has no exit in any dialog: money leaves it through a transfer,

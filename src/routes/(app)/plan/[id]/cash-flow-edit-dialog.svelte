@@ -235,6 +235,28 @@
     </div>
   {/if}
 
+  <!-- Amount + Adjust for inflation -->
+  <div class="flex items-end gap-2">
+    <div class="flex flex-1 flex-col gap-2">
+      <Label for="{uid}-amount">
+        {kind === 'income' ? $_('page.setup.income.netAmount') : $_('page.setup.common.amount')}
+      </Label>
+      <SuffixedInput
+        id="{uid}-amount"
+        value={form.amount}
+        suffix={currencyLabel}
+        formatNumber={appStore.formatNumber}
+        onValueChange={(v) => (form.amount = v)}
+      />
+    </div>
+    <div class="flex h-8 flex-1 items-center">
+      <InflationAdjustToggle
+        checked={form.inflation_adjusted}
+        onCheckedChange={(v) => (form.inflation_adjusted = v)}
+      />
+    </div>
+  </div>
+
   <!-- Type + (one-time) Date / (recurring) Frequency -->
   <div class="flex items-end gap-2">
     <div class="flex flex-1 flex-col gap-2">
@@ -302,42 +324,16 @@
     {/if}
   </div>
 
-  <!-- Amount + Adjust for inflation -->
-  <div class="flex items-end gap-2">
-    <div class="flex flex-1 flex-col gap-2">
-      <Label for="{uid}-amount">
-        {kind === 'income' ? $_('page.setup.income.netAmount') : $_('page.setup.common.amount')}
-      </Label>
-      <SuffixedInput
-        id="{uid}-amount"
-        value={form.amount}
-        suffix={currencyLabel}
-        formatNumber={appStore.formatNumber}
-        onValueChange={(v) => (form.amount = v)}
-      />
-    </div>
-    <div class="flex h-8 flex-1 items-center">
-      <InflationAdjustToggle
-        checked={form.inflation_adjusted}
-        onCheckedChange={(v) => (form.inflation_adjusted = v)}
-      />
-    </div>
-  </div>
-
   {#if form.schedule === 'recurring'}
-    {#if imported}
-      <FormSection
-        icon={Calendar}
-        title={$_('page.plan.timeline')}
-        open={form.start !== 'immediately' ||
-          form.end !== 'never' ||
-          form.change_over_time !== 'none'}
-      >
-        {@render timeline()}
-      </FormSection>
-    {:else}
+    <FormSection
+      icon={Calendar}
+      title={$_('page.plan.timeline')}
+      open={form.start !== 'immediately' ||
+        form.end !== 'never' ||
+        form.change_over_time !== 'none'}
+    >
       {@render timeline()}
-    {/if}
+    </FormSection>
   {/if}
 
   {#if summary}

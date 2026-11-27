@@ -69,34 +69,6 @@
   let exitFeeTypeItems = $derived(getExitFeeTypeItems($_))
 </script>
 
-{#if range && !imported}
-  <DateAgeSelector
-    mode="start"
-    label={$_('page.plan.investmentStart')}
-    description={$_('page.plan.investmentStartDescription')}
-    value={item.start}
-    year={item.start_year}
-    month={item.start_month}
-    age={item.start_age}
-    {range}
-    {months}
-    {birthDateSet}
-    {formatNumber}
-    onValueChange={(v) => {
-      item.start = v
-    }}
-    onYearChange={(v) => {
-      item.start_year = v
-    }}
-    onMonthChange={(v) => {
-      item.start_month = v
-    }}
-    onAgeChange={(v) => {
-      item.start_age = v
-    }}
-  />
-{/if}
-
 <div class="flex items-center gap-2">
   <div class="flex flex-1 flex-col gap-2">
     <Label for="{idPrefix}-balance">{amountLabel}</Label>
@@ -125,6 +97,34 @@
 </div>
 {#if imported}
   <p class="-mt-2 text-xs text-muted-foreground">{$_('page.plan.initialBalanceDescription')}</p>
+{/if}
+
+{#if range && !imported}
+  <DateAgeSelector
+    mode="start"
+    label={$_('page.plan.investmentStart')}
+    description={$_('page.plan.investmentStartDescription')}
+    value={item.start}
+    year={item.start_year}
+    month={item.start_month}
+    age={item.start_age}
+    {range}
+    {months}
+    {birthDateSet}
+    {formatNumber}
+    onValueChange={(v) => {
+      item.start = v
+    }}
+    onYearChange={(v) => {
+      item.start_year = v
+    }}
+    onMonthChange={(v) => {
+      item.start_month = v
+    }}
+    onAgeChange={(v) => {
+      item.start_age = v
+    }}
+  />
 {/if}
 
 {#snippet feeRows()}
