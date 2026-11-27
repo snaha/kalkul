@@ -1652,17 +1652,17 @@ export function getYearlyPlanProjection(plan: Portfolio, profile: Profile): Year
     for (const { assetId, liability, schedule } of financedSchedules) {
       if (!abandonedAssetIds.has(assetId)) addSchedule(schedule, liability, assetId)
     }
-    // Property tax is charged on the purchase price — deliberately the flat
-    // nominal value, not the inflated or appreciated one — for every year the
+    // Property tax is the yearly amount the user entered — deliberately flat,
+    // neither inflated nor following the asset's value — for every year the
     // asset is held, and settled from cash alongside the ordinary expenses.
     const propertyTaxNominal: { asset: ProfileTangibleAsset; tax: Decimal }[] = []
     for (const asset of tangibleAssets) {
-      if (!asset.property_tax_rate || abandonedAssetIds.has(asset.id)) continue
+      if (!asset.property_tax || abandonedAssetIds.has(asset.id)) continue
       const window = assetWindows.get(asset.id)
       if (window && (year < window.startYear || year > window.exitYear)) continue
       propertyTaxNominal.push({
         asset,
-        tax: new Decimal(asset.value).mul(new Decimal(asset.property_tax_rate).div(100)),
+        tax: new Decimal(asset.property_tax),
       })
     }
     const propertyTaxThisYearNominal = propertyTaxNominal.reduce<Decimal>(

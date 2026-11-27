@@ -52,9 +52,9 @@
         compounding_frequency: a.compounding_frequency,
         value_over_time: a.value_over_time ?? 'appreciate',
         value_rate: a.value_rate,
-        property_tax_rate: a.property_tax_rate,
+        property_tax: a.property_tax,
         // Open the Value & tax section when the asset already has them set.
-        showAdvanced: a.value_rate !== undefined || a.property_tax_rate !== undefined,
+        showAdvanced: a.value_rate !== undefined || a.property_tax !== undefined,
         editing: false,
         derivedFrom: 'term',
       }
@@ -76,7 +76,7 @@
       remaining_term_unit: 'years',
       value_over_time: 'appreciate',
       value_rate: undefined,
-      property_tax_rate: undefined,
+      property_tax: undefined,
       showAdvanced: false,
       editing: true,
       derivedFrom: 'term',
@@ -284,11 +284,11 @@
                 <Label for="propertyTax-{asset.id}">{$_('page.plan.propertyTax')}</Label>
                 <SuffixedInput
                   id="propertyTax-{asset.id}"
-                  value={asset.property_tax_rate}
-                  suffix="%"
+                  value={asset.property_tax}
+                  suffix={currencyLabel}
                   formatNumber={appStore.formatNumber}
                   onValueChange={(v) => {
-                    asset.property_tax_rate = v
+                    asset.property_tax = v
                   }}
                 />
               </div>

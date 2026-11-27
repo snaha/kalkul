@@ -2179,7 +2179,7 @@ describe('getYearlyPlanProjection', () => {
         name: 'House',
         value: 1000,
         status: 'fully_owned',
-        property_tax_rate: 2,
+        property_tax: 20,
         sale: 'at_specific_date',
         sale_year: 2026,
       },
@@ -2250,7 +2250,7 @@ describe('getYearlyPlanProjection', () => {
         status: 'fully_owned',
         purchase: 'at_specific_date',
         purchase_year: 2026,
-        property_tax_rate: 1,
+        property_tax: 10,
       },
     ]
     const result = project(makePlan(), makeProfile({ cash_amount: 10, tangible_assets }))
@@ -3855,7 +3855,7 @@ describe('per-item cash flows and portfolio value of a year', () => {
       name: 'House',
       value: 1000,
       status: 'fully_owned',
-      property_tax_rate: 2,
+      property_tax: 20,
       sale: 'at_specific_date',
       sale_year: 2026,
     }
@@ -3906,7 +3906,7 @@ describe('per-item cash flows and portfolio value of a year', () => {
         expenses: [{ ...rent, amount: 24_000 }],
         investments: [{ id: 'inv1', name: 'ETF', balance: 0, apy: 0 }],
         tangible_assets: [
-          { id: 't1', name: 'House', value: 100_000, status: 'fully_owned', property_tax_rate: 2 },
+          { id: 't1', name: 'House', value: 100_000, status: 'fully_owned', property_tax: 2000 },
         ],
         liabilities: [{ ...loan, outstanding_balance: 6000, installment_amount: 500 }],
         transfers: [

@@ -164,7 +164,7 @@
       "valueDepreciate": "Depreciate",
       "valueAnnualRate": "Annual rate",
       "propertyTax": "Yearly property tax",
-      "propertyTaxDescription": "Yearly tax on the asset, as a percentage of its purchase price. Paid from cash every year you hold it.",
+      "propertyTaxDescription": "Yearly tax on the asset, as an amount. Paid from cash every year you hold it.",
       "addInvestmentTitle": "Add investment",
       "investmentLabel": "Label",
       "liabilityLabel": "Label",

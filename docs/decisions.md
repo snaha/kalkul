@@ -10,6 +10,23 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-27 Property tax is a yearly amount, not a rate
+
+**Context.** A tangible asset's property tax was `property_tax_rate`, a
+percentage of the asset's value. Property tax in the countries we target is
+assessed on a cadastral or assessed value, so a percentage of the price can be
+far from the real bill, which the owner knows (#503, #491).
+
+**Decision.** The user enters the yearly amount (`property_tax`), in financial
+data and in a projection, for a financed or a fully owned asset. The
+projection pays that amount as entered, neither inflated nor following the
+asset's value. When it is paid does not change: every year the asset is held.
+Stored data with a rate is converted to the amount the rate came to.
+Supersedes the percentage.
+
+**Why.** People know their bill; a rate made them work backwards to a number
+that was then wrong as soon as the asset's value moved.
+
 ## 2026-11-27 A financial-data card opens from its header and keeps less-used fields in sections
 
 **Context.** A card in financial data (and in the initial setup, which uses the
