@@ -179,6 +179,7 @@
       "investmentStart": "Začátek",
       "investmentStartDescription": "Kdy plánujete tuto investici uskutečnit.",
       "createItem": "Vytvořit",
+      "interest": "Úroky",
       "interestType": "Typ úroku",
       "interestCompound": "Složený",
       "interestSimple": "Jednoduchý",
@@ -579,7 +580,6 @@
       "common": {
         "amount": "Částka",
         "frequency": "Frekvence",
-        "advancedOptions": "Pokročilé možnosti",
         "deleteConfirm": "Smazat „{name}“? Akci nelze vrátit zpět.",
         "start": "Začátek",
         "end": "Konec",
@@ -604,7 +604,7 @@
         "nowDescription": "Začíná od aktuálního měsíce.",
         "neverDescription": "Trvá po celou dobu projekce.",
         "noneDescription": "Částka zůstává po celou dobu projekce stejná",
-        "rename": "Přejmenovat",
+        "moreActions": "Další akce",
         "years": "Roky",
         "months": "Měsíce"
       },

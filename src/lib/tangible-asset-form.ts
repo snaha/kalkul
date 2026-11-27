@@ -77,8 +77,7 @@ export interface TangibleAssetUI {
   value_over_time: ValueOverTime
   value_rate: number | undefined
   property_tax_rate: number | undefined
-  // UI-only: whether the value/tax options are revealed, toggled from the
-  // card menu.
+  // UI-only: whether the Value & tax section starts open.
   showAdvanced: boolean
   editing: boolean
   // UI-only: which of Installment amount / Term the user last edited, so the

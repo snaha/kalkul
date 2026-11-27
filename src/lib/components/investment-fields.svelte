@@ -9,7 +9,6 @@
   import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Label } from '$lib/components/ui/label'
-  import { Separator } from '$lib/components/ui/separator'
   import { type PlanRange } from '$lib/plan-range'
   import type { CashFlowStart, FeeType } from '$lib/schemas'
   import { getFeeTypeItems } from '$lib/select-options'
@@ -198,14 +197,6 @@
   </div>
 {/snippet}
 
-<!-- A projection's dialog (it passes the plan's years) keeps the fees in a
-     section; the setup card reveals them with its own switch. -->
-{#if range || imported}
-  <FormSection icon={Percent} title={$_('page.plan.fees')} open={showAdvanced}
-    >{@render feeRows()}</FormSection
-  >
-{:else if showAdvanced}
-  <Separator />
-
-  {@render feeRows()}
-{/if}
+<FormSection icon={Percent} title={$_('page.plan.fees')} open={showAdvanced}
+  >{@render feeRows()}</FormSection
+>

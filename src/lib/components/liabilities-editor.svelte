@@ -3,16 +3,17 @@
   import { _ } from 'svelte-i18n'
 
   import ArrowLeftRight from '@lucide/svelte/icons/arrow-left-right'
+  import Percent from '@lucide/svelte/icons/percent'
   import Plus from '@lucide/svelte/icons/plus'
 
   import EditableItemCard from '$lib/components/editable-item-card.svelte'
   import EditorItemErrors from '$lib/components/editor-item-errors.svelte'
+  import FormSection from '$lib/components/form-section.svelte'
   import HelpTooltip from '$lib/components/help-tooltip.svelte'
   import SelectField from '$lib/components/select-field.svelte'
   import SuffixedInput from '$lib/components/suffixed-input.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Label } from '$lib/components/ui/label'
-  import { Separator } from '$lib/components/ui/separator'
   import { createListEditor } from '$lib/list-editor.svelte'
   import { rederiveLoanPair } from '$lib/loan-pair'
   import type {
@@ -41,11 +42,10 @@
     remaining_term_unit: RemainingTermUnit
     interest_type: InterestType
     // Absent until the user picks one: the engine's default is to compound at
-    // the installment frequency, and merely revealing the advanced block must
+    // the installment frequency, and merely opening the Interest section must
     // not silently switch the loan to another cadence.
     compounding_frequency: CompoundingFrequency | undefined
-    // UI-only: whether the interest options are revealed, toggled from the
-    // card menu.
+    // UI-only: whether the Interest section starts open.
     showAdvanced: boolean
     editing: boolean
     // UI-only: which of Installment amount / Remaining term the user last
@@ -70,8 +70,7 @@
       // otherwise simple is the exact equivalent.
       interest_type: l.interest_type ?? (l.compounding_frequency ? 'compound' : 'simple'),
       compounding_frequency: l.compounding_frequency,
-      // Reveal the options when the liability already has them, so values set
-      // in the plan dialog are not hidden here.
+      // Open the section when the liability already has the options set.
       showAdvanced: l.interest_type !== undefined || l.compounding_frequency !== undefined,
       editing: false,
       derivedFrom: 'term',
@@ -166,10 +165,6 @@
       <EditableItemCard
         item={liability}
         collapsedValue={formatBalance(liability.outstanding_balance)}
-        advancedChecked={liability.showAdvanced}
-        onAdvancedChange={(checked) => {
-          liability.showAdvanced = checked
-        }}
         onToggleEditing={() => {
           liability.editing = !liability.editing
         }}
@@ -270,9 +265,11 @@
             </div>
           </div>
 
-          {#if liability.showAdvanced}
-            <Separator />
-
+          <FormSection
+            icon={Percent}
+            title={$_('page.plan.interest')}
+            open={liability.showAdvanced}
+          >
             <div class="flex items-end gap-2">
               <div class="flex flex-1 flex-col gap-2">
                 <Label for="interestType-{liability.id}">{$_('page.plan.interestType')}</Label>
@@ -311,7 +308,7 @@
               {/if}
               <HelpTooltip text={$_('page.plan.interestDescription')} class="mb-2" />
             </div>
-          {/if}
+          </FormSection>
         {/snippet}
       </EditableItemCard>
       <EditorItemErrors messages={editor.errors[liability.id]} />

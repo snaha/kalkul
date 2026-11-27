@@ -10,6 +10,26 @@ A PR that makes or changes a decision adds the entry in the same PR. Decisions
 made in a review thread or a meeting are added the same day by whoever made
 them.
 
+## 2026-11-27 A financial-data card opens from its header and keeps less-used fields in sections
+
+**Context.** A card in financial data (and in the initial setup, which uses the
+same cards) had its open/close chevrons as a button at the left, renamed the
+item by a click on its title or a pencil button, and revealed its less-used
+fields with an "Advanced options" entry in the card's menu (#501).
+
+**Decision.** The whole header opens and closes the card, with the chevrons as
+an icon at its right. An open card has one "..." menu (Duplicate, Delete) and
+a Label field as its first field, which is how the item is renamed. The
+less-used fields are always there, in the same collapsible sections the
+projection dialogs use: Fees on an investment, Financing details and Value &
+tax on a tangible asset, Interest on a liability. A section starts open when
+it holds a value that is not the default; Financing details is open whenever
+the asset is financed. Supersedes the click-to-rename title and the "Advanced
+options" menu entry.
+
+**Why.** The same way to open, rename and reach the less-used fields in
+financial data as in a projection's dialogs and the sidebar.
+
 ## 2026-11-27 An entry fee is Fixed or Percentage, like an exit fee
 
 **Context.** An investment's entry fee was a percentage with a payment type:

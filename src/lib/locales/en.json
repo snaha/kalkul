@@ -179,6 +179,7 @@
       "investmentStart": "Start",
       "investmentStartDescription": "When you plan to make this investment.",
       "createItem": "Create",
+      "interest": "Interest",
       "interestType": "Interest type",
       "interestCompound": "Compound",
       "interestSimple": "Simple",
@@ -579,7 +580,6 @@
       "common": {
         "amount": "Amount",
         "frequency": "Frequency",
-        "advancedOptions": "Advanced options",
         "deleteConfirm": "Delete \"{name}\"? This cannot be undone.",
         "start": "Start",
         "end": "End",
@@ -604,7 +604,7 @@
         "nowDescription": "Starts from the current month.",
         "neverDescription": "Runs for the entire projection duration.",
         "noneDescription": "Amount remains the same for the entire projection duration",
-        "rename": "Rename",
+        "moreActions": "More actions",
         "years": "Years",
         "months": "Months"
       },
