@@ -6,7 +6,7 @@
   import RefreshCw from '@lucide/svelte/icons/refresh-cw'
   import X from '@lucide/svelte/icons/x'
 
-  import { goto } from '$app/navigation'
+  import { afterNavigate, goto } from '$app/navigation'
   import { resolve } from '$app/paths'
 
   import SelectField, { type SelectFieldItem } from '$lib/components/select-field.svelte'
@@ -78,6 +78,17 @@
     // Keeps focus off Erase once the Export button is gone.
     cancelButton?.focus()
     backupExported = true
+  }
+
+  // Close goes back to the page Settings was opened from. Opened directly
+  // (a reload, a bookmark) there is no such page, so it goes home.
+  let openedFromApp = false
+  afterNavigate(({ from }) => {
+    openedFromApp = !!from
+  })
+  function close(): void {
+    if (openedFromApp) history.back()
+    else goto(resolve(routes.HOME))
   }
 
   function erase(): void {
@@ -157,12 +168,7 @@
 <div class="flex min-h-0 flex-1 flex-col">
   <header class="flex items-center gap-4 p-8">
     <h1 class="flex-1 text-2xl font-bold text-foreground">{$_('page.settings.title')}</h1>
-    <Button
-      variant="ghost"
-      size="icon"
-      href={resolve(routes.HOME)}
-      aria-label={$_('page.settings.close')}
-    >
+    <Button variant="ghost" size="icon" onclick={close} aria-label={$_('page.settings.close')}>
       <X class="size-4" />
     </Button>
   </header>

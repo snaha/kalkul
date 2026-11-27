@@ -6,6 +6,7 @@
 
   import { goto } from '$app/navigation'
   import { resolve } from '$app/paths'
+  import { page } from '$app/state'
 
   import logo from '$lib/assets/logo.svg'
   import DiscordIcon from '$lib/components/icons/discord-icon.svelte'
@@ -54,6 +55,11 @@
         class={buttonClass}
         href={resolve(routes.SETTINGS)}
         aria-label={$_('navbar.settings')}
+        onclick={(e: MouseEvent) => {
+          // Already in Settings: no second history entry, so its close button
+          // still goes back to the page Settings was opened from.
+          if (page.route.id === routes.SETTINGS) e.preventDefault()
+        }}
       >
         <Settings class="size-4" />
       </Button>
